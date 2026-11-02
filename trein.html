@@ -13,7 +13,7 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #hud{position:fixed;left:calc(12px + env(safe-area-inset-left));top:calc(10px + env(safe-area-inset-top));pointer-events:none;text-shadow:0 1px 3px #000c}
 #hud .title{font:italic 600 22px/1 Georgia,"Times New Roman",serif;letter-spacing:.01em}
-#stats{font-size:11px;color:#efe8d6d9;margin-top:4px;font-variant-numeric:tabular-nums;white-space:pre}
+#stats{font-size:11px;color:#efe8d6d9;margin-top:4px;font-variant-numeric:tabular-nums;white-space:pre-wrap;max-width:calc(100vw - 150px)}
 #bar{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;pointer-events:none;transition:opacity .2s}
 #bar.hide{opacity:0}#bar.hide button{pointer-events:none}
 #bar button{pointer-events:auto;box-shadow:0 2px 10px #0007;padding:10px 9px;font-size:13.5px}
@@ -26,7 +26,7 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 #buildBar .modes{display:flex;justify-content:center;margin-bottom:6px}#buildBar .modes .seg{flex:1}#buildBar .modes .seg button{flex:1;min-height:38px;font-size:14px}
 #buildBar .seg.slope button{min-width:38px;font-size:15px}#buildBar .seg.slope button[data-slope=auto]{font-size:12.5px}
 #ovl{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
-#buildBar .seg.dir button{padding:4px 7px}#buildBar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;display:block}
+#buildBar .seg.dir button{padding:4px 7px}#buildBar .seg button.ic,#buildBar .tog.ic{padding:5px 8px}#buildBar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;display:block}
 #buildBar .seg.len{align-items:center}#bLen{min-width:46px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
 #buildBar button.on{background:var(--brass);color:var(--coal);border-color:var(--brass);font-weight:600}
 #buildBar button:disabled{opacity:.45}
@@ -87,6 +87,16 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #err div{max-width:420px;background:var(--green);border:1px solid var(--red);border-radius:12px;padding:18px}
 #err h3{margin:0 0 8px;font:600 17px Georgia,serif}
 @media (prefers-reduced-motion:reduce){#panel,#toast,#bar{transition:none}}
+/* pictogram buttons: icon on top, caption below (captions only with Settings > File > Words under button icons, or on .keepcap buttons) */
+button.ic{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05;--btnbg:var(--green)}
+button.ic svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;flex:none}
+button.ic .cap{font-size:10.5px;font-weight:500}button.ic .v{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+body:not(.caps) button.ic:not(.keepcap) .cap{display:none}
+button.ic.on,button.ic.go,#btnGen.attn{--btnbg:var(--brass)}
+button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolute;top:2px;right:5px;font:800 15px/1 system-ui;color:var(--brass)}button.ic.add.on::after,button.ic.add.go::after{color:var(--coal)}
+#bar button.ic{min-width:54px;padding:8px 10px}#btnSound.corner.ic{padding:5px 9px}#btnSound.corner.ic svg.i{width:20px;height:20px}
+#skySheet .row2 button.ic{min-width:38px;padding:6px 4px}#skySheet .row2 button.ic svg.i{width:21px;height:21px}
+#btnGen.attn::after{content:'';position:absolute;top:5px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 2px var(--coal)}#btnGen{position:relative}
 #btnSky.corner{position:fixed;right:calc(92px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));min-height:34px;padding:6px 10px;font-size:12.5px;background:#1e3b30cc;font-variant-numeric:tabular-nums}
 #clock{font-size:12.5px;margin-top:3px;color:#efe8d6;font-variant-numeric:tabular-nums}
 #skySheet{position:fixed;right:calc(10px + env(safe-area-inset-right));top:calc(52px + env(safe-area-inset-top));width:min(340px,calc(100vw - 20px));background:#15191af2;border:1px solid #c9a14a55;border-radius:14px;padding:12px;z-index:5;box-shadow:0 6px 24px #000a}
@@ -96,23 +106,26 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #skySheet button.on{background:var(--brass);color:var(--coal);border-color:var(--brass);font-weight:600}
 #skySheet input[type=range]{width:100%}
 #skySheet .foot{display:flex;gap:6px;margin-top:10px}#skySheet .foot button{flex:1;min-height:38px}
+#skySheet .row2 button.ic{flex:1 1 0;min-width:0;padding:6px 2px}
+/* bars, sheets and panels sit above the village and industry labels (labels used to cover the sky sheet and could take taps meant for the build bar) */
+#bar,#buildBar,#driveBar{z-index:10}#btnSound,#btnSky{z-index:11}#skySheet{z-index:12}#vPanel{z-index:20}#panel{z-index:30}#prog,#toast{z-index:40}#err{z-index:50}
 </style>
 </head>
 <body>
 <canvas id="gl"></canvas>
 <div id="hud"><div class="title">Trein</div><div id="clock"></div><div id="stats"></div></div>
-<div id="bar"><button id="btnMenu" aria-label="Open settings">Settings</button><button id="btnBuild">Build</button><button id="btnDrive">Trains</button><button id="btnGen">Generate</button><button id="btnSave">Save</button></div>
-<button id="btnSound" class="corner">Sound off</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button>
+<div id="bar"><button id="btnMenu" data-ic="gear">Settings</button><button id="btnBuild" data-ic="build">Build</button><button id="btnDrive" data-ic="trains">Trains</button><button id="btnGen" data-ic="generate">Generate</button><button id="btnSave" data-ic="save">Save</button></div>
+<button id="btnSound" class="corner" data-ic="soundOff">Sound off</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button>
 <div id="skySheet" hidden>
   <h4>Time of day</h4><input type="range" id="skyTime" min="0" max="24" step="0.05">
-  <div class="row2"><button data-speed="0">Paused</button><button data-speed="30">Slow</button><button data-speed="120">Fast</button><button data-speed="400">Very fast</button></div>
-  <h4>Season</h4><div class="row2"><button data-season="spring">Spring</button><button data-season="summer">Summer</button><button data-season="autumn">Autumn</button><button data-season="winter">Winter</button></div>
-  <h4>Weather</h4><div class="row2"><button data-wx="auto">By itself</button><button data-wx="clear">Clear</button><button data-wx="fair">Fair</button><button data-wx="cloudy">Cloudy</button><button data-wx="mist">Mist</button><button data-wx="rain">Rain</button><button data-wx="storm">Storm</button><button data-wx="snow">Snow</button></div>
-  <div class="foot"><button id="skyMusic">Music on</button><button id="skyClose">Close</button></div>
+  <div class="row2"><button data-speed="0" data-ic="pause">Paused</button><button data-speed="30" data-ic="play">Slow</button><button data-speed="120" data-ic="fast">Fast</button><button data-speed="400" data-ic="faster">Very fast</button></div>
+  <h4>Season</h4><div class="row2"><button data-season="spring" data-ic="spring">Spring</button><button data-season="summer" data-ic="summer">Summer</button><button data-season="autumn" data-ic="autumn">Autumn</button><button data-season="winter" data-ic="winter">Winter</button></div>
+  <h4>Weather</h4><div class="row2"><button data-wx="auto" data-ic="wxAuto">By itself</button><button data-wx="clear" data-ic="clear">Clear</button><button data-wx="fair" data-ic="fair">Fair</button><button data-wx="cloudy" data-ic="cloudy">Cloudy</button><button data-wx="mist" data-ic="mist">Mist</button><button data-wx="rain" data-ic="rain">Rain</button><button data-wx="storm" data-ic="storm">Storm</button><button data-wx="snow" data-ic="snow">Snow</button></div>
+  <div class="foot"><button id="skyMusic" data-ic="music">Music on</button><button id="skyClose" data-ic="close">Close</button></div>
 </div>
 <canvas id="ovl"></canvas>
 <div id="buildBar" hidden>
-  <div class="modes"><span class="seg"><button data-mode="pieces">Pieces</button><button data-mode="draw">Draw</button><button data-mode="route">Route</button><button data-mode="signals">Signals</button><button data-mode="roads">Roads</button></span></div>
+  <div class="modes"><span class="seg"><button data-mode="pieces" data-ic="pieces">Pieces</button><button data-mode="draw" data-ic="draw">Draw</button><button data-mode="route" data-ic="route">Route</button><button data-mode="signals" data-ic="signals">Signals</button><button data-mode="roads" data-ic="roads">Roads</button></span></div>
   <div id="buildInfo"></div>
   <div id="mPieces">
     <div class="chips"><span class="seg dir">
@@ -123,27 +136,27 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <button data-dir="2" title="Sharp right"><svg viewBox="0 0 24 24"><path d="M12 21V12a5 5 0 0 1 5-5h3M17 3l4 4-4 4"/></svg></button></span>
       <span class="seg len"><button id="pLenMinus">−</button><span id="pLen">20 m</span><button id="pLenPlus">+</button></span>
       <span class="seg" id="pRot"><button id="pRotL" title="Turn start left">⟲</button><button id="pRotR" title="Turn start right">⟳</button></span></div>
-    <div class="chips"><span class="seg slope"><button data-slope="down2" title="Steep down">⇊</button><button data-slope="down" title="Down">↘</button><button data-slope="level" title="Level">→</button><button data-slope="auto">Follow ground</button><button data-slope="up" title="Up">↗</button><button data-slope="up2" title="Steep up">⇈</button></span></div>
-    <div class="tools"><button id="pNew">New line</button><button id="pBranch">Junction</button><button id="pDemolish">Demolish</button><button id="pPlace" class="go big">Place</button></div>
+    <div class="chips"><span class="seg slope"><button data-slope="down2" title="Steep down">⇊</button><button data-slope="down" title="Down">↘</button><button data-slope="level" title="Level">→</button><button data-slope="auto" data-ic="follow">Follow the ground</button><button data-slope="up" title="Up">↗</button><button data-slope="up2" title="Steep up">⇈</button></span></div>
+    <div class="tools"><button id="pNew" data-ic="newLine">New line</button><button id="pBranch" data-ic="junction">Junction</button><button id="pDemolish" data-ic="demolish">Demolish</button><button id="pPlace" class="go big keepcap" data-ic="place">Place</button></div>
   </div>
-  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="route">Road (follow land)</button><button data-rtool="straight">Straight</button><button data-rtool="stop">Bus stop</button><button data-rtool="remove">Remove</button></span></div><div class="tools"><button id="rStart">Start over</button><button id="rAddBus" class="go">Add bus</button><button id="rAddLorry">Add lorry</button></div></div>
-  <div id="mSignals" hidden><div class="chips"><span class="seg"><button data-sig="signal">Signal</button><button data-sig="station">Station</button><button data-sig="remove">Remove</button></span></div></div>
+  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="route" data-ic="roadBend">Road (follow land)</button><button data-rtool="straight" data-ic="straight">Straight</button><button data-rtool="stop" data-ic="busStop">Bus stop</button><button data-rtool="remove" data-ic="eraser">Remove road or stop</button></span></div><div class="tools"><button id="rStart" data-ic="restart">Start the road over</button><button id="rAddBus" class="go add" data-ic="bus">Add bus</button><button id="rAddLorry" class="add" data-ic="lorry">Add lorry</button></div></div>
+  <div id="mSignals" hidden><div class="chips"><span class="seg"><button data-sig="signal" data-ic="signals">Signal</button><button data-sig="station" data-ic="station">Station</button><button data-sig="remove" data-ic="eraser">Remove signal or station</button></span></div></div>
   <div class="tools" id="bChoice" hidden><button id="cA" class="go">A</button><button id="cB">B</button><button id="cC">C</button></div>
-  <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic">Scenic (hug the land)</button><button data-prefer="direct">Direct</button></span><button id="rClear" class="tog">Start over</button></div></div>
-  <div class="chips"><span class="seg" id="bProfile"><button data-v="follow">Follow ground</button><button data-v="grade">Even grade</button></span><button id="bBridges" class="tog">Bridges</button><button id="bBridgeType">Stone arch</button><button id="bTunnels" class="tog">Tunnels</button></div>
-  <div class="tools" id="bIdle"><button id="btnUndo">Undo</button><button id="btnRemove">Remove</button><button id="btnClearAll">Clear all</button><button id="btnDone">Done</button></div>
-  <div class="tools" id="bPending" hidden><button id="btnDiscard">Discard</button><button id="btnBuildOK" class="go big">Build it</button></div>
+  <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic" data-ic="roadBend">Scenic (hug the land)</button><button data-prefer="direct" data-ic="direct">Direct</button></span><button id="rClear" class="tog" data-ic="restart">Start the route over</button></div></div>
+  <div class="chips"><span class="seg" id="bProfile"><button data-v="follow" data-ic="follow">Follow ground</button><button data-v="grade" data-ic="grade">Even grade</button></span><button id="bBridges" class="tog" data-ic="bridge">Bridges</button><button id="bBridgeType">Stone arch</button><button id="bTunnels" class="tog" data-ic="tunnel">Tunnels</button></div>
+  <div class="tools" id="bIdle"><button id="btnUndo" data-ic="undo">Undo</button><button id="btnRemove" data-ic="eraser">Remove track</button><button id="btnClearAll" data-ic="trash">Clear all</button><button id="btnDone" data-ic="done">Done</button></div>
+  <div class="tools" id="bPending" hidden><button id="btnDiscard" data-ic="close">Discard plan</button><button id="btnBuildOK" class="go big keepcap" data-ic="hammerCheck">Build it</button></div>
 </div>
 <div id="driveBar" hidden>
   <div id="trainList" hidden></div>
   <div class="dtop"><div class="speed"><span id="dSpeed">0</span><small>km/h</small></div><div id="driveInfo"></div></div>
   <div id="driveCtl">
   <div class="drow"><label>Regulator<input type="range" id="dThrottle" min="0" max="100" value="0"></label><label>Brake<input type="range" id="dBrake" min="0" max="100" value="0"></label></div>
-  <div class="drow"><span class="seg"><button data-rev="-1">Reverse</button><button data-rev="0">Neutral</button><button data-rev="1">Forward</button></span><button id="dWhistle" class="whistle">Whistle</button></div>
-  <div class="drow"><button id="dCam">Camera: Follow</button><button id="dAuto">Auto</button><button id="dNext">Next</button><button id="dRerail" hidden>Rerail</button></div></div>
-  <div class="drow"><button id="dList">Trains list</button><button id="dAdd">Add train</button><button id="dAddG">Add goods train</button><button id="dRemove">Remove train</button><button id="dDone" class="go">Done</button></div></div>
+  <div class="drow"><span class="seg"><button data-rev="-1" data-ic="reverse">Reverse</button><button data-rev="0" data-ic="neutral">Neutral</button><button data-rev="1" data-ic="forward">Forward</button></span><button id="dWhistle" class="whistle" data-ic="whistle">Whistle</button></div>
+  <div class="drow"><button id="dCam" data-ic="camera">Camera</button><button id="dAuto" data-ic="auto">Autopilot</button><button id="dNext" data-ic="next">Next train</button><button id="dRerail" data-ic="rerail" hidden>Rerail</button></div></div>
+  <div class="drow"><button id="dList" data-ic="list">Trains list</button><button id="dAdd" class="add" data-ic="loco">Add train</button><button id="dAddG" class="add" data-ic="wagon">Add goods train</button><button id="dRemove" data-ic="trash">Remove train</button><button id="dDone" class="go" data-ic="done">Done</button></div></div>
 <section id="panel" aria-label="Settings">
-  <header><h2>Settings</h2><button id="btnClose">Close</button></header>
+  <header><h2>Settings</h2><button id="btnClose" data-ic="close">Close</button></header>
   <nav id="tabs"></nav>
   <div id="sections"></div>
 </section>
@@ -377,6 +390,7 @@ def('shadowRes',{tab:'quality',label:'Shadows',kind:'select',options:[[0,'Off'],
 def('nightLights',{tab:'quality',label:'Light pools at night',min:0,max:32,step:1,def:16,apply:'live',q:1});
 // --- File / debug
 def('showStats',{tab:'file',label:'Show stats',kind:'check',def:1,apply:'live'});
+def('btnCaps',{tab:'file',label:'Words under the button icons',kind:'check',def:0,apply:'live'});
 
 const PRESETS={
   low:{renderScale:0.5,msaa:2,shadowRes:1024,terrainLod:140,treeDist:1800,treeLod:300,bloom:0.3,nightLights:8},
@@ -391,6 +405,7 @@ let pendTimer=0;
 function paramChanged(id,fromPreset){
   const d=PDEF[id];if(!d)return;
   if(d.q&&!fromPreset&&P.preset!=='custom'){P.preset='custom';UI.refresh('preset');}
+  if(id==='btnCaps')UI.caps();
   switch(d.apply){
     case 'world':Pending.world=true;UI.markGenerate(true);break;
     case 'water':case 'veg':case 'tex':case 'shadow':case 'trees':case 'track':case 'life':case 'smooth':Pending[d.apply]=true;clearTimeout(pendTimer);pendTimer=setTimeout(()=>App.applyPending(),450);break;
@@ -399,12 +414,91 @@ function paramChanged(id,fromPreset){
 }
 
 // ---------- UI
+// ---------- pictogram buttons: [data-ic] buttons get an icon; their text becomes the caption, tooltip and accessible name
+// pictograms for the Trein buttons: 24×24 line icons drawn with currentColor (stroke 2, round joins), a few filled details
+const ICONS=(()=>{const F=' fill="currentColor" stroke="none"';
+  const gear=(()=>{let d='';const n=8;for(let k=0;k<n*4;k++){const a=(k/(n*4))*Math.PI*2-Math.PI/n/4,r=(k%4<2)?9.6:7.2,x=12+Math.cos(a)*r,y=12+Math.sin(a)*r;d+=(k?'L':'M')+x.toFixed(2)+' '+y.toFixed(2);}return`<path d="${d}Z"/><circle cx="12" cy="12" r="3"/>`;})();
+  const sun=(r,cx,cy,ray)=>{cx=cx||12;cy=cy||12;let s=`<circle cx="${cx}" cy="${cy}" r="${r}"/>`;for(let k=0;k<8;k++){const a=k*Math.PI/4,c=Math.cos(a),q=Math.sin(a);s+=`<path d="M${(cx+c*(r+2)).toFixed(2)} ${(cy+q*(r+2)).toFixed(2)}L${(cx+c*(r+2+ray)).toFixed(2)} ${(cy+q*(r+2+ray)).toFixed(2)}"/>`;}return s;};
+  const cloud=(dy)=>`<path d="M7 ${17+dy}h10.5a3.5 3.5 0 0 0 .4-7A5.5 5.5 0 0 0 7.3 9.2 4 4 0 0 0 7 ${17+dy}z"/>`;
+  const loco=`<path d="M2 15.5h19M4 15.5V10h9v5.5M13 15.5V6h6.5v9.5M12 6h8.5M5.5 10V6.5H8V10"/><circle cx="7" cy="18.5" r="2"/><circle cx="12.5" cy="18.5" r="2"/><circle cx="18" cy="18.5" r="2"/>`;
+  return{
+    gear,
+    build:`<path d="M4 20l9-9" stroke-width="2.6"/><path d="M10.2 7.8l5-5 6 6-5 5z" fill="currentColor"/>`,
+    trains:loco,
+    generate:`<path d="M2.5 20l6-9 4 5.2 2.8-3.4 6.2 7.2z"/><path d="M20.2 6.4a4 4 0 1 1-1.4-3"/><path d="M19.6 1.6v2.9h-2.9"/>`,
+    save:`<path d="M5 3h11.5L20 6.5V21H5z"/><path d="M8.5 3v5h6.5V3M8.5 21v-6h8v6"/>`,
+    soundOn:`<path d="M4 9h4l5-4.5v15L8 15H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.3a8 8 0 0 1 0 11.4"/>`,
+    soundOff:`<path d="M4 9h4l5-4.5v15L8 15H4z"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/>`,
+    pause:`<path d="M8.5 5.5v13M15.5 5.5v13" stroke-width="3"/>`,
+    play:`<path d="M8 5.5l10 6.5-10 6.5z"/>`,
+    fast:`<path d="M3 6.5l8 5.5-8 5.5zM12 6.5l8 5.5-8 5.5z"/>`,
+    faster:`<path d="M1.5 7.5l6 4.5-6 4.5zM9 7.5l6 4.5-6 4.5zM16.5 7.5l6 4.5-6 4.5z"/>`,
+    spring:`<path d="M12 21v-8M12 17.5c-1.6-2-3.6-2.4-5.2-1.6M12 15.5c1.4-1.6 3.2-2 4.6-1.4"/><circle cx="12" cy="8.5" r="1.8"/><circle cx="12" cy="4.6" r="2.1"/><circle cx="15.7" cy="7.3" r="2.1"/><circle cx="14.3" cy="11.6" r="2.1"/><circle cx="9.7" cy="11.6" r="2.1"/><circle cx="8.3" cy="7.3" r="2.1"/>`,
+    summer:`<path d="M2.5 11.5a9.5 7.5 0 0 1 19 0z"/><path d="M12 11.5v9.5M8.5 21h7M12 4V2.5M7.5 11.5a4.5 7.5 0 0 1 9 0"/>`,
+    autumn:`<path d="M4.5 19.5C4.5 10.5 10.5 4 20 4c0 9.5-6.5 15.5-15.5 15.5z"/><path d="M4.5 19.5L14 10M10 14h-4M13 11V7.5"/>`,
+    winter:`<path d="M12 2.5v19M3.8 7.2l16.4 9.6M3.8 16.8l16.4-9.6"/><path d="M9.5 3.8L12 6.3l2.5-2.5M9.5 20.2l2.5-2.5 2.5 2.5M3.4 10.6l3.4-.9-.9-3.4M20.6 13.4l-3.4.9.9 3.4M3.4 13.4l3.4.9-.9 3.4M20.6 10.6l-3.4-.9.9-3.4"/>`,
+    wxAuto:`<path d="M19.5 9A8 8 0 0 0 5 7.5M4.5 15A8 8 0 0 0 19 16.5"/><path d="M5 3.5v4h4M19 20.5v-4h-4"/><path d="M9.3 15.5L12 8.5l2.7 7M10.2 13.3h3.6"/>`,
+    clear:sun(4,12,12,2.8),
+    fair:sun(2.6,9,8.5,1.8)+`<path d="M9 19.5h9.5a3 3 0 0 0 .3-6A4.6 4.6 0 0 0 10 13a3.3 3.3 0 0 0-1 6.5z" fill="var(--btnbg,#1e3b30)"/>`,
+    cloudy:cloud(0),
+    mist:`<path d="M3 8h18M5 12h15M3 16h16M7 20h12"/>`,
+    rain:cloud(-3)+`<path d="M8.5 17.5l-1.5 4M12.5 17.5l-1.5 4M16.5 17.5l-1.5 4"/>`,
+    storm:cloud(-3)+`<path d="M13 14.5l-3 4h4l-2.5 4.5"/>`,
+    snow:cloud(-3)+`<circle cx="8.5" cy="19" r="1"${F}/><circle cx="12.5" cy="21" r="1"${F}/><circle cx="16.5" cy="19" r="1"${F}/>`,
+    music:`<path d="M9 18V5.5l11-2.5v13"/><circle cx="6.3" cy="18" r="2.7"/><circle cx="17.3" cy="16" r="2.7"/>`,
+    musicOff:`<path d="M9 18V5.5l11-2.5v13"/><circle cx="6.3" cy="18" r="2.7"/><circle cx="17.3" cy="16" r="2.7"/><path d="M3 3l18 18"/>`,
+    close:`<path d="M6 6l12 12M18 6L6 18"/>`,
+    pieces:`<path d="M8 2.5v19M16 2.5v19"/><path d="M5.5 5.5h13M5.5 10h13M5.5 14.5h13M5.5 19h13" stroke-width="1.6"/>`,
+    draw:`<path d="M4 20l1.2-4.6L16.4 4.2a2.1 2.1 0 0 1 3 3L8.2 18.4z"/><path d="M14.3 6.3l3.4 3.4"/>`,
+    route:`<path d="M6.5 17c0-6 11-4 11-10.5" stroke-dasharray="2.2 2.4"/><circle cx="6.5" cy="19" r="2"/><path d="M17.5 9.5s-3.5-3.2-3.5-5.6a3.5 3.5 0 0 1 7 0c0 2.4-3.5 5.6-3.5 5.6z"/>`,
+    signals:`<path d="M12 21.5V12M8.5 21.5h7"/><rect x="8.5" y="2.5" width="7" height="9.5" rx="1.5"/><circle cx="12" cy="5.4" r="1.2"${F}/><circle cx="12" cy="9" r="1.2"${F}/>`,
+    roads:`<path d="M7.5 21.5L10.5 2.5M16.5 21.5L13.5 2.5"/><path d="M12 4.5v2M12 10v2.5M12 16.5v3" stroke-width="1.6"/>`,
+    newLine:`<path d="M12 21.5s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><path d="M12 7.5v6M9 10.5h6"/>`,
+    junction:`<path d="M9.5 21.5V14L5 2.5M14.5 21.5V14L19 2.5"/><path d="M9.5 14L14.5 2.5" stroke-width="1.6"/>`,
+    demolish:`<path d="M9 5h11.5v14H9l-6.5-7z"/><path d="M12.5 9l5 6M17.5 9l-5 6"/>`,
+    place:`<path d="M12 3v11.5M7 9.5l5 5 5-5"/><path d="M4 19.5h16M7 22h10" stroke-width="1.6"/>`,
+    undo:`<path d="M9 14.5L4 9.5l5-5"/><path d="M4 9.5h10.5a5 5 0 0 1 0 10H11"/>`,
+    eraser:`<path d="M8 20.5L3.5 16a1.5 1.5 0 0 1 0-2.1L13.4 4a1.5 1.5 0 0 1 2.1 0l4.5 4.5a1.5 1.5 0 0 1 0 2.1L10.2 20.5zM8.5 9l6.5 6.5M10.2 20.5H21"/>`,
+    trash:`<path d="M3.5 6.5h17M9.5 6.5V3.5h5v3M6 6.5l1 14.5h10l1-14.5M10 10.5v7M14 10.5v7"/>`,
+    done:`<path d="M4.5 12.5l5 5 10-11"/>`,
+    hammerCheck:`<path d="M3.5 20.5l7-7" stroke-width="2.4"/><path d="M8.6 10.6l4.6-4.6 4.4 4.4-4.6 4.6z" fill="currentColor"/><path d="M14.5 19l2.5 2.5 5-5.5"/>`,
+    busStop:`<circle cx="12" cy="8" r="5.5"/><path d="M12 13.5v8M8.5 21.5h7M10 5.5v5M14 5.5v5M10 8h4"/>`,
+    roadBend:`<path d="M6.5 21.5c0-6 11-5 11-10S6.5 7 6.5 2.5" stroke-width="3.2"/><path d="M6.5 21.5c0-6 11-5 11-10S6.5 7 6.5 2.5" stroke="var(--btnbg,#1e3b30)" stroke-width="1" stroke-dasharray="1.6 2"/>`,
+    straight:`<path d="M4.5 19.5l15-15"/><path d="M2 17l5 5M17 2l5 5"/>`,
+    restart:`<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 3.5V9H10"/>`,
+    bus:`<path d="M2.5 16V8.5A2.5 2.5 0 0 1 5 6h12.5a3.5 3.5 0 0 1 3.5 3.5V16z"/><path d="M2.5 11h18.5M8 6v5M13.5 6v5"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>`,
+    lorry:`<path d="M2 5.5h11.5v10.5H2zM13.5 9h4.3l3.2 4v3h-7.5z"/><circle cx="6" cy="18" r="1.9"/><circle cx="17" cy="18" r="1.9"/>`,
+    station:`<path d="M3 21V10.5L12 4l9 6.5V21z"/><path d="M10 21v-4.5h4V21"/><circle cx="12" cy="11.2" r="2.2"/><path d="M1.5 21h21"/>`,
+    scenic:`<path d="M4 21c0-7 8-5 8-10S6 6 9 2.5"/><path d="M17 12.5c-2.2 0-3.5-1.8-3.5-3.8S15.5 4 17 2.5c1.5 1.5 3.5 4 3.5 6.2s-1.3 3.8-3.5 3.8zM17 12.5V18"/>`,
+    direct:`<path d="M4.5 19.5l15-15M10 4.5h9.5V14"/>`,
+    follow:`<path d="M2 17c3-6 5.5-6.5 8.5-2.5S16 18 22 9"/><path d="M2 21h20" stroke-width="1.4"/>`,
+    grade:`<path d="M2 18.5l20-11"/><path d="M2 21h20" stroke-width="1.4"/>`,
+    bridge:`<path d="M1.5 8.5h21M3 8.5V21M21 8.5V21"/><path d="M6.5 21v-3.5a5.5 5.5 0 0 1 11 0V21"/>`,
+    tunnel:`<path d="M1.5 20.5C3 9 21 9 22.5 20.5z"/><path d="M8.5 20.5V17a3.5 3.5 0 0 1 7 0v3.5" fill="var(--btnbg,#1e3b30)"/>`,
+    reverse:`<path d="M20 12H4.5M10.5 5.5L4 12l6.5 6.5"/>`,
+    neutral:`<path d="M7.5 18.5V5.5l9 13v-13"/>`,
+    forward:`<path d="M4 12h15.5M13.5 5.5L20 12l-6.5 6.5"/>`,
+    whistle:`<path d="M9.5 21.5V10h5v11.5M8 10h8M12 10V7"/><path d="M8.5 5.5C6.5 4 6.8 1.8 9 2M15.5 5.5c2-1.5 1.7-3.7-.5-3.5M12 4.5V1.5" stroke-width="1.6"/>`,
+    camera:`<path d="M3 7.5h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13.5" r="3.5"/>`,
+    auto:`<path d="M3.5 17.5a8.5 8.5 0 1 1 17 0"/><path d="M12 17.5l4.5-6"/><path d="M6.2 11.5l1.4 1M12 7.5v1.7M17.8 11.5l-1.4 1" stroke-width="1.6"/>`,
+    next:`<path d="M5 5.5l9 6.5-9 6.5zM18 5.5v13"/>`,
+    rerail:`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>`,
+    list:`<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.3"${F}/><circle cx="4.5" cy="12" r="1.3"${F}/><circle cx="4.5" cy="18" r="1.3"${F}/>`,
+    loco:loco,
+    wagon:`<path d="M3 5.5h18v10H3zM1.5 15.5h21"/><path d="M9.5 5.5v10M14.5 5.5v10" stroke-width="1.4"/><circle cx="7" cy="18.5" r="2"/><circle cx="17" cy="18.5" r="2"/>`,
+    goTo:`<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"${F}/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/>`,
+  };})();
+function svgIcon(n){return'<svg class="i" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[n]||'')+'</svg>';}
+function iconize(root){for(const b of (root||document).querySelectorAll('button[data-ic]:not(.ic)')){const t=b.textContent.trim();b.classList.add('ic');b.innerHTML=svgIcon(b.dataset.ic)+'<span class="cap"></span><span class="v" hidden></span>';setCap(b,t);}}
+// label = what the button does (caption, tooltip, screen readers); val = a live value shown under the icon even without captions
+function setCap(b,label,val){if(!b)return;if(!b.classList.contains('ic')){b.textContent=label+(val?' '+val:'');return;}b.querySelector('.cap').textContent=label;const v=b.querySelector('.v');v.textContent=val||'';v.hidden=!val;b.title=label+(val?': '+val:'');b.setAttribute('aria-label',b.title);}
+function setIcon(b,n){if(!b||!b.classList.contains('ic')||b.dataset.ic===n)return;b.dataset.ic=n;const s=b.querySelector('svg.i');if(s)s.outerHTML=svgIcon(n);}
 const UI=(()=>{
   const rows={};let curTab='world';
   function fmt(d,v){if(d.kind==='select'){const o=d.options.find(o=>String(o[0])===String(v));return o?o[1]:v;}if(d.kind==='check')return v?'On':'Off';
     const st=d.step||0.01,dec=st>=1?0:st>=0.1?1:st>=0.01?2:3;return Number(v).toFixed(dec)+(d.unit||'');}
   function build(){
-    const tabs=$('#tabs'),secs=$('#sections');
+    iconize();const tabs=$('#tabs'),secs=$('#sections');
     for(const [id,label] of TABS){const b=document.createElement('button');b.textContent=label;b.dataset.tab=id;b.onclick=()=>show(id);tabs.appendChild(b);
       const s=document.createElement('div');s.className='sec';s.dataset.tab=id;s.hidden=true;
       if(TAB_HINT[id]){const h=document.createElement('p');h.className='hint';h.textContent=TAB_HINT[id];s.appendChild(h);}
@@ -431,11 +525,12 @@ const UI=(()=>{
   function show(tab){curTab=tab;for(const b of document.querySelectorAll('#tabs button'))b.classList.toggle('on',b.dataset.tab===tab);
     for(const s of document.querySelectorAll('.sec'))s.hidden=s.dataset.tab!==tab;$('#sections').scrollTop=0;}
   function refresh(id){const r=rows[id];if(!r)return;const v=P[id];if(r.d.kind==='check')r.inp.checked=!!v;else r.inp.value=v;r.val.textContent=r.d.kind==='select'?'':fmt(r.d,v);}
-  function refreshAll(){for(const id in rows)refresh(id);}
-  function markGenerate(on){$('#btnGen').classList.toggle('attn',on);$('#btnGen').textContent=on?'Generate ●':'Generate';}
+  function refreshAll(){for(const id in rows)refresh(id);caps();}
+  function caps(){document.body.classList.toggle('caps',!!P.btnCaps);}
+  function markGenerate(on){const b=$('#btnGen');b.classList.toggle('attn',on);setCap(b,on?'Generate (settings changed)':'Generate');}
   let toastT=0;function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2200);}
   function progress(on,frac,label){const p=$('#prog');p.style.display=on?'block':'none';if(on){$('#progLabel').textContent=label||'';$('#progBar').style.width=Math.round(frac*100)+'%';}}
-  return{build,refresh,refreshAll,markGenerate,toast,progress,show};
+  return{build,refresh,refreshAll,markGenerate,toast,progress,show,caps};
 })();
 
 // ---------- state: save / load / export / import
@@ -469,7 +564,7 @@ const Money={cash:200000,loan:0,inited:false,paid:new Map(),paidSt:new Set(),pai
       el.querySelector('#mBor').onclick=()=>this.borrow();el.querySelector('#mRep').onclick=()=>this.repay();}
     el.hidden=!this.on();if(!this.on())return;const c=el.querySelector('#mCash');c.textContent=`€ ${this.fmt(this.cash)}`+(this.loan?`  ·  loan € ${this.fmt(this.loan)}`:'');c.style.color=this.cash<0?'#ff9a8a':'#fff';},
   tick(dt){if(!this.on())return;this.acc=(this.acc||0)+dt;if(this.acc>1){this.acc=0;this.check();}
-    const lg=document.getElementById('mLog');if(lg){this.flo.forEach(f=>{f.t+=dt;if(f.t>=6&&f.el)f.el.remove();});this.flo=this.flo.filter(f=>f.t<6);lg.innerHTML=this.flo.map(f=>`<div style="color:${f.v>=0?'#bff5b0':'#ffb3a6'}">${f.v>=0?'+':'−'}€ ${this.fmt(Math.abs(f.v))} ${f.txt}</div>`).join('');}
+    const lg=document.getElementById('mLog');if(lg){this.flo.forEach(f=>{f.t+=dt;if(f.t>=6&&f.el)f.el.remove();});this.flo=this.flo.filter(f=>f.t<6);const h=this.flo.map(f=>`<div style="color:${f.v>=0?'#bff5b0':'#ffb3a6'}">${f.v>=0?'+':'−'}€ ${this.fmt(Math.abs(f.v))} ${f.txt}</div>`).join('');if(h!==this.logH){this.logH=h;lg.innerHTML=h;}}
     // floating income above the station, like OpenTTD
     for(const f of this.flo){if(f.x==null)continue;let d=f.el;if(!d){d=f.el=document.createElement('div');d.style.cssText='position:fixed;pointer-events:none;font:700 15px system-ui;color:#c9ffb8;text-shadow:0 1px 3px #000;transform:translate(-50%,-50%)';document.body.appendChild(d);d.textContent=`+€ ${this.fmt(f.v)}`;}
       const p=Cam.toScreen(f.x,f.y+8+f.t*3,f.z);if(p){d.style.left=p[0]+'px';d.style.top=p[1]+'px';d.style.opacity=String(clamp(1.5-f.t/4,0,1));}else d.style.opacity='0';}}
@@ -511,7 +606,7 @@ const Icons={L:[],
 // ROADS (player-built gravel roads) and BUSES (stop to stop along any road, fares like the trains)
 // ===================================================================
 const Roads={list:[],tool:'route',a:null,
-  hint(){return this.tool==='stop'?'Tap on a road to put a bus stop there (near a village, people will come).':this.tool==='remove'?'Tap a road you built, or a bus stop, to remove it.':this.a?'Tap the next point. The road continues from the last one; Start over to begin elsewhere.':'Tap where the road should start (on an existing road joins it).';},
+  hint(){return this.tool==='stop'?'Tap on a road to put a bus stop there (near a village, people will come).':this.tool==='remove'?'Tap a road you built, or a bus stop, to remove it.':this.a?'Tap the next point. The road continues from the last one; ↺ starts it somewhere else.':'Tap where the road should start (on an existing road joins it).';},
   nearestRoad(x,z,maxd){let best=null,bd=maxd;for(const r of Life.roads||[]){if(r.disc)continue;const p=r.p;for(let i=0;i+3<p.length;i+=2){const ax=p[i],az=p[i+1],ex=p[i+2]-ax,ez=p[i+3]-az,ll=ex*ex+ez*ez;if(ll<1e-6)continue;const t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1),qx=ax+ex*t,qz=az+ez*t,d=Math.hypot(x-qx,z-qz);
       if(d<bd){bd=d;const l=Math.sqrt(ll);best={x:qx,z:qz,dx:ex/l,dz:ez/l,w:r.w,road:r};}}}return best;},
   tap(h){if(!h)return;const T=R.world;
@@ -528,7 +623,7 @@ const Roads={list:[],tool:'route',a:null,
     if(!Money.canBuild()){UI.toast('Out of money');return;}
     let pts=this.tool==='route'?Life.routePath(this.a,p,{cs:5,margin:80,bridge:true,wind:0.15,road:0.6,maxG:0.32}):null;if(!pts){const L=Math.hypot(p[0]-this.a[0],p[1]-this.a[1]),n=Math.max(1,Math.ceil(L/6));pts=[];for(let k=0;k<=n;k++)pts.push([this.a[0]+(p[0]-this.a[0])*k/n,this.a[1]+(p[1]-this.a[1])*k/n]);}
     let L=0;for(let k=1;k<pts.length;k++)L+=Math.hypot(pts[k][0]-pts[k-1][0],pts[k][1]-pts[k-1][1]);this.list.push({p:pts.flat(),w:1.4,kind:1,player:true});Life.roadsDirty=true;
-    if(Money.on())Money.spend(Math.round(L*45),'road');Build.info(`Gravel road ${L.toFixed(0)} m built. Tap the next point, or Start over.`);this.a=p;}};
+    if(Money.on())Money.spend(Math.round(L*45),'road');Build.info(`Gravel road ${L.toFixed(0)} m built. Tap the next point, or ↺ to start somewhere else.`);this.a=p;}};
 const Buses={stops:[],list:[],nextId:1,
   add(goods){if(this.stops.length<2){UI.toast('Place at least two bus stops first (Build → Roads → Bus stop)');return;}if(!Money.canBuild()){UI.toast('Out of money');return;}
     const s=this.stops[0],b={id:this.nextId++,goods:!!goods,cargo:{},name:goods?`Lorry ${this.list.filter(q=>q.goods).length+1}`:`Bus ${this.list.filter(q=>!q.goods).length+1}`,leg:0,x:s.rx,z:s.rz,rot:s.rot,v:0,st:'dwell',wait:4,pax:[],paths:{},hash:Math.random()};this.list.push(b);if(Money.on())Money.spend(35000,'bus');UI.toast(`${b.name} serves ${this.stops.length} stops`);},
@@ -551,7 +646,7 @@ const IndUI={els:new Map(),
     for(const [m,el] of this.els)if(!live.has(m)){el.remove();this.els.delete(m);}},
   info(kind,m,mi){const att=[...Track.stations.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚂 '+q.name),...Buses.stops.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚚 '+q.name)];
     let p=VillageUI.panel;if(!p){p=VillageUI.panel=document.createElement('div');p.id='vPanel';document.body.appendChild(p);}VillageUI.cur=null;p.hidden=false;
-    p.innerHTML=`<div class="vp-h"><div><b>${kind==='sawmill'?'🪚 Sawmill':'🪑 Wood Workshop'}</b><span>${m.v?'near '+m.v.name:''}</span></div><button id="vpX">✕</button></div>
+    p.innerHTML=`<div class="vp-h"><div><b>${kind==='sawmill'?'🪚 Sawmill':'🪑 Wood Workshop'}</b><span>${m.v?'near '+m.v.name:''}</span></div><button id="vpX" aria-label="Close" title="Close">✕</button></div>
       <div class="vp-row">${kind==='sawmill'?'Turns logs into sawn wood. Collect it with goods trains (timber wagons) or lorries.':'Joiner, cartwright and cooper: takes in wood and makes furniture, wheels and barrels. Deliver wood here.'}</div>
       <div class="vp-row">Loading sides: ${att.length?att.join(', '):'none yet'} (3 sides; with the Station tool or the Bus stop tool, tap near a marked side to snap one there)</div>`;p.querySelector('#vpX').onclick=()=>{p.hidden=true;};}};
 const VillageUI={els:new Map(),panel:null,cur:null,
@@ -559,13 +654,13 @@ const VillageUI={els:new Map(),panel:null,cur:null,
       const y=R.world?R.sampleHr(R.world,v.x,v.z)+28+(v.level|0)*6:0,p=show?Cam.toScreen(v.x,y,v.z):null,d=Cam.pos?Math.hypot(v.x-Cam.pos[0],v.z-Cam.pos[2]):0;
       if(!p||d>3200){el.style.display='none';continue;}el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';el.style.opacity=String(clamp(1.6-d/2400,0.35,1));
       const fs=Life.farmState(v),t=`<b>${v.name}</b><span>${Life.LEVELS[v.level|0].name}${fs==='owned'?' · farming':''}</span>${fs==='available'?'<i class="vl-farm" title="Farming upgrade available">🌾</i>':''}`;if(el._t!==t){el.innerHTML=t;el._t=t;}}
-    for(const [v,el] of this.els)if(!(Life.villages||[]).includes(v)){el.remove();this.els.delete(v);}},
+    for(const [v,el] of this.els)if(!(Life.villages||[]).includes(v)){el.remove();this.els.delete(v);if(this.cur===v&&this.panel)this.panel.hidden=true;}},
   bind(el,v){let tm=null,held=false;el.onpointerdown=e=>{e.stopPropagation();held=false;tm=setTimeout(()=>{held=true;if(navigator.vibrate)navigator.vibrate(15);this.open(v);},480);};
     el.onpointerup=e=>{e.stopPropagation();clearTimeout(tm);if(!held){Cam.flyTo([v.x,R.sampleHr(R.world,v.x,v.z),v.z]);}};el.onpointerleave=()=>clearTimeout(tm);el.oncontextmenu=e=>e.preventDefault();},
   open(v){this.cur=v;let p=this.panel;if(!p){p=this.panel=document.createElement('div');p.id='vPanel';document.body.appendChild(p);}p.hidden=false;this.refresh(v);},
   refresh(v){const p=this.panel;if(!p||p.hidden||v!==this.cur)return;const L=Life.LEVELS,lv=v.level|0,nx=L[lv+1],gp=Math.round(v.gp||0),houses=v.houses.filter(h=>Life.houseOn(h)).length;
     const pct=nx?clamp((gp-L[lv].need)/(nx.need-L[lv].need),0,1)*100:100;
-    p.innerHTML=`<div class="vp-h"><div><b>${v.name}</b><span>${L[lv].name}</span></div><button id="vpX">✕</button></div>
+    p.innerHTML=`<div class="vp-h"><div><b>${v.name}</b><span>${L[lv].name}</span></div><button id="vpX" aria-label="Close" title="Close">✕</button></div>
       <div class="vp-row">${houses} houses · ${['a few','more','many'][lv]} travellers${['',' · church, inn, bakery, small market',' · church, inn, bakery, restaurant, café, market square, station hall'][lv]}</div><div class="vp-row">Growth points: ${gp}${nx?` / ${nx.need} for ${nx.name.toLowerCase()}`:' (fully grown)'}</div><div class="vp-bar"><i style="width:${pct}%"></i></div>
       ${(()=>{const fs=Life.farmState(v),F=Life.FARM;if(fs==='none')return'';if(fs==='owned')return'<div class="vp-farm on">🌾 Farming: fields, pastures, farmstead and tractors</div>';
         if(fs==='available')return`<div class="vp-farm av">🌾 Farming upgrade available<button id="vpFarm" class="go">Buy${Money.on()?' €'+Money.fmt(F.cost):''}</button></div>`;
@@ -1473,23 +1568,6 @@ void main(){vec2 ls=vec2(textureSize(uCldTex,0)),p=vUV*ls-.5,i=floor(p),f=p-i;fl
   for(int k=0;k<4;k++){vec2 c=vec2(float(k&1),float(k>>1));vec2 uv=(i+c+.5)/ls;float z=lin(texture(uDepthCopy,uv).r);
     float bw=mix(1.-f.x,f.x,c.x)*mix(1.-f.y,f.y,c.y),w=bw*(exp(-abs(z-zc)/(zc*.04+.3))+1e-3);s+=texture(uCldTex,uv)*w;ws+=w;}
   o=s/max(ws,1e-5);}`;
-// ---------------- cobblestone roads: draped ribbons, Voronoi setts with mortar, kerb stones, wet and snowy states
-const VS_ROAD=GLSL_HEAD+`
-layout(location=0) in vec3 aP;layout(location=1) in vec3 aB;out vec3 vW;out vec3 vB;
-void main(){vW=aP;vB=aB;gl_Position=uViewProj*vec4(aP,1.);}`;
-const FS_ROAD=GLSL_HEAD+GLSL_COMMON+`
-in vec3 vW;in vec3 vB;`+FS_OUT+`
-vec3 cell(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.;float id=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o2=vec2(x,y);
-  vec2 h=fract(sin(vec2(dot(i+o2,vec2(127.1,311.7)),dot(i+o2,vec2(269.5,183.3))))*43758.5453);vec2 r=o2+.15+h*.7-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=h.x;}else if(d<d2)d2=d;}
-  return vec3(sqrt(d2)-sqrt(d1),id,sqrt(d1));}
-void main(){vec2 p=vW.xz/.3;vec3 c3=cell(p);float fw=length(fwidth(p)),far=smoothstep(.35,1.1,fw);
-  vec3 st=L(mix(vec3(.40,.38,.36),vec3(.60,.55,.48),c3.y))*(.88+.24*fract(c3.y*17.3));st=mix(st,L(vec3(.49,.46,.42)),far);
-  float mort=(1.-smoothstep(.05,.05+fw*.8+.06,c3.x))*(1.-far);vec3 c=mix(st,L(vec3(.20,.19,.18)),mort*.85);
-  float e=abs(vB.x);c=mix(c,L(vec3(.64,.62,.58)),smoothstep(.84,.9,e)*(1.-far*.4));
-  vec3 N=normalize(vec3(0,1,0)+vec3(dFdx(c3.z),0.,dFdy(c3.z))*0.);
-  c*=1.-uWx.z*.32;float sn=uWx.w*clamp(.55+(vnoise(vW.xz*.35)-.5)*.7+smoothstep(.6,1.,e)*.3,0.,1.);c=mix(c,snowCol(vec3(0,1,0)),sn);
-  vec3 col=lightS(c,vec3(0,1,0),vW,1.,shadowAt(vW,vec3(0,1,0)),mix(.85,.35,uWx.z*(1.-sn)));
-  o=vec4(fogc(col,vW),1.);}`;
 // ---------------- streams & run-off: draped ribbons, width/visibility follow rain and flood
 const VS_STREAM=GLSL_HEAD+`
 layout(location=0) in vec3 aP;layout(location=1) in vec4 aB;out vec3 vW;out vec4 vB;
@@ -2198,10 +2276,6 @@ function logPileMesh(){const M=omesh(),lg=[0.55,0.4,0.26];for(let r=0;r<3;r++)fo
 function slotMarkMesh(){const M=omesh(),w=[0.95,0.95,0.92];for(const x of [-12,-6,0,6,12])for(const z of [-2.2,2.2])oLimb(M,[x,0,z],[x,0.7,z],0.06,0.06,4,x%12===0?[0.9,0.6,0.15]:w,0);for(const z of [-2.2,2.2])oBox(M,0,0.68,z,24,0.06,0.06,w,0);return M;}
 // post-and-rail fence panel, 3 m along x
 function fenceMesh(){const M=omesh(),wd=[0.48,0.36,0.24],wd2=[0.42,0.31,0.21];for(const x of [-1.5,1.5])oBox(M,x,0.48,0,0.12,1.16,0.12,wd2,0);oBox(M,0,0.56,0,3.04,0.09,0.06,wd,0);oBox(M,0,0.96,0,3.04,0.09,0.06,wd,0);return M;}
-function sheepMeshOld(){const M=omesh();oIco(M,0,0.78,0,0.58,[0.96,0.95,0.91],0,{sy:0.72,jit:0.12,seed:71});oBox(M,0.62,0.9,0,0.36,0.38,0.32,[0.2,0.18,0.18],0);
-  for(const x of [-0.3,0.3])for(const z of [-0.2,0.2])oBox(M,x,0.25,z,0.12,0.5,0.12,[0.2,0.18,0.18],0);return M;}
-function cowMesh(){const M=omesh(),w=[0.96,0.94,0.9],k=[0.16,0.14,0.14];oBox(M,0,1.1,0,2.0,0.95,0.85,w,0);oBox(M,0.3,1.2,0.43,0.7,0.5,0.02,k,0);oBox(M,-0.5,1.0,-0.43,0.6,0.55,0.02,k,0);
-  oBox(M,1.15,1.35,0,0.5,0.5,0.45,k,0);oBox(M,1.42,1.2,0,0.12,0.25,0.35,[0.9,0.7,0.65],0);for(const x of [-0.75,0.75])for(const z of [-0.3,0.3])oBox(M,x,0.33,z,0.16,0.66,0.16,k,0);return M;}
 function duckMesh(){const M=omesh();oIco(M,0,0.12,0,0.3,[0.55,0.43,0.32],0,{sy:0.55,seed:81});oIco(M,0.24,0.33,0,0.12,[0.14,0.45,0.28],0,{seed:82});oBox(M,0.37,0.31,0,0.12,0.04,0.07,[0.95,0.65,0.15],0);oBox(M,-0.22,0.18,0,0.1,0.08,0.14,[0.2,0.18,0.16],0);return M;}
 function swanMesh(){const M=omesh();oIco(M,0,0.2,0,0.55,[0.97,0.97,0.95],0,{sy:0.5,seed:83});oLimb(M,[0.35,0.25,0],[0.55,1.0,0],0.07,0.06,4,[0.97,0.97,0.95],0);oIco(M,0.62,1.05,0,0.11,[0.97,0.97,0.95],0,{seed:84});oBox(M,0.78,1.02,0,0.18,0.06,0.06,[0.95,0.45,0.15],0);return M;}
 function rowboatMesh(){const M=omesh(),wd=[0.62,0.42,0.27],dk=[0.42,0.28,0.18];const p=(x,y,z)=>[x,y,z];
@@ -2631,7 +2705,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),dms:new Map(),
     for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;gl.uniformMatrix4fv(p.u('uModel'),false,mat(s,st.t,0));gl.bindVertexArray(R.stationMesh.vao);gl.drawElements(gl.TRIANGLES,R.stationMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
     gl.bindVertexArray(null);},
   nearestOnTrack(x,z,maxD){let best=null,bd=maxD||12;for(const s of Track.segs){if(s.pend)continue;const [t,d]=segNearest(s,x,z);if(t<0||t>s.L)continue;if(d<bd){bd=d;best={seg:s,t,d};}}return best;},
-  clearAll(){Track.undo.push(JSON.stringify(Track.serialize()));Track.nodes=[];Track.segs=[];Track.sigs=[];Track.stations=[];Trains.list=[];Trains.sel=-1;this.changed();App.trackChanged();Drive.refresh();Log.info('all track removed');}
+  clearAll(){Track.undo.push(JSON.stringify(Track.serialize()));Track.nodes=[];Track.segs=[];Track.sigs=[];Track.stations=[];for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;this.changed();App.trackChanged();Drive.refresh();Log.info('all track removed');}
 };
 // ===== build.js
 // ===================================================================
@@ -2656,7 +2730,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     if(m==='pieces'&&!this.pc.cur){const e=Track.freeEnds();if(e.length)this.pc.cur=this.stateOf(e[e.length-1]);}
     this.ui();this.refresh();this.hint();},
   hint(){const m=this.mode;if(m==='roads'){this.info(Roads.hint());return;}if(this.remove){this.info('Tap a piece of track to remove it. Tap Remove again when done.');return;}
-    if(m==='pieces')this.info(this.pc.cur?'':this.pc.newLine?'Tap the ground where the new line should start.':Track.segs.length?'Tap a gold ring (a track end) to build from it, or New line.':'Tap New line, then tap the ground to start your railway.');
+    if(m==='pieces')this.info(this.pc.cur?'':this.pc.newLine?'Tap the ground where the new line should start.':Track.segs.length?'Tap a gold ring (a track end) to build from it, or the pin with + for a new line.':'Tap the pin with + (new line), then tap the ground to start your railway.');
     else if(m==='draw')this.info(Track.segs.length?'Draw with one finger on the map, starting on a gold ring to extend the track. End on another ring to join up.':'Draw your railway with one finger on the map. Two fingers move the camera.');
     else if(m==='signals')this.info(this.sigTool==='signal'?'Tap the track to put up a signal. Signals split the line into blocks; trains on Auto only enter an empty block.':this.sigTool==='station'?'Tap the track to build a station. Trains on Auto stop at every station.':'Tap a signal or station to remove it.');
     else this.info(!this.rt.a?'Tap where the line should start: a gold ring, or open ground.':!this.rt.b?'Now tap the destination: another ring to join up, or open ground.':'');},
@@ -2803,7 +2877,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     return{regrade,mods,junc:st.junc||null,pieces,snap,start:startNode?{node:startNode}:{x:st.ax,z:st.az},ok:!bad,warn:stt.maxCut>10||stt.maxFill>10||joinFail,msg:bad||parts.join(', '),endXY:[e[0],segY(lp,lp.L),e[1]]};
   },
   show(){const p=this.plan;if(!p||!p.pieces){R.setPreview(null);return;}R.setPreview(p.mods?p.pieces.concat(p.mods.map(m=>({...m.seg,prof:m.prof,id:-m.seg.id}))):p.pieces,p.ok,p.warn||!!p.mods);
-    this.info(this.stroke?p.msg:(p.ok?p.msg+'. Build it or Discard.':p.msg));},
+    this.info(this.stroke?p.msg:(p.ok?p.msg+'. Build it, or ✕ to discard.':p.msg));},
   drawTrail(){const c=$('#ovl'),g=c.getContext('2d');if(c.width!==innerWidth*devicePixelRatio){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;}
     g.clearRect(0,0,c.width,c.height);if(!this.stroke)return;g.save();g.scale(devicePixelRatio,devicePixelRatio);g.lineWidth=5;g.lineCap='round';g.lineJoin='round';g.strokeStyle='#efe8d6cc';g.setLineDash([2,9]);g.beginPath();let first=true;
     for(const p of this.stroke.trail){const s=Cam.toScreen(p[0],ground0(p[0],p[1])+1,p[1]);if(!s)continue;if(first){g.moveTo(s[0],s[1]);first=false;}else g.lineTo(s[0],s[1]);}g.stroke();
@@ -2818,7 +2892,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     R.setPreview(this.plan.pieces,this.plan.ok,this.plan.warn);
     let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of this.plan.pieces)for(let t=0;t<=p.L;t+=8){const q=segPoint(p,t);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
     this.camGoal={x:(x0+x1)/2,z:(z0+z1)/2,dist:clamp(Math.hypot(x1-x0,z1-z0)*1.1,120,2200),pitch:1.0};
-    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, Discard, or try ${rt.prefer==='scenic'?'Direct':'Scenic'}.`:''));this.ui();},
+    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, ✕ to discard, or try the ${rt.prefer==='scenic'?'direct (straight arrow)':'scenic (winding)'} route.`:''));this.ui();},
   setPrefer(p){this.rt.prefer=p;this.ui();if(this.rt.a&&this.rt.b)this.runRoute();},
   routeClear(){this.rt.a=this.rt.b=null;this.plan=null;R.setPreview(null);this.ui();this.hint();},
   // ---- pointer: Draw captures one finger; everything else is taps (one-finger drags pan)
@@ -2867,7 +2941,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   },
   // ---- shared actions
   clearAll(){if(!Track.segs.length){UI.toast('There is no track yet');return;}if(!confirm('Remove all track, signals, stations and trains? (Undo brings the track back.)'))return;this.discard(true);this.pc.cur=null;Net.clearAll();this.ui();this.hint();},
-  commit(p){if(!Money.canBuild()){UI.toast('Out of money: repay nothing more can be borrowed');return;}Track.undo.push(JSON.stringify(Track.serialize()));if(Track.undo.length>100)Track.undo.shift();
+  commit(p){if(!Money.canBuild()){UI.toast('Out of money, and the bank will not lend more');return;}Track.undo.push(JSON.stringify(Track.serialize()));if(Track.undo.length>100)Track.undo.shift();
     if(p.regrade)Net.regrade(p.regrade.nid,p.regrade.dy);
     if(p.junc){const seg=segById(p.junc.sid);if(seg){const J=Net.split(seg,p.junc.t);J.h=p.junc.h;p={...p,snap:J};}}
     let start=p.start.node?{node:Track.node(p.start.node.id)}:p.start;if(p.start.sj){const seg=segById(p.start.sj.sid);if(seg){const J=Net.split(seg,p.start.sj.t);start={node:J};}}addPieces(start,p,false);
@@ -3065,7 +3139,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(!head){UI.toast(`Not enough track here — this train needs ${L.toFixed(0)} m`);return;}
     const tr={id:this.nextId++,head,v:0,throttle:0,brake:0,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:40,derailed:false,slip:false,shake:0,name:`Train ${this.list.length+1}`};
     this.list.push(tr);this.sel=this.list.length-1;this.place(tr);Log.info(`${tr.name} added: ${veh.length} vehicles, ${L.toFixed(0)} m`);UI.toast(`${tr.name} is on the line`);Drive.refresh();},
-  remove(){if(this.sel<0)return;const t=this.list.splice(this.sel,1)[0];this.sel=Math.min(this.sel,this.list.length-1);Log.info(`${t.name} removed`);Drive.refresh();},
+  remove(){if(this.sel<0)return;const t=this.list.splice(this.sel,1)[0];t.whistle=false;Sfx.whistle(t,false);this.sel=Math.min(this.sel,this.list.length-1);Log.info(`${t.name} removed`);Drive.refresh();},
   trackChanged(){const before=this.list.length;this.list=this.list.filter(t=>{let ok=!!segById(t.head.sid);let off=0;for(const v of t.veh){if(!ok)break;ok=!advance(t.head,-(off+v.len)).blocked||true;off+=v.len+COUPLE;}return ok;});
     if(this.list.length<before){UI.toast('A train lost its track and was removed');this.sel=Math.min(this.sel,this.list.length-1);Drive.refresh();}},
   // vehicle placement: two pivot points on the track give position, heading and pitch
@@ -3155,7 +3229,8 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
     w.connect(wl);wl.connect(this.windG);this.windG.connect(this.master);w.start();
     Log.info(`audio started at ${c.sampleRate} Hz`);Music.start();},
   stop(){if(this.ctx)this.ctx.suspend();this.on=false;},
-  toggle(){if(this.on)this.stop();else this.start();$('#btnSound').textContent=this.on?'Sound on':'Sound off';},
+  toggle(){if(this.on)this.stop();else this.start();this.syncBtn();},
+  syncBtn(){const b=$('#btnSound');if(!b)return;setIcon(b,this.on?'soundOn':'soundOff');setCap(b,this.on?'Sound on (tap to mute)':'Sound off (tap to turn on)');b.setAttribute('aria-pressed',this.on?'true':'false');},
   // distance and pan relative to the camera
   spatial(p){if(!p)return[0,0];const dx=p[0]-Cam.pos[0],dy=p[1]-Cam.pos[1],dz=p[2]-Cam.pos[2],d=Math.hypot(dx,dy,dz);
     const r=Cam.right||[1,0,0];const pan=clamp((dx*r[0]+dz*r[2])/Math.max(d,1),-1,1)*0.8;return[1/(1+d/35),pan];},
@@ -3230,24 +3305,24 @@ const Drive={placing:false,ghost:null,listOpen:false,
     let bt=null,bt2=Math.max(12,Cam.dist*0.03);Trains.list.forEach((t,i)=>{if(!t.poses)return;for(const p of t.poses){if(!p)continue;const d=Math.hypot(p.c[0]-h[0],p.c[2]-h[2]);if(d<bt2){bt2=d;bt=i;}}});if(bt!==null){Trains.sel=bt;this.refresh();}},
   list(){const el=$('#trainList');el.innerHTML='';for(const [i,t] of Trains.list.entries()){const r=document.createElement('div');r.className='trow'+(i===Trains.sel?' on':'');
       const dst=t.auto?Net.destOf(t):null;r.innerHTML=`<div><b>${t.name}</b><span>${Math.abs(t.v*3.6).toFixed(0)} km/h, ${t.status||'Standing'}${dst?' → '+dst.name:''}</span></div>`;
-      const go=document.createElement('button');go.textContent='Go to';go.onclick=()=>{Trains.sel=i;if(Cam.mode==='free')Cam.setMode('follow');this.listOpen=false;this.refresh();};
-      const au=document.createElement('button');au.textContent=t.auto?'Auto on':'Auto off';au.className=t.auto?'on':'';au.onclick=()=>{t.auto=!t.auto;if(t.auto&&!t.rev)t.rev=1;this.list();};
+      const go=document.createElement('button');go.className='ic';go.innerHTML=svgIcon('goTo')+'<span class="cap"></span><span class="v" hidden></span>';setCap(go,'Go to '+t.name);go.onclick=()=>{Trains.sel=i;if(Cam.mode==='free')Cam.setMode('follow');this.listOpen=false;this.refresh();};
+      const au=document.createElement('button');au.className='ic'+(t.auto?' on':'');au.innerHTML=svgIcon('auto')+'<span class="cap"></span><span class="v" hidden></span>';setCap(au,t.auto?'Autopilot on':'Autopilot off');au.setAttribute('aria-pressed',t.auto?'true':'false');au.onclick=()=>{t.auto=!t.auto;if(t.auto&&!t.rev)t.rev=1;this.list();};
       const ds=document.createElement('select');ds.className='dsel';ds.title='Destination';ds.innerHTML='<option value="">Next station in turn</option>'+Track.stations.map(q=>`<option value="${q.id}">${q.name}</option>`).join('');ds.value=t.destId!=null?String(t.destId):'';
       ds.onchange=()=>{t.destId=ds.value?+ds.value:null;t.lastStation=null;ds.blur();this.list();};if(Track.stations.length>1)r.append(go,au,ds);else r.append(go,au);el.appendChild(r);}
-    if(!Trains.list.length)el.innerHTML='<p class="hint">No trains yet. Tap Add train and drag it onto the track.</p>';},
+    if(!Trains.list.length)el.innerHTML='<p class="hint">No trains yet. Tap the add-train button (loco with +) and drag it onto the track.</p>';},
   active:false,
   enter(){this.active=true;if(!Trains.list.length)this.startPlace();$('#bar').classList.add('hide');$('#driveBar').hidden=false;
-    if(!Sfx.on)Sfx.start();$('#btnSound').textContent=Sfx.on?'Sound on':'Sound off';if(Cam.mode==='free')Cam.setMode('follow');this.refresh();},
+    if(!Sfx.on)Sfx.start();Sfx.syncBtn();if(Cam.mode==='free'&&Trains.list.length)Cam.setMode('follow');this.refresh();},
   exit(){this.active=false;$('#driveBar').hidden=true;$('#bar').classList.remove('hide');const t=Trains.cur();if(t){t.whistle=false;Sfx.whistle(t,false);}Cam.setMode('free');},
-  refresh(){if(!this.active)return;$('#trainList').hidden=!this.listOpen;$('#dList').classList.toggle('on',this.listOpen);if(this.listOpen)this.list();$('#dAdd').classList.toggle('on',this.placing);
+  refresh(){if(!this.active)return;$('#trainList').hidden=!this.listOpen;$('#dList').classList.toggle('on',this.listOpen);if(this.listOpen)this.list();$('#dAdd').classList.toggle('on',this.placing&&!this.goodsNext);$('#dAddG').classList.toggle('on',this.placing&&!!this.goodsNext);
     const t=Trains.cur();$('#driveCtl').hidden=!t;if(!t)return;
     $('#dThrottle').value=Math.round(t.throttle*100);$('#dBrake').value=Math.round(t.brake*100);
     for(const b of document.querySelectorAll('#driveBar [data-rev]'))b.classList.toggle('on',+b.dataset.rev===t.rev);
-    $('#dAuto').classList.toggle('on',t.auto);$('#dAuto').textContent=t.auto?`Auto ${t.autoKmh} km/h`:'Auto';
-    $('#dCam').textContent='Camera: '+CAMS.find(c=>c[0]===Cam.mode)[1];$('#dRerail').hidden=!t.derailed;$('#dNext').hidden=Trains.list.length<2;},
+    $('#dAuto').classList.toggle('on',t.auto);setCap($('#dAuto'),'Autopilot',t.auto?`${t.autoKmh} km/h`:'');
+    setCap($('#dCam'),'Camera',CAMS.find(c=>c[0]===Cam.mode)[1]);$('#dRerail').hidden=!t.derailed;$('#dNext').hidden=Trains.list.length<2;},
   tick(){if(!this.active)return;const ae=document.activeElement;if(this.listOpen&&(this.lt=(this.lt||0)+1)%30===0&&!(ae&&ae.tagName==='SELECT'&&ae.closest('#trainList')))this.list();const t=Trains.cur();if(!t||this.placing)return;const kmh=t.v*3.6,g=t.poses&&t.poses[0]?t.poses[0].grade*100:0;
-    $('#dSpeed').textContent=Math.abs(kmh).toFixed(0);
-    $('#driveInfo').textContent=`${t.name}${t.rev<0?', reversing':''}, grade ${g>=0?'+':''}${g.toFixed(1)}%${t.slip?', wheels slipping!':''}, ${t.status||'standing'}${t.pax&&t.pax.length?`, ${t.pax.length} passenger${t.pax.length>1?'s':''}`:''}`;
+    const sp=Math.abs(kmh).toFixed(0),se=$('#dSpeed');if(se.textContent!==sp)se.textContent=sp;
+    const di=$('#driveInfo'),dt=`${t.name}${t.rev<0?', reversing':''}, grade ${g>=0?'+':''}${g.toFixed(1)}%${t.slip?', wheels slipping!':''}, ${t.status||'standing'}${t.pax&&t.pax.length?`, ${t.pax.length} passenger${t.pax.length>1?'s':''}`:''}`;if(di.textContent!==dt)di.textContent=dt;
     if(t.auto){$('#dThrottle').value=Math.round(t.throttle*100);$('#dBrake').value=Math.round(t.brake*100);}},
   setRev(r){const t=Trains.cur();if(!t)return;if(Math.abs(t.v)>1&&Math.sign(r)!==Math.sign(t.v)&&r!==0){UI.toast('Stop first before reversing');return;}t.rev=r;this.refresh();},
   cycleCam(){const i=CAMS.findIndex(c=>c[0]===Cam.mode);Cam.setMode(CAMS[(i+1)%CAMS.length][0]);this.refresh();},
@@ -3260,7 +3335,7 @@ const Drive={placing:false,ghost:null,listOpen:false,
     $('#dAuto').onclick=()=>{const t=Trains.cur();if(!t)return;t.auto=!t.auto;t.autoKmh=P.autoSpeed;if(t.auto&&t.rev===0)t.rev=1;this.refresh();};
     $('#dCam').onclick=()=>this.cycleCam();
     $('#dNext').onclick=()=>{Trains.sel=(Trains.sel+1)%Trains.list.length;this.refresh();};
-    $('#dAdd').onclick=()=>{this.goodsNext=false;this.startPlace();};$('#dAddG').onclick=()=>{this.goodsNext=true;this.startPlace();};$('#dList').onclick=()=>{this.listOpen=!this.listOpen;this.refresh();};$('#dRemove').onclick=()=>{Trains.remove();this.refresh();};
+    $('#dAdd').onclick=()=>{this.goodsNext=false;this.startPlace();};$('#dAddG').onclick=()=>{this.goodsNext=true;this.startPlace();};$('#dList').onclick=()=>{this.listOpen=!this.listOpen;this.refresh();};$('#dRemove').onclick=()=>{const t=Trains.cur();if(t&&confirm(`Remove ${t.name}?`)){Trains.remove();this.refresh();}};
     $('#dRerail').onclick=()=>{Trains.rerail();this.refresh();};$('#dDone').onclick=()=>this.exit();
   }
 };
@@ -4226,7 +4301,7 @@ R.init=function(){
   R.pObj=mp('objects',VS_OBJ,FS_OBJ);R.pVeh=mp('vehicles',VS_VEH,FS_VEH);R.pTrack=mp('track',VS_TRACK,FS_TRACK);R.tcTex=tex2D(256,256,gl.R8,gl.RED,gl.UNSIGNED_BYTE,null,gl.LINEAR);bindTU(26,gl.TEXTURE_2D,R.tcTex);
   R.pSky=mp('sky',VS_FS,FS_SKY);R.pWater=mp('water',VS_WATER,FS_WATER);R.pLake=mp('lake-near',VS_LAKE,FS_WATER);Waves.initGL();R.pCloud=mp('clouds',VS_CLOUD,FS_CLOUD);R.pMist=mp('mist',VS_MIST,FS_MIST);
   R.pPart=mp('smoke',VS_PART,FS_PART);R.pPrecip=mp('precipitation',VS_PRECIP,FS_PRECIP);R.pBolt=mp('lightning',VS_BOLT,FS_BOLT);R.pMark=mp('markers',VS_MARK,FS_MARK);
-  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);R.pRoad=mp('roads',VS_ROAD,FS_ROAD);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
+  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
   R.ubo=gl.createBuffer();gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferData(gl.UNIFORM_BUFFER,R.U.byteLength,gl.DYNAMIC_DRAW);gl.bindBufferBase(gl.UNIFORM_BUFFER,0,R.ubo);
   R.hdr=CAPS.halfRT?{i:gl.RGBA16F,t:gl.HALF_FLOAT}:{i:gl.RGBA8,t:gl.UNSIGNED_BYTE};
   const f1=new Float32Array([0]),f4=new Float32Array([0,0,0,0]),u4=new Uint8Array([160,0,0,0]);
@@ -4403,8 +4478,6 @@ R.buildLampMap=function(T,LM){const RS=1024,px=T.W/RS,D=R._lmD||(R._lmD=new Floa
   for(const l of LM){const i0=Math.max(0,Math.floor((l.x-r)/px)),i1=Math.min(RS-1,Math.ceil((l.x+r)/px)),j0=Math.max(0,Math.floor((l.z-r)/px)),j1=Math.min(RS-1,Math.ceil((l.z+r)/px));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot((i+0.5)*px-l.x,(j+0.5)*px-l.z);if(d>=r)continue;let a=1-d/r;a*=a;const k=(j*RS+i)*4;D[k]+=col[0]*a;D[k+1]+=col[1]*a;D[k+2]+=col[2]*a;}}
   if(!R.lampTex)R.lampTex=tex2D(RS,RS,gl.RGBA16F,gl.RGBA,gl.FLOAT,D,gl.LINEAR);else{scratch();gl.bindTexture(gl.TEXTURE_2D,R.lampTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,RS,RS,gl.RGBA,gl.FLOAT,D);}bindTU(TU.uLampMap,gl.TEXTURE_2D,R.lampTex);};
-R.drawRoads=function(){if(!R.rdCount)return;const p=R.pRoad;gl.useProgram(p.p);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-3);gl.bindVertexArray(R.rdVao);
-  gl.drawElements(gl.TRIANGLES,R.rdCount,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=R.rdCount/3;gl.bindVertexArray(null);gl.disable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(0,0);};
 R.drawStreams=function(cam){if(!R.stCount)return;const p=R.pStream;gl.useProgram(p.p);gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.runoff,0,0);
   gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-4);gl.bindVertexArray(R.stVao);gl.drawElements(gl.TRIANGLES,R.stCount,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=R.stCount/3;
   gl.bindVertexArray(null);gl.disable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(0,0);};
@@ -4802,6 +4875,8 @@ function initInput(cv){
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('wheel',e=>{e.preventDefault();Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});
   const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;keys[e.key.toLowerCase()]=1;});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=0;});
+  // a key held while the window loses focus never sends keyup: forget held keys so the camera does not drift on
+  addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});
   Cam.keys=keys;
 }
 // drag right -> world follows the finger; drag down -> pull the ground towards you
@@ -4866,7 +4941,9 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   exportJSON(){const s=snapshot();if(this.T)s.world=this.T.stats;download(`trein-state-${stamp()}.json`,JSON.stringify(s,null,2));Log.info('state exported');UI.toast('JSON exported');},
   importJSON(file){const r=new FileReader();r.onload=()=>{try{applySnapshot(JSON.parse(r.result));this.camLoaded=true;this.generate(0);UI.toast('Imported '+file.name);}catch(e){Log.err('import failed '+e);UI.toast('Import failed: '+e.message);}};r.readAsText(file);},
   exportLog(){const s=snapshot();download(`trein-log-${stamp()}.txt`,Log.text()+'\n\n--- state ---\n'+JSON.stringify(s,null,1),'text/plain');UI.toast('Debug log exported');},
-  resetAll(){for(const id of PORDER)P[id]=PDEF[id].def;Track.load(null);applyPreset(P.preset,true);UI.refreshAll();this.camLoaded=false;this.placedCam=false;R.setupShadows();this.generate(0);}
+  resetAll(){if(!confirm('Reset every setting to its default and remove all track, trains and roads? This cannot be undone.'))return;for(const id of PORDER)P[id]=PDEF[id].def;Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
+    // roads, bus stops, buses, village growth and money used to survive a reset
+    Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;applyPreset(P.preset,true);UI.refreshAll();this.camLoaded=false;this.placedCam=false;R.setupShadows();this.generate(0);}
 };
 
 // ---- quick sky sheet: time, speed, season and weather without opening the settings
@@ -4875,12 +4952,12 @@ const Sky={bind(){$('#btnSky').onclick=()=>{const s=$('#skySheet');s.hidden=!s.h
     for(const b of document.querySelectorAll('#skySheet [data-speed]'))b.onclick=()=>{P.timeSpeed=+b.dataset.speed;UI.refresh('timeSpeed');this.refresh();};
     for(const b of document.querySelectorAll('#skySheet [data-season]'))b.onclick=()=>{P.season=b.dataset.season;UI.refresh('season');this.refresh();};
     for(const b of document.querySelectorAll('#skySheet [data-wx]'))b.onclick=()=>{P.weather=b.dataset.wx;UI.refresh('weather');if(P.weather==='auto')Weather.autoT=0;this.refresh();};
-    $('#skyMusic').onclick=()=>{P.music=P.music?0:1;UI.refresh('music');if(P.music&&!Sfx.on){Sfx.start();$('#btnSound').textContent='Sound on';}this.refresh();};
+    $('#skyMusic').onclick=()=>{P.music=P.music?0:1;UI.refresh('music');if(P.music&&!Sfx.on){Sfx.start();Sfx.syncBtn();}this.refresh();};
     $('#skyClose').onclick=()=>{$('#skySheet').hidden=true;};},
   refresh(){const s=$('#skySheet');if(!s||s.hidden)return;$('#skyTime').value=P.timeOfDay;
     for(const b of s.querySelectorAll('[data-speed]'))b.classList.toggle('on',+b.dataset.speed===P.timeSpeed);
     for(const b of s.querySelectorAll('[data-season]'))b.classList.toggle('on',b.dataset.season===P.season);
-    for(const b of s.querySelectorAll('[data-wx]'))b.classList.toggle('on',b.dataset.wx===P.weather);$('#skyMusic').classList.toggle('on',!!P.music);$('#skyMusic').textContent=P.music?'Music on':'Music off';},
+    for(const b of s.querySelectorAll('[data-wx]'))b.classList.toggle('on',b.dataset.wx===P.weather);const mb=$('#skyMusic');mb.classList.toggle('on',!!P.music);setIcon(mb,P.music?'music':'musicOff');setCap(mb,P.music?'Music on':'Music off');},
   clock(){const h=Math.floor(P.timeOfDay),mi=Math.floor((P.timeOfDay-h)*60),z=n=>String(n).padStart(2,'0');const S=P.season[0].toUpperCase()+P.season.slice(1);
     const t=`${S} ${z(h)}:${z(mi)}, ${Weather.label()}`;const el=$('#clock');if(el&&el.textContent!==t)el.textContent=t;const b=$('#btnSky');if(b)b.textContent=`${z(h)}:${z(mi)}`;}};
 // automatic resolution: drops the render scale (never above the chosen one) when the frame rate sags, e.g. when the phone heats up
@@ -4915,7 +4992,7 @@ async function boot(){
   $('#btnMenu').onclick=()=>{$('#panel').classList.add('open');$('#bar').classList.add('hide');};
   $('#btnClose').onclick=()=>{$('#panel').classList.remove('open');$('#bar').classList.remove('hide');};
   $('#btnGen').onclick=()=>App.generate(0);$('#btnSave').onclick=()=>App.save();
-  $('#btnBuild').onclick=()=>{if(!Sfx.on)Sfx.start();$('#btnSound').textContent='Sound on';Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
+  $('#btnBuild').onclick=()=>{if(!Sfx.on)Sfx.start();Sfx.syncBtn();Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
   const on=(sel,fn)=>{for(const b of document.querySelectorAll(sel))b.onclick=()=>fn(b);};
   on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-rtool]',b=>{Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rStart').onclick=()=>{Roads.a=null;Build.hint();};$('#rAddBus').onclick=()=>Buses.add();$('#rAddLorry').onclick=()=>Buses.add(true);on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
   on('#buildBar [data-dir]',b=>Build.setDir(+b.dataset.dir));on('#buildBar [data-slope]',b=>Build.setSlope(b.dataset.slope));on('#buildBar [data-prefer]',b=>Build.setPrefer(b.dataset.prefer));
@@ -4925,7 +5002,9 @@ async function boot(){
   $('#cA').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'fix':'cross');$('#cB').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'asis':'junc');$('#cC').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'none':'cancel');
   $('#bBridges').onclick=()=>Build.toggle('trackBridges');{const nm=['Stone arch','Brick arch','Steel truss','Plate girder','Concrete','Timber trestle'],up=()=>{$('#bBridgeType').textContent=nm[+P.bridgeType|0];};up();$('#bBridgeType').onclick=()=>{P.bridgeType=((+P.bridgeType|0)+1)%6;UI.refresh('bridgeType');up();};}$('#bTunnels').onclick=()=>Build.toggle('trackTunnels');
   $('#btnRemove').onclick=()=>Build.toggleRemove();$('#btnBuildOK').onclick=()=>Build.confirm();$('#btnDiscard').onclick=()=>Build.discard();
-  $('#btnDrive').onclick=()=>Drive.enter();$('#btnSound').onclick=()=>Sfx.toggle();Drive.bind();Sky.bind();
+  $('#btnDrive').onclick=()=>Drive.enter();$('#btnSound').onclick=()=>Sfx.toggle();Drive.bind();Sky.bind();Sfx.syncBtn();
+  // sound and music pause while the tab is in the background (they used to keep playing with the screen off)
+  document.addEventListener('visibilitychange',()=>{if(!Sfx.ctx)return;if(document.hidden)Sfx.ctx.suspend();else if(Sfx.on)Sfx.ctx.resume();});
   $('#errLog').onclick=()=>App.exportLog();
   try{
     for(let i=0;;i++){try{initGL($('#gl'));break;}catch(e){if(i>=5)throw new Error('Chrome would not start 3D graphics (WebGL2). This happens after the phone resets the graphics: close this tab completely (or force-stop Chrome) and open the file again.');
