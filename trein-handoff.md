@@ -1,0 +1,613 @@
+# Trein handoff 41 (1 Nov 2026): v2.6.1 (touch camera)
+
+Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
+
+## Ground rules
+- Toy low-poly models, with photo-real light, water, clouds and mist.
+- Three rounds; each one is tested on the Pixel 9a before the next.
+- Keep each reply small: earlier long replies were cut off.
+- Add a setting whenever something is uncertain.
+
+## Done in 1.1.0-a (step 1, fixes)
+See handoff 2. In short:
+- Water depth is now computed analytically; the water skirts are gone.
+- The bank level is extended outward (`R.waterRender`).
+- Depth buffer is DEPTH_COMPONENT32F.
+- Smoothed normal map `uNorm` (unit 12) picks the terrain materials.
+- Shadow bias is in metres.
+- Tunnel cover: `T.tunMask`, a cut-and-cover mound, and `TUN_PORTAL`.
+- Mist cards face the camera.
+
+## Done in 1.1.0-b
+- **Tunnels, tested headless:**
+  - Cuttings no longer fill with phantom water. Dry cells now get level H−30; the bank extension is tagged a=0.25.
+  - The water texture is re-uploaded in `R.updateTerrain`.
+  - The portal face top now follows the hillside per column (`topAt`), sampled 2.5 m into the hill.
+- **Contact-hardening shadows:**
+  - `uShadowRaw` (unit 13) reads the same shadow texture through a sampler object with compare mode NONE (`R.bindSh`).
+  - Blocker search (6 taps), then a penumbra from the blocker distance, then 8-tap PCF.
+  - Shadows are sharp at trunks and soft further away or under overcast skies.
+- **Lighting:**
+  - `lightS(alb,N,W,ao,sh,rough)`: normalized Blinn-Phong sun specular, Fresnel sky reflection, and wetness lowers roughness.
+  - `light()` uses rough .82; `lightD()` is diffuse-only (water, and the vehicles' own reflections).
+- **Sky light and bounce:** sky light is brighter on the sun side. Ground bounce is green and scales with the sun (`gndA` in `R.atmos`).
+- **Object AO:** objects darken near the ground, and tree canopies darken underneath.
+- **Height haze:** aerial perspective in `fogc`; haze is thick in valleys and thin over peaks and in high views.
+- **Auto exposure:** new setting `autoExpo` (Look tab), eye adaptation based on sun plus sky light.
+- **GPU reset handling:**
+  - No automatic reload any more. On reset it saves to `trein.recover` and shows a Restart button after 4 s; it reloads if the context comes back.
+  - Boot retries WebGL2 up to 6 times on a fresh canvas, then explains that the tab must be closed.
+
+## Village growth plan (agreed, 3 prompts)
+1. **Done in 2.1.0** (this prompt): levels, labels, village panel with instant growth, tap-a-train.
+2. **Done in 2.2.0**: agriculture becomes an upgrade (no spontaneous fields, pastures, herds, farmstead or tractors). Unlocked once a village has reached a size and done some transport; then a visual cue (badge on the label) shows it can be bought. Buying gives growth points.
+3. **Done in 2.3.0**: level effects beyond houses: more people and passenger/bus/train demand; unlock buildings (church, inn, market, station hall), market stalls on the square, bakeries, restaurants.
+
+## Done in 2.6.1 (touch camera, from the user's touch log)
+- **What the log showed** (2.6.0, ~45 fps): 136 two-finger frames in mode "-" (no response until 14 px had built up), then a hard lock to either `twist` (872 frames: rotate + zoom) or `tilt` (117), never both. One-finger pan moved the target by a fixed scale (dist·0.0016 per px), so the ground slid under the finger.
+- **One finger (free camera)**: `grabPan` keeps the ground point under the finger under the finger. It intersects rays with the horizontal plane through the target (`groundUnder`, no ray-march), caps a step at dist·0.25, and falls back to `camPan` near the horizon. It tracks a smoothed velocity (`Input.pv`); lifting within 90 ms of the last move hands it to `Input.vel`, and the momentum decays at exp(−3.5 t).
+- **Two fingers**: no mode lock and a 4 px dead zone. Every frame applies all of:
+  - rotation (da, gated above 0.25 px of arc);
+  - zoom (ds, gated similarly), which also pulls the target toward the ground under the pinch centre so the point between the fingers stays put;
+  - tilt from parallel vertical motion (both fingers moving the same way: sign × min |dy|) × 0.0065.
+  - Build mode keeps the old pinch / rotate / pan.
+- Logged as tilt / twist / tilt+twist (`Input.prev` holds per-finger positions; `Input.live` is the dead-zone flag).
+- Tested headless with synthetic pointer events: the grab-pan ground error is 0.00 m and momentum is set on release; one twist-and-slide gesture changed yaw +0.36 and pitch +0.28 together.
+
+## Done in 2.6.0
+- **Industries are generic**: `Life.nearSawSlot` searches sawmills and workshops (returns kind, mi, k, slot, m); `Life.indName`. Attachments use `st[kind]` / `stop[kind]` = {mi, k} (`sawmill` or `workshop`); the save keeps both on bus stops.
+- **Station tool** (Build → Signals → Station):
+  - Free sides of sawmills and workshops show the post markers only while this tool (or Roads → Bus stop) is active.
+  - A tap within 38 m of a free side snaps there: the station goes on track already along that side, or else on a new 70 m siding laid along the side (`Build.makeSiding`: two nodes, one straight segment, `App.trackChanged`, €7,700 when money is on).
+  - A tap away from any track also lays a siding, parallel to the nearest track within 200 m, otherwise across the view, so stations can go anywhere; join its free ends to the line.
+- **Wood workshops** (generate, before sledding): about one per 3 villages, the largest villages first, not near a sawmill, on open ground (lowest tree density) 50–220 m outside the village; levelled, with a gravel lane.
+  - `workshopMesh` (joinery, cartwright and cooper): brick shop with a 4-tooth north-light sawtooth roof (glazed), chimney, open double doors on a lit workbench, long side window; half-timbered gable office with a lit window and a projecting trade sign topped by a big chair; open timber-drying lean-to with racked planks; sticker-stacked delivery stack; outside: chairs and a table, barrels, cart wheels against the wall, a finished hay cart, a sawhorse, a shavings heap.
+- **Wood now goes only to workshops**: `Goods.woodSink(k, x, z)` is true for points attached to a workshop or within 250 m of one; villages no longer accept wood. Cranes stand at attached workshop sides too, and swing while a goods train or lorry is there (same animation).
+- **Levelled plots** (`Life.levelPlot`): the average height over the oriented footprint goes into T.H and the flat mask, blended over a 9 m margin with smoothstep. Used for sawmills (20 × 15) and workshops (17 × 13). Instances use the levelled y.
+- **Industry labels** (`IndUI`): round gold badges, 🪚 sawmill and 🪑 workshop, above each within 2.6 km (hidden in track-building modes other than Signals/Roads). A tap opens the shared `#vPanel` with what it does and its loading sides.
+- **Sawmill extras**: 3 more log decks around the yard, 2 sawhorses with logs and a bow saw, a two-man crosscut saw resting on posts, a timber wagon loaded with logs, a big circular saw-blade sign with teeth on the mill gable.
+- Tested headless: workshop and sawmill render with their badges. Snapping a station siding and the workshop cranes not checked by eye.
+
+## Done in 2.5.0
+- **Chimney smoke bug**: `Life.smoke` looped over all houses (only skipping `gone`), so hidden higher-level houses smoked. It now uses `houseOn(h)` and skips shops.
+- **Sawmill redesign** (`sawmillMesh`, plot 40 × 30, +x faces the village):
+  - Log deck on skids feeding an inclined jack ladder with a log on it into a long board-and-batten mill house (corrugated gable roof, windows, open infeed end showing the big circular head saw on its carriage, lumber outfeed rollers with boards).
+  - Brick engine house with a tall brick stack and spark arrester.
+  - Sawdust heap and slab pile; 4 sticker-stacked lumber drying piles on bearers; timber office with a porch and a lit window.
+  - Generation: flat check radius 24, levelling r 26, clearing r 36.
+- **Loading sides**: `Life.sawSlots(m)` = back (local −24, 0), left (0, +18), right (0, −18), each with an orientation and an inner pile point.
+  - Rail: a station placed within 45 m of a slot attaches (`Life.attachSawmill` on creation: `st.sawmill` = {mi, k}, named "<village> Sawmill").
+  - Lorry: the Bus stop tool tapped within 32 m of a free slot snaps a loading bay there (€12,000), building a 20 m gravel apron plus a gravel road to the nearest road if needed (`stop.sawmill`).
+  - Attached points get +0.18 wood/s on top of the normal sawmill reach.
+  - In build mode the free slots show white-and-orange post markers (`slotMarkMesh`).
+- **Log cranes**: at each attached side, a yellow derrick crane (`craneBaseMesh`: lattice mast, winch house) with a swinging jib (`craneJibMesh`, instance yaw), and a log pile at the inner point (`logPileMesh`).
+  - While a goods train (`atSt`, wagons) or a lorry (dwell at that stop) is loading, the jib cycles every 8 s: hook at the pile, swing with a log bundle (`logBundleMesh` at the tip), set down at the vehicle side, swing back. Otherwise it rests over the pile.
+  - Computed in the dynamic part of `prepare`; `near` isn't defined in the static block.
+- **Classic tractor** (`tractorMesh`): big rear tyres with 14 lugs and paint-coloured rims, narrow front axle with small wheels, transmission housing, long bonnet with a slatted grille, headlamps, fuel tank and radiator cap, upright exhaust with a rain cap, open platform with fenders and footboards, pan seat on a spring post, angled steering column and wheel, drawbar and 3-point links. Paint via mat 20.
+- Tested headless: sawmill with a lorry bay on its left side, crane, pile and road; the tractor parked in a farm yard looks like a 1950s tractor.
+
+## Done in 2.4.0 (goods)
+- **Goods** (`Goods`), setting `goodsRate`:
+  - Loading points are train stations (`'st:'+id`) and bus stops (`'bs:'+id`), each with stock {grain, produce, mail, wood}, capped at 60, produced every second.
+  - Production within reach: farming villages' farmsteads within 650 m give grain 0.05/s and produce 0.035/s; villages within 500 m give mail 0.02·(level + 1)/s; sawmills within 650 m give wood 0.06/s.
+  - Acceptance (`accepts`): grain and produce need village level ≥ 1 (bakery or market); mail and wood any village.
+  - `deliver` pays units × Manhattan km × rate (grain 60, produce 80, mail 120, wood 50) × fareRate, adds 0.6 growth per unit to the receiving village, and shows a floating "−5 🌾 3 ✉️". `load` fills the hold (origin recorded per type) and shows "+…".
+  - The village panel shows accepted goods and what's waiting at its stations and stops.
+- **Goods trains**: "Add goods train" in the Trains bar (`Drive.goodsNext`) → `Trains.goodsConsist(n)` = loco, tender, then (n + 2, at least 4) two-axle wagons cycling grain hopper / covered van (produce) / mail van (PTT green, yellow band) / timber flat with logs. Meshes 6–9 (`wagonMesh(t)`), `VEH.wagon` len 9.4. Capacity 20 per wagon; cargo on the wagon objects (`ctype`, `n`, `fx`, `fz`, `from`).
+  - At stations `Life.stop` hands goods trains to `Goods.trainStop` (no passenger boarding). Seated passengers aren't drawn in goods trains.
+- **Lorries**: "Add lorry" in Build → Roads. They are `Buses` entries with `goods:true` (same routing and driving); at stops `Goods.lorryStop`: deliver, then load up to 16 units spread over the four types. `lorryMesh`: blue 1950s cab with rounded bonnet, flatbed with canvas tilt, headlights. Drawn as `lorries`, split from buses.
+- **Sawmills** (generate, before sledding): about one per 3 villages, at the densest forest 120–380 m from a village (32 m tree grid), flat and clear of water, roads, track, houses and fields; levelled, cleared, with a gravel lane to the village. `sawmillMesh`: open saw shed with a circular saw, timber office, brick boiler chimney, log piles, plank stacks. `Life.sawmills`.
+- Tested headless (money on): a lorry between Hoogveld (farm bought) and Dennenburg (town) earned €1,010 and gave Dennenburg 7.8 growth; 3 sawmills; screenshot of a sawmill. Goods trains and wagons not visually checked (no track in the test).
+
+## Done in 2.3.0 (village growth part 3)
+- **Demand by level** (lv 0/1/2):
+  - Walkers heading to a station: spawn chance 0.18·(1 + 0.7·lv), queue cap 6 + 6·lv.
+  - Bus stops: waiting rate 0.05·people·(1 + 0.9·lv), cap 16 + 12·lv.
+  - Houses (and so strollers) grow with the level as before.
+- **Shops**: at generation the 3 plain houses nearest the square (r ≤ 6.5) become shops: bakery (lvl 1), restaurant (lvl 2), second bakery/café (lvl 2). Flag `h.shop`; they're excluded from the house instances and drawn as `bakeryMesh` (brick, lit shop window, striped awning, hanging bread sign, crates of loaves, bench) or `restaurantMesh` (plastered, lit dining windows, green awning, terrace with 5 tables, chairs and parasols, menu board). The front is local −z, like houses.
+- **Market** (static, rebuilt on level change): stalls on the square ring (plaza r − 3.2), skipping the street axes. Village: 4 stalls (one per quadrant); town: 16. `stallMesh`: posts, counter, produce crates, striped awning (mat 20 colours). Between 7 and 19 h vendors stand behind the stalls and some shoppers in front (`marketPeople`, via the people list).
+- **Station hall**: stations whose village is a town get `stationHallMesh` (20 × 8 brick hall, tall lit arched windows, slate roof, central clock tower with 4 clock faces and a spire, platform canopy on columns), placed 9.6 m out on the platform side, rotation + π so the canopy faces the track. Recomputed each frame from `stInfo`.
+- The village panel row lists what the level brings.
+- Tested headless: a town square with a full ring of market stalls and vendors, the church, and the restaurant terrace. The station hall isn't visually checked (no station in the test).
+
+## Done in 2.2.0
+- **Transport grows villages**: every passenger boarding or alighting at a station (train `Life.stop`) or bus stop (`Buses.update`) belonging to a village adds 1 to `v.trans` and 0.5 growth points.
+- **Farming upgrade**:
+  - `Life.FARM` = {level 1 (Village), trans 40, cost 60000, growth 60}.
+  - `Life.farmState(v)` returns none (no fields planned) / locked / available / owned; `Life.buyFarm(v)` (charges when money is on) sets `v.farmOwned`, re-uploads fields, reschedules farm work and adds 60 growth.
+  - `Life.farmOn(f)` gates everything agricultural: `R.uploadFields` skips fields of non-farming villages (their land stays meadow, and field-work texels have no effect), herds and animals (update and draw), fences (now carry `f`), farmstead buildings (static upload), farm lane and yard (`vRoads.farmOf`), and tractors (want = 0 unless owned). Jobs on unowned fields are never taken.
+  - Saved per village (`farm`, `trans`) and restored with `pendingV`.
+- **Cues**:
+  - The village label gets a pulsing gold 🌾 badge when the upgrade is available, and "· farming" once owned.
+  - The panel shows the requirement with progress (size ✓ and passengers n/40), or a highlighted "Farming upgrade available — Buy €60.000", or the owned summary.
+  - Test button "+20 passengers (test)" alongside the growth buttons.
+- Tested headless: Hoogveld locked → (grow to village and 45 passengers) available → bought: owned, 1 tractor, 3 herds active, growth 100 → 160.
+
+## Done in 2.1.0
+- **Levels** (`Life.LEVELS`: Hamlet 0, Village 100, Town 300 growth points). `v.gp` and `v.level` are saved in the snapshot as `villages` and restored via `Life.pendingV` once villages exist. Every village starts as a hamlet.
+- **What a level reveals**:
+  - Houses get `h.lvl` at generation from their placement order (first 35% → 0, next 35% → 1, rest → 2; houses on side lanes are at least 1). The church and inn are lvl 1.
+  - Streets: main and cross street lvl 0, side lanes lvl 1 (`vRoads` entries carry `vil` and `lvl`).
+  - Lamps: lvl by street and position. `Life.houseOn(h)` = not gone and lvl ≤ village level; it is used for house instances, walker spawning and garden paths. Roads and lamps are filtered by level in `rebuildRoads` and the static upload.
+  - `Life.addGrowth(v, pts)` recomputes the level, re-uploads, sets `roadsDirty` and toasts. `Life.growNow(v)` jumps to the next level.
+- **Village labels** (`VillageUI`): DOM pills (name in gold serif, level below) projected above each village within 3.2 km, faded with distance, hidden while building. A tap flies the camera there; a 480 ms hold opens `#vPanel` (houses, growth points with progress bar, +10, +50, Grow to next level now, a note about future growth sources).
+- **Tap a train**: `pickTrain(sx, sy)` finds the nearest projected vehicle centre (34–80 px). Outside build/drive a single tap selects it and opens the Trains controls; in drive mode it switches the selected train.
+- Tested headless: labels over villages; Dalwijk grown hamlet → town; the panel shows 23 houses, 300 points, fully grown.
+
+## Done in 2.0.0
+- **Build → Roads** mode (`#mRoads`, `Roads` module): tools Road (follow land) / Straight / Bus stop / Remove, plus Start over and Add bus. Hooked via `Build.tap` (`mode==='roads'`), `Build.ui`, `Build.hint`.
+  - Road: tap points in a chain. Each leg uses `Life.routePath` (5 m grid, prefers existing roads 0.6, bridges, maxG 0.32), or a straight line in Straight mode or when routing fails. Taps snap to roads within 6 m.
+  - Roads are stored in `Roads.list` {p, w 1.4, kind 1, player} and join `Life.roads` in `rebuildRoads` (decal, bridges, level crossings) and are stamped into `roadKill` (`Life.stampRoad`) so routing prefers them. Saved in the snapshot as `roads`.
+  - Cost €45/m (money mode).
+- **Gravel look**: the road distance-field texture's G channel now carries the surface kind (0 cobbles, 1 gravel). `FS_TERRAIN` gravel: pebble noise, two darker wheel ruts (0.42 m in from each edge), a grass crown, darker when wet; only half the snow-clearing of cobbled streets.
+- **Bus stops**: tap a road; the stop goes 1.6 m beside the road edge, named after the nearest village (within 500 m), €8,000. `busStopMesh`: yellow-green "H" sign on a pole, glazed shelter with bench. People wait (accumulating 0.06·people per second near a village, max 24); up to 6 are shown standing.
+- **Buses** (`Buses`, Add bus €35,000; needs 2+ stops):
+  - Each bus visits all stops in order, routing along roads (routePath road 0.12, cached per start/stop) and driving 0.75 m right of centre: up to 11 m/s, braking 1.2 m/s² into the stop, 8 s dwell.
+  - At each stop passengers whose destination it is get off and pay a fare (same `Money.fare` as trains: distance × speed factor) with "−" icons; then up to 30 aboard, destinations random other stops, "+" icons.
+  - `busMesh`: 1950s two-tone (red lower, cream rounded roof), window band with pillars, chrome strip, front grille, headlights (glow at night), destination board. Kind 16, pitched on slopes.
+  - The bus count is saved; buses are re-created at load.
+- Tested headless (money on): a gravel road leg built; 2 stops (Dalwijk, Meerhaven); a bus over 300 s simulated earned €9,874 (+€3,052, +€3,591, +€1,077 …); screenshot shows the bus at a stop with waiting people and the income log.
+
+## Done in 1.9.4
+- **Forest on 8 km worlds**: `genVegetation` has a 170k tree cap (maxT) and scanned the grid row by row, so on 8 km the cap was hit partway down and the rest stayed bare. For W > 4096 the grid is now visited in a scrambled deterministic order (idx = kk·1000003 mod total), so a cap thins the forest evenly everywhere. Worlds ≤ 4 km keep the old order (same trees as before). The cap itself is unchanged (performance; user to decide).
+- **Castle** (setting `castle`, chance 0.6, apply life):
+  - Site: 900 random samples, keeping summits above 35% of max height whose 24 m ring varies < 14 m, scored by height plus drop to the 70 m ring.
+  - The site is levelled at the summit (r 32), trees cleared (r 48), and a winding road (routePath, maxG 0.32) runs from 30 m out of the gate to the nearest village street end if that village is within 1.8 km.
+  - `castleMesh`: rock plinth and terrace; ochre-brick gatehouse with crenellations, 2 corner towers and an arched gate; courtyard walls; white Palas (26 × 13 × 26 m) with 5 storeys of arched windows (some glowing at night, mat 9) and a steep slate roof with white gables; 4 corner turrets; Throne Hall bay with balcony and conical roof; tall slender stair tower (~44 m + spire); square tower with pyramid roof; bower wing with 2 turrets; gilded finials. +x is the gate side.
+  - Static instance `castle`, drawn with the barns (casts shadows). `Life.castle` = {x, z, y, rot}.
+- Tested headless: the castle sits on a summit and reads clearly as Neuschwanstein-like (white palace, slate spires, red gatehouse).
+
+## Done in 1.9.3
+- **Rain**: drop count max 6000 → 3200, streak alpha 0.35 → 0.17.
+- **World size**: option 8192 "8 × 8 km (experimental)" added. Nothing else changed (user asked to be consulted first on performance). With mapRes 512 the height map cell becomes 16 m (coarser terrain); vegetation, rocks, fields and villages scale with area (generation time and memory roughly 4× the 4 km world); the road distance field (2048²) gives 4 m/texel and the lamp map (1024²) 8 m/texel; the mist map (128²) 64 m cells. Proposed (not done): scale mapRes to 1024 for 8 km, cap vegetation counts, raise road/lamp map sizes.
+- **Street lights**: lamps were part of the 24 nearest dynamic lights (sorted by distance to the focus), so far ones were dark. All lanterns are now rasterised into `R.lampTex` (1024² RGBA16F, unit 27 `uLampMap`, rebuilt with the static instances), and `pools()` samples it × uMisc.x (night window factor). The 24 slots stay for stations and train headlights.
+- **Destination dropdown**: `Drive.tick` rebuilt the train list every 30 frames, closing the native picker. It now skips while a select inside `#trainList` is focused, and blurs after a change. Styled as `select.dsel` (dark green, gold border, rounded, custom arrow).
+- **Farmsteads** (generate, after fields; fields now carry `f.v`):
+  - Placement: one per village with arable fields, on the village edge toward its fields' centroid (40 tries; flat within 8 m; clear of water, roads, track, houses and fields).
+  - Ground levelled within 20 m, trees cleared within 30 m, a cobbled yard disc and a lane to the nearest street.
+  - `v.farm` = {barn, shed, silo, yard, unload, rot}.
+  - Meshes: `barnMesh` (brick, steep tiled gable roof, green doors with white X-braces, windows, loft door, weathervane), `shedMesh` (open machine shed, mono-pitch roof), `siloMesh` (2 corrugated silos with cones, ladders, red bucket elevator with spouts, a loading shed).
+- **Farm work** (`updateFarm` rewritten):
+  - Tractors live at the farm yard. They only take jobs when home (preferring their own village's fields), hitch the matching implement (`TOOL`: harvest → combine, plough → plough, sow → seed drill, harrow → disc harrow), drive out along roads, and drive home after each job, where the implement is unhitched.
+  - Spring is now harrow (ploughed → harrowed), then sow.
+  - Harvest: a grain cart (tractor + red tipping trailer) escorts the combine 5.5 m to the side. When the field is done it drives to the silos' unload point, tips for 8 s (dust), then goes home.
+  - Straw bales are scattered on the stubble after harvest; the plough removes those within 7 m as it passes.
+  - New meshes: harrow, trailer, bale.
+- Tested headless (2 km): 6 farmsteads; screenshots show the barn, silos, shed and yard with a tractor, and the combine with its grain cart in an autumn field.
+
+## Done in 1.9.2
+- **Exterior check**: rendered the new loco and coaches headless. Smokebox front, lamps, copper-capped chimney, brass dome, green boiler, red buffer beam, coach windows with passengers inside and clerestory roof all show.
+  - Test-harness gotchas: `Build.pc.slope` must be one of auto/level/up/up2/down/down2 (unknown values fall through to steep down, so the track went 60 m underground); call `carveTrack(T); R.updateTerrain(T)` after building in tests.
+- **Terminus**: reversing at the buffers keeps `lastStation` (only reset when there is a single station), so trains no longer stop twice at the end station.
+- **Docks**: trees and rocks within 11 m of the dock hut and 6 m of the shore end are removed (`T.veg` arrays, scale 0) when docks are placed, after the main tree clearing.
+- **Country roads**: third routing attempt (700 m margin, coarse grid, steeper allowed) for the long way round a lake, then a straight lane for pairs under 500 m with no lake on the line. The test world's Hoogveld–Dennenburg (238 m) and Meerhaven–Steenrijk (552 m) still fail; likely separated by water. Logged as WRN.
+
+## Done in 1.9.1
+- **Money end-to-end test (headless)**: a 9-piece line beside a village, 2 stations, an auto train, money on, timetable off, people 2×, 450 s simulated.
+- **Root cause of zero income**: nobody ever boarded. `Life.stInfo` is rebuilt every frame (new station-info objects), but boarding and the station queue compared `w.st===si` by object identity, which never matched after the first frame. So trains ran empty and no fares were paid. Both checks now compare station ids (`w.st.st.id===si.st.id`).
+- **After the fix**: 11 passengers boarded at Oost, rode to West and paid €272. Walkers then went home, and the next walkers queued up.
+- **Fare tuning**: the expected trip time now allows for boarding and dwell (d/15 + 75 s instead of d/18 + 25 s). Short hops were paying the minimum 0.25 speed factor.
+- **Note**: at a terminus the train stops at the last station, reverses at the buffer and stops there again (`lastStation` resets on reversal). Harmless but costs time.
+
+## Done in 1.9.0
+- **Loco** (`locoMesh`, same wheel and rod anim hooks and positions):
+  - Footplate with red valances; splashers with brass beading over the drivers; cab steps.
+  - Boiler with 4 brass bands and handrails on stanchions.
+  - Smokebox with saddle, door (ring, dart handle, hinges) and brass number plate.
+  - Flared chimney with copper cap; dome on a base; Ramsbottom-style safety valves and whistle.
+  - Sandboxes; cylinders with covers and valve chests.
+  - Cab: front plate with 2 glazed spectacle windows (brass rims), open side cut-outs, double roof, wooden floor (mat 7), backhead with a glowing firehole (mat 4) and gauges.
+  - Buffer beam with sprung buffers and hook; 3 oil lamps.
+- **Tender**: axleboxes and leaf springs, red valance, flared coal rails, heaped coal, gold lining panels, water filler, toolboxes, handrails, rear buffers and lamp.
+- **Coach** (`coachMesh`, body ±6.75 with balconies to ±7.2):
+  - Walls built around 8 real window openings per side: outer panels in livery c1/c2, inner wood panelling, gold lining.
+  - Panelled end walls with a glazed door; end balconies with railings.
+  - Arched roof plus clerestory (livery) with small windows and lamp pots; cream ceiling.
+  - Interior: 8 bays × 2 sides of facing upholstered benches (back to back between bays), luggage racks, 4 ceiling lamps (mat 4).
+- **Glass**:
+  - `FS_VEH` `uGlass`: 2 = opaque train pass (panes discarded), 1 = glass-only blended pass (alpha 0.14 + 0.75·Fresnel, a bit more at night; premultiplied), 0 = everything else (stations and signals keep opaque glass).
+  - Panes don't cast shadows.
+  - The silhouette passengers on glass are disabled (uOcc 0).
+- **mat 7 (interiors)**: lit with 1.5·ambient + 0.22·sun + warm lamplight at night, so cabins aren't black inside the roof's shadow.
+- **Seated passengers** (`seatedMesh`, instances `seated`): up to 64 seats per coach within 260 m of the camera. A seat is occupied when a hash is below occupancy = 0.15 + pax/(coaches·16), capped at 0.9. Placed with the full pose basis (X, Y, Z), facing their bench.
+- **Coach seat camera**: CAMS gets "Coach seat". The eye is at bay 3, aisle side, 2.4 m above the rail, in the first coach, looking out of the window by default. Drag to look around (`lookYaw`/`lookPitch`, like the cab); near plane 0.12; bokeh reduced.
+- Tested headless: compiles; the coach view shows the wood interior, red benches and a seated passenger. The exterior shot was blocked by trees in my test spot, so the new loco and coach exteriors are not visually verified.
+
+## Done in 1.8.5
+- **Auto trains didn't stop at stations — three causes, all fixed** (verified headless with a built line, 2 stations and an auto train: it brakes from 5.9 m/s and stands "At Alpha"):
+  1. The stop point is the marker + min(18, L/2), but the scan drops the station event once the head passes the marker, so the target vanished mid-braking. Now `tr.stopTgt` {id, o, rem} keeps counting down the remaining distance after the event is gone. It's cleared on departure or 20 m past.
+  2. Throttle had a +0.12 bias, so near the braking curve it kept pulling. Now throttle is 0 whenever braking for something and |v| > vt − 0.4.
+  3. Since the slip fix (1.7.4) brakes are adhesion-limited, so the planned 0.6 m/s² wasn't reachable. `autoDrive` sets `tr.vCap = vt` (when braking for something) and physics clamps nv to the cap, shedding at most 1.4 m/s² — physics uses its own captured `v`, so the clamp has to sit in physics, not in autoDrive.
+- **Boarding**:
+  - Doors at both coach ends on the platform side (`door()` uses `pose.X`·±6.75 + platform normal·1.75).
+  - Open doors are drawn on every coach of a train standing at a station (`dooropen` mesh: dark doorway, door leaf slid along the side, step), oriented to the platform side.
+  - Walkers inside the platform rectangle (|along| < 22.5, 1.2 < lateral < 5.9) stand at rail + 0.85, so they're no longer clipped into the platform.
+  - Alighting walkers stay hidden until they step out of the door.
+  - `Icons`: a floating green "+" with an SVG person when someone boards, and an orange "−" when someone gets off (DOM, `Cam.toScreen`, 2.2 s, max 40).
+- **Next (requested, not started)**: redesign the steam loco and coaches with real detail; period interior; transparent windows; an in-coach/cab camera to look around and out of the windows.
+
+## Done in 1.8.4
+- **White spots (bug from 1.7.0)**: the patchy-snow threshold used centred noise `(n−.5)`, so flat cells with low noise got snow even at snowCover 0. It now uses `sw = cover·1.45 − slope·.95 − n2·.45 − n1·.3`, which is never positive without snow.
+- **Draw mode looping**: the pure-pursuit look-ahead was Rmin·0.4 (8 m at the new 20 m radius), so the target fell behind and the fit circled. Now the look-ahead is clamp(Rmin·1.2, 18, 50), trail points behind the current heading are skipped, and fitting stops if the signed turn over the last 70 steps (280 m) exceeds 1.6π.
+- **Tunnel mounds**: the cut-and-cover earth over portals ended in a cliff at d = 20 m and was all-or-nothing above a 16 m rise (spikes next to the portals). It now blends into the hillside with a smoothstep over 5–8.5 → 20 m and caps the rise at 14 m. Not visually verified (my headless tunnel test didn't frame the portal).
+- **Station pads** (`carveTrack`): around every station not on a bridge or in a tunnel, the ground within 28 m along the track and 17 m from it is levelled to rail − 0.18 m, blending over the outer 5–6 m and marked in the track mask.
+- **Sternwheeler** (replaces the side-wheel steamer):
+  - About 32 m long: low hull with a pointed bow, main deck with windows and promenade posts, saloon deck, pilot house, tall twin stacks with crowns forward (connected by a brace), flagpole, wheel frame arms aft.
+  - The wheel (`sternwheelMesh`: 12 red buckets, spokes, 2 rims, axle) is a separate instance 16.6 m behind the boat at axle height 2.45 m, turning with speed (kind 21; `iB.y` = −(angle mod 30°)/1.45).
+  - Smoke now comes from the stack tops.
+- **Not done this round**: the remaining plan items (phone test pass, further tuning).
+
+## Done in 1.8.3
+- **Docks** (in `spawnCritters`, per steamer lake): every village gets a dock if a ray from it hits that lake within 600 m and the pier can reach water with 8 m of open clearance within 46 m.
+  - Docks are skipped within 25 m of the village's beach.
+  - Dock data: shore point, direction to the water, length, head `px`/`pz`, berth `bx`/`bz` (6 m back from the head, 5.8 m to the side).
+  - Mesh (`R.buildDocks`, built in `rebuildRoads`, drawn with the bridges): plank deck on a pile frame, edge beams, railings with a gap at the berth side, bollards, 2 lantern posts, ticket hut with a red roof, door and sign.
+  - 2–4 people wait on each dock in daytime outside winter (added to the people list via `beachStand`).
+- **Steamer behaviour** (`updateSteamers`):
+  - With 2+ docks it cycles dock to dock. `setCourse` uses `waterPath`, a lake-grid A* with a shore-proximity penalty and 3× Chaikin, ending at an approach point 32 m out, then 12 m out, then the berth. It decelerates (a = 0.12 m/s²), moors bow-to-shore for 25–45 s with a little idle smoke, then leaves.
+  - With 1 dock it cruises the loop in summer; with 0 docks, the loop as before.
+  - In winter (season or ice > 0.3) it heads to the nearest dock and is laid up there. If ice > 0.5 catches it under way, it snaps to the target berth.
+- Tested headless: 3 docks on one lake; the steamer cycled 1 → 2 → 0 → 1 (15 min simulated, routing 234 ms total) and was laid up at a dock in winter. Screenshot: moored beside the dock with people waiting.
+- Note: the dock-site tree clearing in `spawnCritters` uses a local `clearZones` (spawnCritters runs after tree clearing), so a tree can still stand by a dock hut.
+
+## Done in 1.8.2
+- **Lakes as areas**: in generate, a flood fill over lake cells (water and shore ≥ 0.99) gives `Life.lakes` [{cells, area, cx, cz, lvl}] and `Life.lakeComp` (cell → lake id).
+- **Lakeside villages**: candidates with a big lake (> 6 ha) within 110 or 190 m get +1.4 score (other terms total ~2.7), so villages tend to sit on big lakes.
+- **Steamers** (setting `steamers`, chance per lake, default 0.7):
+  - Lakes over 15 ha whose centroid has 18 m clearance get a paddle steamer: black hull, white strake, saloon with windows, wheelhouse, 2 funnels with red bands, paddle boxes, mast and flag.
+  - Route: a closed loop of 32 rays from the centroid at 72% of the clear radius, smoothed.
+  - Cruises at 4.2 m/s, stops when frozen, smoke from both funnels. Kind 14 (bobbing).
+- **Beaches** (setting `beaches`, chance per village, default 0.7):
+  - At generation each village rays outward for the nearest gentle lake shore within 450 m (`v.beach` {x, z, nx, nz toward the water, lvl}); trees are cleared around it.
+  - On fine summer days (9–19 h, no rain, cover < 0.75) beaches within 1100 m of the focus fill with 16–28·people items: towels plus sunbathers (`lierMesh`), some with parasols (mat 18 colours); swimmers (head and shoulders, kind 14) paddling around inside the lake; people standing at the waterline (added to the people list via the sled-walker list, with their sled hidden at y −999).
+- **Sledding slopes**: `findHills(gen=true, fieldId)` now runs during generate (before tree clearing), skipping fields. Trees are cleared within 8 m of every run (`sledKill`), so the open slopes exist from the start. Test world: 16 runs (was 2).
+- Tested headless: 4 big lakes, 1 steamer (looks good), 5 beaches, 16 sled runs. The new village layout left 2 country-road pairs without a route (logged).
+
+## Done in 1.8.1
+- Pieces mode can now build junctions. Before, it only built from free ends, and junctions could only be made in Draw/Route mode by ending a line on existing track.
+- New "Junction" button (`#pBranch`) → `Build.branchMode()`. The next tap on track → `Build.branchAt(h)`, which uses `Net.nearestOnTrack` (it lives on Net, not Build).
+  - Mid-segment: `pc.cur` is a state at that point heading along the track, with `sj:{sid,t}`, and the first curve defaults to gentle left. The split happens only at commit (`commit`: `p.start.sj` → `Net.split` → start at the new node), so a cancelled junction leaves nothing behind. `plan_` now carries `sj` in `p.start`.
+  - Within 5 m of a node: a node with 2 links is used directly; a free end just builds from it; a node with 3 links refuses.
+  - Tapping the junction again (within 6 m) flips the branch to the other direction.
+  - The new leg leaves tangentially, so `Net.junction` classifies it as a branch, and auto-routing (1.7.3) handles it.
+- Tested in the page: laid 4 straight pieces, put a junction mid-way, placed a curve, and got one valid junction with 6 segments. Not tested by hand on the phone.
+
+## Done in 1.8.0
+- **Bridge styles**: bridge spans store their style as `sp[3]` (0 stone arch, 1 brick arch, 2 steel truss, 3 steel plate girder, 4 concrete beam, 5 timber trestle), taken from the setting `bridgeType` when the span is classified. `Net.split` keeps the style. Old saves (no `sp[3]`) are stone. The build bar has a style cycler button `#bBridgeType` next to Bridges.
+- **Geometry** in `buildTrackMesh`:
+  - Helpers: `prism` (capped), `box` (track-aligned), `bar` (member between two points), `along` (member following the track), and `pier` (battered, capped, with a plinth, skipped over track below).
+  - Stone/brick: the arch walls as before, plus a voussoir ring band, parapet coping, string course, and capped piers. This fixes the open pier tops. Brick uses closer, near-semicircular arches.
+  - Truss: Warren through truss, 5.4 m high, with verticals, top chords, portal and top lateral bracing, a steel floor, on capped stone piers with concrete caps. Spans 24–48 m.
+  - Plate girder: two I-girders (web plus flanges, depth = span/12) with stiffeners both sides, cross-frames, walkways, handrails and posts, on stone piers.
+  - Concrete: trapezoid box girder (depth = span/16), concrete parapets, single columns with hammerhead caps.
+  - Trestle: bents every 4.5 m (4 battered posts, cap, girts every 5.5 m with X-bracing), stringers and guard timbers.
+- **New FS_TRACK materials**: 6 brick, 7 painted steel (with rust streaks), 8 concrete (formwork bands, staining), 9 weathered timber.
+- **Money** (`Money`, setting `money` default off, `fareRate`):
+  - Start €200k; loan up to €500k in €50k steps (Borrow/Repay buttons in the HUD); 5% yearly interest charged per game day.
+  - `check()` runs every second. New track costs €110/m plus a bridge style cost per metre (tunnel €1400/m); stations €25k; trains €40k + €15k per vehicle. Removed track refunds 50% of what was paid; split pieces carry their paid cost across. Costs that overrun cash borrow automatically.
+  - `Build.commit` is refused when cash ≤ 0 and the loan is maxed.
+  - Fares are paid at alighting: €350·fareRate per passenger-km (Manhattan distance between boarding and alighting stations), times a speed factor clamp(1.6 − 0.6·T/expected, 0.25, 1.3), where expected = d/18 m/s + 25 s.
+  - Passengers record their origin and time at boarding (`pax.fx`, `fz`, `t0`).
+  - Floating "+€" labels rise above stations (`Cam.toScreen`), with a HUD log of the last entries. Saved in the snapshot as `money`.
+- Tested headless: all six styles rendered over a lake (screenshots looked right; brick colour toned down afterwards). Money unit-tested: building, station, refund, fare and HUD all correct. Not tested in real play (no track to drive on headless).
+
+## Done in 1.7.4 (round 3d, part)
+- **Audit**: scanned every line for code hidden behind a `//` comment. Found one from an earlier session in the train physics: `adh=...;// grip uses real gravity...tr.slip=...` had disabled wheel slip entirely. Fixed. No others found by the scan (pattern: `//` followed by `;`/`{` plus a statement on the same line).
+- **Automatic resolution** (setting `autoRes`: Off / 25 / 30 / 45 / 55 fps, default 30):
+  - `AutoRes.tick` runs from the main loop using the last 45 frame times.
+  - Below 90% of the target it multiplies `AutoRes.dyn` by 0.88, at most every 3 s, down to an absolute scale of 0.4.
+  - Above 130% of the target it raises dyn by 6% (slower), up to 1. It never goes above the chosen `renderScale`.
+  - `resizeCanvas` multiplies by dyn. The first big drop shows a toast mentioning heat.
+  - Not testable headless (no frames between evaluates).
+- **Steep pieces**: Pieces mode already has Up/Down (buildGrade) and steep Up/Down (`up2`/`down2` = maxGrade, now up to 100% = 45°). Nothing to add.
+- **Still open in 3d**: nicer railway bridges (waiting for feedback on what looks wrong), and testing on the phone.
+
+## Done in 1.7.3 (junction routing)
+- Junctions (3-way nodes with switches, `Net.junction`) already existed: they are built by ending a line on existing track and choosing "junction" after lifting the finger, and switches are flipped by tapping. Trains used to just follow the switch state.
+- **Destinations**:
+  - `Net.destOf(tr)` returns the programmed `tr.destId`, or else rotation: `tr.autoDest` starts at station (train index + 1) and moves to the next station in `Track.stations` order on arrival (`Net.arrived`, called when the train departs).
+  - A programmed destination clears once it's reached, and rotation continues.
+  - The UI train list has a destination select ("Next station in turn" or a station; shown when there are 2+ stations) and shows "→ Dest" in the row.
+- **Routing**:
+  - `Net.distMap(station)` runs a reverse Dijkstra over states (segment, direction). Successors: straight on, both branches when facing a junction from the trunk, trunk only when trailing, reverse at buffer stops for +30 m. Cached per station and cleared on `Net.changed()`.
+  - `Net.autoRoute(tr)` (start of `autoDrive`) walks up to 300 m ahead along the current switch states. At each facing junction it throws the points toward the branch with the smaller distance, unless another train is within 14 m of the points. `scan` and `next` then simply follow the switches.
+- New setting `stopAll` (default on): off means auto trains only stop at their destination.
+- Unit-tested in the page with a synthetic Y layout: the points set to the right branch for each destination; distances correct, including reversal at buffers; rotation advances. Not tested with a running train or the UI select on the phone.
+
+## Done in 1.7.2 (round 3c, part)
+- **Falling leaves** (setting `leaves`, Life tab):
+  - In autumn (`seasonW[2]` > 0.3), trees within ±80 m of the point between the camera and focus shed leaves at 60·leaves·autumn·(0.5 + wind·1.2) per second.
+  - Trees are found through a 40 m grid hash of `T.veg.trees`, cached in `Life.treeGrid` and reset on generate.
+  - Particle type 4: falls at 0.85 m/s with reduced wind drift, lifetime = drop height/0.8 so leaves expire as they land.
+  - VS spins and flutters the quad (squashed by a sine) with a sideways sway; FS draws a pointed leaf with a midrib in orange, yellow, red or brown, opaque, without the smoke noise path.
+- **Music ducking** (setting `musicDuck`): music drops to 50% while any train whistles, by up to 35% when a moving loco is within ~15–75 m of the camera, and to 85% at night.
+- **Not done (needs phone feedback)**: look and weather tuning. Leaves were confirmed spawning in tree crowns headless, but not seen on screen (no frames run between evaluates).
+
+## Done in 1.7.1 (round 3b)
+- **Timetable** (settings `timetable` default on, `ttInterval` default 30 game minutes):
+  - At each station stop the auto-driver picks the next departure slot on the game clock (`P.timeOfDay`), at or after now + dwell. Trains are staggered by list index·7 min.
+  - It waits until that time, with a 240 s real-time cap in case the clock is paused.
+  - Status reads "At X · departs HH:MM · boarding".
+  - A train never leaves while walkers are still boarding it (25 s grace beyond dwell).
+  - `tr.depT` resets on departure.
+- **Passenger check fix**: a walker reaching the door after their train has left now goes back to waiting on the platform. Before, they were added to the departed train's `pax`.
+- **Window passengers** (`FS_VEH`, `uOcc` = occupancy, seed): VS passes object-space `vL`. On coach glass (mat 2, outer faces) every window has two seats, each occupied when a hash of window/side/train/seat is below the occupancy. Silhouettes (head plus shoulders SDF) are drawn dark by day and cut out of the warm night glow. Occupancy = 0.12 + pax/(coaches·12), capped at 0.95. Locos and other meshes get 0.
+- Tested headless: compiles, no errors. Not tested with a running train (the default world has no track): boards, departure times, silhouettes.
+
+## Done in 1.7.0 (round 3a, winter)
+- **Snow cover** (`Weather.snowCover`, setting `snowRate`):
+  - Builds while it snows at dt/360·snow·rate (about 6 min of heavy snow to full).
+  - Stays through winter, losing only dt/3000 (8× faster in rain).
+  - Melts outside winter over roughly 90–210 s scaled by warmth. The old auto-fill to 0.75 in winter is gone.
+- **Terrain coverage**: patchy build-up, threshold = cover·1.3 − slope − two noise octaves, so flats and noisy patches go white first.
+- **Roads**: `Life.roadClear` (0–1) drops while it snows and rises while villagers shovel. The terrain shader clears road interiors (with a per-area noise threshold, so some streets are done before others) and piles banks along the road edges. `uRoadClear` is a per-program uniform set in `drawTerrain`.
+- **Shovellers** (`Life.shovel`): about 3 per village near the camera while roads aren't clear (fewer at night). They walk the village streets at 0.45 m/s, offset ±1 m, throwing snow puffs to the side every 1.3 s. Mesh: person with shovel and beanie, kind 13.
+- **Track**: 256² `R.tcTex` (R8, unit 26 `uTrackClear`). Every train vehicle stamps 1 (3×3 cells) and snowfall decays it. `FS_TRACK` hides the snow on sleepers and rails where it's cleared. Locos faster than 3 m/s on snowy track throw plough spray sideways from 6 m ahead (particle type 3).
+- Tested headless: snowy village with the square and streets shovelled, banks at the edges. Plough spray and track clearing not seen with a running train.
+
+## Done in 1.6.3 (round 2 loose ends)
+- **Router options**: `maxG` (grade limit, default 0.3) and `road` (cost on road cells; off-road cells cost 1.8, and rivers under roads count as bridges).
+- **Country roads**: a failed route is retried with a coarser, wider, steeper search (maxG 0.55), and any remaining failure is logged as WRN. Test world: 8 links built, 1 pair (467 m, likely across a lake) still fails. If that pair was an MST edge, the network is split there.
+- **Tractors** route to their field with `routePath(...,{road:0.3})`, so they keep to the roads, and follow the waypoints (`t.path`, `t.pi`) at 7·speed m/s. On bridge decks they use `deckY`.
+- **Level crossings** (`findCrossings`):
+  - Every non-pending track segment is sampled every 2 m into a 16 m hash; each road segment is intersected with it.
+  - Crossings are skipped where the track is more than 2.2 m above or below the ground (bridges, cuttings, tunnels), and merged within 10 m.
+  - Each crossing gets a plank deck (`R.buildCrossings`, 8 alternating planks, top at track y + 0.1, drawn with the bridges in `drawVehicles`), two St Andrew's crosses (`xbuckMesh`) on opposite corners, and two red-white booms (`boomMesh`, kind 21: angle = `iB.y`·1.45 rad about the pivot).
+  - Booms lower when any train's first or last vehicle is within 110 m (`updateCrossings`, 0.8 rad/s).
+  - `R.rebuildTrackMesh` sets `Life.xingDirty`, which re-runs only the crossing search, not the road distance field.
+- Tested headless with an injected test segment: the deck, crosses and raised booms render. Not tested with real built track or a passing train.
+
+## Done in 1.6.2 (round 2c)
+- **New settings**: `fieldSize` (scales field rectangles, apply life), `tractors` per village (0–3, default 1, live), `farmSpeed` (default 2×).
+- **Field work**: field texel row 1 `.w` = base·1000 + result·100 + progress·99, where 0 = seasonal crop look (`cropCol`), 1 = ploughed furrows, 2 = straw stubble, 3 = harrowed. `GLSL_FIELDWORK.fieldCol` shows the result on the worked part: 4 m lanes driven boustrophedon along the field's local z, matching `Life.fieldPose`. `R.setFieldWork(k, f)` writes one texel.
+- **Season jobs** (`farmSchedule`, triggered when `P.season` changes; on first load the progress is randomised):
+  - Spring: ploughed → sow (shows the crop when done).
+  - Summer: no overrides.
+  - Autumn: grain/maize/flowers get harvest (stubble), which chains into plough; potatoes and tulips get plough only.
+  - Winter: everything shows as ploughed.
+  - Pastures are never worked.
+- **Tractors** (`updateFarm`): per village they take the nearest open job, drive straight to the field (8·speed m/s), then work at 2.2–2.8·speed m/s (lane turns are included in the pace). The field texel updates every 0.25 s. Exhaust puffs come from the stack, and dust trails behind in dry weather (not when sowing).
+- **Meshes** (kind 16, pitched on slopes; mat 20 = paint red/green/blue/orange): tractor (big rear wheels, cab, exhaust, headlight), combine (header, cab, unloading pipe), plough (4 bodies), seed drill (hopper, coulters). The combine replaces the tractor during harvest; the plough or drill trails 2.6 m behind.
+- Tested headless (autumn): a tractor ploughing with the furrows appearing lane by lane behind it.
+- Not tested: spring sowing and harvest views, or many tractors driving straight across villages and lakes on their way to fields (they don't follow roads yet).
+
+## Done in 1.6.1 (round 2b)
+- New settings: `pastures` (share of farm fields, 0.35), `fences` (check); `sheep` relabelled "Herd size". CROPS weight for crop 2 = pastures, the other crops are scaled.
+- **Herds** (`spawnCritters`, `updateHerds`):
+  - One herd per pasture: sheep 40%, cows 35%, horses 25%, sized by area. 35% of horses get a foal (scale 0.62) that follows its mother.
+  - The herd centre drifts to a new random spot every 25–100 s.
+  - States: graze (head down, nibbling forward), walk back within the herd radius (sheep 6, cows 11, horses 18 m), rest (cows, head up), trot (horses, 12% of moves, 3.2 m/s across the pasture).
+  - Soft separation within a herd; targets clamped inside the field (`inFieldClamp`).
+- **Shader**: kinds 17 cow, 18 horse, 19 sheep. Head and neck beyond a pivot rotate down by `iB.y` (graze 0–1, with a chewing bob); legs below the leg-top swing with `iB.w` (gait rate: walk 5–7, trot 11). mat 19 = horse coats (bay, dark, grey, cream).
+- **New meshes**: horseMesh (mane, tail, ears, hooves), cowMesh2 (neck, head, horns, udder, tail, spots), sheepMesh rebuilt with a separate head.
+- **Fences**: post-and-rail 3 m panels (`fenceMesh`, kind 16 pitched on slopes, scaled to fit each side) 1.5 m outside every pasture, with a gate gap on the side nearest the village. Built in `spawnCritters` (`Life.fences`) and uploaded with the static instances.
+- Country links: candidate distance raised to 2600 m with a coarser grid for long roads, but the test world still routes only 5 links (not investigated).
+- Tested headless: 10 herds, 64 animals, 620 fence panels; horses of different coats with a foal inside a fence.
+
+## Done in 1.6.0 (round 2a)
+- **Country roads**, setting `countryRoads` (None / Tree / Tree + scenic loops, default 2, apply life):
+  - Kruskal MST over village pairs closer than 1900 m, plus up to 2 extra edges under 1100 m.
+  - Each road joins the closest pair of street ends.
+  - Routed with `Life.routePath`: binary-heap A* on a 7 m grid with up to 280² cells. Costs: slope (blocked above 0.3), a two-octave value-noise wander, lakes and houses blocked, river cells crossable at cost 14 when bridges are allowed. The result gets 3× Chaikin.
+  - Stored in `vRoads` (link: true, half-width 1.55) and `Life.links`.
+- **roadKill mask** (all village roads plus links): trees and rocks are cleared along roads, and fields keep off roads (`onRoad` in `fieldFree`).
+- **Station roads** now use the same router (5 m grid, bridges allowed).
+- **Bridges** (`Life.findBridges`, rebuilt in `rebuildRoads`):
+  - Wet runs along any road (2–70 m) get a bridge with a hump that clears the water level by 0.9 m.
+  - Road × mountain-stream crossings (segment intersection via a 16 m hash) get a short bridge (4.5–10 m, small hump).
+  - Mesh (`R.buildBridges`, vmesh/vq, drawn in `drawVehicles` in both passes): cobble-coloured deck, underside, parapets 0.75 m high, and piers at the ends (plus mid-span for bridges longer than 14 m).
+  - `Life.deckY` lifts walkers onto bridge decks.
+- Tested headless (2 km): 5 links, 38 bridges, a winding road with trees cleared, and a humped stone bridge over a gorge river.
+- Not checked: why only 5 of the expected 7+ links routed (likely >1900 m apart, or A* failing on the grid cap), bridges where roads meet tracks (no level-crossing visuals yet), and fps impact (minor).
+
+## Done in 1.5.1
+- **Churches**: in 1.5.0 the driveway code ended in a `//` comment that swallowed `if(vt===3)church=true;if(vt===4)inn=true;` on the same line, giving 12–17 churches per village. This is the third time this trap happened: never append a `//` comment to an inserted one-liner.
+- **Village plan**:
+  - Square (brink) of radius 10 + 5·√size at the centre (`v.plaza`, a disc in `vRoads`).
+  - The church and inn are placed first on two opposite diagonal corners, facing the square, each with a path to it.
+  - No houses within the square.
+  - Zoned house types: townhouses near the square, cottages in the middle, farmhouses and tiny cottages at the edges.
+  - 4 lamps at the square corners.
+  - Street `stampLine` (sandy halo) removed.
+- **Roads as a decal**: `R.buildRoads` now rasterises a 2048² RG16F signed distance-to-road-edge field (segments plus discs, min-union, water removed); uRoad is texture unit 25. `FS_TERRAIN` paints the setts (Voronoi with fuller jitter, mortar, kerb band, distance fade to an average colour, wet darkening) where the distance is below 0, with fwidth-antialiased edges. No more clipping, and joins merge cleanly. The ribbon mesh (`FS_ROAD` / `drawRoads`) is no longer drawn.
+- **SSR banding** (visible on mirror ice from above): rays heading back toward the camera fade out (dot with view forward); thickness tightened to st·0.9 + 0.6.
+- Tested headless: no errors; one church on the square with the inn opposite; roads lie flat in the ground.
+
+## Done in 1.5.0
+- **Defaults**: renderScale 0.54, vegBudget 40000 (the plant budget), villageSize 2.5, villages 8.
+- **Smoke fix**: the noise used to be sampled at (centre + N·size)/size, so it swam through the puff as the puff moved and grew. It is now in puff-local coordinates (N·0.47 + seed) with a slow churn. Fade-in is over 18% of life and fade-out over the last 50%.
+- **Objects**:
+  - kind 15 = skaters: side-to-side roll with stride (`iB.w` = stride rate rad/s, `iB.y` = wobble amount) and a push-out of the outer foot.
+  - kind 16 = sleds: pitch from `iB.y` (0.5 = level).
+  - mat 18 = beanie/helmet colours.
+  - New meshes: skater (beanie with pompom, boots, blades), hockeyP (helmet and stick), speedskater (crouched, arms on back, long blades), hgoal, puck, sled, sledder.
+  - Cute lantern street light replaces the old lamp; its light sits at y + 3.3.
+- **Skating** (`Life.sk`, `spawnGroup` / `nextSeg` / `updateSkaters`):
+  - Group leaders follow chained cubic Béziers (`bzP` / `bzD`); each new segment is checked on ice via `iceOK` with a margin. Followers sample the leader's history (one point per 0.25 m).
+  - Group types: loner, couple (side by side), family (adult(s) plus 1–2 wobbly kids at 0.62–0.72 scale), train (4–8 in a line), speed (3–6 Elfstedentocht-style pack, 7.5–10 m/s, long 60–150 m curves, at most 2 packs).
+  - Target ~170·people·daylight skaters.
+  - Hockey (`startHockey` / `updateHockey`): 34×17 m rink fully on ice, 2 teams of 5 (goalie plus 4); the nearest player chases the puck, others hold support spots, shots and passes, goals reset the puck. Two goals and a puck are drawn.
+- **Sledding** (winter with snowCover > 0.25): `findHills` traces steepest descent from points 40–240 m around each village (≥ 30 m long, mean grade 12–75%, away from houses and water, open slopes only via a tree grid hash), up to 2 per village. Sledders ride down with gravity, friction and drag, wait at the bottom, walk back up 2.6 m to the side pulling the sled (walker plus `sleds` instance), wait at the top, then repeat.
+- **Roads**:
+  - Villages larger than R 60 get 2 extra side lanes.
+  - `Life.vRoads` = streets (half-width 1.75 main/cross, 1.4 lanes) plus a garden path from every house front to its street (0.6).
+  - Lamps every 18 m along streets.
+  - `R.buildRoads` drapes ribbons on Hr +0.06 in 2 m steps and drops pieces over water. `FS_ROAD` = Voronoi setts (0.3 m) with mortar, kerb stones, fading to an average colour in the distance, darker when wet, partly snow-covered. Drawn opaque right after the terrain with polygon offset (−1, −3).
+- **Station roads**: in `updateStations`, every station with a village gets `routeRoad` (A* on a 5 m grid, slope-weighted, max grade 0.4, around water and houses, 3× Chaikin) from 3 m outside the platform to the nearest street point. Cached per station position in `Life.stRoads`; removed stations drop their road. Lamps every 22 m. Walkers going to the station follow it (`w.wp`), and alighting passengers walk it to the village.
+- `Life.roadsDirty` → `rebuildRoads()`, also set from `R.chunkBounds` (terrain edits, houses removed for track).
+- Tested headless (2 km): no errors; 8 villages, 251 houses, 283 road pieces; hockey game plus groups on the ice; sledders on an open slope.
+- Not tested: a station road being built live, skater groups at speed (the Bézier look), many churches per village at size 2.5 (existing house-variant logic), and phone fps with more villages and lamps.
+
+## Done in 1.4.1
+- **Track limits**: `maxGrade` up to 100% (= 45°), default 100. `buildGrade` up to 100%. `minRadius` min and default 20 m (code floors are already 20). `curveRadius` min 20.
+- **Toy physics**: new `toyGrades` (default on) caps the grade force at ±5%, so trains climb any grade.
+- **Smoke** (`FS_PART`, setting `smokeQuality`: Simple / Billowy):
+  - Billowy puffs = sphere thickness eroded by the cloud noise volume (`uNoise3`), churning with age.
+  - Lit using the noise gradient toward the sun plus self-shading; steam glows when backlit (HG); lightning flashes.
+  - VS now passes the puff centre, size, seed and age.
+- **Chase/cab smoke**: `uSmk.x` = `chaseSmoke` (default 0.2) when `Cam.mode` is not free or follow; near-lens fade starts at 6 m (2.5 m otherwise).
+- **Ice**: cracks and snow patches removed. Light-blue body; 3-octave bump map rippling the reflections; Fresnel raised (0.25 base) so the ice reads as a mirror; sharp glint.
+- **Ice skaters** (`Life.updateSkaters`): when `Weather.ice` > 0.5, up to 170·people·daylight skaters on up to 14 "rinks" (10–30 m circles fully on lake, within 800 m of the focus). They mostly circle anticlockwise, drift in and out, and wobble. They are drawn with the person mesh, appended to the `people` instance list. Rinks beyond 1300 m are dropped; the lake cell list is cached in `Life.lakeIdx`.
+- Tested headless: no errors; skaters gather on mirror ice with the mountain reflected; billowy smoke column.
+- Not tested: a train on a 45° grade (vehicle pitch, bridges/tunnels), chase-view smoke while driving, skater animation (they use the walk cycle).
+
+## Done in 1.4.0 (lake water model from ocean-tank-5, reflections, ice, river foam fix)
+- **`Waves` module** (GPU Tessendorf FFT, ported from the ocean tank): fetch-limited JONSWAP wind sea plus Hasselmann spreading.
+  - U = 1 + 11·E.wind; fetch = `lakeFetch` km (default 15, so storms look sea-like).
+  - Peak wavelength is capped at L0/2.
+  - The spectrum is rebuilt when U changes by more than 3% or the settings change.
+  - Cascades L = 96/24/6 m (64²) or 96/17/3 m (128²).
+  - Passes per frame: time, then 2·log2N Stockham passes (MRT), then per-cascade assemble into RGBA16F 2D arrays with mips (disp: Dx, h, Dz, foam with persistence; deriv: hx, hz, Dxx, Dzz).
+  - Texture units: uWDisp 19, uWDeriv 21, FFT temporaries 22–24 (20 is SCRATCH_TU). Uniform `uDepth` clashed with TU, hence `uWDep`.
+- **Render copy A**: lakes = 1. `R.hasLake` is set in `waterRender`.
+- **Coarse water VS**: lake vertices displaced by `waveD` low-passed to the mesh spacing (`uSpc`); river sine waves are switched off on lakes.
+- **Near-camera lake patch** (`VS_LAKE` + same `FS_WATER`, `R.lakePatch`): Medium 140 m square, 112² grid; High 220 m, 192². It sits in front of the camera, snapped to 2× spacing, and only draws when the camera is less than 2.2·R above the focus. Its LOD blends to the coarse LOD over the outer 30% so the seam matches. FS discard via `uLakeP` (w = 1 for the patch pass): the patch draws only lake inside the square, the coarse mesh skips lake inside it.
+- **`FS_WATER`**:
+  - Lake slopes come from the FFT derivatives, sampled at the undisplaced position.
+  - Whitecaps from Jacobian foam; light through wave crests.
+  - Beckmann sun glint widened by the normal variation within each pixel; it applies to all water.
+  - **SSR**: marches the reflected ray against the depth copy and takes colour from `R.sceneTex` (full-res copy blitted right after the depth copy). Steps 12/20/32 with growth 1.6/1.3/1.2.
+- **Ice**: `iceF` = ice, but fast water stays partly open (look replaced in 1.4.1). Lake waves are zeroed under ice.
+- **River foam fix**: the flow map now uses a per-cycle random offset, cycles staggered by low-frequency noise, sin² cross-fade, a slower ~5.9 s cycle, and contrast-preserving noise blending. Previously the same pattern restarted every 4 s.
+- New settings (Water tab): `waterModel` (Simple / Low / Medium / High, default Medium), `reflQuality` (Sky only / Mirror low / medium / high, default medium), `lakeWaves`, `lakeFetch`, `lakeChop`, `lakeFoam`.
+- Tested headless (2 km): no GL errors; wavy lake with mountain reflections; storm makes it rough and dark; winter gives frozen ice with snow patches.
+- Not verified: the 3D waves on the near patch up close, the patch seam, phone fps (FFT plus SSR plus patch), and whether SSR is strong enough on calm days.
+- Headless note: frames don't advance between `evaluate` calls; set `Cam.setMode('free')` and the weather state directly (`Weather.cur={...WX.storm}`, `Weather.ice`).
+
+## Done in 1.3.1 (round 1 step 4b: streams + run-off)
+- **Generation** (end of `genWater`): D8 paths for cells with catchment ≥ thr·0.035 that are not river or lake. Cells ≥ thr·0.14/`streams` are streams; the rest are run-off rills. `T.streams` = Float32Array per path of (x, z, area km²), with area > 0 for stream and < 0 for run-off. Paths end where they join water or another path. Capped at 60k points. 2 km test: 205 paths, about 4.3k points.
+- **Mesh** `R.buildStreams` (called from `R.chunkBounds`, so it rebuilds on world upload and terrain edits): one Chaikin pass, ribbons draped on `Hr` +0.07 m and built 1.8× (stream) or 1.4× (run-off) wider so the shader can widen them. Vertex = pos3 + (u, s metres, half-width, kind + slope·0.99). Sources taper over 15 m.
+- **`FS_STREAM`**: streams always flow; they widen 70% and turn brown with `Weather.flood`. Run-off shows only when wet (max(rain·1.2, flood)) × `runoff`. Flow streaks scroll faster on steep parts, with whitewater there; sky reflection, glint, ice in winter.
+- Drawn right after water with polygon offset (−1, −4), no depth write.
+- New settings (Water tab): `streams` (density, needs a water regen) and `runoff` (live).
+- Tested headless (2 km): no errors; a thin blue stream winds through a village to the lake; with flood=1 it widens and browns, and extra rills appear.
+- Watch: streams cross villages and roads (round 2 roads may need culverts or bridges); cost of about 50k indices; dry streams may look too faint from far away.
+
+## Done in 1.3.0 (round 1 step 4a: waterfalls + swelling rivers)
+- **Render-copy A channel re-encoded** in `R.waterRender`: dry 0 | bank 0.1+0.3·w | lake 1 | river 2 | fall 3. w = flood weight (rivers 1, lakes 0, banks inherit from neighbours). Lakes are told apart by `T.shore`≥0.99. Terrain shader still uses step(.5,a) and VS waves min(pr,1), so both still work.
+- **Flood state** `Weather.flood` (`updateFlood`): target = rain·0.8·floodAmt; rises over ~2 min, falls over ~7 min.
+- **VS_WATER**: surface rises by w·flood·`floodRise` (bank cells rise too, so rivers widen onto low banks); passes `vFall`.
+- **FS_WATER**: faster flow and more rapids foam with flood; brown water (`rm` = river mask from flow slope); churned streaks; plunge-pool foam rings from the 8 nearest `T.emitters` (`uFallP[8]`, strength 0.6+str·1.2); white streaky curtain on fall cells (`vFall` × steepness).
+- **Spray**: `Weather.updateSpray` spawns particle type 3 (soft white, rises slowly, alpha .32) at emitters within 700 m, more in flood, max 14 per frame.
+- New settings (Water tab): `floodAmt` (Rain swells rivers), `floodRise` (0.9 m), `fallSpray`.
+- Tested headless (2 km world): no errors; flood=1 makes the river wider, brown and churned; cascade shows white streaks.
+- Notes: the 1 km default seed has only 2 emitters (both at the board edge), and gen's emitter strength is small (0.2–0.5), hence the 0.6 floor. Spray is barely visible headless; tune on the phone.
+
+## Done in 1.2.2 (round 1 step 3, mist banks)
+- **Mist map** (`Weather.initMistMap` / `updateMistMap`): 128² RGBA16F over the board, unit 17 (`uMistMap`).
+  - R = bank density, G = floor (ground or water surface, 4× blurred), B = thickness.
+  - The 90 mist spots splat drifting gaussian blobs into it every 0.2 s; bank strength = E.mist·1.5·(0.45..1).
+  - `mm.lo`/`mm.hi` bound the march slab; `mm.on` is false when there is no mist.
+- **`FS_VMIST`**: raymarch at 1/3 or 1/2 res into `R.mTex`.
+  - Density = exp(−height above floor / thickness), capped at 3 thicknesses, eroded by `uNoise3` and drifting with `uWind`.
+  - Rays that hit the ground march only from the local mist top down to the hit (keeps thin layers sharp from high views); other rays march uniformly, capped at 3 km.
+  - Lit once per pixel at the density-weighted point: sun with HG phase, `shadowAt`, `cloudSh`, ambient, lamp `pools`, flash; distance haze.
+- **`FS_MCOMP`**: depth-aware (bilateral) 4-tap upsample, so objects in front of mist get no halo.
+- New setting `mistQuality` (Sky): Old cards / Low (1/3, 10 steps) / Medium (1/2, 16, default) / High (1/2, 24). Cards are only drawn on Old cards.
+- `fogc` ground-mist layer from 1.2.1 is kept underneath.
+- Tested headless at 1 km: no errors; banks over lakes and valley floors from above, soft wisps hugging slopes from low down.
+- Not tested on the phone: cost, and whether mist climbs slopes too far at bank edges (could flatten the top toward an inversion level).
+
+## Done in 1.2.1 (round 1 step 3, partly)
+- `R.waterRender` now also stores a flow field (downhill slope of the water surface, m/m) in the G and B channels of the render copy only.
+- `FS_WATER` rewritten:
+  - Smooth analytic ripple normals (5 wave trains) instead of facets.
+  - Flow-map advection along rivers (two cross-faded phases).
+  - Rain speckle.
+  - Beer-law depth colour.
+  - Muddy run-off in rivers during rain.
+  - Fresnel sky reflection that includes the cloud deck from the cloud map.
+  - Sharp sun glint.
+  - Foam at the shoreline and in rapids; rivers run faster and foam more in rain.
+- Ground mist in `fogc`: an exponential layer below `mistTop`, integrated along the view ray and broken into drifting banks by noise. It works from any camera angle.
+- Tested headless: rapids looked over-foamed, so foam was toned down afterwards (untested after the tweak).
+- Mist banks: done in 1.2.2. Still to do: tuning on the phone.
+
+## Done in 1.2.0
+- **Defaults** taken from the user's state: seed 39536, world 4096, saturation 1, grade golden.
+- **Viaduct piers:** `trackUnder()` skips a pier when another track (committed or preview) passes within reach of it and below its top. This is checked on every mesh rebuild, so it works whichever track was built first.
+- **Volumetric clouds**
+  - The low-poly clouds are no longer drawn (old code is still in Weather but unused).
+  - `Clouds` module: a 96² cloud map over the board plus a 30% margin. It is advected by a wind field that slides around terrain above the cloud layer (`flow()`, obstacle deflection plus smoothing).
+  - Clouds grow on windward slopes (`up` > 0) and dissolve in the lee. New weather blows in from the upwind edge, with a slow pull toward the coverage target.
+  - Map channels: R = density, G = towering, B = terrain height. Clouds lift partly over high ground.
+  - 64³ Perlin-Worley 3D noise (RG8, unit 15) in `Clouds.initGL`.
+  - `FS_VCLOUD` raymarches at 1/3 or 1/2 resolution. It uses 14, 24 or 40 steps plus 3 light samples, two-lobe HG phase, scene-depth clipping (mountains cut through clouds), haze and lightning glow. `FS_CCOMP` composites the result.
+  - Clouds cast shadows on the ground via `cloudSh()` in `lightS`.
+  - UBO gained `uBolt`, `uCld`, `uCld2` (U length 336).
+  - New settings `cloudQuality` (Off/Low/Medium/High) and `cloudSpeed`.
+- **Lightning**
+  - A fractal main channel (7 subdivisions) with 3–7 branches, starting at the cloud base.
+  - 1–5 return strokes (`boltI`).
+  - In-cloud sheet flashes (`sheet()`).
+  - Drawn as camera-facing ribbons: a violet glow plus a white core, additive.
+  - Clouds light up around the strike; thunder is delayed by distance.
+- **Two-finger gestures**
+  - Applied once per frame in `Input.tick` from both fingers' latest positions. Before, each finger's event was applied separately, which made the angle and centre zigzag.
+  - The gesture locks to *tilt* (both fingers moving vertically) or *twist* (rotate plus pinch) after 14 px. Tilting no longer yaws.
+  - In Build mode the two-finger pan is kept.
+- **Touch log:** Settings > Export touch log. It records raw pointer events, per-frame G2 gesture deltas with the mode, and per-frame camera state while touching (`TouchLog`).
+
+## Not verified
+- The synthetic two-finger test in headless Chrome timed out (4 km generation in SwiftShader is slow), so the gesture fix is untested. Test it on the phone and send a touch log.
+- The clouds render headless (screenshot OK) but their cost on the phone is unknown. If the frame rate drops, use Cloud quality Low.
+- The bolt is not yet seen headless.
+
+## Done in 1.1.0-c
+- **4 km crash.** The 4096 m world has about 163k plants, all sent to the GPU in both the main pass and the shadow pass. This caused GPU resets on the Mali (log 1228: context lost 0.7 s after generating 4096 m, at 2.2M tris).
+  - New setting `vegBudget` (Quality tab, default 70k).
+  - Far-ring plants are thinned per chunk with distance (`fr`), and survivors are scaled up slightly to keep coverage.
+  - One global factor `g` keeps the total inside the budget.
+  - Plants are shuffled per chunk in `uploadVeg` so a thinned prefix is an even sample.
+  - List buffers are reused (`R.vegScr`) to avoid GC hitches.
+  - Headless 4 km overview: 0.8M tris, about 13k plants.
+- **Sluggish camera.**
+  - Ground-follow lag went from dt·2.5 to dt·14, using a wider 9-point average. The camera used to keep drifting for about 0.5 s after you let go.
+  - The canvas backing store is now rendered at `renderScale` and the browser upscales it. Before, the final pass and compositing ran at the full 1079×1935, which queued more GPU work and added input lag.
+- **Light finished.**
+  - Sky shader: the horizon haze band equals the land haze, and the Mie sun glow fades under overcast.
+  - New setting `nightBright` (Look tab) caps auto-exposure at night.
+  - Shadow cascades were not built on purpose. The focus-centred map already gives 0.14 to 0.6 m texels where you look, and a second shadow pass would cost about 30% GPU on a phone that was already resetting. It can become an optional setting later.
+
+## Log 20261030-1203 analysis
+The boot failed after 35 ms: `getContext('webgl2')` returned null.
+- Most likely cause: after a GPU reset, Chrome blocks WebGL for the page. The 1.1.0-a auto-reload after 1.8 s walked straight into that block.
+- The trigger of the reset is unknown, because the log starts at the failed boot.
+- Fixed in 1.1.0-b as described above.
+- If it happens again, ask for the log from the session *before* the reset; `trein.recover` holds its last 60 lines and replays them on the next good boot.
+
+## Watch for
+- Headless only: one frame showed a dark box (possibly a NaN through bloom); not reproducible. If it shows on the phone, look for NaN in `lightS` / `shadowAt`.
+- Performance of PCSS on the phone. It costs 6 taps on lit pixels and 14 in shadow (was 8).
+- 32F depth with MSAA 4×: check whether it relates to the GPU resets.
+
+## Still to do
+**Round 1**
+- Step 3 (water, clouds and mist):
+  - Water: reflections, normal-mapped ripples, flow along rivers, refraction and foam.
+  - Ground fog and mist banks: done (1.2.2). Soft smoke still to do.
+- Step 4 (hydrology):
+  - 4a waterfalls + swelling rivers: done (1.3.0).
+  - 4b streams + run-off: done (1.3.1). Round 1 is complete apart from phone tuning.
+
+**Round 2: land and life**
+- Continuous village roads.
+- No houses on main roads.
+- Winding scenic roads between nearby villages: done (1.6.0).
+- Pastures with cows and horses that walk and graze: done (1.6.1).
+- Fields with tractors through the seasons: done (1.6.2).
+- Spawn settings for fields and pastures.
+
+**Round 3: winter and finishing**
+- Snow that builds up slowly, trains that push it aside, and villagers who clear the roads.
+- Open items from handoff 1:
+  - schedules
+  - auto resolution / heat check
+  - falling leaves
+  - people in coach windows
+  - an end-to-end passenger check
+  - steep pieces in Pieces mode
+  - bridge visuals
+  - music balance
+  - look and weather tuning
+- A full audit and a final quality pass.
