@@ -1,4 +1,4 @@
-# Trein handoff 42 (2 Nov 2026): v2.7.0 (mesh fixes, pictogram buttons, oversight fixes)
+# Trein handoff 43 (2 Nov 2026): v2.8.0 (sawmill, wooden timber gantry, wagon editor)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -7,6 +7,64 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Three rounds; each one is tested on the Pixel 9a before the next.
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
+
+## Plan agreed with the user (3 steps, each tested on the phone before the next)
+1. **Done in 2.8.0**: sawmill redesign (logs, no planks), wooden travelling gantry crane loading timber wagons in the yard, per-train wagon editor, sunbathers off the squares, squares only once a village has grown.
+2. **Upgrades**, all €1 for now but keeping their unlock requirements (size, transport), each with a badge like farming:
+   - sawmill;
+   - gold, silver or diamond mine (60% of villages get one random type);
+   - bank (available at town size; mines deliver to it);
+   - docks with the steamboat for lake villages (bought per village; the steamboat runs once a lake has two docks).
+   - Castles become bus destinations: fares, and growth points for the village where the passengers boarded.
+3. **World**:
+   - 8 × 8 km default, plus a check for problems;
+   - at least one lake big enough for two lake villages;
+   - at least two castles per map: a more accurate Neuschwanstein, plus Hohenzollern;
+   - occasional hot-air balloons.
+
+## Done in 2.8.0
+- **Sawmill** (`sawmillMesh`, plot 40 × 30, +x faces the village) shows the round-wood process. It ships logs, not planks.
+  - Mill pond with floating logs and a jack ladder up to a roller conveyor.
+  - Open timber saw shed with a steam-driven pendulum cross-cut saw (thin toothed blade, arm, belt), line shaft and pulleys.
+  - Brick engine house with a slate roof, arched windows, flywheel and a long belt to the shed; a brick stack that smokes in the working day (`Crane.update`).
+  - Water tank on a trestle; cold deck on skids; a horse skidding a log in, with a teamster (`oMerge` copies `horseMesh`/`personMesh` into a scene).
+  - Cut-log stacks by the gate (`oLogStack`); office with porch, lit window and stovepipe; a gate sign with a saw-blade emblem and a fence.
+  - Props: sawdust chute and heap, bark heap, grindstone, chopping block with axe, cant hooks, wheelbarrow.
+  - New helpers: `oLog` (bark sides, pale end grain) and `oGable(...,roofMat,wallMat)`. Pass `0,0` for fixed colours; materials 5/4 take random house colours.
+  - Sawmill and workshop now cast shadows (they were drawn after the shadow pass returned).
+- **Loading sides moved to the plot edge**: `sawSlots` now sit at back −35, left +30 and right −30, because each station brings its own 14 m yard toward the mill.
+- **Crane stations**: stations attached to a sawmill or workshop turn to face it (`st._f`, set in `updateStations`).
+  - They draw `loadStageMesh` instead of the passenger station: stone footings, two runway rails, a timber loading platform with ramps, stack bearers, two lamp posts where the station lights are, and a tally hut.
+  - No station hall stands beside a yard. The pad is levelled 21 m to each side instead of 17.
+  - A train counts as arrived when any vehicle is within 22 m.
+  - Placing or removing a signal or station now rebuilds the earthworks at once.
+- **Wooden travelling gantry** (`gantryMesh`, `trolleyMesh`, `cableMesh`, `hookMesh`, rows `logRowMesh(k[,chains])`; vehicle meshes 10–20):
+  - Two timber trestles on wheel trucks; a Howe-truss bridge with chords, posts, diagonals, ties, trolley rails, a walkway and handrail; a ladder; a steam winch house that smokes while working.
+  - The trolley carries a winch drum. Ropes are stretched in the draw matrix; the hook block hangs a spreader beam with chain slings.
+  - It runs in the station frame: x along the track, z across, yard on −z (`CRN` holds the dimensions).
+- **Crane logic** (`Crane`):
+  - One state machine per loading point. Phases: lift, travel to the stack, lower, hook, lift, travel to the wagon, lower, release, lift.
+  - Rows of `CRN.unit` (20/3) units: a timber wagon holds 3 rows = 20.
+  - The stacks show the station's wood stock, one row per unit.
+  - Sawmill: it loads timber wagons standing within ±21 m of the yard centre, nearest first; wagons beyond the yard are not filled.
+  - Workshop: it unloads onto its stacks, and `Goods.deliver` pays as each bundle is set down. The stacks are used up, one row per 45 s.
+  - Lorry bays get the same gantry. It does one visual cycle per lorry visit, and lorries dwell 36 s there.
+  - If the train leaves mid-cycle, the bundle goes back onto its stack.
+  - Auto trains draw up with their first timber wagon at the far end of the yard (`Crane.stopAt`). They wait while the crane works or has work for them (`Crane.holds`, status "loading logs" or "unloading logs").
+  - New setting **Timber crane speed** (`craneSpeed`, Trains tab, default 2.5×).
+  - `Goods.trainStop` leaves wood to the crane at crane stations.
+  - The old yellow derrick crane, jib, swung bundle and log pile meshes are removed.
+- **Timber wagons** (`wagonMesh(3)`) are drawn empty. Their logs are drawn row by row from `v.n` in `drawTrains`.
+- **Wagon editor**: the selected train's row in the train list shows its count and add buttons (timber, grain, produce, mail for goods trains; coach for passenger trains) plus "−" to take the last one off.
+  - Uses `Trains.car`, `addCar` (which checks for room behind) and `removeCar`.
+- **Saving goods trains**: they used to be saved as passenger trains, so they came back as coaches after a reload. `serialize` now writes `cons` (each wagon's kind, load and origin), and `load` rebuilds it.
+- **Sunbathers on the square**: the beach ray started at the village centre, so a lake close to a village put the beach (towels, sunbathers, parasols) on the square. The shore point is now the last dry step, at least 14 m beyond the square.
+- **Squares**: the square disc and its corner lamps are now level 1 (Village), so hamlets have only a crossroads.
+- The HUD (money and its buttons) sits above the village labels.
+- **Tests**: `WS=2048 node tools/boot.js trein.html out tools/crane_e2e.js` (sawmill siding, station, 3 timber wagons, full yard) and `tools/step1_checks.js` (workshop unloading pays, save round trip, wagon editor).
+  - Headless runs at about 1–2 frames per second, and the game clamps a step to 0.1 s, so the tests set the crane speed to 60.
+  - A 2 km boot screenshot timed out even with the old build until `--ignore-gpu-blocklist` was dropped from `boot.js`.
+- **Not tested on the phone**: crane pacing (default 2.5×), how the loading stage sits on uneven ground (stone footings hide small steps), and existing saves whose sawmill stations were placed at the old slot positions (they still attach by index and turn toward the mill).
 
 ## Done in 2.7.0
 **Tools** (in the repo under `tools/`; Playwright + the preinstalled Chromium):
