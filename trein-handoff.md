@@ -1,4 +1,4 @@
-# Trein handoff 41 (1 Nov 2026): v2.6.1 (touch camera)
+# Trein handoff 42 (2 Nov 2026): v2.7.0 (mesh fixes, pictogram buttons, oversight fixes)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -7,6 +7,73 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Three rounds; each one is tested on the Pixel 9a before the next.
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
+
+## Done in 2.7.0
+**Tools** (in the repo under `tools/`; Playwright + the preinstalled Chromium):
+- `node tools/meshcheck.js trein.html out [regex]` renders every mesh builder from 4 angles into `out/<name>.png` (flicker in magenta) and writes `out/report.json`. It flags:
+  - z-fighting: each view is drawn twice with opposite per-triangle depth nudges; pixels that change are flicker;
+  - floating parts: a connected part that does not touch the ground or the rest within 6 cm (sampled points against triangles, plus box containment);
+  - degenerate and NaN triangles.
+- `node tools/boot.js trein.html out [tools/e2e.js]` boots a 1 km world at 412×915 and prints page errors plus ERR/WRN log lines. `e2e.js` lays a line with 2 stations, a passenger and a goods train, and screenshots it by day and night.
+
+**Mesh fixes** (all models now pass the checker; the remaining flicker is a few pixels):
+- **Open tubes**: `oLimb` never capped its ends, so wheels, discs and logs were hollow and see-through: tractor, trailer, lorry, bus and wagon wheels, the head-saw blade, sign discs (bus stop H, bread, saw blade), station-hall clock faces, harrow discs, round bales, log ends, and the bus roof dome ends. It now caps limbs ≥ 10 cm (param `caps`; `false` keeps an open rim, as on the cart wheels).
+- **Roofs hovering over walls**: the eaves now drop with the pitch, so roofs rest on the walls:
+  - hip roof, 11 cm (inn); shop roofs, 27 cm (bakery, restaurant);
+  - barn, 55 cm; castle Palas and bower, 70 cm (castle `roof()` now takes the wall size plus overhang, with gables on the end walls);
+  - sawmill, 27 cm; sawmill office, 20 cm; workshop office, 27 cm (gables moved onto its walls);
+  - station house, 33 cm (gables now reach the ridge, chimney clears it).
+  - The shed's side walls stuck 0.6 m through its mono-pitch roof; they now follow the slope.
+- **Missing or misplaced roofs and gables**:
+  - The silo loading shed had no roof: `roofGable` had no centre, so the roof hung around the elevator. It now takes `cx, cz`.
+  - The sawmill engine house and office were missing gable triangles.
+- **Floating parts**:
+  - Log rows: sawmill deck, side piles, `logPileMesh`, the timber wagon and the timber flat wagon now rest on each other. The deck has skids.
+  - Lumber stacks: the stickers now fill the gaps and the bottom layer sits on bearers.
+  - Workshop and furniture: the restaurant chairs have legs; the outfeed roller table has legs; workshop chairs turn their seat and back with their legs.
+  - Lights and fittings: the bakery bread sign; the windmill gallery posts, which now also have a rail; the loco lamps, whistle and handrail stanchions (which now reach the boiler); the signal cap.
+  - Animals and boats: the sheep head now sits on a neck past the grazing pivot; the sailboat jib now runs along a forestay; the steamer's upper bulwark.
+  - Machines and frames: tractor axle housings and front bolster; the combine feeder house; the boom counterweight; axles on the loco, tender, wagons and coach bogies; tender and wagon springs; coach queen posts.
+- **Coplanar faces**:
+  - St Andrew's cross: rebuilt from flat boards, with the white faces 1 cm proud.
+  - Castle: the gatehouse roof was flush with the wall top, and the square tower was flush with the terrace side.
+  - Loco: the backhead now stands 2 cm in front of the boiler's end cap (it flickered in the cab view); the valances now sit below the footplate edge.
+  - Houses: ground-floor windows under a door are skipped (`wins(..., door)`).
+  - Other: the sail lattice, the mail-van yellow band and planks, the coach lining, the towel stripe, and the shed wall top.
+- **Wrong placement or shape**:
+  - Castle: the plinth is now an oblong that carries the whole terrace; arched window and gate tops are now flat arches (`oArch`), where they used to be vertical drums sticking out; the throne-hall bay now reaches the terrace; turret windows now stay on the turrets, which also get corbels; the square-tower pyramid is turned 45° to match the tower.
+  - Windmill: the door and window now follow the tapered wall; they used to float 0.3–0.4 m off it.
+  - Sawmill: the mill house has a real open infeed end with the head saw visible inside (a thin blade, a carriage and a log); the sawhorses and bow saw were inside the closed building and are now outside; the wall sign touches the wall.
+  - Workshop: the doors were inside the office block; the shop now has a real north doorway with a lit bench inside. The sawtooth roof is now a proper north-light profile. The trade sign now hangs from a bracket, with the chair on top.
+  - Station: the lamps now hang under the canopy; their posts used to run up through it.
+  - Other: the bakery's lit window is now in front of its frame, which used to hide it; the loco spectacle plate no longer has open slots; the hopper wagon shows its grain inside an open rim.
+- **Fewer triangles**: degenerate cap triangles in `vcyl` are gone (new `vt`), and the horizontal wheel spoke no longer has zero width. The loco went from 3332 to 2760 triangles despite its new axles.
+- Bridges in all six styles were checked through `buildTrackMesh`: no flicker, no degenerate triangles.
+
+**Pictogram buttons**:
+- Main bar, sound, sky sheet (speed, season, weather, music), build modes and tools, roads, signals, route, profile, bridges and tunnels, drive controls, train list rows, and the settings close button now show 24-px line icons (`ICONS`, `svgIcon`).
+- Mark a button with `data-ic="name"`. `iconize()` keeps the button's text as caption, tooltip and aria-label.
+- Use `setCap(btn, label, value)` and `setIcon(btn, name)` to change an iconized button; never set its `textContent`, which would wipe the icon.
+- Values stay visible under the icon (camera mode, autopilot speed). Place and Build it keep their caption (`.keepcap`). Add buttons get a "+" badge (`.add`), and Generate gets a red dot when settings changed.
+- New setting **Words under the button icons** (`btnCaps`, File tab, default off).
+- A long press on an icon button names it in a toast and does not trigger it (`IconHint`). The whistle is excluded.
+- Hints that named buttons now describe the icons.
+
+**Oversights fixed**:
+- Bars, the sky sheet and panels are now layered above the village and industry labels. A label used to cover the sky sheet's Snow button and could take taps meant for the build bar.
+- Reset everything now asks first, and also clears roads, bus stops, buses, village growth and money. Remove train now asks first.
+- A removed or cleared train no longer keeps whistling.
+- The sound button follows the real audio state (`Sfx.syncBtn`); it used to say "Sound on" even when audio had not started.
+- Audio pauses while the tab is hidden. Held keys are released on window blur.
+- The money log and the drive readout no longer rewrite the DOM every frame.
+- Opening Trains with no train keeps the free camera; it used to fly to a meaningless follow view.
+- The unused road-ribbon program (`VS_ROAD`/`FS_ROAD`/`drawRoads`) and the dead `sheepMeshOld`/`cowMesh` are removed, so one fewer shader compiles at boot.
+- Names from save files are escaped before they go into HTML (`esc`).
+- A closed village's panel hides when its village is regenerated away.
+- The garbled "Out of money: repay nothing more can be borrowed" toast is fixed.
+- The HUD stats line wraps instead of running under the corner buttons.
+
+**Tested headless**: the boot has no errors; the e2e run has two trains running with no errors; the captions setting and long press work. **Not tested on the phone**: the icon legibility at Pixel 9a density, and the long-press timing (480 ms).
 
 ## Done in 1.1.0-a (step 1, fixes)
 See handoff 2. In short:

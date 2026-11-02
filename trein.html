@@ -171,7 +171,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='2.6.1 (touch camera: grab-pan, free two-finger gestures, momentum)';
+const VERSION='2.7.0 (mesh fixes, pictogram buttons, oversight fixes)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -489,16 +489,25 @@ const ICONS=(()=>{const F=' fill="currentColor" stroke="none"';
     goTo:`<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"${F}/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/>`,
   };})();
 function svgIcon(n){return'<svg class="i" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[n]||'')+'</svg>';}
+// names from a save file go into HTML: escape them (an imported save could otherwise inject markup)
+function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function iconize(root){for(const b of (root||document).querySelectorAll('button[data-ic]:not(.ic)')){const t=b.textContent.trim();b.classList.add('ic');b.innerHTML=svgIcon(b.dataset.ic)+'<span class="cap"></span><span class="v" hidden></span>';setCap(b,t);}}
 // label = what the button does (caption, tooltip, screen readers); val = a live value shown under the icon even without captions
 function setCap(b,label,val){if(!b)return;if(!b.classList.contains('ic')){b.textContent=label+(val?' '+val:'');return;}b.querySelector('.cap').textContent=label;const v=b.querySelector('.v');v.textContent=val||'';v.hidden=!val;b.title=label+(val?': '+val:'');b.setAttribute('aria-label',b.title);}
+// touch screens show no tooltips: a long press on an icon button names it in a toast and does not trigger it (the whistle is held on purpose)
+const IconHint={t:0,b:null,shown:false,bind(){
+  document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('button.ic');if(!b||b.id==='dWhistle')return;clearTimeout(this.t);this.b=b;this.shown=false;
+    this.t=setTimeout(()=>{if(this.b!==b)return;this.shown=true;UI.toast(b.getAttribute('aria-label')||b.title||'');if(navigator.vibrate)navigator.vibrate(10);},480);},true);
+  for(const ev of ['pointerup','pointercancel'])document.addEventListener(ev,()=>{clearTimeout(this.t);this.b=null;},true);
+  document.addEventListener('click',e=>{if(this.shown&&e.target.closest&&e.target.closest('button.ic')){this.shown=false;e.preventDefault();e.stopImmediatePropagation();}},true);
+  document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('button.ic'))e.preventDefault();});}};
 function setIcon(b,n){if(!b||!b.classList.contains('ic')||b.dataset.ic===n)return;b.dataset.ic=n;const s=b.querySelector('svg.i');if(s)s.outerHTML=svgIcon(n);}
 const UI=(()=>{
   const rows={};let curTab='world';
   function fmt(d,v){if(d.kind==='select'){const o=d.options.find(o=>String(o[0])===String(v));return o?o[1]:v;}if(d.kind==='check')return v?'On':'Off';
     const st=d.step||0.01,dec=st>=1?0:st>=0.1?1:st>=0.01?2:3;return Number(v).toFixed(dec)+(d.unit||'');}
   function build(){
-    iconize();const tabs=$('#tabs'),secs=$('#sections');
+    iconize();IconHint.bind();const tabs=$('#tabs'),secs=$('#sections');
     for(const [id,label] of TABS){const b=document.createElement('button');b.textContent=label;b.dataset.tab=id;b.onclick=()=>show(id);tabs.appendChild(b);
       const s=document.createElement('div');s.className='sec';s.dataset.tab=id;s.hidden=true;
       if(TAB_HINT[id]){const h=document.createElement('p');h.className='hint';h.textContent=TAB_HINT[id];s.appendChild(h);}
@@ -644,7 +653,7 @@ const IndUI={els:new Map(),
     for(const [kind,m,mi] of all){live.add(m);let el=this.els.get(m);if(!el){el=document.createElement('div');el.className='ilabel';el.innerHTML=kind==='sawmill'?'🪚':'🪑';document.body.appendChild(el);this.els.set(m,el);el.onclick=e=>{e.stopPropagation();this.info(kind,m,mi);};}
       const p=show?Cam.toScreen(m.x,m.y+16,m.z):null,d=Cam.pos?Math.hypot(m.x-Cam.pos[0],m.z-Cam.pos[2]):0;if(!p||d>2600){el.style.display='none';continue;}el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';}
     for(const [m,el] of this.els)if(!live.has(m)){el.remove();this.els.delete(m);}},
-  info(kind,m,mi){const att=[...Track.stations.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚂 '+q.name),...Buses.stops.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚚 '+q.name)];
+  info(kind,m,mi){const att=[...Track.stations.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚂 '+esc(q.name)),...Buses.stops.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚚 '+esc(q.name))];
     let p=VillageUI.panel;if(!p){p=VillageUI.panel=document.createElement('div');p.id='vPanel';document.body.appendChild(p);}VillageUI.cur=null;p.hidden=false;
     p.innerHTML=`<div class="vp-h"><div><b>${kind==='sawmill'?'🪚 Sawmill':'🪑 Wood Workshop'}</b><span>${m.v?'near '+m.v.name:''}</span></div><button id="vpX" aria-label="Close" title="Close">✕</button></div>
       <div class="vp-row">${kind==='sawmill'?'Turns logs into sawn wood. Collect it with goods trains (timber wagons) or lorries.':'Joiner, cartwright and cooper: takes in wood and makes furniture, wheels and barrels. Deliver wood here.'}</div>
@@ -3230,7 +3239,7 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
     Log.info(`audio started at ${c.sampleRate} Hz`);Music.start();},
   stop(){if(this.ctx)this.ctx.suspend();this.on=false;},
   toggle(){if(this.on)this.stop();else this.start();this.syncBtn();},
-  syncBtn(){const b=$('#btnSound');if(!b)return;setIcon(b,this.on?'soundOn':'soundOff');setCap(b,this.on?'Sound on (tap to mute)':'Sound off (tap to turn on)');b.setAttribute('aria-pressed',this.on?'true':'false');},
+  syncBtn(){const b=$('#btnSound');if(!b)return;setIcon(b,this.on?'soundOn':'soundOff');setCap(b,this.on?'Sound on':'Sound off');b.setAttribute('aria-pressed',this.on?'true':'false');},
   // distance and pan relative to the camera
   spatial(p){if(!p)return[0,0];const dx=p[0]-Cam.pos[0],dy=p[1]-Cam.pos[1],dz=p[2]-Cam.pos[2],d=Math.hypot(dx,dy,dz);
     const r=Cam.right||[1,0,0];const pan=clamp((dx*r[0]+dz*r[2])/Math.max(d,1),-1,1)*0.8;return[1/(1+d/35),pan];},
@@ -3304,10 +3313,10 @@ const Drive={placing:false,ghost:null,listOpen:false,
     if(best){Net.flip(best);return;}
     let bt=null,bt2=Math.max(12,Cam.dist*0.03);Trains.list.forEach((t,i)=>{if(!t.poses)return;for(const p of t.poses){if(!p)continue;const d=Math.hypot(p.c[0]-h[0],p.c[2]-h[2]);if(d<bt2){bt2=d;bt=i;}}});if(bt!==null){Trains.sel=bt;this.refresh();}},
   list(){const el=$('#trainList');el.innerHTML='';for(const [i,t] of Trains.list.entries()){const r=document.createElement('div');r.className='trow'+(i===Trains.sel?' on':'');
-      const dst=t.auto?Net.destOf(t):null;r.innerHTML=`<div><b>${t.name}</b><span>${Math.abs(t.v*3.6).toFixed(0)} km/h, ${t.status||'Standing'}${dst?' → '+dst.name:''}</span></div>`;
+      const dst=t.auto?Net.destOf(t):null;r.innerHTML=`<div><b>${esc(t.name)}</b><span>${Math.abs(t.v*3.6).toFixed(0)} km/h, ${esc(t.status||'Standing')}${dst?' → '+esc(dst.name):''}</span></div>`;
       const go=document.createElement('button');go.className='ic';go.innerHTML=svgIcon('goTo')+'<span class="cap"></span><span class="v" hidden></span>';setCap(go,'Go to '+t.name);go.onclick=()=>{Trains.sel=i;if(Cam.mode==='free')Cam.setMode('follow');this.listOpen=false;this.refresh();};
       const au=document.createElement('button');au.className='ic'+(t.auto?' on':'');au.innerHTML=svgIcon('auto')+'<span class="cap"></span><span class="v" hidden></span>';setCap(au,t.auto?'Autopilot on':'Autopilot off');au.setAttribute('aria-pressed',t.auto?'true':'false');au.onclick=()=>{t.auto=!t.auto;if(t.auto&&!t.rev)t.rev=1;this.list();};
-      const ds=document.createElement('select');ds.className='dsel';ds.title='Destination';ds.innerHTML='<option value="">Next station in turn</option>'+Track.stations.map(q=>`<option value="${q.id}">${q.name}</option>`).join('');ds.value=t.destId!=null?String(t.destId):'';
+      const ds=document.createElement('select');ds.className='dsel';ds.title='Destination';ds.innerHTML='<option value="">Next station in turn</option>'+Track.stations.map(q=>`<option value="${+q.id}">${esc(q.name)}</option>`).join('');ds.value=t.destId!=null?String(t.destId):'';
       ds.onchange=()=>{t.destId=ds.value?+ds.value:null;t.lastStation=null;ds.blur();this.list();};if(Track.stations.length>1)r.append(go,au,ds);else r.append(go,au);el.appendChild(r);}
     if(!Trains.list.length)el.innerHTML='<p class="hint">No trains yet. Tap the add-train button (loco with +) and drag it onto the track.</p>';},
   active:false,
