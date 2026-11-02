@@ -1804,12 +1804,15 @@ function oQuad(M,a,b,c,d,col,mat){oTri(M,a,b,c,col,mat);oTri(M,a,c,d,col,mat);}
 function oPrism(M,cx,cz,r0,r1,y0,y1,sides,col,mat,rot,capCol){rot=rot||0;const P=(r,y,k)=>{const a=rot+k/sides*6.2832;return[cx+Math.cos(a)*r,y,cz+Math.sin(a)*r];};
   for(let k=0;k<sides;k++){const a=P(r0,y0,k),b=P(r0,y0,k+1),c=P(r1,y1,k+1),d=P(r1,y1,k);if(r1>1e-4)oQuad(M,a,b,c,d,col,mat);else oTri(M,a,b,d,col,mat);
     oTri(M,[cx,y0,cz],b,a,capCol||col,mat);if(r1>1e-4)oTri(M,[cx,y1,cz],d,c,capCol||col,mat);}}
-// prism between two arbitrary points (branches, spars)
-function oLimb(M,a,b,r0,r1,sides,col,mat){const d=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],l=Math.hypot(...d);const ax=d.map(v=>v/l);
+// prism between two arbitrary points (branches, spars, logs, wheels). The ends are capped when the limb is 10 cm or thicker
+// (caps=undefined) or when caps is true; caps=false leaves an open ring (a cart-wheel rim). Before, every limb was an open
+// tube, so wheels, discs, signs and log ends were see-through.
+function oLimb(M,a,b,r0,r1,sides,col,mat,caps){const d=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],l=Math.hypot(...d);const ax=d.map(v=>v/l);
   let u=Math.abs(ax[1])<0.9?[0,1,0]:[1,0,0];let s=[ax[1]*u[2]-ax[2]*u[1],ax[2]*u[0]-ax[0]*u[2],ax[0]*u[1]-ax[1]*u[0]];const sl=Math.hypot(...s);s=s.map(v=>v/sl);
   const t=[ax[1]*s[2]-ax[2]*s[1],ax[2]*s[0]-ax[0]*s[2],ax[0]*s[1]-ax[1]*s[0]];
   const R=(p,r,k)=>{const an=k/sides*6.2832,c=Math.cos(an)*r,sn=Math.sin(an)*r;return[p[0]+s[0]*c+t[0]*sn,p[1]+s[1]*c+t[1]*sn,p[2]+s[2]*c+t[2]*sn];};
-  for(let k=0;k<sides;k++)oQuad(M,R(a,r0,k),R(a,r0,k+1),R(b,r1,k+1),R(b,r1,k),col,mat);}
+  for(let k=0;k<sides;k++)oQuad(M,R(a,r0,k),R(a,r0,k+1),R(b,r1,k+1),R(b,r1,k),col,mat);
+  if(caps===undefined?Math.max(r0,r1)>=0.1:caps)for(let k=0;k<sides;k++){if(r0>1e-4)oTri(M,a,R(a,r0,k+1),R(a,r0,k),col,mat);if(r1>1e-4)oTri(M,b,R(b,r1,k),R(b,r1,k+1),col,mat);}}
 function oBox(M,cx,cy,cz,sx,sy,sz,col,mat,rotY,colTop){const c=Math.cos(rotY||0),s=Math.sin(rotY||0);const P=(x,y,z)=>[cx+x*c-z*s,cy+y,cz+x*s+z*c];
   const a=sx/2,b=sy/2,d=sz/2;const v=[P(-a,-b,-d),P(a,-b,-d),P(a,-b,d),P(-a,-b,d),P(-a,b,-d),P(a,b,-d),P(a,b,d),P(-a,b,d)];
   oQuad(M,v[4],v[5],v[6],v[7],colTop||col,mat);oQuad(M,v[0],v[3],v[2],v[1],col,mat);oQuad(M,v[0],v[1],v[5],v[4],col,mat);
@@ -1830,9 +1833,17 @@ function oGable(M,cx,cz,w,d,y0,rise,over,axis,roofCol,wallCol){const X=axis==='z
   oQuad(M,P(-L2,yE,-D2),P(L2,yE,-D2),P(L2,y0+rise,0),P(-L2,y0+rise,0),roofCol,5);
   oQuad(M,P(L2,yE,D2),P(-L2,yE,D2),P(-L2,y0+rise,0),P(L2,y0+rise,0),roofCol,5);
   oTri(M,P(-L,y0,-D),P(-L,y0,D),P(-L,y0+rise,0),wallCol,4);oTri(M,P(L,y0,D),P(L,y0,-D),P(L,y0+rise,0),wallCol,4);}
-function oHip(M,cx,cz,w,d,y0,rise,over,roofCol){const a=w/2+over,b=d/2+over,r=Math.max(0.5,w/2-d/2),yE=y0-over*0.6;
+// the eave drop matches the pitch, so the roof rests on the wall tops instead of hovering above them
+function oHip(M,cx,cz,w,d,y0,rise,over,roofCol){const a=w/2+over,b=d/2+over,r=Math.max(0.5,w/2-d/2),yE=y0-over*rise/(d/2);
   const e=[[cx-a,yE,cz-b],[cx+a,yE,cz-b],[cx+a,yE,cz+b],[cx-a,yE,cz+b]],t0=[cx-r,y0+rise,cz],t1=[cx+r,y0+rise,cz];
   oQuad(M,e[0],e[1],t1,t0,roofCol,5);oQuad(M,e[2],e[3],t0,t1,roofCol,5);oTri(M,e[1],e[2],t1,roofCol,5);oTri(M,e[3],e[0],t0,roofCol,5);}
+// oriented box: centre c and three half-axis vectors (for boards and beams that are not axis-aligned)
+function oOBox(M,c,u,v,w,col,mat){const P=(a,b,d)=>[c[0]+u[0]*a+v[0]*b+w[0]*d,c[1]+u[1]*a+v[1]*b+w[1]*d,c[2]+u[2]*a+v[2]*b+w[2]*d];
+  const p=[P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),P(-1,-1,1),P(1,-1,1),P(1,1,1),P(-1,1,1)];
+  for(const f of [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]])oQuad(M,p[f[0]],p[f[1]],p[f[2]],p[f[3]],col,mat);}
+// flat semicircular arch top (a fan in a wall plane): centre c, radius r, 'x' = in the x-y plane (wall facing z), 'z' = in the z-y plane
+function oArch(M,c,r,plane,col,mat,seg){seg=seg||6;for(let k=0;k<seg;k++){const a0=k/seg*Math.PI,a1=(k+1)/seg*Math.PI;
+  const P=a=>plane==='x'?[c[0]+Math.cos(a)*r,c[1]+Math.sin(a)*r,c[2]]:[c[0],c[1]+Math.sin(a)*r,c[2]+Math.cos(a)*r];oTri(M,c,P(a0),P(a1),col,mat);}}
 // window / door quads on a box face (face: 'x+','x-','z+','z-'), slightly proud of the wall
 function oPane(M,face,cx,cz,hw,hd,u,y,w,h,mat,rnd){const o=0.04;let a,b,c,d;
   if(face==='z-'){const z=cz-hd-o;a=[cx+u-w/2,y,z];b=[cx+u+w/2,y,z];c=[cx+u+w/2,y+h,z];d=[cx+u-w/2,y+h,z];}
@@ -1866,14 +1877,15 @@ function treeMeshes(){const out=[];const bark=[0.47,0.33,0.24];
 // ---- buildings (metres, front faces -z, base at y=0 sinks into the ground below)
 function houseMeshes(){const H=[];let seed=101;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed&1023)/1024;};
   const body=(M,w,d,h)=>{oBox(M,0,(h-3)/2,0,w,h+3,d,[1,1,1],4);oBox(M,0,-1.4,0,w+0.25,3.2,d+0.25,[1,1,1],8);};
-  const wins=(M,w,d,rows,cols,y0,dy,faces)=>{for(const f of faces){const along=f[0]==='z'?w:d,n=f[0]==='z'?cols:Math.max(1,cols-1);
-    for(let r=0;r<rows;r++)for(let k=0;k<n;k++){const u=(k-(n-1)/2)*along/(n+0.4);oPane(M,f,0,0,w/2,d/2,u,y0+r*dy,0.95,1.05,6,rnd);}}};
+  // door = [face, u, width]: ground-floor windows that would overlap the door are left out (they used to z-fight with it)
+  const wins=(M,w,d,rows,cols,y0,dy,faces,door)=>{for(const f of faces){const along=f[0]==='z'?w:d,n=f[0]==='z'?cols:Math.max(1,cols-1);
+    for(let r=0;r<rows;r++)for(let k=0;k<n;k++){const u=(k-(n-1)/2)*along/(n+0.4);if(door&&r===0&&f===door[0]&&Math.abs(u-door[1])<(door[2]+0.95)/2+0.15)continue;oPane(M,f,0,0,w/2,d/2,u,y0+r*dy,0.95,1.05,6,rnd);}}};
   // 0 cottage
   {const M=omesh(),w=7.5,d=6,h=3.3;body(M,w,d,h);oGable(M,0,0,w,d,h,3.3,0.5,'x',[1,1,1],[1,1,1]);oBox(M,2.3,h+2.4,1.1,0.8,3.4,0.8,[1,1,1],8);
     wins(M,w,d,1,2,1.35,0,['z-','z+','x+','x-']);oPane(M,'z-',0,0,w/2,d/2,-0.2,0.15,1.0,2.0,7,rnd);H.push({M,chim:[2.3,h+4.2,1.1],r:5});}
   // 1 townhouse, gable to the street
   {const M=omesh(),w=6,d=8.5,h=6.4;body(M,w,d,h);oGable(M,0,0,w,d,h,3.8,0.4,'z',[1,1,1],[1,1,1]);oBox(M,-1.6,h+2.8,2.2,0.7,3.6,0.7,[1,1,1],8);
-    wins(M,w,d,2,2,1.4,2.8,['z-','z+','x+','x-']);oPane(M,'z-',0,0,w/2,d/2,0,h+0.9,0.9,1.0,6,rnd);oPane(M,'z-',0,0,w/2,d/2,1.6,0.15,1.0,2.1,7,rnd);H.push({M,chim:[-1.6,h+4.7,2.2],r:5.5});}
+    wins(M,w,d,2,2,1.4,2.8,['z-','z+','x+','x-'],['z-',1.6,1.0]);oPane(M,'z-',0,0,w/2,d/2,0,h+0.9,0.9,1.0,6,rnd);oPane(M,'z-',0,0,w/2,d/2,1.6,0.15,1.0,2.1,7,rnd);H.push({M,chim:[-1.6,h+4.7,2.2],r:5.5});}
   // 2 farmhouse with barn half
   {const M=omesh(),w=15,d=8,h=3.8;body(M,w,d,h);oGable(M,0,0,w,d,h,4.6,0.6,'x',[1,1,1],[1,1,1]);
     for(const u of [-5,-3]) oPane(M,'z-',0,0,w/2,d/2,u,1.4,1.0,1.1,6,rnd);for(const u of [-5,-3]) oPane(M,'z+',0,0,w/2,d/2,u,1.4,1.0,1.1,6,rnd);
@@ -1885,7 +1897,7 @@ function houseMeshes(){const H=[];let seed=101;const rnd=()=>{seed=(seed*16807)%
     oPane(M,'x+',w/2+2.6,0,2.7,2.7,0,0.1,1.6,3.0,7,rnd);for(const f of ['z-','z+','x+'])oPane(M,f,w/2+2.6,0,2.7,2.7,0,15,1.0,1.8,6,rnd);
     oBox(M,w/2+2.6,13.5,-2.75,1.8,1.8,0.1,[0.96,0.95,0.9],10);H.push({M,chim:null,r:11});}
   // 4 inn / shop with a hipped roof
-  {const M=omesh(),w=9,d=8,h=6;body(M,w,d,h);oHip(M,0,0,w,d,h,3.4,0.5,[1,1,1]);wins(M,w,d,2,3,1.4,2.6,['z-','z+','x+','x-']);
+  {const M=omesh(),w=9,d=8,h=6;body(M,w,d,h);oHip(M,0,0,w,d,h,3.4,0.5,[1,1,1]);wins(M,w,d,2,3,1.4,2.6,['z-','z+','x+','x-'],['z-',0,1.6]);
     oPane(M,'z-',0,0,w/2,d/2,0,0.1,1.6,2.2,7,rnd);oBox(M,0,2.75,-d/2-0.6,4,0.12,1.2,[0.9,0.25,0.2],0);oBox(M,2.6,h+2.8,0,0.7,2.8,0.7,[1,1,1],8);H.push({M,chim:[2.6,h+4.2,0],r:6.5});}
   // 5 tiny cottage
   {const M=omesh(),w=5.5,d=5,h=2.8;body(M,w,d,h);oGable(M,0,0,w,d,h,2.8,0.45,'z',[1,1,1],[1,1,1]);oBox(M,0,h+2.2,1.3,0.6,2.6,0.6,[1,1,1],8);
@@ -1893,16 +1905,21 @@ function houseMeshes(){const H=[];let seed=101;const rnd=()=>{seed=(seed*16807)%
   return H;}
 function windmillMeshes(){const B=omesh(),S=omesh();
   oPrism(B,0,0,4.8,4.4,-3,4,8,[0.93,0.91,0.86],10,0.39);oPrism(B,0,0,6.2,6.2,3.9,4.3,8,[0.45,0.33,0.22],0,0.39);
-  for(let k=0;k<8;k++){const a=0.39+k/8*6.2832;oBox(B,Math.cos(a)*6,4.9,Math.sin(a)*6,0.12,1.1,0.12,[0.4,0.3,0.2],0);}
+  // gallery railing: posts standing on the stage, joined by a top rail
+  for(let k=0;k<8;k++){const a=0.39+k/8*6.2832,a2=0.39+(k+1)/8*6.2832;oBox(B,Math.cos(a)*6,4.85,Math.sin(a)*6,0.12,1.1,0.12,[0.4,0.3,0.2],0);
+    oLimb(B,[Math.cos(a)*6,5.35,Math.sin(a)*6],[Math.cos(a2)*6,5.35,Math.sin(a2)*6],0.05,0.05,4,[0.4,0.3,0.2],0);}
   oPrism(B,0,0,4.0,2.7,4,14,8,[0.38,0.34,0.29],0,0.39);oPrism(B,0,0,3.2,0.5,14,17.6,8,[0.30,0.27,0.25],0,0.39);
-  oPane(B,'x+',0,0,4.6,4.6,0,0.1,1.5,2.6,7,()=>0.5);oPane(B,'z-',0,0,4.4,4.4,0,1.5,0.8,0.9,6,()=>0.3);
+  // door and window follow the tapered octagonal wall (they used to hover 0.3-0.4 m in front of it)
+  {const fd=y=>Math.cos(Math.PI/8)*(4.8-(y+3)*0.4/7)+0.03;oQuad(B,[fd(0.1),0.1,-0.75],[fd(0.1),0.1,0.75],[fd(2.7),2.7,0.75],[fd(2.7),2.7,-0.75],[0.5,0.5,0.5],7);
+    oQuad(B,[-0.4,1.5,-fd(1.5)],[0.4,1.5,-fd(1.5)],[0.4,2.4,-fd(2.4)],[-0.4,2.4,-fd(2.4)],[0.3,0.5,0.5],6);oBox(B,0,1.44,-fd(1.44)+0.02,1.0,0.12,0.12,[1,1,1],10);}
   oBox(B,3.05,15.0,0,0.9,0.9,0.9,[0.25,0.22,0.2],0);
   // sails: 4 arms in the y-z plane around the hub (local x points out of the mill)
   oBox(S,0,0,0,0.8,1.1,1.1,[0.25,0.22,0.2],11);
-  for(let k=0;k<4;k++){const a=k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const P=(r,o)=>[0.15,c*r-s*o,s*r+c*o];
+  for(let k=0;k<4;k++){const a=k*Math.PI/2,c=Math.cos(a),s=Math.sin(a);const P=(r,o,x)=>[x===undefined?0.15:x,c*r-s*o,s*r+c*o];
     oLimb(S,P(0.3,0),P(12.5,0),0.2,0.16,4,[0.40,0.30,0.22],11);
     oQuad(S,P(2.2,0.25),P(12,0.25),P(12,2.1),P(2.2,2.1),[0.94,0.90,0.82],11);
-    for(let r=3;r<12;r+=1.8)oQuad(S,P(r,0.2),P(r+0.15,0.2),P(r+0.15,2.15),P(r,2.15),[0.45,0.34,0.24],11);}
+    // lattice bars sit 4 cm in front of the cloth (they were in the same plane and flickered)
+    for(let r=3;r<12;r+=1.8)oQuad(S,P(r,0.2,0.19),P(r+0.15,0.2,0.19),P(r+0.15,2.15,0.19),P(r,2.15,0.19),[0.45,0.34,0.24],11);}
   return{body:B,sails:S,hub:[3.6,15.0,0]};}
 // cute lantern street light: little plinth, slim post, glazed lantern with a pointed cap
 function lampMesh(){const M=omesh(),g=[0.12,0.2,0.17];oPrism(M,0,0,0.17,0.15,0,0.35,6,g,0);oPrism(M,0,0,0.06,0.05,0.35,3.0,6,g,0);oPrism(M,0,0,0.11,0.17,2.95,3.06,4,g,0,0.785);
@@ -1931,7 +1948,8 @@ function sledderMesh(){const M=sledMesh();for(const z of [-0.1,0.1])oLimb(M,[-0.
   oIco(M,-0.15,1.04,0,0.165,[1,1,1],17,{seed:6});oIco(M,-0.16,1.11,0,0.18,[1,1,1],18,{sy:0.62,seed:12});oIco(M,-0.16,1.27,0,0.055,[0.95,0.95,0.95],0,{seed:13});return M;}
 function personMesh(){const M=omesh();oPrism(M,0,0,0.17,0.15,0,0.82,5,[1,1,1],16);oPrism(M,0,0,0.25,0.2,0.8,1.45,6,[1,1,1],15);oIco(M,0,1.66,0,0.19,[1,1,1],17,{seed:3});return M;}
 // grazing animals: forward +x; the head/neck sits beyond a pivot so the shader can lower it (kinds 17 cow, 18 horse, 19 sheep)
-function sheepMesh(){const M=omesh(),k=[0.2,0.18,0.18];oIco(M,-0.08,0.8,0,0.5,[0.96,0.95,0.91],0,{sy:0.75,jit:0.12,seed:71});oBox(M,0.66,0.86,0,0.34,0.34,0.3,k,0);oBox(M,0.62,0.98,0,0.12,0.1,0.42,k,0);
+// the head sits on a neck past the grazing pivot (x 0.5) instead of floating 7 cm in front of the fleece
+function sheepMesh(){const M=omesh(),k=[0.2,0.18,0.18];oIco(M,-0.08,0.8,0,0.5,[0.96,0.95,0.91],0,{sy:0.75,jit:0.12,seed:71});oLimb(M,[0.28,0.84,0],[0.62,0.9,0],0.13,0.12,6,k,0);oBox(M,0.69,0.86,0,0.34,0.34,0.3,k,0);oBox(M,0.64,0.98,0,0.12,0.1,0.42,k,0);
   for(const x of [-0.32,0.24])for(const z of [-0.17,0.17])oBox(M,x,0.25,z,0.11,0.5,0.11,k,0);return M;}
 function cowMesh2(){const M=omesh(),w=[0.96,0.94,0.9],k=[0.15,0.13,0.13],pk=[0.92,0.7,0.66];oBox(M,0,1.08,0,1.9,0.9,0.82,w,0);oBox(M,0.25,1.2,0.42,0.7,0.5,0.02,k,0);oBox(M,-0.5,1.0,-0.42,0.6,0.55,0.02,k,0);oBox(M,-0.2,1.53,0,0.5,0.02,0.5,k,0);
   oBox(M,1.12,1.2,0,0.3,0.42,0.4,w,0);oBox(M,1.42,1.12,0,0.42,0.42,0.36,k,0);oBox(M,1.66,1.02,0,0.12,0.24,0.32,pk,0);for(const z of [-0.2,0.2])oBox(M,1.36,1.38,z,0.06,0.16,0.06,[0.9,0.88,0.8],0);
@@ -1944,26 +1962,32 @@ function wheel(M,x,y,z,r,w){oLimb(M,[x,y,z-w/2],[x,y,z+w/2],r,r,12,[0.1,0.1,0.1]
 function tractorMesh(){const M=omesh(),bk=[0.08,0.08,0.08],gr=[0.15,0.15,0.16],st=[0.75,0.75,0.78];
   const tyre=(x,y,z,r,w,lugs)=>{oLimb(M,[x,y,z-w/2],[x,y,z+w/2],r,r,14,bk,0);oLimb(M,[x,y,z-w/2-0.01],[x,y,z+w/2+0.01],r*0.55,r*0.55,10,[1,1,1],20);oLimb(M,[x,y,z-w/2-0.03],[x,y,z+w/2+0.03],r*0.14,r*0.14,6,st,0);
     if(lugs)for(let k=0;k<14;k++){const a=k*Math.PI/7;oBox(M,x+Math.cos(a)*(r+0.02),y+Math.sin(a)*(r+0.02),z,0.09,0.09,w*0.95,bk,0);}};
+  // rear axle housings and a front pivot bolster tie the wheels to the body (the body used to hang between the wheels)
   tyre(-0.62,0.78,-0.8,0.78,0.38,true);tyre(-0.62,0.78,0.8,0.78,0.38,true);tyre(1.42,0.42,-0.56,0.42,0.17,false);tyre(1.42,0.42,0.56,0.42,0.17,false);oBox(M,1.42,0.45,0,0.15,0.15,1.0,gr,0);
+  oLimb(M,[-0.62,0.78,-0.66],[-0.62,0.78,0.66],0.09,0.09,8,gr,0);oBox(M,1.36,0.63,0,0.28,0.24,0.3,gr,0);
   oBox(M,-0.35,0.85,0,0.95,0.7,0.62,[1,1,1],20);oBox(M,0.75,1.05,0,1.5,0.62,0.66,[1,1,1],20);oBox(M,1.55,1.05,0,0.08,0.62,0.6,gr,0);for(let y=0.82;y<1.32;y+=0.09)oBox(M,1.6,y,0,0.03,0.03,0.56,st,0);
   for(const z of [-0.36,0.36])oLimb(M,[1.45,1.25,z],[1.6,1.25,z],0.08,0.08,8,[1,0.95,0.8],9);oBox(M,0.2,1.42,0,0.55,0.18,0.5,[1,1,1],20);oLimb(M,[1.25,1.36,0],[1.25,1.46,0],0.06,0.06,6,st,0);
   oLimb(M,[1.05,1.36,0.22],[1.05,2.25,0.22],0.045,0.045,6,gr,0);oBox(M,1.05,2.27,0.22,0.12,0.02,0.12,gr,0);
-  for(const z of [-1,1]){oBox(M,-0.62,1.62,z*0.8,1.2,0.05,0.44,[1,1,1],20);oBox(M,-0.05,1.32,z*0.8,0.08,0.6,0.44,[1,1,1],20);oBox(M,-1.18,1.32,z*0.8,0.08,0.6,0.44,[1,1,1],20);oBox(M,-0.62,1.1,z*0.58,1.1,0.05,0.12,gr,0);}
+  for(const z of [-1,1]){oBox(M,-0.62,1.62,z*0.8,1.2,0.05,0.44,[1,1,1],20);oBox(M,-0.05,1.32,z*0.8,0.08,0.6,0.44,[1,1,1],20);oBox(M,-1.18,1.32,z*0.8,0.08,0.6,0.44,[1,1,1],20);oBox(M,-0.62,1.2,z*0.475,1.1,0.05,0.33,gr,0);oBox(M,-0.62,1.41,z*0.6,0.5,0.4,0.04,gr,0);}
   oBox(M,-0.72,1.42,0,0.4,0.06,0.4,gr,0);oLimb(M,[-0.72,1.15,0],[-0.72,1.4,0],0.04,0.04,4,gr,0);oBox(M,-0.9,1.62,0,0.06,0.35,0.36,gr,0);
-  oLimb(M,[0.15,1.25,0],[-0.25,1.75,0],0.025,0.025,4,gr,0);for(let k=0;k<10;k++){const a0=k*0.628,a1=(k+1)*0.628;oLimb(M,[-0.25+Math.sin(a0)*0.1,1.75+Math.cos(a0)*0.12*0.8,Math.cos(a0)*0.2],[-0.25+Math.sin(a1)*0.1,1.75+Math.cos(a1)*0.12*0.8,Math.cos(a1)*0.2],0.018,0.018,4,gr,0);}
-  oBox(M,-1.05,0.62,0,0.4,0.08,0.1,gr,0);for(const z of [-0.3,0.3])oLimb(M,[-0.8,0.55,z],[-1.3,0.48,z*1.2],0.03,0.03,4,gr,0);oLimb(M,[-0.85,1.0,0],[-1.25,0.75,0],0.03,0.03,4,gr,0);return M;}
+  oLimb(M,[0.15,1.25,0],[-0.25,1.75,0],0.025,0.025,4,gr,0);for(const z of [-1,1])oLimb(M,[-0.25,1.75,0],[-0.25,1.75,z*0.2],0.012,0.012,4,gr,0);for(let k=0;k<10;k++){const a0=k*0.628,a1=(k+1)*0.628;oLimb(M,[-0.25+Math.sin(a0)*0.1,1.75+Math.cos(a0)*0.12*0.8,Math.cos(a0)*0.2],[-0.25+Math.sin(a1)*0.1,1.75+Math.cos(a1)*0.12*0.8,Math.cos(a1)*0.2],0.018,0.018,4,gr,0);}
+  oBox(M,-1.03,0.62,0,0.4,0.08,0.1,gr,0);for(const z of [-0.3,0.3])oLimb(M,[-0.8,0.55,z],[-1.3,0.48,z*1.2],0.03,0.03,4,gr,0);oLimb(M,[-0.85,1.0,0],[-1.25,0.75,0],0.03,0.03,4,gr,0);return M;}
 function combineMesh(){const M=omesh();oBox(M,-0.4,2.0,0,4.2,2.0,2.4,[1,1,1],20);oBox(M,1.2,3.4,0,1.4,1.3,1.5,[0.22,0.26,0.3],0);oBox(M,1.2,4.1,0,1.6,0.1,1.7,[1,1,1],20);
-  oBox(M,2.9,0.75,0,1.4,0.6,4.6,[1,1,1],20);oBox(M,3.55,0.55,0,0.2,0.3,4.6,[0.75,0.72,0.6],0);for(let z=-2;z<=2;z+=0.5)oBox(M,3.3,0.95,z,0.9,0.06,0.06,[0.2,0.2,0.2],0);
+  // feeder house: the sloped channel from the header up into the body (the header used to float half a metre in front)
+  oBox(M,2.9,0.75,0,1.4,0.6,4.6,[1,1,1],20);oOBox(M,[1.95,1.2,0],[0.37,-0.37,0],[0.2,0.2,0],[0,0,0.6],[1,1,1],20);oBox(M,3.55,0.55,0,0.2,0.3,4.6,[0.75,0.72,0.6],0);for(let z=-2;z<=2;z+=0.5)oBox(M,3.3,0.95,z,0.9,0.06,0.06,[0.2,0.2,0.2],0);
   oLimb(M,[-1.5,3.0,1.1],[0.2,3.4,3.2],0.18,0.15,6,[1,1,1],20);wheel(M,1.0,0.95,-1.25,0.95,0.6);wheel(M,1.0,0.95,1.25,0.95,0.6);wheel(M,-2.0,0.55,-1.1,0.55,0.35);wheel(M,-2.0,0.55,1.1,0.55,0.35);return M;}
 function ploughMesh(){const M=omesh(),r=[0.75,0.2,0.15],s=[0.7,0.72,0.75];oLimb(M,[0.9,0.6,0],[-1.6,0.6,0.6],0.07,0.07,6,r,0);for(let k=0;k<4;k++){const x=0.4-k*0.6,z=0.12+k*0.16;oLimb(M,[x,0.6,z],[x-0.2,0.08,z],0.04,0.04,4,r,0);oBox(M,x-0.3,0.1,z+0.08,0.5,0.2,0.05,s,0);}
   wheel(M,-1.6,0.35,0.9,0.35,0.15);return M;}
 function drillMesh(){const M=omesh(),b=[0.25,0.45,0.75];oBox(M,-0.2,1.0,0,1.0,0.7,3.0,b,0);oBox(M,-0.2,0.3,0,0.8,0.12,3.1,[0.3,0.3,0.3],0);for(let z=-1.4;z<=1.4;z+=0.35)oLimb(M,[-0.2,0.65,z],[-0.35,0.05,z],0.025,0.025,4,[0.2,0.2,0.2],0);
   wheel(M,-0.2,0.35,-1.7,0.35,0.15);wheel(M,-0.2,0.35,1.7,0.35,0.15);oLimb(M,[0.3,0.6,0],[1.0,0.6,0],0.05,0.05,5,[0.3,0.3,0.3],0);return M;}
 // St Andrew's cross on a post (Dutch "andreaskruis": white with red edges), and a red-white boom pivoting at its origin
+// St Andrew's cross: two flat red boards with a white face on both sides (1 cm proud, so nothing z-fights), bolted to the post front
 function xbuckMesh(){const M=omesh(),w=[0.95,0.95,0.93],r=[0.82,0.1,0.1];oBox(M,0,1.4,0,0.1,2.8,0.1,[0.25,0.25,0.25],0);
-  for(const s of [-1,1]){const a=0.6*s;oLimb(M,[0,2.45-0.55,-0.75*s],[0,2.45+0.55,0.75*s],0.075,0.075,4,r,0);oLimb(M,[0.02,2.45-0.53,-0.72*s],[0.02,2.45+0.53,0.72*s],0.055,0.055,4,w,0);}
+  for(const s of [-1,1]){const L=Math.hypot(0.55,0.75),d=[0,0.55/L,0.75*s/L],p=[0,-0.75*s/L,0.55/L],sc=(v,k)=>v.map(q=>q*k);
+    oOBox(M,[0.075,2.45,0],sc(d,0.93),sc(p,0.11),[0.025,0,0],r,0);for(const e of [-1,1])oOBox(M,[0.075+e*0.045,2.45,0],sc(d,0.86),sc(p,0.065),[0.01,0,0],w,0);}
   oBox(M,0,0.55,0,0.4,0.6,0.3,[0.3,0.3,0.3],0);return M;}
-function boomMesh(){const M=omesh();for(let k=0;k<8;k++)oBox(M,0.25+k*0.5,0,0,0.5,0.12,0.08,k%2?[0.95,0.95,0.93]:[0.85,0.1,0.1],0);oBox(M,-0.35,0,0,0.5,0.35,0.3,[0.25,0.25,0.25],0);return M;}
+// counterweight now meets the boom at the pivot (it used to leave a 10 cm gap)
+function boomMesh(){const M=omesh();for(let k=0;k<8;k++)oBox(M,0.25+k*0.5,0,0,0.5,0.12,0.08,k%2?[0.95,0.95,0.93]:[0.85,0.1,0.1],0);oBox(M,-0.3,0,0,0.6,0.35,0.3,[0.25,0.25,0.25],0);return M;}
 function shovelerMesh(){const M=personMesh();oLimb(M,[0.25,1.15,0.1],[0.85,0.15,0.05],0.03,0.03,4,[0.45,0.32,0.2],0);oBox(M,0.92,0.08,0.05,0.28,0.04,0.32,[0.35,0.38,0.42],0);oIco(M,0,1.76,0,0.17,[1,1,1],18,{sy:0.6,seed:21});return M;}
 // paddle steamer, ~28 m: black hull with white sheer strake, saloon deck, wheelhouse, two funnels with red bands, paddle boxes, mast
 // sternwheel steamer, ~32 m: low hull, main and saloon decks with rows of windows and a promenade, pilot house,
@@ -1971,7 +1995,7 @@ function shovelerMesh(){const M=personMesh();oLimb(M,[0.25,1.15,0.1],[0.85,0.15,
 function steamerMesh(){const M=omesh(),hl=[0.36,0.12,0.1],wh=[0.95,0.94,0.9],wd=[0.62,0.46,0.3],bk=[0.08,0.08,0.09],gl=[0.2,0.24,0.3],rd=[0.72,0.13,0.1];
   oBox(M,0,0.5,0,26,1.3,7,hl,0);for(const [x,w] of [[13.6,5.6],[14.8,4.0],[15.8,2.2]])oBox(M,x,0.55,0,1.4,1.2,w,hl,0);oBox(M,0,1.25,0,32.2,0.2,7.3,wh,0);oBox(M,-0.5,1.42,0,30,0.12,7.0,wd,0);
   oBox(M,-0.5,2.55,0,22,2.1,5.4,wh,0);for(let x=-10.5;x<=9.5;x+=1.4)for(const z of [-2.71,2.71])oBox(M,x,2.7,z,0.75,1.0,0.02,gl,0);
-  oBox(M,-0.5,3.68,0,24,0.14,7.0,wh,0);for(let x=-12;x<=11.5;x+=1.5)for(const z of [-3.4,3.4])oBox(M,x,2.5,z,0.1,2.2,0.1,wh,0);for(const z of [-3.4,3.4])oBox(M,-0.5,4.15,z,24,0.5,0.04,wh,0);
+  oBox(M,-0.5,3.68,0,24,0.14,7.0,wh,0);for(let x=-12;x<=11.5;x+=1.5)for(const z of [-3.4,3.4])oBox(M,x,2.5,z,0.1,2.2,0.1,wh,0);for(const z of [-3.4,3.4])oBox(M,-0.5,4.05,z,24,0.6,0.04,wh,0);
   oBox(M,-2,4.7,0,15,1.9,4.2,wh,0);for(let x=-9;x<=5;x+=1.3)for(const z of [-2.11,2.11])oBox(M,x,4.85,z,0.7,0.8,0.02,gl,0);oBox(M,-2,5.72,0,16,0.14,5.0,wh,0);
   oBox(M,4.2,6.5,0,2.6,1.5,2.6,wh,0);for(const z of [-1.31,1.31])oBox(M,4.2,6.6,z,2.0,0.7,0.02,gl,0);oBox(M,4.2,7.33,0,3.1,0.14,3.1,wh,0);
   for(const z of [-1.4,1.4]){oPrism(M,7.5,z,0.42,0.42,3.7,12.5,10,bk,0);oPrism(M,7.5,z,0.42,0.68,12.5,13.1,10,bk,0);oPrism(M,7.5,z,0.43,0.43,11.4,11.8,10,rd,0);}
@@ -1983,7 +2007,7 @@ function sternwheelMesh(){const M=omesh(),rd=[0.75,0.14,0.11],dk=[0.3,0.08,0.06]
     for(const z of [-2.6,0,2.6])oLimb(M,[0,0,z],[c*2.9,s2*2.9,z],0.06,0.05,4,dk,0);}
   for(const z of [-2.6,2.6])for(let k=0;k<24;k++){const a0=k*Math.PI/12,a1=(k+1)*Math.PI/12;oLimb(M,[Math.cos(a0)*2.9,Math.sin(a0)*2.9,z],[Math.cos(a1)*2.9,Math.sin(a1)*2.9,z],0.07,0.07,4,dk,0);}return M;}
 function parasolMesh(){const M=omesh();oLimb(M,[0,0,0],[0,2.25,0],0.03,0.03,5,[0.95,0.95,0.95],0);oPrism(M,0,0,1.25,0.06,1.95,2.45,8,[1,1,1],18);return M;}
-function towelMesh(){const M=omesh();oBox(M,0,0.015,0,1.8,0.03,0.85,[1,1,1],20);oBox(M,0,0.02,0,1.8,0.03,0.12,[0.96,0.96,0.94],0);return M;}
+function towelMesh(){const M=omesh();oBox(M,0,0.015,0,1.8,0.03,0.85,[1,1,1],20);oBox(M,0,0.025,0,1.76,0.03,0.12,[0.96,0.96,0.94],0);return M;}
 function lierMesh(){const M=omesh();for(const z of [-0.1,0.1])oLimb(M,[-0.85,0.12,z],[0.05,0.13,z*1.3],0.08,0.07,5,[1,1,1],16);oLimb(M,[0.0,0.16,0],[0.62,0.16,0],0.2,0.18,6,[1,1,1],15);
   for(const z of [-0.25,0.25])oLimb(M,[0.55,0.16,z],[0.95,0.1,z*1.6],0.05,0.05,4,[1,1,1],17);oIco(M,0.85,0.2,0,0.16,[1,1,1],17,{seed:8});return M;}
 function swimmerMesh(){const M=omesh();oLimb(M,[0,0.02,-0.22],[0,0.02,0.22],0.13,0.13,6,[1,1,1],17);oIco(M,0.05,0.24,0,0.15,[1,1,1],17,{seed:9});oIco(M,0.03,0.33,0,0.155,[1,1,1],18,{sy:0.5,seed:14});
@@ -1993,46 +2017,56 @@ function seatedMesh(){const M=omesh();for(const z of [-0.1,0.1]){oLimb(M,[0,0.06
   oLimb(M,[-0.02,0.05,0],[-0.06,0.62,0],0.2,0.17,6,[1,1,1],15);for(const z of [-0.22,0.22])oLimb(M,[-0.04,0.55,z],[0.25,0.2,z*0.9],0.05,0.045,4,[1,1,1],15);oIco(M,-0.04,0.8,0,0.15,[1,1,1],17,{seed:4});return M;}
 // farmstead: a Dutch-style barn (brick walls, steep tiled roof, big green-and-white doors), an open machine shed,
 // and grain storage (two corrugated silos with conical roofs, a bucket elevator and spouts, a loading shed)
-function roofGable(M,L,W,y0,rise,col){const a=[-L/2,y0,-W/2],b=[L/2,y0,-W/2],r1=[L/2,y0+rise,0],r0=[-L/2,y0+rise,0],c2=[L/2,y0,W/2],d2=[-L/2,y0,W/2];oQuad(M,a,b,r1,r0,col,0);oQuad(M,r0,r1,c2,d2,col,0);}
+function roofGable(M,L,W,y0,rise,col,cx,cz){cx=cx||0;cz=cz||0;const a=[cx-L/2,y0,cz-W/2],b=[cx+L/2,y0,cz-W/2],r1=[cx+L/2,y0+rise,cz],r0=[cx-L/2,y0+rise,cz],c2=[cx+L/2,y0,cz+W/2],d2=[cx-L/2,y0,cz+W/2];oQuad(M,a,b,r1,r0,col,0);oQuad(M,r0,r1,c2,d2,col,0);}
 function barnMesh(){const M=omesh(),br=[0.58,0.25,0.18],rf=[0.30,0.25,0.24],gr=[0.16,0.36,0.25],wh=[0.93,0.92,0.88];oBox(M,0,2.3,0,18,4.6,11,br,0);oBox(M,0,0.2,0,18.3,0.4,11.3,[0.4,0.38,0.36],0);
-  roofGable(M,19,12.4,4.45,6.2,rf);for(const e of [-1,1]){oTri(M,[e*9.02,4.6,-5.5],[e*9.02,4.6,5.5],[e*9.02,10.5,0],br,0);}
+  // eaves drop with the pitch so the roof sits on the walls (it used to hover 55 cm above them)
+  roofGable(M,19,12.4,3.83,6.82,rf);for(const e of [-1,1]){oTri(M,[e*9.02,4.6,-5.5],[e*9.02,4.6,5.5],[e*9.02,10.65,0],br,0);}
   oBox(M,9.05,2.0,0,0.08,3.9,4.2,gr,0);for(const z of [-1,1])oLimb(M,[9.1,0.25,z*2],[9.1,3.8,-z*2],0.06,0.06,4,wh,0);oBox(M,9.1,2.0,0,0.05,3.9,0.1,wh,0);oBox(M,9.08,4.05,0,0.06,0.15,4.4,wh,0);
   for(const x of [-6,-2,2,6])for(const z of [-1,1]){oBox(M,x,3.1,z*5.52,0.9,0.7,0.04,wh,0);oBox(M,x,3.1,z*5.55,0.75,0.55,0.02,[0.2,0.22,0.25],0);}
   oBox(M,9.05,7.0,0,0.06,1.2,1.2,wh,0);oLimb(M,[0,10.6,0],[0,11.6,0],0.05,0.05,4,[0.2,0.2,0.2],0);oBox(M,0.3,11.4,0,0.6,0.25,0.04,[0.2,0.2,0.2],0);return M;}
-function shedMesh(){const M=omesh(),st=[0.42,0.46,0.44],rf=[0.55,0.56,0.55];oBox(M,0,2.6,-3.9,14,5.2,0.12,st,0);for(const e of [-1,1])oBox(M,e*7,2.6,0,0.12,5.2,7.8,st,0);
-  for(const x of [-3.5,0,3.5])oLimb(M,[x,0,3.8],[x,4.7,3.8],0.1,0.1,4,[0.3,0.3,0.3],0);const a=[-7.3,5.3,-4.3],b=[7.3,5.3,-4.3],c=[7.3,4.6,4.4],d=[-7.3,4.6,4.4];oQuad(M,a,b,c,d,rf,0);oBox(M,0,0.05,0,14,0.1,7.8,[0.45,0.43,0.4],0);return M;}
+// side walls now follow the mono-pitch roof (they used to stick up to 0.6 m through it at the open front)
+function shedMesh(){const M=omesh(),st=[0.42,0.46,0.44],rf=[0.55,0.56,0.55];oBox(M,0,2.62,-3.9,14,5.24,0.12,st,0);for(const e of [-1,1]){oBox(M,e*7,2.275,0,0.12,4.55,7.8,st,0);oQuad(M,[e*7,4.55,-3.9],[e*7,4.55,3.9],[e*7,4.66,3.9],[e*7,5.27,-3.9],st,0);}
+  for(const x of [-3.5,0,3.5])oLimb(M,[x,0,3.8],[x,4.65,3.8],0.1,0.1,4,[0.3,0.3,0.3],0);const a=[-7.3,5.3,-4.3],b=[7.3,5.3,-4.3],c=[7.3,4.6,4.4],d=[-7.3,4.6,4.4];oQuad(M,a,b,c,d,rf,0);oBox(M,0,0.05,0,14,0.1,7.8,[0.45,0.43,0.4],0);return M;}
 function siloMesh(){const M=omesh(),gm=[0.74,0.76,0.78],dk=[0.36,0.38,0.4],rd=[0.62,0.18,0.12];for(const z of [-3,3]){oPrism(M,0,z,2.4,2.4,0,11,14,gm,0);for(let y=1;y<11;y+=1.4)oPrism(M,0,z,2.43,2.43,y,y+0.08,14,dk,0);oPrism(M,0,z,2.55,0.35,11,13.2,14,gm,0);
     oLimb(M,[2.45,0.5,z],[2.45,11,z],0.03,0.03,4,dk,0);oLimb(M,[2.45,0.5,z+0.4],[2.45,11,z+0.4],0.03,0.03,4,dk,0);oLimb(M,[0,13.2,z],[0,14.6,0],0.12,0.1,5,dk,0);}
-  oBox(M,0,8,0,1.0,16,1.0,rd,0);oBox(M,0,16.3,0,1.6,1.0,1.6,rd,0);oBox(M,-4.2,1.9,0,4,3.8,5,[0.6,0.5,0.38],0);roofGable(M,4.6,5.6,3.75,1.3,[0.32,0.26,0.24]);return M;}
+  oBox(M,0,8,0,1.0,16,1.0,rd,0);oBox(M,0,16.3,0,1.6,1.0,1.6,rd,0);oBox(M,-4.2,1.9,0,4,3.8,5,[0.6,0.5,0.38],0);roofGable(M,4.6,5.6,3.656,1.344,[0.32,0.26,0.24],-4.2,0);for(const x of [-6.2,-2.2])oTri(M,[x,3.8,-2.5],[x,3.8,2.5],[x,5.0,0],[0.6,0.5,0.38],0);return M;}
 function harrowMesh(){const M=omesh(),y=[0.95,0.72,0.1];oBox(M,-0.1,0.55,0,0.3,0.12,3.2,y,0);oLimb(M,[0.2,0.55,0],[1.0,0.62,0],0.05,0.05,5,y,0);for(const x of [-0.25,0.15])for(let z=-1.4;z<=1.4;z+=0.35)oLimb(M,[x,0.3,z-0.04],[x,0.3,z+0.04],0.25,0.25,8,[0.55,0.56,0.58],0);return M;}
 function trailerMesh(){const M=omesh(),r=[0.72,0.16,0.12];oBox(M,-0.6,1.35,0,4.6,1.0,2.3,r,0);oBox(M,-0.6,1.75,0,4.3,0.4,2.0,[0.85,0.7,0.3],0);oLimb(M,[1.7,0.75,0],[2.6,0.65,0],0.06,0.06,5,[0.2,0.2,0.2],0);
   for(const x of [-1.5,0.2])for(const z of [-1,1])oLimb(M,[x,0.5,z*1.0],[x,0.5,z*1.25],0.5,0.5,10,[0.1,0.1,0.1],0);return M;}
 function baleMesh(){const M=omesh();oLimb(M,[0,0.75,-0.6],[0,0.75,0.6],0.75,0.75,10,[0.86,0.76,0.42],0);return M;}
 function castleMesh(){const M=omesh(),wh=[0.93,0.91,0.86],sl=[0.30,0.37,0.46],br=[0.66,0.40,0.30],gd=[0.95,0.78,0.30],gl=[0.14,0.16,0.2],st=[0.78,0.76,0.72];
-  const roof=(cx,cz,L,Wd,y0,rise,col)=>{const a=[cx-L/2,y0,cz-Wd/2],b=[cx+L/2,y0,cz-Wd/2],r1=[cx+L/2,y0+rise,cz],r0=[cx-L/2,y0+rise,cz],c2=[cx+L/2,y0,cz+Wd/2],d2=[cx-L/2,y0,cz+Wd/2];oQuad(M,a,b,r1,r0,col,0);oQuad(M,r0,r1,c2,d2,col,0);
-    for(const e of [-1,1])oTri(M,[cx+e*L/2,y0,cz-Wd/2],[cx+e*L/2,y0,cz+Wd/2],[cx+e*L/2,y0+rise,cz],wh,0);};
-  const tower=(x,z,r,h,cone,col,base)=>{oPrism(M,x,z,r,r,base||0,h,12,col||wh,0);oPrism(M,x,z,r*1.12,r*1.12,h-0.4,h,12,st,0);oPrism(M,x,z,r*1.15,0.05,h,h+cone,12,sl,0);oLimb(M,[x,h+cone,z],[x,h+cone+1.6,z],0.06,0.04,4,gd,0);
-    for(let k=0;k<3;k++)for(let q=0;q<4;q++){const a=q*1.5708+k*0.4,y=h*(0.45+k*0.17);oBox(M,x+Math.cos(a)*(r+0.02),y,z+Math.sin(a)*(r+0.02),0.45,1.1,0.45,gl,0);}};
+  // gable roof over walls L (along x) by Wd: overhang ov all round, the eaves drop with the pitch so the roof rests on the walls,
+  // gables stand on the end walls (the roofs used to hover up to 0.7 m above the walls, gables 0.3 m out from them)
+  const roof=(cx,cz,L,Wd,y0,rise,col,gc,ov)=>{ov=ov||0;const yE=y0-ov*rise/(Wd/2),X=L/2+ov,Z=Wd/2+ov,a=[cx-X,yE,cz-Z],b=[cx+X,yE,cz-Z],r1=[cx+X,y0+rise,cz],r0=[cx-X,y0+rise,cz],c2=[cx+X,yE,cz+Z],d2=[cx-X,yE,cz+Z];oQuad(M,a,b,r1,r0,col,0);oQuad(M,r0,r1,c2,d2,col,0);
+    for(const e of [-1,1])oTri(M,[cx+e*L/2,y0,cz-Wd/2],[cx+e*L/2,y0,cz+Wd/2],[cx+e*L/2,y0+rise,cz],gc||wh,0);};
+  // turrets that start part-way up (base > 0) get a corbel cone underneath, and their windows stay on the turret itself
+  const tower=(x,z,r,h,cone,col,base)=>{base=base||0;oPrism(M,x,z,r,r,base,h,12,col||wh,0);if(base>0)oPrism(M,x,z,0.25,r,base-r*1.6,base,12,col||wh,0);oPrism(M,x,z,r*1.12,r*1.12,h-0.4,h,12,st,0);oPrism(M,x,z,r*1.15,0.05,h,h+cone,12,sl,0);oLimb(M,[x,h+cone,z],[x,h+cone+1.6,z],0.06,0.04,4,gd,0);
+    for(let k=0;k<3;k++)for(let q=0;q<4;q++){const a=q*1.5708+k*0.4,y=base>0?base+(h-base)*(0.3+k*0.22):h*(0.45+k*0.17);oBox(M,x+Math.cos(a)*(r+0.02),y,z+Math.sin(a)*(r+0.02),0.45,1.1,0.45,gl,0);}};
   const crenel=(x0,x1,z0,z1,y)=>{const L=Math.hypot(x1-x0,z1-z0),n=Math.floor(L/1.6);for(let k=0;k<n;k+=2){const t=(k+0.5)/n;oBox(M,x0+(x1-x0)*t,y+0.45,z0+(z1-z0)*t,0.8,0.9,0.8,br,0);}};
-  // rock plinth and terraces
-  oPrism(M,0,0,30,26,-6,0.3,14,[0.55,0.53,0.5],0);oBox(M,0,0.6,0,60,1.2,26,st,0);
+  // rock plinth (a rounded oblong that carries the whole terrace; the old round one left the terrace corners overhanging) and terrace
+  {const rr=(A,B,R,j,rng)=>{const p=[];for(const [sx,sz,a0] of [[1,1,0],[-1,1,1.5708],[-1,-1,3.1416],[1,-1,4.7124]])for(let k=0;k<4;k++){const a=a0+k/3*1.5708,q=1+(rng?(rng()-0.5)*j:0);p.push([(sx*(A-R)+Math.cos(a)*R)*q,(sz*(B-R)+Math.sin(a)*R)*q]);}return p;};
+    const rg=mulberry32(77),rings=[[-6,rr(36,19,8)],[-2.6,rr(33.5,16.4,5,0.08,rg)],[0.3,rr(31.2,14.2,3)]],rk=[0.55,0.53,0.5];
+    for(let i=0;i+1<rings.length;i++){const [y0,a]=rings[i],[y1,b]=rings[i+1];for(let k=0;k<a.length;k++){const k1=(k+1)%a.length;oQuad(M,[a[k][0],y0,a[k][1]],[a[k1][0],y0,a[k1][1]],[b[k1][0],y1,b[k1][1]],[b[k][0],y1,b[k][1]],rk,0);}}
+    const top=rings[2][1];for(let k=0;k<top.length;k++){const k1=(k+1)%top.length;oTri(M,[0,0.3,0],[top[k][0],0.3,top[k][1]],[top[k1][0],0.3,top[k1][1]],rk,0);}}
+  oBox(M,0,0.6,0,60,1.2,26,st,0);
   // gatehouse with corner towers and the arched gate
   oBox(M,22,6,0,10,12,22,br,0);crenel(17,27,-11,-11,12);crenel(17,27,11,11,12);crenel(27,27,-11,11,12);for(const z of [-11,11])tower(27,z,2.6,15,6,br);
-  oBox(M,27.05,3.6,0,0.2,7,4.4,[0.12,0.1,0.09],0);oPrism(M,27.05,0,2.2,2.2,6.2,7.2,8,[0.12,0.1,0.09],0);for(const z of [-6,-3,3,6])oBox(M,27.05,9,z,0.1,1.6,0.9,gl,0);roof(22,0,10.4,22.4,12,0.01,sl);
+  // gate: dark doorway with a flat round arch on the facade (was a vertical drum sticking 2 m out); low roof inside the battlements (was flush with the wall top and flickered)
+  oBox(M,27.05,3.6,0,0.2,7,4.4,[0.12,0.1,0.09],0);oArch(M,[27.16,7.1,0],2.2,'z',[0.12,0.1,0.09],0,8);for(const z of [-6,-3,3,6])oBox(M,27.05,9,z,0.1,1.6,0.9,gl,0);roof(22,0,9.6,21.6,12.02,0.9,sl,br);
   // lower courtyard walls
   for(const z of [-12,12])oBox(M,9,3,z,16,6,1.2,wh,0);
   // Palas: the tall white main hall, 5 storeys of arched windows, steep slate roof with step gables
-  const px=-10,PL=26,PW=13,PH=26;oBox(M,px,PH/2,0,PL,PH,PW,wh,0);roof(px,0,PL+0.6,PW+0.8,PH,12,sl);
-  for(let f=0;f<5;f++)for(let w=0;w<8;w++){const x=px-PL/2+2+w*3.1,y=4+f*4.6;for(const z of [-1,1]){oBox(M,x,y,z*(PW/2+0.02),1.1,2.2,0.06,(f===4&&w%3===1)?[1,0.85,0.5]:gl,(f===4&&w%3===1)?9:0);oPrism(M,x,z*(PW/2+0.03),0.55,0.55,y+1.1,y+1.6,8,gl,0);}}
-  for(let w=0;w<4;w++)oBox(M,px-PL/2-0.02,8+w*4.5,0,0.06,2.2,1.1,gl,0);
+  const px=-10,PL=26,PW=13,PH=26;oBox(M,px,PH/2,0,PL,PH,PW,wh,0);roof(px,0,PL,PW,PH,12,sl,wh,0.4);
+  for(let f=0;f<5;f++)for(let w=0;w<8;w++){const x=px-PL/2+2+w*3.1,y=4+f*4.6,lit=f===4&&w%3===1;for(const z of [-1,1]){oBox(M,x,y,z*(PW/2+0.02),1.1,2.2,0.06,lit?[1,0.85,0.5]:gl,lit?9:0);oArch(M,[x,y+1.1,z*(PW/2+0.055)],0.55,'x',lit?[1,0.85,0.5]:gl,lit?9:0);}}
   for(const [x,z] of [[px-PL/2,-PW/2],[px-PL/2,PW/2],[px+PL/2,-PW/2],[px+PL/2,PW/2]])tower(x,z,1.5,PH+2,5.5,wh,PH-8);
-  // Throne Hall bay with balcony on the far (west) end
-  oBox(M,px-PL/2-3,PH*0.62,0,6,PH*0.5,8,wh,0);oBox(M,px-PL/2-6.4,PH*0.45,0,1.2,0.4,9,st,0);for(let k=-4;k<=4;k++)oLimb(M,[px-PL/2-6.9,PH*0.45,k],[px-PL/2-6.9,PH*0.45+1.1,k],0.05,0.05,4,st,0);oPrism(M,px-PL/2-3,0,4.2,0.05,PH*0.87,PH*0.87+5,10,sl,0);
+  // Throne Hall bay with balcony on the far (west) end; it now stands on the terrace instead of hanging off the wall 10 m up
+  oBox(M,px-PL/2-3,PH*0.435,0,6,PH*0.87,8,wh,0);for(let f=0;f<5;f++){const y=4+f*4.5;oBox(M,px-PL/2-6.02,y,0,0.06,2.2,1.1,gl,0);oArch(M,[px-PL/2-6.055,y+1.1,0],0.55,'z',gl,0);for(const z of [-1,1])oBox(M,px-PL/2-3,y,z*4.02,1.1,2.2,0.06,gl,0);}oBox(M,px-PL/2-6.4,PH*0.45,0,1.2,0.4,9,st,0);for(let k=-4;k<=4;k++)oLimb(M,[px-PL/2-6.9,PH*0.45,k],[px-PL/2-6.9,PH*0.45+1.1,k],0.05,0.05,4,st,0);oPrism(M,px-PL/2-3,0,4.2,0.05,PH*0.87,PH*0.87+5,10,sl,0);
   // the slender stair tower (tallest) and the square tower
-  tower(px+PL/2+2,-PW/2-1,3.2,PH+18,10,wh,0);oBox(M,px+PL/2+3,PH*0.6,PW/2+3,7,PH*1.2,7,wh,0);oPrism(M,px+PL/2+3,PW/2+3,5.2,0.05,PH*1.2,PH*1.2+9,4,sl,0);
-  for(let f=0;f<6;f++)oBox(M,px+PL/2+6.52,5+f*5,PW/2+3,0.06,2,1,gl,0);oLimb(M,[px+PL/2+3,PH*1.2+9,PW/2+3],[px+PL/2+3,PH*1.2+10.8,PW/2+3],0.06,0.04,4,gd,0);
+  // square tower stands 10 cm inside the terrace edge (its face used to be flush with the terrace side and flickered)
+  tower(px+PL/2+2,-PW/2-1,3.2,PH+18,10,wh,0);oBox(M,px+PL/2+3,PH*0.6,PW/2+2.9,7,PH*1.2,7,wh,0);oPrism(M,px+PL/2+3,PW/2+2.9,5.2,0.05,PH*1.2,PH*1.2+9,4,sl,0,0.7854);
+  for(let f=0;f<6;f++)oBox(M,px+PL/2+6.52,5+f*5,PW/2+2.9,0.06,2,1,gl,0);oLimb(M,[px+PL/2+3,PH*1.2+9,PW/2+2.9],[px+PL/2+3,PH*1.2+10.8,PW/2+2.9],0.06,0.04,4,gd,0);
   // bower wing and its turrets on the courtyard side
-  oBox(M,4,8,-8,10,16,7,wh,0);roof(4,-8,10.4,7.6,16,5,sl);tower(9.5,-11.5,1.6,20,5,wh,10);tower(-1,-12,1.4,19,4.5,wh,10);
+  oBox(M,4,8,-8,10,16,7,wh,0);roof(4,-8,10,7,16,5,sl,wh,0.3);tower(9.5,-11.5,1.6,20,5,wh,10);tower(-1,-12,1.4,19,4.5,wh,10);
   for(let w=0;w<3;w++)for(let f=0;f<3;f++)oBox(M,1+w*3,4+f*4,-11.53,1,2,0.06,gl,0);
   return M;}
 function busMesh(){const M=omesh(),cr=[0.93,0.88,0.72],rd=[0.74,0.16,0.12],gl=[0.2,0.25,0.3],bk=[0.1,0.1,0.1],ch=[0.82,0.83,0.86];
@@ -2043,19 +2077,21 @@ function busMesh(){const M=omesh(),cr=[0.93,0.88,0.72],rd=[0.74,0.16,0.12],gl=[0
 function busStopMesh(){const M=omesh(),gn=[0.18,0.35,0.26],yl=[0.98,0.82,0.15];oLimb(M,[0,0,0],[0,2.8,0],0.05,0.05,6,[0.6,0.6,0.62],0);oLimb(M,[0,2.85,-0.03],[0,2.85,0.03],0.32,0.32,12,yl,0);oLimb(M,[0,2.85,-0.04],[0,2.85,0.04],0.2,0.2,12,gn,0);
   oBox(M,1.8,1.25,1.2,3.0,2.5,0.06,[0.6,0.7,0.75],0);for(const x of [0.3,3.3])oBox(M,x,1.25,0.6,0.08,2.5,1.3,gn,0);oBox(M,1.8,2.55,0.6,3.4,0.1,1.6,gn,0);oBox(M,1.8,0.5,0.95,2.6,0.08,0.4,[0.5,0.36,0.22],0);return M;}
 // bakery: brick townhouse with a big lit shop window, striped awning, a hanging bread sign, crates of loaves and a bench
-function shopBase(M,w,d,h,wall,roof){oBox(M,0,h/2,0,w,h,d,wall,0);oBox(M,0,0.15,0,w+0.3,0.3,d+0.3,[0.42,0.4,0.38],0);const a=[-w/2-0.3,h,-d/2-0.4],b=[w/2+0.3,h,-d/2-0.4],r1=[w/2+0.3,h+2.6,0],r0=[-w/2-0.3,h+2.6,0],c2=[w/2+0.3,h,d/2+0.4],d2=[-w/2-0.3,h,d/2+0.4];oQuad(M,a,b,r1,r0,roof,0);oQuad(M,r0,r1,c2,d2,roof,0);for(const e of [-1,1])oTri(M,[e*w/2,h,-d/2],[e*w/2,h,d/2],[e*w/2,h+2.6,0],wall,0);
+function shopBase(M,w,d,h,wall,roof){oBox(M,0,h/2,0,w,h,d,wall,0);oBox(M,0,0.15,0,w+0.3,0.3,d+0.3,[0.42,0.4,0.38],0);const yE=h-0.4*2.6/(d/2),a=[-w/2-0.3,yE,-d/2-0.4],b=[w/2+0.3,yE,-d/2-0.4],r1=[w/2+0.3,h+2.6,0],r0=[-w/2-0.3,h+2.6,0],c2=[w/2+0.3,yE,d/2+0.4],d2=[-w/2-0.3,yE,d/2+0.4];oQuad(M,a,b,r1,r0,roof,0);oQuad(M,r0,r1,c2,d2,roof,0);for(const e of [-1,1])oTri(M,[e*w/2,h,-d/2],[e*w/2,h,d/2],[e*w/2,h+2.6,0],wall,0);
   for(const x of [-w/4,w/4])oBox(M,x,h-1.3,-d/2-0.02,1.0,1.2,0.05,[0.2,0.22,0.26],0);}
-function bakeryMesh(){const M=omesh(),br=[0.66,0.36,0.26];shopBase(M,7,7,5.6,br,[0.32,0.24,0.2]);oBox(M,-1.2,1.35,-3.53,3.4,1.9,0.05,[1,0.85,0.55],9);oBox(M,-1.2,1.35,-3.56,3.6,2.1,0.03,[0.2,0.16,0.12],0);
+// the lit shop window now sits in front of its frame (the frame used to cover it completely)
+function bakeryMesh(){const M=omesh(),br=[0.66,0.36,0.26];shopBase(M,7,7,5.6,br,[0.32,0.24,0.2]);oBox(M,-1.2,1.35,-3.55,3.4,1.9,0.04,[1,0.85,0.55],9);oBox(M,-1.2,1.35,-3.52,3.6,2.1,0.03,[0.2,0.16,0.12],0);
   oBox(M,2.2,1.15,-3.53,1.0,2.2,0.06,[0.35,0.22,0.14],0);for(let k=0;k<6;k++)oBox(M,-3.2+k*0.65,2.75,-4.1,0.65,0.06,1.2,k%2?[0.95,0.92,0.85]:[0.78,0.18,0.14],0);
-  oLimb(M,[2.9,3.2,-3.5],[2.9,3.2,-4.3],0.03,0.03,4,[0.15,0.15,0.15],0);oLimb(M,[2.9,2.75,-4.25],[2.9,2.75,-4.35],0.32,0.32,10,[0.85,0.62,0.3],0);oBox(M,-3.0,0.4,-4.3,1.4,0.5,0.6,[0.5,0.36,0.22],0);for(let k=0;k<4;k++)oIco(M,-3.5+k*0.33,0.75,-4.3,0.14,[0.86,0.62,0.32],0,{sy:0.6,seed:30+k});
+  oLimb(M,[2.9,3.2,-3.5],[2.9,3.2,-4.3],0.03,0.03,4,[0.15,0.15,0.15],0);oLimb(M,[2.9,2.84,-4.25],[2.9,2.84,-4.35],0.32,0.32,10,[0.85,0.62,0.3],0);oBox(M,-3.0,0.4,-4.3,1.4,0.5,0.6,[0.5,0.36,0.22],0);for(let k=0;k<4;k++)oIco(M,-3.5+k*0.33,0.73,-4.3,0.14,[0.86,0.62,0.32],0,{sy:0.6,seed:30+k});
   oBox(M,0.6,0.45,-4.2,1.6,0.08,0.4,[0.45,0.3,0.18],0);for(const x of [0,1.2])oBox(M,x,0.22,-4.2,0.08,0.44,0.35,[0.2,0.2,0.2],0);return M;}
 // restaurant: plastered house with a lit dining room, a canvas awning and a terrace of tables with chairs and parasols
 function restaurantMesh(){const M=omesh(),wl=[0.93,0.88,0.74];shopBase(M,8,7.5,5.8,wl,[0.55,0.22,0.16]);for(const x of [-2.6,0,2.6])oBox(M,x,1.5,-3.78,1.6,1.6,0.05,[1,0.82,0.5],9);oBox(M,3.3,1.15,-3.78,0.9,2.2,0.06,[0.3,0.18,0.12],0);
   oBox(M,0,2.95,-4.3,8.2,0.08,1.6,[0.16,0.36,0.24],0);oBox(M,0,2.75,-5.08,8.2,0.35,0.04,[0.16,0.36,0.24],0);oBox(M,0,0.05,-6.2,9,0.1,4.6,[0.6,0.56,0.5],0);
   for(const [x,z] of [[-2.8,-5.5],[0,-6.6],[2.8,-5.5],[-1.4,-7.6],[1.6,-7.8]]){oPrism(M,x,z,0.45,0.45,0.72,0.78,10,[0.95,0.95,0.93],0);oLimb(M,[x,0,z],[x,0.72,z],0.05,0.05,5,[0.2,0.2,0.2],0);
-    for(const q of [[0.7,0],[-0.7,0]]){oBox(M,x+q[0],0.45,z,0.4,0.06,0.4,[0.35,0.24,0.16],0);oBox(M,x+q[0]*1.25,0.75,z,0.05,0.6,0.4,[0.35,0.24,0.16],0);}
+    // terrace chairs get legs (seats used to float 0.3 m above the terrace)
+    for(const q of [[0.7,0],[-0.7,0]]){oBox(M,x+q[0],0.45,z,0.4,0.06,0.4,[0.35,0.24,0.16],0);oBox(M,x+q[0]*1.25,0.75,z,0.05,0.6,0.4,[0.35,0.24,0.16],0);for(const a of [-0.17,0.17])for(const b of [-0.17,0.17])oBox(M,x+q[0]+a,0.26,z+b,0.04,0.32,0.04,[0.2,0.2,0.2],0);}
     oLimb(M,[x,0.78,z],[x,2.4,z],0.025,0.025,4,[0.9,0.9,0.9],0);oPrism(M,x,z,1.1,0.05,2.15,2.55,8,[1,1,1],18);}
-  oBox(M,-3.9,1.2,-3.85,0.08,1.3,0.7,[0.15,0.12,0.1],0);return M;}
+  oBox(M,-3.9,0.75,-3.85,0.08,1.3,0.7,[0.15,0.12,0.1],0);return M;}
 // market stall: posts, a counter with produce crates, a striped awning (front faces the square, local +x)
 function stallMesh(){const M=omesh(),wd=[0.5,0.36,0.22];for(const x of [-0.9,0.9])for(const z of [-1.3,1.3])oLimb(M,[x,0,z],[x,2.3,z],0.04,0.04,4,wd,0);oBox(M,0.5,0.85,0,1.1,0.1,2.6,wd,0);oBox(M,0.5,0.45,0,1.0,0.8,2.5,[0.42,0.3,0.18],0);
   const cols=[[0.85,0.2,0.15],[0.95,0.75,0.2],[0.4,0.65,0.2],[0.9,0.5,0.15],[0.55,0.25,0.5]];for(let k=0;k<4;k++){oBox(M,0.55,0.98,-0.95+k*0.63,0.8,0.16,0.55,[0.6,0.45,0.28],0);oIco(M,0.55,1.1,-0.95+k*0.63,0.3,cols[k%5],0,{sy:0.4,seed:40+k});}
@@ -2079,48 +2115,72 @@ function lorryMesh(){const M=omesh(),cb=[0.22,0.38,0.56],gl=[0.2,0.25,0.3],bk=[0
 // and a timber office with a porch. +x faces the village; the three other sides are the loading sidings.
 function sawmillMesh(){const M=omesh(),bw=[0.52,0.38,0.25],bd=[0.42,0.3,0.2],rf=[0.56,0.57,0.56],lg=[0.56,0.41,0.27],pl=[0.88,0.76,0.52],dk=[0.2,0.18,0.16];
   oBox(M,0,0.08,0,40,0.16,30,[0.52,0.46,0.38],0);
-  oBox(M,0,2.6,0,20,5.2,8,bw,0);for(let x=-9.8;x<=9.8;x+=0.6)for(const z of [-4.02,4.02])oBox(M,x,2.6,z,0.06,5.2,0.04,bd,0);oBox(M,-10.02,3.4,0,0.06,3.6,8,[0.08,0.07,0.06],0);
-  oQuad(M,[-10.4,5.2,-4.5],[10.4,5.2,-4.5],[10.4,7.6,0],[-10.4,7.6,0],rf,0);oQuad(M,[-10.4,7.6,0],[10.4,7.6,0],[10.4,5.2,4.5],[-10.4,5.2,4.5],rf,0);for(const e of [-1,1])oTri(M,[e*10,5.2,-4],[e*10,5.2,4],[e*10,7.5,0],bw,0);
-  for(let x=-8;x<=8;x+=4)for(const z of [-1,1])oBox(M,x,3.2,z*4.03,1.1,0.9,0.04,[0.18,0.2,0.22],0);oBox(M,-7,0.9,0,6,0.5,1.2,[0.3,0.3,0.32],0);oLimb(M,[-7,1.4,-0.5],[-7,1.4,0.5],1.25,1.25,16,[0.78,0.79,0.82],0);oLimb(M,[-7,1.4,-0.52],[-7,1.4,0.52],0.2,0.2,8,dk,0);
+  // mill house with a real open infeed end (it used to be a closed box with a black panel, hiding the head saw inside)
+  for(const z of [-1,1])oBox(M,0,2.6,z*3.9,20,5.2,0.2,bw,0);oBox(M,9.9,2.6,0,0.2,5.2,8,bw,0);for(const z of [-1,1])oBox(M,-9.9,2.6,z*3.6,0.2,5.2,0.8,bw,0);oBox(M,-9.9,4.8,0,0.2,0.8,6.4,bw,0);
+  for(let x=-9.8;x<=9.8;x+=0.6)for(const z of [-4.02,4.02])oBox(M,x,2.6,z,0.06,5.2,0.04,bd,0);
+  oQuad(M,[-10.4,4.9,-4.5],[10.4,4.9,-4.5],[10.4,7.6,0],[-10.4,7.6,0],rf,0);oQuad(M,[-10.4,7.6,0],[10.4,7.6,0],[10.4,4.9,4.5],[-10.4,4.9,4.5],rf,0);for(const e of [-1,1])oTri(M,[e*10,5.2,-4],[e*10,5.2,4],[e*10,7.6,0],bw,0);
+  // head saw: a thin blade on its arbor housing, the log carriage beside it with a log ready to cut
+  for(let x=-8;x<=8;x+=4)for(const z of [-1,1])oBox(M,x,3.2,z*4.03,1.1,0.9,0.04,[0.18,0.2,0.22],0);
+  oBox(M,-6.5,0.5,-1.03,7,0.6,0.75,[0.3,0.3,0.32],0);oLimb(M,[-9.6,1.15,-0.9],[-4.4,1.15,-0.9],0.35,0.35,8,lg,0);
+  oLimb(M,[-4,1.4,-0.64],[-4,1.4,-0.6],1.1,1.1,16,[0.78,0.79,0.82],0);oLimb(M,[-4,1.4,-0.66],[-4,1.4,-0.1],0.16,0.16,8,dk,0);oBox(M,-4,0.85,0.05,0.8,1.3,0.5,[0.3,0.3,0.32],0);
   oQuad(M,[-10,0.2,-0.9],[-17,0.2,-0.9],[-17,2.0,-0.9],[-10,3.6,-0.9],[0.35,0.3,0.26],0);oQuad(M,[-10,0.2,0.9],[-17,0.2,0.9],[-17,2.0,0.9],[-10,3.6,0.9],[0.35,0.3,0.26],0);oQuad(M,[-17,2.0,-0.9],[-10,3.6,-0.9],[-10,3.6,0.9],[-17,2.0,0.9],[0.3,0.28,0.25],0);
   oLimb(M,[-14,2.95,0],[-11,3.55,0],0.32,0.32,8,lg,0);
-  for(let r=0;r<3;r++)for(let k=0;k<6-r;k++)oLimb(M,[-19,0.45+r*0.72,-6+k*0.75+r*0.37],[-13,0.45+r*0.72,-6+k*0.75+r*0.37],0.36,0.36,8,lg,0);
-  oBox(M,12.5,0.95,0,5,0.25,1.4,[0.3,0.3,0.32],0);for(let k=0;k<5;k++)oBox(M,11+k*0.8,1.15,0,0.12,0.06,1.6,pl,0);
-  oBox(M,4,2,8.5,7,4,5,[0.62,0.36,0.26],0);oQuad(M,[0.3,4,6],[7.7,4,6],[7.7,5.2,8.5],[0.3,5.2,8.5],rf,0);oQuad(M,[0.3,5.2,8.5],[7.7,5.2,8.5],[7.7,4,11],[0.3,4,11],rf,0);
+  // log deck: each row rests on the two logs below (rows used to float 10 cm apart), on two skids
+  for(const x of [-18,-14])oBox(M,x,0.24,-4.1,0.3,0.16,4.8,dk,0);for(let r=0;r<3;r++)for(let k=0;k<6-r;k++)oLimb(M,[-19,0.68+r*0.615,-6+k*0.75+r*0.375],[-13,0.68+r*0.615,-6+k*0.75+r*0.375],0.36,0.36,8,lg,0);
+  // outfeed roller table on legs, rollers in the frame, sawn boards riding on them
+  oBox(M,12.5,0.95,0,5,0.25,1.4,[0.3,0.3,0.32],0);for(const x of [10.3,14.7])for(const z of [-0.6,0.6])oBox(M,x,0.5,z,0.12,0.7,0.12,dk,0);for(let k=0;k<5;k++)oLimb(M,[10.9+k*0.8,1.12,-0.75],[10.9+k*0.8,1.12,0.75],0.06,0.06,6,[0.6,0.6,0.62],0);
+  for(const z of [-0.35,0.05])oBox(M,12.3,1.22,z,3.6,0.06,0.3,pl,0);
+  oBox(M,4,2,8.5,7,4,5,[0.62,0.36,0.26],0);oQuad(M,[0.3,4,6],[7.7,4,6],[7.7,5.2,8.5],[0.3,5.2,8.5],rf,0);oQuad(M,[0.3,5.2,8.5],[7.7,5.2,8.5],[7.7,4,11],[0.3,4,11],rf,0);for(const x of [0.5,7.5])oTri(M,[x,4,6],[x,4,11],[x,5.2,8.5],[0.62,0.36,0.26],0);
   oPrism(M,6.5,10,0.75,0.6,0,13,10,[0.62,0.3,0.22],0);oPrism(M,6.5,10,0.8,0.8,12.2,12.8,10,dk,0);oPrism(M,6.5,10,0.55,0.95,12.8,14,8,[0.25,0.25,0.26],0);
   oPrism(M,-6,10.5,3.4,0.2,0,3,10,[0.82,0.7,0.45],0);for(let k=0;k<6;k++)oLimb(M,[-12+k*0.3,0.35+(k%3)*0.3,9],[-10+k*0.3,0.35+(k%3)*0.3,12],0.2,0.15,5,[0.6,0.45,0.3],0);
-  for(const [x,z] of [[10,-9],[14,-9],[10,-12.5],[14,-12.5]]){for(let r=0;r<7;r++){oBox(M,x,0.4+r*0.32,z,3.2,0.16,2.4,pl,0);for(const sx of [-1.2,0,1.2])oBox(M,x+sx,0.56+r*0.32,z,0.08,0.08,2.4,bd,0);}oBox(M,x,0.18,z,3.2,0.2,2.4,dk,0);}
-  oBox(M,14,1.6,9,4.5,3.2,4,bw,0);oQuad(M,[11.5,3.2,6.6],[16.5,3.2,6.6],[16.5,4.4,9],[11.5,4.4,9],[0.36,0.26,0.2],0);oQuad(M,[11.5,4.4,9],[16.5,4.4,9],[16.5,3.2,11.4],[11.5,3.2,11.4],[0.36,0.26,0.2],0);
+  // lumber piles: stickers fill the gaps between layers and the bottom layer rests on bearers (layers used to float)
+  for(const [x,z] of [[10,-9],[14,-9],[10,-12.5],[14,-12.5]]){for(let r=0;r<7;r++){oBox(M,x,0.4+r*0.32,z,3.2,0.16,2.4,pl,0);if(r<6)for(const sx of [-1.2,0,1.2])oBox(M,x+sx,0.56+r*0.32,z,0.08,0.16,2.4,bd,0);}for(const sx of [-1.2,0,1.2])oBox(M,x+sx,0.24,z,0.16,0.16,2.4,dk,0);}
+  oBox(M,14,1.6,9,4.5,3.2,4,bw,0);oQuad(M,[11.5,2.96,6.6],[16.5,2.96,6.6],[16.5,4.4,9],[11.5,4.4,9],[0.36,0.26,0.2],0);oQuad(M,[11.5,4.4,9],[16.5,4.4,9],[16.5,2.96,11.4],[11.5,2.96,11.4],[0.36,0.26,0.2],0);for(const x of [11.75,16.25])oTri(M,[x,3.2,7],[x,3.2,11],[x,4.4,9],bw,0);
   oBox(M,14,0.3,6.4,4.5,0.12,1.4,bd,0);for(const x of [12,16])oLimb(M,[x,0.3,5.8],[x,3,5.8],0.06,0.06,4,bd,0);oBox(M,14,3.05,6.0,4.6,0.08,1.6,[0.36,0.26,0.2],0);oBox(M,13,1.6,6.98,1,1.1,0.05,[0.95,0.85,0.55],9);
   // more logs, and the tools of the trade outside: sawhorses with a bow saw, a two-man crosscut saw, a timber wagon, a blade sign
-  for(const [x0,z0,len,ang] of [[-2,-11.5,9,0],[4,-12,7,0.15],[-17,9,8,1.4]]){const c=Math.cos(ang),sn=Math.sin(ang);for(let r=0;r<3;r++)for(let k=0;k<5-r;k++){const off=-1.6+k*0.7+r*0.35,cx=x0-sn*off,cz=z0+c*off;oLimb(M,[cx-c*len/2,0.4+r*0.65,cz-sn*len/2],[cx+c*len/2,0.4+r*0.65,cz+sn*len/2],0.33-r*0.03,0.33-r*0.03,8,lg,0);}}
-  for(const [x,z] of [[6,3.5],[8.5,3.5]]){for(const e of [-1,1])for(const f of [-1,1])oLimb(M,[x+e*0.35,0,z+f*0.3],[x,0.85,z],0.04,0.04,4,bd,0);oLimb(M,[x-0.8,0.9,z],[x+0.8,0.9,z],0.18,0.18,6,lg,0);}
-  oLimb(M,[7.2,1.2,3.5],[7.2,1.8,3.5],0.025,0.025,4,dk,0);oLimb(M,[6.6,1.2,3.5],[7.8,1.2,3.5],0.025,0.025,4,dk,0);oLimb(M,[6.6,1.8,3.5],[7.8,1.8,3.5],0.012,0.012,4,[0.8,0.8,0.82],0);
-  oBox(M,-10.6,1.6,-6.2,0.06,0.25,2.2,[0.78,0.79,0.82],0);for(const z of [-7.3,-5.1])oLimb(M,[-10.6,1.6,z],[-10.6,2.1,z],0.04,0.04,4,bd,0);
-  for(const x of [11,15])for(const z of [-5.1,-2.9])oLimb(M,[x,0.55,z],[x,0.55,z+0.15],0.55,0.55,10,[0.4,0.3,0.2],0);oBox(M,13,0.8,-4,5,0.12,0.2,bd,0);for(const x of [11,15])oBox(M,x,1.1,-4,0.2,0.5,2.4,bd,0);for(let k=0;k<3;k++)oLimb(M,[10.2,1.6+k*0.5,-4.6+k*0.6],[15.8,1.6+k*0.5,-4.6+k*0.6],0.3,0.3,8,lg,0);
-  oLimb(M,[10.06,6,0],[10.1,6,0],1.0,1.0,16,[0.82,0.83,0.86],0);oLimb(M,[10.1,6,0],[10.13,6,0],0.25,0.25,8,dk,0);for(let k=0;k<16;k++){const a=k*0.3927;oBox(M,10.08,6+Math.sin(a)*1.05,Math.cos(a)*1.05,0.03,0.14,0.14,[0.82,0.83,0.86],0);}
+  for(const [x0,z0,len,ang] of [[-2,-11.5,9,0],[4,-12,7,0.15],[-17,9,8,1.4]]){const c=Math.cos(ang),sn=Math.sin(ang);let y=0.4;for(let r=0;r<3;r++){const rad=0.33-r*0.03;if(r>0)y+=Math.sqrt(Math.pow(rad+0.33-(r-1)*0.03-0.01,2)-0.35*0.35);
+    for(let k=0;k<5-r;k++){const off=-1.6+k*0.7+r*0.35,cx=x0-sn*off,cz=z0+c*off;oLimb(M,[cx-c*len/2,y,cz-sn*len/2],[cx+c*len/2,y,cz+sn*len/2],rad,rad,8,lg,0);}}}
+  // sawhorses with one log across both and the bow saw in the cut (they used to stand inside the closed mill house, saw hovering)
+  for(const [x,z] of [[5,-5.6],[7.5,-5.6]])for(const e of [-1,1])for(const f of [-1,1])oLimb(M,[x+e*0.35,0,z+f*0.3],[x,0.85,z],0.04,0.04,4,bd,0);oLimb(M,[4.1,0.9,-5.6],[8.4,0.9,-5.6],0.18,0.18,6,lg,0);
+  oLimb(M,[6.2,1.05,-5.6],[6.2,1.65,-5.6],0.025,0.025,4,dk,0);oLimb(M,[5.6,1.05,-5.6],[6.8,1.05,-5.6],0.012,0.012,4,[0.8,0.8,0.82],0);oLimb(M,[5.6,1.65,-5.6],[6.8,1.65,-5.6],0.025,0.025,4,dk,0);for(const x of [5.6,6.8])oLimb(M,[x,1.05,-5.6],[x,1.65,-5.6],0.02,0.02,4,dk,0);
+  // two-man crosscut saw resting on two posts (it used to hang in mid-air with its handles)
+  oBox(M,-10.6,1.6,-6.2,0.06,0.25,2.2,[0.78,0.79,0.82],0);for(const z of [-7.3,-5.1])oLimb(M,[-10.6,1.6,z],[-10.6,2.1,z],0.04,0.04,4,bd,0);for(const z of [-7.0,-5.4])oBox(M,-10.6,0.8,z,0.14,1.36,0.14,bd,0);
+  // timber wagon: wheels outside the bolsters on real axles, logs bedded on each other between stakes
+  for(const x of [11,15]){for(const z of [-5.35,-2.65])oLimb(M,[x,0.55,z],[x,0.55,z+(z<-4?0.15:-0.15)],0.55,0.55,10,[0.4,0.3,0.2],0);oLimb(M,[x,0.55,-5.3],[x,0.55,-2.7],0.06,0.06,6,dk,0);oBox(M,x,0.72,-4,0.25,0.34,2.4,bd,0);oBox(M,x,1.03,-4,0.25,0.28,2.4,bd,0);for(const z of [-4.68,-3.32])oBox(M,x,1.7,z,0.1,1.1,0.1,bd,0);}
+  oBox(M,13,0.8,-4,5,0.12,0.2,bd,0);for(const z of [-4.32,-3.68])oLimb(M,[10.2,1.47,z],[15.8,1.47,z],0.3,0.3,8,lg,0);oLimb(M,[10.4,1.98,-4],[15.6,1.98,-4],0.3,0.3,8,lg,0);
+  oLimb(M,[10.0,6,0],[10.04,6,0],1.0,1.0,16,[0.82,0.83,0.86],0);oLimb(M,[10.04,6,0],[10.07,6,0],0.25,0.25,8,dk,0);for(let k=0;k<16;k++){const a=k*0.3927;oBox(M,10.02,6+Math.sin(a)*1.05,Math.cos(a)*1.05,0.03,0.14,0.14,[0.82,0.83,0.86],0);}
   return M;}
 // wood workshop (joinery, cartwright and cooper): a brick shop with a north-light sawtooth roof (it reads as "workshop"),
 // half-timbered gable office with the trade sign (a big chair and crossed saws), double doors open on a lit bench,
 // an open timber-drying lean-to with racked planks, the wood delivery stack, and the products outside:
 // chairs and a table, barrels, cart wheels against the wall, a finished hay cart, a sawhorse and a heap of shavings.
 function workshopMesh(){const M=omesh(),br=[0.64,0.34,0.25],pl=[0.92,0.88,0.78],bm=[0.24,0.16,0.11],rf=[0.32,0.33,0.36],gl=[0.75,0.85,0.9],wd=[0.62,0.45,0.28],pk=[0.88,0.76,0.52];
-  oBox(M,0,0.08,0,34,0.16,26,[0.55,0.5,0.42],0);oBox(M,-2,2.5,-1,16,5,10,br,0);
-  for(let k=0;k<4;k++){const x0=-10+k*4,x1=x0+4;oQuad(M,[x0,5,-6],[x1,5,-6],[x1,7.4,4],[x0,7.4,4],rf,0);oQuad(M,[x0,7.4,4],[x0,5,4],[x0,5,-6],[x0,7.4,-6+0.01],rf,0);oBox(M,x0+0.02,6.2,-1,0.04,2.3,9.6,gl,0);oTri(M,[x1,5,-6],[x1,5,4],[x1,7.4,4],br,0);}
-  oBox(M,6,2.5,-1,0.1,5,10,br,0);oBox(M,6.06,1.7,-1,0.06,3.2,4.4,[0.12,0.1,0.08],0);for(const z of [-3.9,1.9])oBox(M,6.3,1.7,z,0.08,3.2,2.2,[0.35,0.22,0.14],0);oBox(M,4.2,0.95,-1,1.0,0.12,3.5,wd,0);oBox(M,4.2,2.6,-1,0.1,0.6,3.4,[1,0.85,0.55],9);
+  oBox(M,0,0.08,0,34,0.16,26,[0.55,0.5,0.42],0);
+  // shop walls with a real doorway on the north side, so the open doors show the lit bench inside
+  // (the doors used to sit inside the office block, and the shop was a closed box)
+  oBox(M,-2,2.5,-5.9,16,5,0.2,br,0);oBox(M,5.9,2.5,-1,0.2,5,10,br,0);oBox(M,-9.9,2.5,-1,0.2,5,10,br,0);oBox(M,-5.6,2.5,3.9,8.8,5,0.2,br,0);oBox(M,4.6,2.5,3.9,2.8,5,0.2,br,0);oBox(M,1,4.15,3.9,4.4,1.7,0.2,br,0);
+  for(const x of [-1.2,3.2])oBox(M,x,1.65,5.1,0.08,3.2,2.2,[0.35,0.22,0.14],0);
+  oBox(M,1,0.95,2.8,3.5,0.12,1.0,wd,0);for(const x of [-0.6,2.6])for(const z of [2.4,3.2])oBox(M,x,0.53,z,0.1,0.74,0.1,bm,0);oBox(M,1,3.0,2.8,0.5,0.12,0.3,[1,0.85,0.55],9);oLimb(M,[1,3.06,2.8],[1,5.62,2.8],0.015,0.015,4,bm,0);
+  // north-light sawtooth: each tooth slopes up toward -x and drops in a vertical glazed face; brick gable triangles at both ends
+  for(let k=0;k<4;k++){const x0=-10+k*4,x1=x0+4;oQuad(M,[x1,5,-6.3],[x1,5,4.3],[x0,7.4,4.3],[x0,7.4,-6.3],rf,0);oQuad(M,[x0,5,-6],[x0,7.4,-6],[x0,7.4,4],[x0,5,4],gl,0);
+    for(let z=-5;z<=3;z+=2)oBox(M,x0-0.03,6.2,z,0.06,2.4,0.08,bm,0);oBox(M,x0-0.03,5.05,-1,0.06,0.1,10,bm,0);for(const z of [-6,4])oTri(M,[x1,5,z],[x0,5,z],[x0,7.4,z],br,0);}
   oBox(M,-4,1.5,-6.03,8,1.4,0.06,gl,0);for(let x=-7.5;x<=-0.5;x+=1)oBox(M,x,1.5,-6.06,0.06,1.4,0.04,bm,0);
   oBox(M,9,3,-1,6,6,7,pl,0);for(const x of [6.1,11.9])oBox(M,x,3,-4.52,0.2,6,0.08,bm,0);for(const y of [0.2,3,5.9])oBox(M,9,y,-4.52,6,0.2,0.08,bm,0);for(const d of [-1,1])oLimb(M,[9-d*2.6,0.3,-4.55],[9+d*0.2,2.9,-4.55],0.07,0.07,4,bm,0);
-  oQuad(M,[5.7,6,-4.9],[12.3,6,-4.9],[12.3,8.6,-1],[5.7,8.6,-1],[0.55,0.24,0.18],0);oQuad(M,[5.7,8.6,-1],[12.3,8.6,-1],[12.3,6,2.9],[5.7,6,2.9],[0.55,0.24,0.18],0);for(const e of [5.9,12.1])oTri(M,[e,6,-4.5],[e,6,2.5],[e,8.5,-1],pl,0);
+  oQuad(M,[5.7,5.7,-4.9],[12.3,5.7,-4.9],[12.3,8.6,-1],[5.7,8.6,-1],[0.55,0.24,0.18],0);oQuad(M,[5.7,8.6,-1],[12.3,8.6,-1],[12.3,5.7,2.9],[5.7,5.7,2.9],[0.55,0.24,0.18],0);for(const e of [6,12])oTri(M,[e,6,-4.5],[e,6,2.5],[e,8.6,-1],pl,0);
   for(const x of [7.5,10.5])oBox(M,x,3.6,-4.56,1,1.1,0.04,[0.95,0.85,0.55],9);oBox(M,12.04,1.3,-1,0.06,2.4,1.1,[0.35,0.22,0.14],0);
-  oBox(M,12.6,5,-1,0.1,2.2,2.8,[0.4,0.28,0.18],0);oLimb(M,[12.1,5.9,-2],[12.6,5.9,-2],0.04,0.04,4,bm,0);oLimb(M,[12.1,5.9,0],[12.6,5.9,0],0.04,0.04,4,bm,0);
-  const chair=(x,y,z,sc,rot)=>{const c=Math.cos(rot),s2=Math.sin(rot),P=(u,w)=>[x+(c*u-s2*w)*sc,z+(s2*u+c*w)*sc];const q=P(0,0);oBox(M,q[0],y+0.75*sc,q[1],0.9*sc,0.1*sc,0.9*sc,wd,0);for(const [u,w] of [[-0.4,-0.4],[0.4,-0.4],[0.4,0.4],[-0.4,0.4]]){const p=P(u,w);oLimb(M,[p[0],y,p[1]],[p[0],y+0.75*sc,p[1]],0.05*sc,0.05*sc,4,wd,0);}
-    const b=P(-0.42,0);oBox(M,b[0],y+1.3*sc,b[1],0.1*sc,1.1*sc,0.9*sc,wd,0);};chair(12.8,5.6,-1,1.4,0);
+  // seat and back turn with the chair (they used to stay axis-aligned while the legs turned)
+  const chair=(x,y,z,sc,rot)=>{const c=Math.cos(rot),s2=Math.sin(rot),P=(u,w)=>[x+(c*u-s2*w)*sc,z+(s2*u+c*w)*sc];const q=P(0,0);oBox(M,q[0],y+0.75*sc,q[1],0.9*sc,0.1*sc,0.9*sc,wd,0,rot);for(const [u,w] of [[-0.4,-0.4],[0.4,-0.4],[0.4,0.4],[-0.4,0.4]]){const p=P(u,w);oLimb(M,[p[0],y,p[1]],[p[0],y+0.75*sc,p[1]],0.05*sc,0.05*sc,4,wd,0);}
+    const b=P(-0.42,0);oBox(M,b[0],y+1.3*sc,b[1],0.1*sc,1.1*sc,0.9*sc,wd,0,rot);};
+  // trade sign: a bracket from the gable wall with a tie rod, the board hanging from it on chains, and the big chair standing on the bracket end
+  // (the board, its rods and the chair used to float in front of the wall)
+  oBox(M,12.8,5.6,-1,1.6,0.14,0.14,bm,0);oLimb(M,[12,6.6,-1],[13.5,5.68,-1],0.02,0.02,4,bm,0);for(const x of [12.4,13.3])oLimb(M,[x,5.53,-1],[x,5.2,-1],0.015,0.015,4,[0.3,0.3,0.32],0);
+  oBox(M,12.85,4.6,-1,1.3,1.2,0.08,[0.4,0.28,0.18],0);oBox(M,13.05,5.72,-1,1.0,0.1,1.0,bm,0);chair(13.1,5.77,-1,0.8,0);
   oBox(M,0,3.2,-6.1,3.2,0.9,0.1,[0.28,0.2,0.13],0);for(const d of [-1,1])oLimb(M,[-0.6,2.85,-6.18],[0.6,3.55,-6.18].map((v,i)=>i===0?d*0.6:v),0.03,0.03,4,[0.8,0.8,0.82],0);
-  oBox(M,-11,2.1,8.5,10,0.12,5,rf,0);for(const x of [-15.5,-11,-6.5])for(const z of [6.2,10.8])oLimb(M,[x,0,z],[x,2.1,z],0.1,0.1,4,bm,0);for(let k=0;k<12;k++)oBox(M,-15+k*0.8,1.05,9.6,0.06,1.9,0.3,pk,0);for(let r=0;r<6;r++)oBox(M,-11,0.3+r*0.22,7.2,9,0.12,1.4,pk,0);
-  for(let r=0;r<5;r++){oBox(M,-12,0.35+r*0.3,-9.5,6,0.16,2.6,pk,0);for(const sx of [-2.4,0,2.4])oBox(M,-12+sx,0.5+r*0.3,-9.5,0.08,0.08,2.6,bm,0);}
+  oBox(M,-11,2.1,8.5,10,0.12,5,rf,0);for(const x of [-15.5,-11,-6.5])for(const z of [6.2,10.8])oLimb(M,[x,0,z],[x,2.1,z],0.1,0.1,4,bm,0);for(let k=0;k<12;k++)oBox(M,-15+k*0.8,1.05,9.6,0.06,1.9,0.3,pk,0);for(let r=0;r<6;r++){oBox(M,-11,0.3+r*0.22,7.2,9,0.12,1.4,pk,0);for(const sx of [-4,0,4])oBox(M,-11+sx,0.19+r*0.22,7.2,0.1,0.1,1.4,bm,0);}
+  for(let r=0;r<5;r++){oBox(M,-12,0.35+r*0.3,-9.5,6,0.16,2.6,pk,0);for(const sx of [-2.4,0,2.4])oBox(M,-12+sx,0.2+r*0.3,-9.5,0.1,0.14,2.6,bm,0);}
   for(const [x,z,r0] of [[10,5,0.4],[11.5,6.5,-0.6],[9,7.5,0.9]])chair(x,0.16,z,1,r0);oBox(M,10.5,0.9,8.6,1.6,0.1,1,wd,0);for(const [u,w] of [[-0.7,-0.4],[0.7,-0.4],[0.7,0.4],[-0.7,0.4]])oLimb(M,[10.5+u,0.16,8.6+w],[10.5+u,0.9,8.6+w],0.05,0.05,4,wd,0);
   for(const [x,z,y] of [[14.5,4,0.16],[15.5,4.6,0.16],[14.9,5.6,0.16],[15.1,4.8,1.15]]){oPrism(M,x,z,0.42,0.48,y,y+0.5,10,wd,0);oPrism(M,x,z,0.48,0.42,y+0.5,y+1.0,10,wd,0);for(const hh of [0.15,0.85])oPrism(M,x,z,0.47,0.47,y+hh,y+hh+0.06,10,[0.25,0.25,0.27],0);}
-  for(let k=0;k<3;k++){const x=6.3,z=2.5+k*0.9;oLimb(M,[x,0.75,z],[x+0.08,0.75,z],0.72,0.72,12,[0.45,0.32,0.2],0);oLimb(M,[x+0.02,0.75,z],[x+0.1,0.75,z],0.15,0.15,8,bm,0);for(let s3=0;s3<6;s3++){const a=s3*1.047;oLimb(M,[x+0.04,0.75,z],[x+0.04,0.75+Math.sin(a)*0.65,z+Math.cos(a)*0.65],0.03,0.03,4,wd,0);}}
+  for(let k=0;k<3;k++){const x=6.3,z=2.5+k*0.9;oLimb(M,[x,0.75,z],[x+0.08,0.75,z],0.72,0.72,12,[0.45,0.32,0.2],0,false);oLimb(M,[x+0.02,0.75,z],[x+0.1,0.75,z],0.15,0.15,8,bm,0);for(let s3=0;s3<6;s3++){const a=s3*1.047;oLimb(M,[x+0.04,0.75,z],[x+0.04,0.75+Math.sin(a)*0.65,z+Math.cos(a)*0.65],0.03,0.03,4,wd,0);}}
   oBox(M,-3,1.0,8.5,5,0.12,2.2,wd,0);for(const z of [7.5,9.5])oBox(M,-3,1.4,z,5,0.6,0.08,wd,0);for(const [x,z] of [[-4.8,7.4],[-1.2,7.4],[-4.8,9.6],[-1.2,9.6]])oLimb(M,[x,0.62,z],[x,0.62,z+(z<8.5?-0.12:0.12)],0.6,0.6,12,[0.4,0.28,0.18],0);oLimb(M,[-5.5,0.9,8.5],[-7.5,0.6,8.5],0.05,0.05,4,wd,0);
   for(const e of [-1,1])for(const f of [-1,1])oLimb(M,[2+e*0.35,0,-9+f*0.3],[2,0.85,-9],0.04,0.04,4,bm,0);oBox(M,2,0.92,-9,1.6,0.08,0.3,pk,0);oPrism(M,4,-9,1.1,0.1,0.1,0.7,10,[0.92,0.82,0.58],0);
   oPrism(M,-9,-3,0.35,0.3,5,9.5,8,br,0);return M;}
@@ -2133,7 +2193,8 @@ function craneJibMesh(){const M=omesh(),y=[0.92,0.68,0.12],dk=[0.15,0.15,0.15];o
   for(let x=1;x<7;x+=1.2)oLimb(M,[x,6.38-x*0.05,0],[x+0.6,6.9-(x+0.6)*0.115,0],0.03,0.03,4,y,0);oLimb(M,[-2,6.3,0],[0,6.4,0],0.1,0.1,4,y,0);oBox(M,-2.2,6.1,0,0.8,0.7,0.9,[0.55,0.55,0.55],0);
   oLimb(M,[7.0,6.0,0],[7.0,3.6,0],0.015,0.015,4,dk,0);oBox(M,7.0,3.5,0,0.25,0.25,0.25,dk,0);return M;}
 function logBundleMesh(){const M=omesh(),lg=[0.56,0.41,0.27];for(const [y,z] of [[0,-0.3],[0,0.3],[0.5,0]])oLimb(M,[-3.2,y-0.25,z],[3.2,y-0.25,z],0.27,0.27,8,lg,0);oLimb(M,[0,0.4,0],[0,0.05,0],0.015,0.015,4,[0.15,0.15,0.15],0);return M;}
-function logPileMesh(){const M=omesh(),lg=[0.55,0.4,0.26];for(let r=0;r<3;r++)for(let k=0;k<5-r;k++)oLimb(M,[-3.5,0.35+r*0.62,-1.5+k*0.65+r*0.32],[3.5,0.35+r*0.62,-1.5+k*0.65+r*0.32],0.31,0.31,8,lg,0);for(const x of [-2.5,2.5])oBox(M,x,0.08,0,0.3,0.16,3.6,[0.3,0.25,0.2],0);return M;}
+// rows rest on the logs below and the bottom row on the bearers (rows used to float, the bottom row sank into the bearers)
+function logPileMesh(){const M=omesh(),lg=[0.55,0.4,0.26];for(let r=0;r<3;r++)for(let k=0;k<5-r;k++)oLimb(M,[-3.5,0.47+r*0.528,-1.5+k*0.65+r*0.325],[3.5,0.47+r*0.528,-1.5+k*0.65+r*0.325],0.31,0.31,8,lg,0);for(const x of [-2.5,2.5])oBox(M,x,0.08,0,0.3,0.16,3.6,[0.3,0.25,0.2],0);return M;}
 function slotMarkMesh(){const M=omesh(),w=[0.95,0.95,0.92];for(const x of [-12,-6,0,6,12])for(const z of [-2.2,2.2])oLimb(M,[x,0,z],[x,0.7,z],0.06,0.06,4,x%12===0?[0.9,0.6,0.15]:w,0);for(const z of [-2.2,2.2])oBox(M,0,0.68,z,24,0.06,0.06,w,0);return M;}
 // post-and-rail fence panel, 3 m along x
 function fenceMesh(){const M=omesh(),wd=[0.48,0.36,0.24],wd2=[0.42,0.31,0.21];for(const x of [-1.5,1.5])oBox(M,x,0.48,0,0.12,1.16,0.12,wd2,0);oBox(M,0,0.56,0,3.04,0.09,0.06,wd,0);oBox(M,0,0.96,0,3.04,0.09,0.06,wd,0);return M;}
@@ -2151,7 +2212,8 @@ function sailboatMesh(){const M=omesh(),wh=[0.96,0.96,0.94];const p=(x,y,z)=>[x,
   oQuad(M,p(-2.6,0,-0.9),p(2,0,-0.95),p(2.2,0.8,-1.1),p(-2.6,0.8,-1.0),wh,0);oQuad(M,p(2,0,0.95),p(-2.6,0,0.9),p(-2.6,0.8,1.0),p(2.2,0.8,1.1),wh,0);
   oTri(M,p(2,0,-0.95),p(3.4,0.7,0),p(2.2,0.8,-1.1),wh,0);oTri(M,p(3.4,0.7,0),p(2,0,0.95),p(2.2,0.8,1.1),wh,0);oQuad(M,p(-2.6,0,0.9),p(-2.6,0,-0.9),p(-2.6,0.8,-1.0),p(-2.6,0.8,1.0),[0.2,0.35,0.6],0);
   oQuad(M,p(-2.6,0.7,-1.0),p(2.2,0.7,-1.1),p(2.2,0.7,1.1),p(-2.6,0.7,1.0),[0.65,0.5,0.35],0);oBox(M,0.4,4.2,0,0.14,7,0.14,[0.6,0.45,0.3],0);
-  oTri(M,p(0.3,1.3,0.02),p(0.3,7.4,0.02),p(-2.3,1.3,0.02),[0.97,0.95,0.9],0);oTri(M,p(0.55,1.3,0),p(0.55,6.6,0),p(3.2,1.0,0),[0.9,0.3,0.25],0);return M;}
+  // the jib runs along a forestay from the masthead to the bow (it used to hang 8 cm off the mast)
+oTri(M,p(0.3,1.3,0.02),p(0.3,7.4,0.02),p(-2.3,1.3,0.02),[0.97,0.95,0.9],0);oTri(M,p(0.48,6.6,0),p(3.1,0.9,0),p(1.2,1.3,0),[0.9,0.3,0.25],0);oLimb(M,[0.47,7.0,0],[3.35,0.72,0],0.012,0.012,4,[0.3,0.3,0.3],0);return M;}
 function birdMesh(dark){const M=omesh(),b=dark?[0.22,0.22,0.25]:[0.95,0.95,0.95],w=dark?[0.2,0.2,0.24]:[0.7,0.72,0.76];
   oTri(M,[0.5,0,0],[-0.3,0.08,0],[-0.4,0,0.08],b,0);oTri(M,[0.5,0,0],[-0.4,0,-0.08],[-0.3,0.08,0],b,0);oTri(M,[0.5,0,0],[-0.4,0,0.08],[-0.4,0,-0.08],b,0);
   oTri(M,[0.2,0.03,0.05],[-0.15,0.03,0.05],[0,0.02,0.85],w,13);oTri(M,[-0.15,0.03,-0.05],[0.2,0.03,-0.05],[0,0.02,-0.85],w,13);return M;}
@@ -2871,6 +2933,7 @@ function posInfo(pos){const s=segById(pos.sid);if(!s)return null;const p=segPoin
 // ---- vehicle meshes (local: x forward, y up, z sideways; front end at +len/2, rail top at y=0)
 // vertex: pos3 nrm3 col3 anim4(type,px|crank,py,radius) mat1  — type 1 wheel spin, 2/3 rods (left/right crank phase)
 function vmesh(){return{v:[],i:[],n:0};}
+function vt(M,a,b,c,nm,col,mat,anim){const A=anim||[0,0,0,1];for(const p of [a,b,c])M.v.push(p[0],p[1],p[2],nm[0],nm[1],nm[2],col[0],col[1],col[2],A[0],A[1],A[2],A[3],mat);M.i.push(M.n,M.n+1,M.n+2);M.n+=3;}
 function vq(M,a,b,c,d,nm,col,mat,anim){const A=anim||[0,0,0,1];for(const p of [a,b,c,d])M.v.push(p[0],p[1],p[2],nm[0],nm[1],nm[2],col[0],col[1],col[2],A[0],A[1],A[2],A[3],mat);M.i.push(M.n,M.n+1,M.n+2,M.n,M.n+2,M.n+3);M.n+=4;}
 function vbox(M,c,s,col,mat,anim){const [x,y,z]=c,[a,b,d]=[s[0]/2,s[1]/2,s[2]/2];
   vq(M,[x-a,y+b,z-d],[x+a,y+b,z-d],[x+a,y+b,z+d],[x-a,y+b,z+d],[0,1,0],col,mat,anim);vq(M,[x-a,y-b,z+d],[x+a,y-b,z+d],[x+a,y-b,z-d],[x-a,y-b,z-d],[0,-1,0],col,mat,anim);
@@ -2880,68 +2943,83 @@ function vcyl(M,c,axis,r,len,col,mat,seg,anim,caps){seg=Math.min(seg||10,10);con
   const P=(t,a,rr)=>axis==='x'?[x+t,y+Math.cos(a)*rr,z+Math.sin(a)*rr]:axis==='y'?[x+Math.cos(a)*rr,y+t,z+Math.sin(a)*rr]:[x+Math.cos(a)*rr,y+Math.sin(a)*rr,z+t];
   const N=(a)=>axis==='x'?[0,Math.cos(a),Math.sin(a)]:axis==='y'?[Math.cos(a),0,Math.sin(a)]:[Math.cos(a),Math.sin(a),0];
   for(let k=0;k<seg;k++){const a0=k/seg*6.2832,a1=(k+1)/seg*6.2832,am=(a0+a1)/2;vq(M,P(-len/2,a0,r),P(len/2,a0,r),P(len/2,a1,r),P(-len/2,a1,r),N(am),col,mat,anim);
-    if(caps!==false)for(const e of [-1,1]){const cc=P(e*len/2,0,0);const ax=axis==='x'?[e,0,0]:axis==='y'?[0,e,0]:[0,0,e];vq(M,cc,P(e*len/2,a0,r),P(e*len/2,a1,r),cc,ax,col,mat,anim);}}}
+    if(caps!==false)for(const e of [-1,1]){const cc=P(e*len/2,0,0);const ax=axis==='x'?[e,0,0]:axis==='y'?[0,e,0]:[0,0,e];vt(M,cc,P(e*len/2,a0,r),P(e*len/2,a1,r),ax,col,mat,anim);}}}
 function vwheel(M,x,y,z,r,col){const A=[1,x,y,r];vcyl(M,[x,y,z],'z',r,0.13,col,0,10,A);
-  for(let k=0;k<6;k++){const a=k/6*3.1416;const dz=z+Math.sign(z)*0.07;const c=Math.cos(a)*r*0.85,s=Math.sin(a)*r*0.85;
-    vq(M,[x-c-0.03,y-s,dz],[x+c-0.03,y+s,dz],[x+c+0.03,y+s,dz],[x-c+0.03,y-s,dz],[0,0,Math.sign(z)],[0.08,0.08,0.08],1,A);}}
+  // spokes are offset across their own direction (the horizontal one used to have zero width and vanished)
+  for(let k=0;k<6;k++){const a=k/6*3.1416;const dz=z+Math.sign(z)*0.07;const c=Math.cos(a)*r*0.85,s=Math.sin(a)*r*0.85,px=Math.sin(a)*0.03,py=-Math.cos(a)*0.03;
+    vq(M,[x-c-px,y-s-py,dz],[x+c-px,y+s-py,dz],[x+c+px,y+s+py,dz],[x-c+px,y-s+py,dz],[0,0,Math.sign(z)],[0.08,0.08,0.08],1,A);}}
 const COL={green:[0.15,0.46,0.30],black:[0.17,0.17,0.19],red:[0.86,0.20,0.16],brass:[0.92,0.72,0.30],steel:[0.62,0.63,0.66],maroon:[0.62,0.16,0.15],cream:[0.95,0.88,0.70],roof:[0.36,0.36,0.38],coal:[0.1,0.1,0.1],glass:[0.30,0.38,0.46],lamp:[1,0.9,0.7],wheel:[0.82,0.18,0.14]};
 // tender engine, toyish but true to type: frames and footplate with red valances, splashers with brass beading over
 // the drivers, banded boiler with handrails, smokebox with door, hinges and number plate, chimney with copper cap,
 // brass dome and safety valves, sandboxes, cylinders with valve chests, a cab with spectacle windows and a glowing
 // firehole, buffers and oil lamps. Wheel and rod animation hooks (anim arrays) are unchanged.
 function locoMesh(){const M=vmesh(),o=-0.45,G=COL.green,B=COL.black,BR=COL.brass,RD=COL.red,S=COL.steel,CU=[0.80,0.42,0.22];
-  vbox(M,[o+0.5,1.1,0],[9.8,0.35,1.1],B,3);vbox(M,[o+1.4,1.45,0],[8.8,0.08,2.7],B,3);for(const z of [-1.33,1.33])vbox(M,[o+1.4,1.32,z],[8.8,0.22,0.04],RD,0);
+  // frames reach up to the footplate; the valances hang just below it (they used to overlap its edge and flicker)
+  vbox(M,[o+0.5,1.16,0],[9.8,0.5,1.1],B,3);vbox(M,[o+1.4,1.45,0],[8.8,0.08,2.7],B,3);for(const z of [-1.33,1.33])vbox(M,[o+1.4,1.31,z],[8.8,0.2,0.04],RD,0);
+  for(const x of [-2.6,-0.75,1.1])vcyl(M,[o+x,0.8,0],'z',0.09,1.5,B,3,8);for(const x of [3.4,4.5])vcyl(M,[o+x,0.45,0],'z',0.07,1.5,B,3,8);
   for(const x of [-2.6,-0.75,1.1])for(const z of [-0.72,0.72]){vwheel(M,o+x,0.8,z,0.8,COL.wheel);vbox(M,[o+x,1.6,z*1.25],[1.45,0.24,0.3],G,0);vbox(M,[o+x,1.73,z*1.25],[1.5,0.04,0.32],BR,1);}
   for(const x of [3.4,4.5])for(const z of [-0.72,0.72])vwheel(M,o+x,0.45,z,0.45,COL.wheel);
   for(const z of [-1.25,1.25]){vbox(M,[o-2.3,0.98,z],[0.5,0.04,0.28],B,3);vbox(M,[o-2.3,0.62,z],[0.5,0.04,0.28],B,3);vbox(M,[o-2.05,0.82,z],[0.04,0.7,0.04],B,3);vbox(M,[o-2.55,0.82,z],[0.04,0.7,0.04],B,3);}
   vcyl(M,[o+1.55,2.25,0],'x',0.82,6.1,G,0,20);for(const x of [-0.9,0.6,2.1,3.6])vcyl(M,[o+x,2.25,0],'x',0.84,0.07,BR,1,20,null,false);
-  for(const z of [-0.88,0.88]){vcyl(M,[o+1.9,2.78,z],'x',0.025,5.8,BR,1,6);for(const x of [-0.6,1.9,4.2])vbox(M,[o+x,2.72,z*0.97],[0.03,0.1,0.06],BR,1);}
+  // handrail stanchions now reach from the boiler skin out to the rail (they used to float 15 cm off the boiler)
+  for(const z of [-0.88,0.88]){vcyl(M,[o+1.9,2.78,z],'x',0.025,5.8,BR,1,6);for(const x of [-0.6,1.9,4.2])vbox(M,[o+x,2.77,Math.sign(z)*0.77],[0.03,0.03,0.24],BR,1);}
   vcyl(M,[o+5.1,2.25,0],'x',0.88,1.0,B,3,20);vbox(M,[o+5.1,1.62,0],[1.0,0.36,1.2],B,3);vcyl(M,[o+5.64,2.25,0],'x',0.74,0.04,S,1,20);vcyl(M,[o+5.68,2.25,0],'x',0.68,0.06,B,3,20);
   vbox(M,[o+5.74,2.25,0],[0.05,0.06,0.34],S,1);vbox(M,[o+5.73,2.25,0],[0.06,0.2,0.05],S,1);for(const y of [1.95,2.55])vbox(M,[o+5.72,y,-0.15],[0.03,0.07,0.8],S,1);vbox(M,[o+5.71,2.86,0],[0.03,0.16,0.52],BR,1);
   vcyl(M,[o+5.1,3.16,0],'y',0.38,0.2,B,3,12);vcyl(M,[o+5.1,3.56,0],'y',0.25,0.7,B,3,12);vcyl(M,[o+5.1,3.95,0],'y',0.34,0.14,CU,1,12);
   vcyl(M,[o+2.3,3.03,0],'y',0.44,0.22,G,0,12);vcyl(M,[o+2.3,3.3,0],'y',0.37,0.34,BR,1,12);vcyl(M,[o+2.3,3.5,0],'y',0.24,0.08,BR,1,10);
-  vcyl(M,[o+0.15,3.1,0],'y',0.22,0.2,BR,1,10);for(const z of [-0.08,0.08])vcyl(M,[o+0.15,3.35,z],'y',0.05,0.32,BR,1,6);vcyl(M,[o-0.65,3.25,0.3],'y',0.045,0.32,BR,1,6);vcyl(M,[o-0.65,3.45,0.3],'y',0.07,0.1,BR,1,6);
+  vcyl(M,[o+0.15,3.1,0],'y',0.22,0.2,BR,1,10);for(const z of [-0.08,0.08])vcyl(M,[o+0.15,3.35,z],'y',0.05,0.32,BR,1,6);vcyl(M,[o-0.65,3.2,0.3],'y',0.045,0.44,BR,1,6);vcyl(M,[o-0.65,3.45,0.3],'y',0.07,0.1,BR,1,6);
   for(const z of [-0.95,0.95]){vbox(M,[o+3.05,1.72,z],[0.5,0.46,0.32],G,0);vbox(M,[o+3.05,1.97,z],[0.54,0.04,0.36],BR,1);}
   for(const z of [-1.05,1.05]){vcyl(M,[o+4.3,1.05,z],'x',0.33,1.2,G,0,14);for(const x of [3.68,4.92])vcyl(M,[o+x,1.05,z],'x',0.36,0.05,S,1,12);vbox(M,[o+4.3,1.5,z],[1.0,0.32,0.36],G,0);}
   const cx=o-2.4;vbox(M,[cx,1.53,0],[2.3,0.05,2.6],[0.35,0.25,0.15],7);
-  vbox(M,[o-1.25,2.1,0],[0.07,1.2,2.7],G,0);vbox(M,[o-1.25,3.45,0],[0.07,0.3,2.7],G,0);vbox(M,[o-1.25,3.0,0],[0.07,0.6,0.5],G,0);for(const z of [-1.2,1.2])vbox(M,[o-1.25,3.0,z],[0.07,0.6,0.3],G,0);
+  // spectacle plate: solid either side of the two glazed windows (it used to leave open slots beside the glass)
+  vbox(M,[o-1.25,2.1,0],[0.07,1.2,2.7],G,0);vbox(M,[o-1.25,3.45,0],[0.07,0.3,2.7],G,0);vbox(M,[o-1.25,3.0,0],[0.07,0.6,1.02],G,0);for(const z of [-1.14,1.14])vbox(M,[o-1.25,3.0,z],[0.07,0.6,0.42],G,0);
   for(const z of [-0.72,0.72]){vbox(M,[o-1.24,3.0,z],[0.02,0.6,0.42],COL.glass,2);vbox(M,[o-1.2,3.32,z],[0.03,0.04,0.46],BR,1);vbox(M,[o-1.2,2.69,z],[0.03,0.04,0.46],BR,1);}
-  for(const z of [-1.33,1.33]){vbox(M,[cx,2.1,z],[2.3,1.2,0.06],G,0);vbox(M,[cx,3.45,z],[2.3,0.3,0.06],G,0);vbox(M,[o-1.45,3.0,z],[0.4,0.6,0.06],G,0);vbox(M,[o-3.35,3.0,z],[0.4,0.6,0.06],G,0);vbox(M,[cx,2.72,z*1.01],[2.3,0.04,0.02],BR,1);}
+  for(const z of [-1.33,1.33]){vbox(M,[cx,2.1,z],[2.3,1.2,0.06],G,0);vbox(M,[cx,3.45,z],[2.3,0.3,0.06],G,0);vbox(M,[o-1.45,3.0,z],[0.4,0.6,0.06],G,0);vbox(M,[o-3.35,3.0,z],[0.4,0.6,0.06],G,0);vbox(M,[cx,2.68,Math.sign(z)*1.37],[2.3,0.04,0.02],BR,1);}
   vbox(M,[cx,3.66,0],[2.9,0.1,2.95],COL.roof,3);vbox(M,[cx,3.74,0],[2.7,0.08,2.4],COL.roof,3);
-  vbox(M,[o-1.42,2.35,0],[0.16,1.5,1.5],B,3);vbox(M,[o-1.51,2.0,0],[0.03,0.38,0.5],[1,0.45,0.12],4);for(const z of [-0.32,0.32])vcyl(M,[o-1.52,3.0,z],'x',0.1,0.04,BR,1,10);vbox(M,[o-1.55,2.75,0.1],[0.06,0.06,0.5],BR,1);
+  // backhead stands 2 cm proud of the boiler's end cap (they were coplanar and flickered in the cab view)
+  vbox(M,[o-1.43,2.35,0],[0.18,1.5,1.5],B,3);vbox(M,[o-1.53,2.0,0],[0.03,0.38,0.5],[1,0.45,0.12],4);for(const z of [-0.32,0.32])vcyl(M,[o-1.54,3.0,z],'x',0.1,0.04,BR,1,10);vbox(M,[o-1.57,2.75,0.1],[0.06,0.06,0.5],BR,1);
   vbox(M,[o+5.75,1.3,0],[0.16,0.45,2.7],RD,0);for(const z of [-0.88,0.88]){vcyl(M,[o+6.05,1.25,z],'x',0.12,0.45,S,1,10);vcyl(M,[o+6.3,1.25,z],'x',0.24,0.05,S,1,12);}vbox(M,[o+5.95,1.15,0],[0.3,0.08,0.1],S,1);
-  for(const z of [-0.9,0.9,0])vbox(M,[o+5.78,z===0?3.05:1.72,z===0?0:z],[0.2,0.24,0.2],COL.lamp,4);
+  for(const z of [-0.9,0.9,0])vbox(M,[o+5.78,z===0?3.05:1.61,z===0?0:z],[0.2,0.24,0.2],COL.lamp,4);
   for(const [z,ty] of [[0.86,2],[-0.86,3]]){vbox(M,[o-0.75,0.8,z],[3.9,0.12,0.06],COL.steel,1,[ty,0.3,0,0.8]);vbox(M,[o+2.5,0.95,z*1.03],[3.0,0.1,0.06],COL.steel,1,[ty,0.3,0,0.8]);}
   return M;}
-function tenderMesh(){const M=vmesh(),G=COL.green,B=COL.black,BR=COL.brass,LN=[0.95,0.80,0.32];vbox(M,[0,1.05,0],[7,0.3,1.1],B,3);
-  for(const x of [-2.2,0,2.2])for(const z of [-0.72,0.72]){vwheel(M,x,0.55,z,0.55,COL.wheel);vbox(M,[x,0.6,z*1.4],[0.34,0.36,0.12],B,3);vbox(M,[x,0.98,z*1.4],[1.1,0.08,0.1],B,3);}
-  for(const z of [-1.33,1.33])vbox(M,[0,1.28,z],[7,0.24,0.06],COL.red,0);vbox(M,[0,2.05,0],[6.8,1.7,2.7],G,0);for(const z of [-1.42,1.42])vbox(M,[0.4,3.0,z],[5.8,0.22,0.08],G,0);
+// frames reach down to the axles, axles run through to the axleboxes, and spring hangers tie the springs to the body
+// (frames, axleboxes and springs used to float between the wheels)
+function tenderMesh(){const M=vmesh(),G=COL.green,B=COL.black,BR=COL.brass,LN=[0.95,0.80,0.32];vbox(M,[0,0.9,0],[7,0.6,1.1],B,3);
+  for(const x of [-2.2,0,2.2]){vcyl(M,[x,0.55,0],'z',0.08,2.1,B,3,8);for(const z of [-0.72,0.72]){vwheel(M,x,0.55,z,0.55,COL.wheel);vbox(M,[x,0.6,z*1.4],[0.34,0.36,0.12],B,3);vbox(M,[x,0.98,z*1.4],[1.1,0.08,0.1],B,3);for(const e of [-1,1])vbox(M,[x+e*0.5,1.11,z*1.4],[0.05,0.2,0.06],B,3);}}
+  for(const z of [-1.33,1.33])vbox(M,[0,1.28,z],[7,0.24,0.06],COL.red,0);vbox(M,[0,2.05,0],[6.8,1.7,2.7],G,0);for(const z of [-1.36,1.36])vbox(M,[0.4,3.0,z],[5.8,0.22,0.08],G,0);
   vbox(M,[0.4,2.95,0],[5.6,0.35,2.6],COL.coal,3);vbox(M,[0.9,3.16,0],[3.6,0.28,1.9],COL.coal,3);vbox(M,[1.1,3.32,0],[1.8,0.18,1.2],COL.coal,3);
-  for(const z of [-1.356,1.356]){for(const y of [1.4,2.7])vbox(M,[0,y,z],[6.3,0.04,0.01],LN,0);for(const x of [-3.15,3.15])vbox(M,[x,2.05,z],[0.04,1.34,0.01],LN,0);}
-  vcyl(M,[-2.55,3.02,0.55],'y',0.26,0.22,B,3,10);for(const z of [-0.8,0.8])vbox(M,[-3.05,2.98,z],[0.5,0.26,0.6],B,3);for(const z of [-1.22,1.22])vcyl(M,[-3.44,2.3,z],'y',0.025,1.2,BR,1,6);
+  for(const z of [-1.356,1.356]){for(const y of [1.45,2.7])vbox(M,[0,y,z],[6.3,0.04,0.01],LN,0);for(const x of [-3.15,3.15])vbox(M,[x,2.05,z],[0.04,1.34,0.01],LN,0);}
+  vcyl(M,[-2.55,3.0,0.55],'y',0.26,0.22,B,3,10);for(const z of [-0.8,0.8])vbox(M,[-3.05,2.98,z],[0.5,0.26,0.6],B,3);for(const z of [-1.22,1.22])vcyl(M,[-3.44,2.3,z],'y',0.025,1.2,BR,1,6);
   for(const z of [-0.88,0.88]){vcyl(M,[-3.65,1.25,z],'x',0.12,0.4,COL.steel,1,10);vcyl(M,[-3.88,1.25,z],'x',0.24,0.05,COL.steel,1,12);}vbox(M,[-3.42,1.3,0],[0.14,0.4,2.7],COL.red,0);vbox(M,[-3.48,1.75,0.9],[0.18,0.2,0.18],COL.lamp,4);return M;}
 // panelled bogie coach: side walls built around real window openings (glass is drawn in a transparent pass), lining,
 // clerestory roof with lamp pots, end balconies with railings; inside: wood panelling, upholstered bays of facing
 // benches either side of the aisle, luggage racks, ceiling lamps
 // two-axle goods wagons: 0 grain hopper, 1 covered van (produce), 2 mail van (PTT green with a yellow band), 3 timber flat with logs
-function wagonMesh(t){const M=vmesh(),B=COL.black,S=COL.steel;vbox(M,[0,0.95,0],[8.6,0.28,1.5],B,3);for(const x of [-2.8,2.8]){for(const z of [-0.72,0.72])vwheel(M,x,0.46,z,0.46,B);for(const z of [-0.86,0.86]){vbox(M,[x,0.78,z],[1.5,0.07,0.1],B,3);vbox(M,[x,0.52,z],[0.3,0.3,0.1],B,3);}}
+// solebars outside the wheels carry the springs; axleboxes meet the springs and the axles run through (all used to float)
+function wagonMesh(t){const M=vmesh(),B=COL.black,S=COL.steel;vbox(M,[0,0.95,0],[8.6,0.28,1.5],B,3);for(const z of [-0.86,0.86])vbox(M,[0,0.95,z],[8.6,0.28,0.1],B,3);
+  for(const x of [-2.8,2.8]){vcyl(M,[x,0.46,0],'z',0.07,1.9,B,3,8);for(const z of [-0.72,0.72])vwheel(M,x,0.46,z,0.46,B);for(const z of [-0.86,0.86]){vbox(M,[x,0.78,z],[1.5,0.07,0.1],B,3);vbox(M,[x,0.575,z],[0.3,0.35,0.1],B,3);}}
   for(const e of [-1,1]){vbox(M,[e*4.4,1.1,0],[0.12,0.32,2.5],B,3);for(const z of [-0.88,0.88])vcyl(M,[e*4.62,1.1,z],'x',0.15,0.36,S,1,10);}
-  if(t===0){const g=[0.46,0.44,0.4];vbox(M,[0,2.15,0],[7.6,1.9,2.6],g,0);vbox(M,[0,3.12,0],[7.7,0.1,2.7],[0.36,0.35,0.33],3);vbox(M,[0,3.0,0],[7.2,0.14,2.3],[0.86,0.72,0.34],0);for(const x of [-2.4,0,2.4])vbox(M,[x,1.05,0],[1.4,0.5,1.4],g,0);for(let x=-3.6;x<=3.6;x+=1.2)for(const z of [-1.31,1.31])vbox(M,[x,2.15,z],[0.08,1.9,0.04],[0.36,0.35,0.33],3);}
+  // hopper: body sits on the frame, an open rim around the top, and the grain heaped inside it (the grain used to be hidden under a solid lid)
+  if(t===0){const g=[0.46,0.44,0.4],rm=[0.36,0.35,0.33];vbox(M,[0,2.095,0],[7.6,2.01,2.6],g,0);for(const z of [-1.3,1.3])vbox(M,[0,3.15,z],[7.7,0.1,0.1],rm,3);for(const x of [-3.8,3.8])vbox(M,[x,3.15,0],[0.1,0.1,2.7],rm,3);
+    vbox(M,[0,3.14,0],[7.4,0.1,2.4],[0.86,0.72,0.34],0);vbox(M,[0,3.22,0],[6.6,0.1,1.5],[0.86,0.72,0.34],0);for(const x of [-2.4,0,2.4])vbox(M,[x,1.05,0],[1.4,0.5,1.4],g,0);for(let x=-3.6;x<=3.6;x+=1.2)for(const z of [-1.31,1.31])vbox(M,[x,2.095,z],[0.08,2.01,0.04],rm,3);}
   else if(t===1||t===2){const c=t===1?[0.52,0.28,0.18]:[0.18,0.36,0.26];vbox(M,[0,2.3,0],[8.2,2.4,2.7],c,0);vbox(M,[0,3.58,0],[8.4,0.16,2.6],COL.roof,3);vbox(M,[0,3.68,0],[8.4,0.1,2.0],COL.roof,3);
-    for(const z of [-1.36,1.36]){vbox(M,[0,2.3,z],[1.8,2.0,0.04],t===1?[0.45,0.24,0.15]:[0.15,0.3,0.22],0);for(let x=-3.8;x<=3.8;x+=0.95)vbox(M,[x,2.3,z*1.005],[0.05,2.3,0.02],[0.3,0.18,0.12],0);if(t===2){vbox(M,[0,1.55,z*1.01],[8.2,0.22,0.02],[0.96,0.78,0.15],0);for(const x of [-2.6,2.6])vbox(M,[x,2.85,z],[1.0,0.45,0.03],COL.glass,2);}}}
+    // planks stop at the mail van's windows and the yellow band clears the door (both used to sit within a few mm and flicker)
+    for(const z of [-1.36,1.36]){vbox(M,[0,2.3,z],[1.8,2.0,0.04],t===1?[0.45,0.24,0.15]:[0.15,0.3,0.22],0);for(let x=-3.8;x<=3.8;x+=0.95){if(t===2&&Math.abs(Math.abs(x)-2.6)<0.6)continue;vbox(M,[x,2.3,z*1.005],[0.05,2.3,0.02],[0.3,0.18,0.12],0);}if(t===2){vbox(M,[0,1.55,Math.sign(z)*1.392],[8.2,0.22,0.02],[0.96,0.78,0.15],0);for(const x of [-2.6,2.6])vbox(M,[x,2.85,z],[1.0,0.45,0.03],COL.glass,2);}}}
   else{vbox(M,[0,1.15,0],[8.6,0.12,2.6],[0.42,0.3,0.2],0);for(let x=-3.8;x<=3.8;x+=1.9)for(const z of [-1.25,1.25])vbox(M,[x,1.85,z],[0.1,1.4,0.1],B,3);
-    for(let r=0;r<3;r++)for(let k=0;k<5-r;k++)vcyl(M,[0,1.5+r*0.42,-0.84+k*0.42+r*0.21],'x',0.21,8.0,[0.55,0.4,0.26],0,8);}
+    // logs rest on the deck and on each other (rows used to float 5-8 cm apart)
+    for(let r=0;r<3;r++)for(let k=0;k<5-r;k++)vcyl(M,[0,1.42+r*0.364,-0.84+k*0.42+r*0.21],'x',0.21,8.0,[0.55,0.4,0.26],0,8);}
   return M;}
 function coachMesh(c1,c2){const M=vmesh(),B=COL.black,wd=[0.46,0.31,0.19],seat=[0.58,0.13,0.15],gold=[0.92,0.78,0.38],L=6.75,cream=[0.9,0.86,0.76];
-  vbox(M,[0,0.95,0],[14.2,0.3,1.6],B,3);for(const z of [-0.55,0.55])vbox(M,[0,0.6,z],[8,0.05,0.05],B,3);vbox(M,[0,0.7,0],[1.6,0.4,1.0],B,3);
-  for(const bx of [-4.9,4.9]){vbox(M,[bx,0.7,0],[2.8,0.25,1.7],B,3);for(const x of [-1.05,1.05])for(const z of [-0.72,0.72])vwheel(M,bx+x,0.46,z,0.46,B);for(const z of [-0.88,0.88]){vbox(M,[bx,0.78,z],[1.7,0.08,0.1],B,3);for(const x of [-1.05,1.05])vbox(M,[bx+x,0.5,z],[0.3,0.32,0.1],B,3);}}
+  // truss rods hang from queen posts; bogies are a bolster plus two side frames, so the wheels show between them, on real axles
+  vbox(M,[0,0.95,0],[14.2,0.3,1.6],B,3);for(const z of [-0.55,0.55]){vbox(M,[0,0.6,z],[6.6,0.05,0.05],B,3);for(const x of [-3.3,-1.2,1.2,3.3])vbox(M,[x,0.7,z],[0.05,0.25,0.05],B,3);}vbox(M,[0,0.7,0],[1.6,0.4,1.0],B,3);
+  for(const bx of [-4.9,4.9]){vbox(M,[bx,0.7,0],[0.5,0.25,1.7],B,3);for(const z of [-0.88,0.88])vbox(M,[bx,0.7,z],[2.8,0.2,0.1],B,3);for(const x of [-1.05,1.05]){vcyl(M,[bx+x,0.46,0],'z',0.07,1.9,B,3,8);for(const z of [-0.72,0.72])vwheel(M,bx+x,0.46,z,0.46,B);}for(const z of [-0.88,0.88]){vbox(M,[bx,0.78,z],[1.7,0.08,0.1],B,3);for(const x of [-1.05,1.05])vbox(M,[bx+x,0.5,z],[0.3,0.32,0.1],B,3);}}
   vbox(M,[0,1.13,0],[2*L,0.06,2.8],wd,7);
   for(const z of [-1,1]){vbox(M,[0,1.65,z*1.38],[2*L,1.05,0.05],c1,0);vbox(M,[0,1.42,z*1.41],[2*L,0.5,0.02],c2,0);vbox(M,[0,3.1,z*1.38],[2*L,0.35,0.05],c1,0);
     vbox(M,[0,1.65,z*1.335],[2*L,1.05,0.02],wd,7);vbox(M,[0,3.1,z*1.335],[2*L,0.35,0.02],wd,7);
     for(let w=0;w<7;w++){const x0=-6.1+w*1.74+0.6,x1=-6.1+(w+1)*1.74-0.6;vbox(M,[(x0+x1)/2,2.55,z*1.38],[x1-x0,0.75,0.05],c1,0);vbox(M,[(x0+x1)/2,2.55,z*1.335],[x1-x0,0.75,0.02],wd,7);}
     for(const e of [-1,1])vbox(M,[e*6.725,2.55,z*1.38],[0.05,0.75,0.05],c1,0);
     for(let w=0;w<8;w++)vbox(M,[-6.1+w*1.74,2.55,z*1.38],[1.2,0.75,0.015],COL.glass,2);
-    for(const y of [2.12,2.98])vbox(M,[0,y,z*1.408],[2*L-0.2,0.03,0.006],gold,0);}
+    for(const y of [2.12,2.98])vbox(M,[0,y,z*1.414],[2*L-0.2,0.03,0.01],gold,0);}
   for(const e of [-1,1]){vbox(M,[e*L,2.2,0],[0.06,2.2,2.8],c1,0);vbox(M,[e*(L-0.04),2.2,0],[0.02,2.2,2.7],wd,7);vbox(M,[e*(L+0.035),1.95,0],[0.02,1.65,0.72],wd,0);vbox(M,[e*(L+0.045),2.45,0],[0.01,0.45,0.42],COL.glass,2);
     vbox(M,[e*7.0,1.15,0],[0.5,0.06,2.5],wd,0);for(const z of [-1.18,-0.42,0.42,1.18])vbox(M,[e*7.22,1.55,z],[0.04,0.8,0.04],B,3);for(const z of [-0.8,0.8])vbox(M,[e*7.22,1.95,z],[0.04,0.04,0.8],B,3);
     vbox(M,[e*7.25,1.25,0],[0.12,0.35,2.6],B,3);for(const z of [-0.88,0.88])vcyl(M,[e*7.45,1.25,z],'x',0.17,0.4,COL.steel,1,10);}
@@ -2953,17 +3031,19 @@ function coachMesh(c1,c2){const M=vmesh(),B=COL.black,wd=[0.46,0.31,0.19],seat=[
   return M;}
 
 function signalMesh(){const M=vmesh();vbox(M,[0,2.2,0],[0.18,4.4,0.18],[0.85,0.85,0.82],1);for(let y=0.4;y<4;y+=0.8)vbox(M,[0,y,0],[0.2,0.4,0.2],[0.86,0.2,0.16],0);
-  vbox(M,[0,4.35,0],[0.46,0.9,0.36],[0.15,0.15,0.17],3);vbox(M,[0.24,4.55,0],[0.04,0.26,0.26],[1,1,1],4);vbox(M,[-0.24,4.55,0],[0.04,0.26,0.26],[1,1,1],4);vbox(M,[0,4.9,0],[0.6,0.08,0.45],[0.15,0.15,0.17],3);return M;}
+  vbox(M,[0,4.35,0],[0.46,0.9,0.36],[0.15,0.15,0.17],3);vbox(M,[0.24,4.55,0],[0.04,0.26,0.26],[1,1,1],4);vbox(M,[-0.24,4.55,0],[0.04,0.26,0.26],[1,1,1],4);vbox(M,[0,4.84,0],[0.6,0.08,0.45],[0.15,0.15,0.17],3);return M;}
 // toy station: platform with a white edge line, a little station house with a pitched roof, canopy, lamps, benches, name board
 function stationMesh(){const M=vmesh(),wall=[0.95,0.88,0.72],roof=[0.78,0.30,0.22],trim=[0.97,0.96,0.92],dk=[0.22,0.30,0.26];
   vbox(M,[0,0.45,-3.6],[44,1.1,4.2],[0.78,0.74,0.68],3);vbox(M,[0,1.02,-1.62],[44,0.06,0.28],[0.98,0.96,0.88],0);
   vbox(M,[0,2.3,-7.3],[11,4.6,4.6],wall,0);vbox(M,[0,0.4,-7.3],[11.3,0.8,4.9],[0.62,0.34,0.27],3);
   const rf=(z0,z1,y0,y1)=>{vq(M,[-6,y0,z0],[6,y0,z0],[6,y1,z1],[-6,y1,z1],[0,Math.abs(z1-z0),Math.sign(z0-z1)*(y1-y0)].map((v,i,a)=>v/Math.hypot(...a)),roof,0);};
-  rf(-4.5,-7.3,4.5,6.9);rf(-10.1,-7.3,4.5,6.9);vq(M,[-5.5,4.6,-9.6],[-5.5,4.6,-5.0],[-5.5,6.8,-7.3],[-5.5,6.8,-7.3],[-1,0,0],wall,0);vq(M,[5.5,4.6,-5.0],[5.5,4.6,-9.6],[5.5,6.8,-7.3],[5.5,6.8,-7.3],[1,0,0],wall,0);
-  for(const x of [-3.2,0,3.2])vbox(M,[x,2.5,-4.97],[1.4,1.6,0.06],COL.glass,2);vbox(M,[4.5,1.9,-4.97],[1.2,2.6,0.06],[0.32,0.5,0.4],0);vbox(M,[-2.2,6.0,-7.3],[0.7,1.8,0.7],[0.62,0.34,0.27],3);
+  // roof eaves drop with the pitch so the roof rests on the walls (it used to leave a 33 cm slit), gables reach the ridge, the chimney clears it
+  rf(-4.5,-7.3,4.1,6.9);rf(-10.1,-7.3,4.1,6.9);vt(M,[-5.5,4.6,-9.6],[-5.5,4.6,-5.0],[-5.5,6.9,-7.3],[-1,0,0],wall,0);vt(M,[5.5,4.6,-5.0],[5.5,4.6,-9.6],[5.5,6.9,-7.3],[1,0,0],wall,0);
+  for(const x of [-3.2,0,3.2])vbox(M,[x,2.5,-4.97],[1.4,1.6,0.06],COL.glass,2);vbox(M,[4.5,1.9,-4.97],[1.2,2.6,0.06],[0.32,0.5,0.4],0);vbox(M,[-2.2,6.6,-7.3],[0.7,2.0,0.7],[0.62,0.34,0.27],3);
   for(const x of [-14,-6,6,14])vbox(M,[x,2.6,-4.4],[0.18,3.1,0.18],dk,0);vbox(M,[0,4.2,-3.9],[32,0.16,3.2],[0.86,0.82,0.74],0);vbox(M,[0,4.32,-3.9],[32.4,0.08,3.4],roof,0);
-  for(const x of [-7,7]){vbox(M,[x,1.1+2.2,-5.4],[0.14,4.4,0.14],dk,1);vbox(M,[x,5.6,-5.4],[0.45,0.5,0.45],COL.lamp,4);}
-  for(const x of [-10,10]){vbox(M,[x,1.5,-4.9],[2.2,0.12,0.6],[0.6,0.42,0.28],0);vbox(M,[x,1.85,-5.15],[2.2,0.6,0.08],[0.6,0.42,0.28],0);}
+  // lamps hang under the canopy (their posts used to run up through the canopy roof with the lamp on top of it)
+  for(const x of [-7,7]){vbox(M,[x,3.98,-5.4],[0.05,0.3,0.05],dk,1);vbox(M,[x,3.64,-5.4],[0.4,0.4,0.4],COL.lamp,4);}
+  for(const x of [-10,10]){vbox(M,[x,1.5,-4.9],[2.2,0.12,0.6],[0.6,0.42,0.28],0);vbox(M,[x,1.85,-5.15],[2.2,0.6,0.08],[0.6,0.42,0.28],0);for(const e of [-1,1])vbox(M,[x+e*0.95,1.22,-4.9],[0.08,0.44,0.5],dk,0);}
   vbox(M,[-18,3.0,-4.6],[3.2,0.8,0.1],[0.12,0.25,0.5],0);vbox(M,[-18,2.97,-4.54],[2.8,0.5,0.02],trim,0);vbox(M,[-18,1.8,-4.6],[0.12,2.2,0.12],dk,1);return M;}
 // ---- trains
 const Trains={list:[],sel:-1,parts:[],nextId:1,
