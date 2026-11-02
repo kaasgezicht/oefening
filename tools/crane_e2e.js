@@ -1,7 +1,7 @@
 // sawmill crane test: a siding on a sawmill side, a station on it, a goods train of 3 timber wagons, a full log yard;
 // runs the crane fast and screenshots the yard. Usage: WS=2048 node tools/boot.js trein.html <out> tools/crane_e2e.js
 module.exports=async(p,out)=>{
- const r=await p.evaluate(()=>{const {Track,Net,App,Trains,Life,Build,Cam,P}=TREIN;const m=(Life.sawmills||[])[0];if(!m)return{err:'no sawmill in this world ('+(Life.villages||[]).length+' villages)'};
+ const r=await p.evaluate(()=>{const {Track,Net,App,Trains,Life,Build,Cam,P}=TREIN;const m=(Life.sawmills||[])[0];if(!m)return{err:'no sawmill in this world ('+(Life.villages||[]).length+' villages)'};if(m.v)m.v.sawOwned=true;Life.uploaded=false;Life.roadsDirty=true;
    const sl=Life.sawSlots(m)[1],near=Build.makeSiding(sl.p[0],sl.p[1],sl.t);const st={id:Track.nextId++,sid:near.seg.id,t:near.t,name:'Test'};Track.stations.push(st);Life.attachSawmill(st);Net.changed();App.trackChanged();
    const veh=[...Trains.consist(0,0),Trains.car('wood'),Trains.car('wood'),Trains.car('wood')];Trains.add({sid:near.seg.id,t:66,dir:1},veh);
    P.craneSpeed=60;Goods.get('st:'+st.id).wood=60;P.timeSpeed=0;P.timeOfDay=10.5;window.__st=st;return{st:st.id,trains:Trains.list.length};});

@@ -1,4 +1,4 @@
-# Trein handoff 43 (2 Nov 2026): v2.8.0 (sawmill, wooden timber gantry, wagon editor)
+# Trein handoff 44 (2 Nov 2026): v2.9.0 (upgrades, mines and ore trains, bank, docks, castle buses)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -10,7 +10,7 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 
 ## Plan agreed with the user (3 steps, each tested on the phone before the next)
 1. **Done in 2.8.0**: sawmill redesign (logs, no planks), wooden travelling gantry crane loading timber wagons in the yard, per-train wagon editor, sunbathers off the squares, squares only once a village has grown.
-2. **Upgrades**, all €1 for now but keeping their unlock requirements (size, transport), each with a badge like farming:
+2. **Done in 2.9.0**: upgrades, all €1 for now but keeping their unlock requirements (size, transport), each with a badge like farming:
    - sawmill;
    - gold, silver or diamond mine (60% of villages get one random type);
    - bank (available at town size; mines deliver to it);
@@ -21,6 +21,61 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
    - at least one lake big enough for two lake villages;
    - at least two castles per map: a more accurate Neuschwanstein, plus Hohenzollern;
    - occasional hot-air balloons.
+
+## Done in 2.9.0 (step 2)
+- **Village upgrades** (`Life.UPG`: farm, saw, mine, bank, docks):
+  - Each has an owned flag on the village (`farmOwned`, `sawOwned`, `mineOwned`, `bankOwned`, `docksOwned`, all saved), an unlock level and a passenger count:
+
+    | Upgrade | Unlocks at | Passengers |
+    |---|---|---|
+    | Farm | Village | 40 |
+    | Sawmill | any size | 15 |
+    | Mine | Village | 60 |
+    | Bank | Town | — |
+    | Docks | any size | 20 |
+
+  - Each costs €1 and gives growth.
+  - `upgHas`, `upgState` (none, locked, available, owned) and `buyUpg`; `farmState`/`buyFarm` remain as wrappers.
+  - The label shows owned icons and a pulsing badge with the first available icon (plus a count).
+  - The panel lists every upgrade the village can have: what it is, what it still needs, or a Buy button.
+- **Sawmill upgrade**: a sawmill exists and works only once its village owns it (`Life.indOn`).
+  - Gated on that: drawing, its lane, wood production, slot markers, label, station attachment and the crane.
+  - Its clearing stays as an empty site until it is bought.
+  - Saves whose sawmill stations predate this need the €1 upgrade before the crane works.
+- **Mines**:
+  - At generation, 60% of villages get a gold, silver or diamond mine (own random stream, so the rest of a seed's world is unchanged). It sits 160–540 m out, preferring higher ground, on a levelled 34 × 26 plot with a lane, and is stored as `Life.mines` and `v.mine`.
+  - `mineMesh(kind)`: timber headframe with sheave wheels and cables to the winding drum; brick engine house with stack and boiler house; shaft house; sorting house on stilts with chutes; tub track with tubs and a miner; waste dump and ore pile with glints; assay office; powder magazine; water tank; lamps; fence; a gate sign with the mine's emblem.
+  - Industry code is shared: `Life.inds()`, slots at back −38 and sides ±34, `nearSawSlot`, `indName` ("X Gold Mine"), the ⛏️ label and info.
+  - No lorry bays at mines: ore goes by rail.
+- **Ore goods** (`ORE`, `Goods.T`: gold 260, silver 180, diamond 420 per unit-km):
+  - Produced only at stations attached to an owned mine (+0.16/s), and accepted only by villages with a bank.
+  - The panel's "Accepts" line lists them.
+- **Ore loading station** (`oreYardMesh`, vehicle mesh 31) for stations attached to a mine:
+  - A timber ore bunker on trestle bents spanning the track, with a roof and nine pockets with spouts between the bents.
+  - An inclined covered conveyor gallery from the ore yard, lamps and a weigh hut.
+  - The yard stockpile (`oreHeapMesh`) grows with the stock.
+  - `Crane.runOre`: the pocket over a wagon of the mine's ore opens, ore pours (`oreStreamMesh`, dust) until the hopper is full (20) or the bunker is empty, then it closes. The train waits ("loading ore").
+  - Trains stop with the first ore hopper at the far end (`Crane.stopAt` by kind), and the station pad is 24 m wide.
+- **Ore hopper wagon** (`oreWagonMesh`, mesh 21, `VEH.ore` length 11.4 on bogies), after the user's photo of the long-haul ore trains:
+  - Body: a tall rust-red steel box with close U-stiffeners, corner posts, a heavy top chord and a belt rail; sloping discharge hoppers with doors underneath.
+  - Couplers and fittings: centre couplers with knuckles and hoses, step plates, a handbrake wheel with column on the A end, end and side ladders, grab irons, an air reservoir.
+  - Bogies: cast side frames, coil-spring nests, axleboxes, wheels on axles.
+  - The heaped load (`oreLoadMesh` per kind) rises with the fill.
+  - The wagon editor offers ore hoppers for the ore kinds that exist on the map.
+- **Bank**: at generation, the fourth house nearest the square is the bank site (`h.bank`).
+  - Until bought it is an ordinary house; once bought, `bankMesh` replaces it: a stone building on a plinth with a portico of four columns under a pediment, a gilded frieze and medallion, a panelled door with a fanlight, arched windows, a cornice with a balustrade, and a flag.
+- **Docks and steamboat**: docks show (mesh, waiting people) only for villages that bought them.
+  - A lake's steamboat appears and sails once two or more of its docks are owned (`st.off` otherwise); it starts moored at the first one.
+- **Cargo-only stations** (attached to a sawmill, workshop or mine, `si.cargo`):
+  - No walkers queue there, and no station road is built.
+  - Passenger trains neither stop there nor rotate to them (`Net.destOf`/`arrived` skip them).
+  - Bays have no waiting passengers, and passenger buses skip them.
+- **Castle buses**: a stop within 450 m of a castle (`Life.castleList()`, ready for step 3's several castles) is a castle stop and is named "Castle gate".
+  - 40% of passengers from village stops ride there; the fare is ×1.6.
+  - Each visitor adds 0.8 growth and 1 passenger to the village they boarded in (`p.fv`); visitors trickle back from the castle.
+- **Tests**: `WS=2048 node tools/boot.js trein.html out tools/step2_checks.js` (upgrade states; buying a mine for €1; a mine station filling ore hoppers; the bank switching on ore acceptance; docks and the steamboat; screenshots of the station, wagons, mine and panel).
+  - A 15-minute castle bus simulation gave 32 visitors, +49 growth for the village and €47k in fares.
+- **Not tested on the phone**: ore pour pacing (1.4 units/s × crane speed), mine placement on 8 km worlds, and how the panel reads with five upgrade rows.
 
 ## Done in 2.8.0
 - **Sawmill** (`sawmillMesh`, plot 40 × 30, +x faces the village) shows the round-wood process. It ships logs, not planks.
