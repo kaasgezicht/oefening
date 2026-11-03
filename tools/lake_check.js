@@ -1,0 +1,4 @@
+// reports the biggest lake, the villages on it, castles and steamers. WS=8192 MR=0 node tools/boot.js trein.html <out> tools/lake_check.js
+module.exports=async(p,out)=>{console.log(await p.evaluate(()=>{const L=TREIN.Life,BL=(L.lakes||[]).slice().sort((a,b)=>b.area-a.area)[0];const N=TREIN.App.T.N,cs=TREIN.App.T.cs;
+  const onL=(x,z)=>{for(let a=0;a<16;a++)for(const r of [110,190]){const xx=x+Math.cos(a*0.39)*r,zz=z+Math.sin(a*0.39)*r;if(L.lakeComp[Math.min(N-1,Math.max(0,(zz/cs)|0))*N+Math.min(N-1,Math.max(0,(xx/cs)|0))]===BL.id)return true;}return false;};
+  return `biggest lake ${BL?(BL.area/10000).toFixed(1)+' ha':'none'}; villages ${L.villages.length}, on it: ${BL?L.villages.filter(v=>onL(v.x,v.z)).map(v=>v.name).join(', '):'-'}; castles ${L.castleList().map(c=>(c.kind||'?')+' '+(c.name||'')).join(', ')}; steamers ${(L.steamers||[]).length}; docks ${(L.docks||[]).length}; mines ${(L.mines||[]).length}`;}));};

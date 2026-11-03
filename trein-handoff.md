@@ -1,4 +1,4 @@
-# Trein handoff 44 (2 Nov 2026): v2.9.0 (upgrades, mines and ore trains, bank, docks, castle buses)
+# Trein handoff 45 (3 Nov 2026): v3.0.0 (8 km worlds, big lake, Neuschwanstein and Hohenzollern, balloons)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -16,11 +16,38 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
    - bank (available at town size; mines deliver to it);
    - docks with the steamboat for lake villages (bought per village; the steamboat runs once a lake has two docks).
    - Castles become bus destinations: fares, and growth points for the village where the passengers boarded.
-3. **World**:
-   - 8 × 8 km default, plus a check for problems;
-   - at least one lake big enough for two lake villages;
-   - at least two castles per map: a more accurate Neuschwanstein, plus Hohenzollern;
-   - occasional hot-air balloons.
+3. **Done in 3.0.0**: 8 × 8 km default world, a guaranteed big lake with two lake villages, two castles per map (Neuschwanstein, Hohenzollern), summer-only hot-air balloons, new default settings.
+
+## Done in 3.0.0 (step 3)
+- **Settings defaults**:
+  - World size 8 × 8 km.
+  - Map resolution 'Auto' (`mapRes` 0): 8 m cells, so 256 at 2 km, 512 at 4 km and 1024 at 8 km.
+  - Automatic resolution targets 55 fps, and a 90 fps option was added.
+  - MSAA off (the low and medium presets too; high keeps 4×).
+  - Saves from before build 3 move autoRes 30 → 55 and MSAA 4 → 0 once, in `applySnapshot`.
+- **8 km checks**:
+  - The village count scales with area (`villages` is now "per 4 × 4 km"); more village names.
+  - The road distance texture is 3072² above 4 km, and the old texture is now deleted on regenerate (it leaked).
+  - Lakeside village streets are pulled back to dry land (they used to end in the lake, so country roads from those ends found no route; 4 failed at 8 km).
+  - Generation takes about 28 s in headless desktop Chromium (erosion about 11 s); expect 1–2 minutes on the phone.
+  - The 170k tree cap is reached (warning only).
+- **Big lake**:
+  - If the biggest lake is under min(40 ha, 2.5% of the map), `carveLakeBowl` digs a bowl in the lowest suitable basin and `genWater` runs again.
+  - The biggest lake (>15 ha) gets at least two villages within 110–190 m of its shore. Shore candidates replace crowding villages, and villages are renamed afterwards.
+- **Castles**:
+  - `castleMesh()` is a new Neuschwanstein (~13k tris): plinth, gatehouse, Knights' House, Square Tower, Palas with dormers, Throne Hall apse, 60 m stair tower and the Bower.
+  - `hohenzollernMesh()` (mesh key `castle2`, ~12k tris): bastion ring with bartizans, Eagle Gate, three Gothic blocks, chapel, four named towers.
+  - Setting `castleCount` (2–4, default 2) replaced the castle chance setting. Kinds alternate neu, hoh.
+  - Sites are on summits at least min(1500 m, 35% of W) apart, with a second, relaxed pass.
+  - The gate faces the nearest village, with a road to it.
+  - Mines keep 130 m away from castles; castle buses use `castleList()`.
+- **Hot-air balloons**:
+  - `balloonMesh(v)` in three liveries: a 16-gore envelope, rigging, a wicker basket and the burner.
+  - `Life.updateBalloons` spawns them only in summer, 6:30–19:30, with no rain or snow and wind below 1.6.
+  - They appear 0.5–1.4 km from the focus, at 120–340 m above the ground, drift with `windDir`, and bob slowly.
+  - Setting `balloons` (0–3, default 1) sets the maximum number (2 × value).
+  - They vanish when the conditions end or once they are 3.2 km from the focus.
+- **Tools**: `tools/lake_check.js` (biggest lake, its villages, castles, steamers, docks, mines); `boot.js` takes `WS` (world size) and `MR` (map resolution) env vars.
 
 ## Done in 2.9.0 (step 2)
 - **Village upgrades** (`Life.UPG`: farm, saw, mine, bank, docks):

@@ -4,7 +4,7 @@ const { chromium } = require('playwright');const fs=require('fs'),path=require('
 const [,,html,out,scriptFile]=process.argv;fs.mkdirSync(out,{recursive:true});
 (async()=>{const b=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  const ctx=await b.newContext({viewport:{width:412,height:915},deviceScaleFactor:1,isMobile:true,hasTouch:true});
- await ctx.addInitScript(ws=>{try{if(!localStorage.getItem('trein.save.v1'))localStorage.setItem('trein.save.v1',JSON.stringify({app:'Trein',saveVersion:2,params:{worldSize:ws,mapRes:256,renderScale:0.5,msaa:0,cloudQuality:1,mistQuality:1}}));}catch(e){}},+(process.env.WS||1024));
+ await ctx.addInitScript(([ws,mr])=>{try{if(!localStorage.getItem('trein.save.v1'))localStorage.setItem('trein.save.v1',JSON.stringify({app:'Trein',saveVersion:2,params:{worldSize:ws,mapRes:mr,renderScale:0.5,msaa:0,cloudQuality:1,mistQuality:1}}));}catch(e){}},[+(process.env.WS||1024),+(process.env.MR||256)]);
  const p=await ctx.newPage();const errs=[];
  p.on('pageerror',e=>errs.push('pageerror: '+e.message+'\n'+(e.stack||'').split('\n').slice(0,3).join('\n')));p.on('console',m=>{const t=m.text();if(m.type()==='error'||/ERR|WRN/.test(t))errs.push(m.type()+': '+t.slice(0,300));});
  const t0=Date.now();await p.goto('file://'+path.resolve(html));
