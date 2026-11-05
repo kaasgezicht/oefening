@@ -1,4 +1,4 @@
-# Trein handoff 45 (3 Nov 2026): v3.0.0 (8 km worlds, big lake, Neuschwanstein and Hohenzollern, balloons)
+# Trein handoff 46 (5 Nov 2026): v3.1.0 (signals obeyed, boarding, platforms, wagon by wagon, fast forward, build tabs)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -7,6 +7,65 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Three rounds; each one is tested on the Pixel 9a before the next.
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
+
+## Request of 5 Nov 2026 (two runs)
+- **Run 1, done in 3.1.0**: signals, boarding and doors, 30 s stops, longer platforms, locomotive plus individual wagons (mixed allowed), fast forward, build UI tabs, hold-to-hide camera, trip card, village upgrade bar.
+- **Run 2, next**:
+  - buses: a per-bus ordered stop list showing the distance of each leg and of one round, a bus list button, driving in a lane on the roads, queuing instead of clipping;
+  - more detailed people when the camera is close.
+- **OpenTTD gap list**: given to the user, not started (see the end of this section).
+
+## Done in 3.1.0 (run 1)
+- **Signals are always obeyed**:
+  - `Net.occAll` (block → set of trains) replaces the single-train `occ` check; the old check missed a second train in the same block.
+  - An automatic train reserves the block beyond a green signal (`tr.resB`) once it is within normal braking distance plus 25 m, so two trains never claim one block.
+  - `Net.sigAhead` serves every train, driven ones too: `tr.redAt` is the distance to a red signal.
+  - In `Trains.step`, when stopping 3 m short of a red signal needs more than 0.9 m/s², the train brakes as hard as it takes (`tr.ebrake`, status 'Emergency stop: red signal').
+  - The lamp shows what the approaching train sees (`Net.face`): green when it may go, red behind a train.
+  - Test: `tools/signal_check.js` (sudden red at 40 m and 72 km/h, a normal red, the block clearing, a driven train, the lamp).
+- **Boarding**:
+  - Coaches are entered over their open end platforms through the end door.
+  - `Life.doorPath(pose, si, end)` = platform edge beside the end platform → on the end platform (coach floor height) → through the door.
+  - Walkers follow `w.bp` (points with an explicit height `w.y`), then go on as before.
+  - Alighting walkers come out the same way, then cross the platform.
+  - `doorOpenMesh` is now an open end door: a dark doorway and the leaf swung inside. It used to stand on the side walls, where the coach has no door, at the wrong height.
+  - Boarders are paced (`w.spd`, 1.5–4.2 m/s) to be aboard before the stop ends; stragglers miss the train.
+  - Test: `tools/board_check.js` (stop time, nobody inside a coach body, screenshots).
+- **30 s stops**: `dwell` default 30 (10–90). The timetable is off by default (it held trains up to 30 game minutes). Saves before 3.1 move dwell to 30 and switch the timetable off.
+- **Fast forward**: the corner button `#btnFF` cycles 1, 2, 4, 8 × (`App.ff`, not saved). Trains and cranes take substeps of ≤ 0.05 s (up to 16 a frame); life, weather, money, goods and the clock get dt × ff.
+- **Longer platforms**:
+  - Stations tab tools 'Longer platform' and 'Shorter platform' change it in 16 m steps (`st.len`, 44–172 m, €4000 a step when money is on).
+  - Extra 4 m platform pieces (`platPieceMesh`, vehicle meshes 32/33, lamp and bench on every third) follow the track beyond the 44 m station.
+  - Trains stop centred on the platform: `stopAt` base = min(len/2 − 3, train/2).
+  - People wait and stand along the whole platform (`si.half`).
+- **Trains wagon by wagon**:
+  - One 'Add locomotive' button places a loco and tender. The trains list opens with the wagon picker: every kind (coach, timber, grain, produce, mail, gold/silver/diamond ore), any mix, added at the rear, '−' takes the last one off.
+  - The picker shows the consist in order and its length.
+  - Mixed trains board passengers at village stations and do goods at every station.
+- **Build UI**:
+  - Tabs with labels: Track (method row: Pieces, Draw, Route), Stations (signals, stations, platform length), Roads.
+  - The profile, bridge and tunnel row (`#bTrackOpts`) and 'Remove track' show only on the Track tab.
+  - New icons: `pieceKit`, `longer`, `shorter`.
+- **Camera hold**: holding the drive bar's camera button for 500 ms hides the drive bar and keeps the camera. `#cine` shows a camera-mode button (cycles the modes) and an exit button that brings the controls back.
+- **Trip card** (`TripFX`): when a train unloads at a village station, a card pops up over the station. The fare counts up, the village's growth bar toward the next size fills with this stop's points, sparks fly, and a level-up line appears when the village grows. Only within 420 m of the camera; gone after 6 s.
+- **Village label**: a thin bar toward the next upgrade the village can buy (`VillageUI.nextUpg`: half growth toward the size it needs, half passengers carried). It turns gold once one can be bought.
+- **Tests**: `tools/ui_checks.js` covers the tabs, a mixed train, a long platform, the trip card, the camera hold and the village bars.
+
+## OpenTTD gap list (given to the user, not started)
+See the reply of 5 Nov. In short:
+- train orders (a stop list with full load / unload / non-stop);
+- one-way and path signals with passing loops;
+- a station catchment preview;
+- station ratings;
+- per-train profit and running costs;
+- depots, breakdowns and servicing;
+- industries that grow and close;
+- subsidies;
+- news;
+- clone train;
+- a minimap;
+- terraforming;
+- an era with new locomotives.
 
 ## Plan agreed with the user (3 steps, each tested on the phone before the next)
 1. **Done in 2.8.0**: sawmill redesign (logs, no planks), wooden travelling gantry crane loading timber wagons in the yard, per-train wagon editor, sunbathers off the squares, squares only once a village has grown.
