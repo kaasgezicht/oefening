@@ -20,11 +20,13 @@ K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],gl
 const VB=[];let PID=1;K.aux=0;K.VB=VB;
 function pv(p,n,c,m,uv,hs,sd){VB.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2],m,uv[0],uv[1],hs[0],hs[1],sd,K.aux);}
 const nextSeed=()=>(PID++)*0.6180339%1;
-function quad(a,b,c,d,n,col,m,sd,hs,ns){n=n||norm(cross(sub(b,a),sub(d,a)));hs=hs||[len(sub(b,a))/2,len(sub(d,a))/2];const N=ns||[n,n,n,n];sd=sd===undefined?nextSeed():sd;
+// game mode: K.plot (local rect) keeps only what stands on the house's plot; K.lod 0/1/2 drops detail (1: no shingles, stones, grass; 2: big parts only)
+K.plot=null;K.lod=0;const outP=(x,z)=>K.plot!==null&&(x<K.plot.x0||x>K.plot.x1||z<K.plot.z0||z>K.plot.z1);K.outP=outP;
+function quad(a,b,c,d,n,col,m,sd,hs,ns){if(K.plot&&outP((a[0]+c[0])/2,(a[2]+c[2])/2))return;n=n||norm(cross(sub(b,a),sub(d,a)));hs=hs||[len(sub(b,a))/2,len(sub(d,a))/2];const N=ns||[n,n,n,n];sd=sd===undefined?nextSeed():sd;
   pv(a,N[0],col,m,[-1,-1],hs,sd);pv(b,N[1],col,m,[1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(a,N[0],col,m,[-1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(d,N[3],col,m,[-1,1],hs,sd);}
-function tri(a,b,c,col,m,sd,uvs,hs){const n=norm(cross(sub(b,a),sub(c,a)));uvs=uvs||[[-1,-1],[1,-1],[0,1]];hs=hs||[1,1];sd=sd===undefined?nextSeed():sd;pv(a,n,col,m,uvs[0],hs,sd);pv(b,n,col,m,uvs[1],hs,sd);pv(c,n,col,m,uvs[2],hs,sd);}
+function tri(a,b,c,col,m,sd,uvs,hs){if(K.plot&&outP((a[0]+b[0]+c[0])/3,(a[2]+b[2]+c[2])/3))return;const n=norm(cross(sub(b,a),sub(c,a)));uvs=uvs||[[-1,-1],[1,-1],[0,1]];hs=hs||[1,1];sd=sd===undefined?nextSeed():sd;pv(a,n,col,m,uvs[0],hs,sd);pv(b,n,col,m,uvs[1],hs,sd);pv(c,n,col,m,uvs[2],hs,sd);}
 // oriented box: centre c, half-axis vectors X Y Z (keep them orthogonal)
-function box(c,X,Y,Z,col,m,sd){sd=sd===undefined?nextSeed():sd;const lx=len(X),ly=len(Y),lz=len(Z),nx=norm(X),ny=norm(Y),nz=norm(Z),P=(i,j,k)=>add(add(add(c,mul(X,i)),mul(Y,j)),mul(Z,k));
+function box(c,X,Y,Z,col,m,sd){sd=sd===undefined?nextSeed():sd;const lx=len(X),ly=len(Y),lz=len(Z),mx=Math.max(lx,ly,lz);if(K.plot&&(outP(c[0],c[2])||mx>20))return;if((K.lod>=1&&mx<0.06)||(K.lod>=2&&mx<0.3))return;const nx=norm(X),ny=norm(Y),nz=norm(Z),P=(i,j,k)=>add(add(add(c,mul(X,i)),mul(Y,j)),mul(Z,k));
   quad(P(1,-1,-1),P(1,-1,1),P(1,1,1),P(1,1,-1),nx,col,m,sd,[lz,ly]);quad(P(-1,-1,1),P(-1,-1,-1),P(-1,1,-1),P(-1,1,1),neg(nx),col,m,sd,[lz,ly]);
   quad(P(-1,1,-1),P(1,1,-1),P(1,1,1),P(-1,1,1),ny,col,m,sd,[lx,lz]);quad(P(-1,-1,1),P(1,-1,1),P(1,-1,-1),P(-1,-1,-1),neg(ny),col,m,sd,[lx,lz]);
   quad(P(1,-1,1),P(-1,-1,1),P(-1,1,1),P(1,1,1),nz,col,m,sd,[lx,ly]);quad(P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),neg(nz),col,m,sd,[lx,ly]);}
@@ -32,7 +34,7 @@ function box(c,X,Y,Z,col,m,sd){sd=sd===undefined?nextSeed():sd;const lx=len(X),l
 const B=(x,y,z,sx,sy,sz,col,m,ry,sd)=>{const c=Math.cos(ry||0),s=Math.sin(ry||0);box([x,y,z],[c*sx/2,0,s*sx/2],[0,sy/2,0],[-s*sz/2,0,c*sz/2],col,m,sd);};
 // beam between two points; w across along 'side' (made perpendicular), d the remaining depth
 function beam(p0,p1,side,w,d,col,m,sd){const ax=sub(p1,p0),L=len(ax),a=norm(ax);const s=norm(sub(side,mul(a,dot(side,a))));const t=cross(a,s);box(mul(add(p0,p1),0.5),mul(a,L/2),mul(s,w/2),mul(t,d/2),col,m,sd);}
-function cyl(p0,p1,r0,r1,sides,col,m,capCol,capM,sd,smooth){sd=sd===undefined?nextSeed():sd;const ax=sub(p1,p0),L=len(ax),a=norm(ax),t=Math.abs(a[1])<0.9?[0,1,0]:[1,0,0],u=norm(cross(a,t)),v=cross(a,u);
+function cyl(p0,p1,r0,r1,sides,col,m,capCol,capM,sd,smooth){sd=sd===undefined?nextSeed():sd;const ax=sub(p1,p0),L=len(ax),mr=Math.max(r0,r1,L/2);if(K.plot&&outP((p0[0]+p1[0])/2,(p0[2]+p1[2])/2))return;if((K.lod>=1&&mr<0.06)||(K.lod>=2&&mr<0.3))return;if(K.lod>=1)sides=Math.max(5,Math.ceil(sides/2));const a=norm(ax),t=Math.abs(a[1])<0.9?[0,1,0]:[1,0,0],u=norm(cross(a,t)),v=cross(a,u);
   const D=k=>{const q=k/sides*Math.PI*2;return add(mul(u,Math.cos(q)),mul(v,Math.sin(q)));};
   for(let k=0;k<sides;k++){const d0=D(k),d1=D(k+1),dm=norm(add(d0,d1));quad(add(p0,mul(d0,r0)),add(p0,mul(d1,r0)),add(p1,mul(d1,r1)),add(p1,mul(d0,r1)),dm,col,m,sd,[Math.PI*(r0+r1)/sides,L/2],smooth?[d0,d1,d1,d0]:null);}
   if(capCol)for(const [p,r,s] of [[p0,r0,-1],[p1,r1,1]])for(let k=0;k<sides;k++){const q0=k/sides*Math.PI*2,q1=(k+1)/sides*Math.PI*2,n=mul(a,s);
@@ -42,12 +44,12 @@ const ICO=(()=>{const t=(1+Math.sqrt(5))/2;let V=[[-1,t,0],[1,t,0],[-1,-t,0],[1,
   const out=[[V,F]];for(let d=0;d<2;d++){const V2=V.slice(),cache={},mid=(a,b)=>{const k=a<b?a+'_'+b:b+'_'+a;if(cache[k]!==undefined)return cache[k];V2.push(norm(mul(add(V[a],V[b]),0.5)));return cache[k]=V2.length-1;};
     const F2=[];for(const [a,b,c] of F){const ab=mid(a,b),bc=mid(b,c),ca=mid(c,a);F2.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);}V=V2;F=F2;out.push([V,F]);}return out;})();
 // icosphere blob (flat faces): foliage, moss, cabbages, pebbles
-function ico(c,r,col,m,o){o=o||{};const [V,F]=ICO[o.detail||0],sy=o.sy||1,jit=o.jit||0,sd=o.seed||rnd()*100,J=V.map((v,i)=>1+(Math.sin(i*12.9898+sd*78.233)*43758.5453%1)*jit);
+function ico(c,r,col,m,o){o=o||{};if(K.plot&&outP(c[0],c[2]))return;if((K.lod>=1&&r<0.07)||(K.lod>=2&&r<0.3))return;const [V,F]=ICO[Math.max(0,(o.detail||0)-K.lod)],sy=o.sy||1,jit=o.jit||0,sd=o.seed||rnd()*100,J=V.map((v,i)=>1+(Math.sin(i*12.9898+sd*78.233)*43758.5453%1)*jit);
   const P=i=>[c[0]+V[i][0]*r*J[i],c[1]+V[i][1]*r*sy*J[i],c[2]+V[i][2]*r*J[i]];for(const [a,b,d] of F)tri(P(a),P(b),P(d),col,m,(sd*0.37)%1);}
-function blade(x,z,h,col,lean,ang,y0){y0=y0||0.02;const w=rr(0.012,0.022),d=[Math.cos(ang),0,Math.sin(ang)],p=[-d[2],0,d[0]];const b0=[x+p[0]*w,y0,z+p[2]*w],b1=[x-p[0]*w,y0,z-p[2]*w],tp=[x+d[0]*lean,y0+h,z+d[2]*lean];
+function blade(x,z,h,col,lean,ang,y0){if(K.lod>=1||(K.plot&&outP(x,z)))return;y0=y0||0.02;const w=rr(0.012,0.022),d=[Math.cos(ang),0,Math.sin(ang)],p=[-d[2],0,d[0]];const b0=[x+p[0]*w,y0,z+p[2]*w],b1=[x-p[0]*w,y0,z-p[2]*w],tp=[x+d[0]*lean,y0+h,z+d[2]*lean];
   pv(b0,[0,1,0],col,13,[-1,-1],[w,h/2],0);pv(b1,[0,1,0],col,13,[1,-1],[w,h/2],0);pv(tp,[0,1,0],col,13,[0,1],[w,h/2],0);}
 function tuft(x,z,n,h,y0){const c=pick([[0.32,0.5,0.18],[0.42,0.58,0.22],[0.36,0.54,0.2],[0.5,0.6,0.25]]);for(let k=0;k<n;k++){const a=rnd()*6.283;blade(x+Math.cos(a)*0.03,z+Math.sin(a)*0.03,h*rr(0.6,1.2),c,rr(0.03,0.12),a,y0);}}
-function flower(x,y,z,col,h){cyl([x,y,z],[x+rr(-0.02,0.02),y+h,z+rr(-0.02,0.02)],0.008,0.006,4,[0.3,0.48,0.2],13);ico([x,y+h+0.02,z],rr(0.045,0.065),col,1,{sy:0.7});
+function flower(x,y,z,col,h){if(K.lod>=1||(K.plot&&outP(x,z)))return;cyl([x,y,z],[x+rr(-0.02,0.02),y+h,z+rr(-0.02,0.02)],0.008,0.006,4,[0.3,0.48,0.2],13);ico([x,y+h+0.02,z],rr(0.045,0.065),col,1,{sy:0.7});
   for(let k=0;k<2;k++){const a=rnd()*6.28;ico([x+Math.cos(a)*0.05,y+h*0.35,z+Math.sin(a)*0.05],0.04,[0.28,0.5,0.2],1,{sy:0.5});}}
 Object.assign(K,{pv,quad,tri,box,B,beam,cyl,ico,blade,tuft,flower});
 // ---- wall faces: o = point on the wall plane, n = outward normal, t = the face's u axis, half = half width
@@ -59,7 +61,7 @@ K.fp=fp;K.fb=fb;
 K.walls=(x0,x1,z0,z1)=>({front:K.face([(x0+x1)/2,0,z0],[0,0,-1],[1,0,0],(x1-x0)/2),back:K.face([(x0+x1)/2,0,z1],[0,0,1],[-1,0,0],(x1-x0)/2),
   left:K.face([x0,0,(z0+z1)/2],[-1,0,0],[0,0,-1],(z1-z0)/2),right:K.face([x1,0,(z0+z1)/2],[1,0,0],[0,0,1],(z1-z0)/2)});
 // stones laid in courses over a face rectangle (u0..u1, y0..y1). o: skip(u,y), shear(y)->[dx,dz], pal, soot:[y0,y1], off
-K.stones=function(f,u0,u1,y0,y1,o){o=o||{};const sh=o.shear||(()=>[0,0]),pal=o.pal||K.C.stone,hr=o.h||[0.15,0.27],lr=o.l||[0.24,0.55];let y=y0;
+K.stones=function(f,u0,u1,y0,y1,o){o=o||{};if(K.lod>=1){const pal=o.pal||K.C.stone,c=pal[0];fb(f,(u0+u1)/2,(y0+y1)/2,0.03,u1-u0,y1-y0,0.06,c,21);return;}const sh=o.shear||(()=>[0,0]),pal=o.pal||K.C.stone,hr=o.h||[0.15,0.27],lr=o.l||[0.24,0.55];let y=y0;
   while(y<y1-0.04){const rh=Math.min(rr(hr[0],hr[1]),y1-y);let u=u0-rnd()*0.2;
     while(u<u1){let l=rr(lr[0],lr[1]);if(u+l>u1)l=u1-u;if(l<0.08)break;const uc=u+l/2,yc=y+rh/2;if(!(o.skip&&o.skip(uc,yc))&&uc>u0-0.01){
         const out=rr(0.012,0.05),dep=0.14,s=sh(yc),c=add(fp(f,uc,yc,out-dep/2+(o.off||0)),[s[0],0,s[1]]),tw=rr(-0.05,0.05),tl=rr(-0.04,0.04);
@@ -67,7 +69,7 @@ K.stones=function(f,u0,u1,y0,y1,o){o=o||{};const sh=o.shear||(()=>[0,0]),pal=o.p
         const pc=pick(pal),v=rr(0.9,1.08);K.aux=o.soot?clamp((yc-o.soot[0])/(o.soot[1]-o.soot[0]),0,1):0;box(c,X,Y,Z,[pc[0]*v,pc[1]*v,pc[2]*v],o.mat||8);K.aux=0;}
       u+=l;}y+=rh;}};
 // overlapping, staggered rows of shingles or clay tiles on any surface S(u,t,o) (u along the ridge, t up the slope, o along the normal)
-K.shingles=function(S,u0,u1,L,skip,o){o=o||{};const ex=o.exp||0.2,ln=o.len||0.38,th=o.th||0.024,wr=o.w||[0.16,0.3],pal=o.pal||K.C.shingle,mat=o.mat||4,ph=o.phi||[0.07,0.11],yaw=o.yaw===undefined?0.05:o.yaw;
+K.shingles=function(S,u0,u1,L,skip,o){o=o||{};if(K.lod>=1)return;const ex=o.exp||0.2,ln=o.len||0.38,th=o.th||0.024,wr=o.w||[0.16,0.3],pal=o.pal||K.C.shingle,mat=o.mat||4,ph=o.phi||[0.07,0.11],yaw=o.yaw===undefined?0.05:o.yaw;
   for(let tb=-0.05;tb<L-0.12;tb+=ex){let u=u0-rnd()*0.25;while(u<u1){let w=rnd()<(o.wideP===undefined?0.12:o.wideP)?rr(wr[1],wr[1]*1.4):rr(wr[0],wr[1]);if(u+w>u1)w=u1-u;if(w<0.07)break;
       const uc=u+w/2,tc=Math.min(tb+ln/2,L-0.02);u+=w+(o.gap===undefined?0.014:o.gap);const P=S(uc,tc,0);if(skip&&skip(P))continue;if(rnd()<(o.missing===undefined?0.012:o.missing))continue;
       let Tu=norm(sub(S(uc+0.03,tc,0),S(uc-0.03,tc,0))),Tt=norm(sub(S(uc,tc+0.03,0),S(uc,tc-0.03,0))),N=norm(cross(Tt,Tu));if(N[1]<0)N=neg(N);
@@ -94,8 +96,8 @@ K.roof=function(s){const c=s.c||[0,0],R=norm([s.dir[0],0,s.dir[1]]),A=[-R[2],0,R
   const rp=(Sl,x,t,o)=>{const p=rpl(Sl,x,t,o);return W2(p[0],p[1],p[2]);};
   const under=(x,w)=>{const Sl=slope(w<0?-1:1),t=(w-Sl.A0[1])/Sl.a[1];return rpl(Sl,x,clamp(t,0,Sl.L),-TH)[1];};
   const nW=Sl=>add(mul([0,1,0],Sl.n[0]),mul(A,Sl.n[1]));
-  for(const sg of s.slopes||[-1,1]){const Sl=slope(sg),NX=s.nx||24,NT=12,xs=i=>-hx+2*hx*i/NX,ts=j=>Sl.L*j/NT+(j===NT?0.08:0);
-    for(let i=0;i<NX;i++)for(let j=0;j<NT;j++){quad(rp(Sl,xs(i),ts(j),0),rp(Sl,xs(i+1),ts(j),0),rp(Sl,xs(i+1),ts(j+1),0),rp(Sl,xs(i),ts(j+1),0),null,s.deck||[0.24,0.18,0.13],12,0.5);
+  for(const sg of s.slopes||[-1,1]){const Sl=slope(sg),NX=K.lod>=2?8:K.lod?Math.ceil((s.nx||24)/2):(s.nx||24),NT=K.lod>=2?4:K.lod?6:12,xs=i=>-hx+2*hx*i/NX,ts=j=>Sl.L*j/NT+(j===NT?0.08:0);
+    for(let i=0;i<NX;i++)for(let j=0;j<NT;j++){quad(rp(Sl,xs(i),ts(j),K.lod?0.03:0),rp(Sl,xs(i+1),ts(j),K.lod?0.03:0),rp(Sl,xs(i+1),ts(j+1),K.lod?0.03:0),rp(Sl,xs(i),ts(j+1),K.lod?0.03:0),null,K.lod?(clay?mix3((cover.pal||K.C.clay)[0],(cover.pal||K.C.clay)[2],0.5):mix3((cover.pal||K.C.shingle)[0],(cover.pal||K.C.shingle)[2],0.5)):(s.deck||[0.24,0.18,0.13]),K.lod?20:12,0.5);
       quad(rp(Sl,xs(i),ts(j),-TH),rp(Sl,xs(i),ts(j+1),-TH),rp(Sl,xs(i+1),ts(j+1),-TH),rp(Sl,xs(i+1),ts(j),-TH),null,s.soffit||[0.4,0.29,0.19],12,0.7);}
     for(let i=0;i<NX;i++)beam(rp(Sl,xs(i),-0.02,-TH/2),rp(Sl,xs(i+1),-0.02,-TH/2),[0,1,0],0.2,0.05,timber,6,0.2+i*0.01);
     for(const e of s.ends||[-1,1])for(let j=0;j<NT;j++){const x=e*(hx+0.03);beam(rp(Sl,x,ts(j),-0.02),rp(Sl,x,ts(j+1)+0.02,-0.02),nW(Sl),0.24,0.06,timber,6,0.3+j*0.01);}
@@ -128,7 +130,7 @@ K.chimney=function(s){const lean=y=>y>s.bt+0.35?[(y-s.bt-0.35)*(s.lean?s.lean[0]
   const lt=lean(top);K.aux=0.8;B(ucx+lt[0],top+0.06,ucz+lt[1],ux1-ux0+0.22,0.12,uz1-uz0+0.22,pal[3],8);K.aux=0;
   for(const dz of s.pots||[-0.18,0.2]){const p=[ucx+lt[0],top+0.12,ucz+lt[1]+dz];cyl(p,add(p,[0,0.42,0]),0.13,0.11,12,[0.68,0.38,0.25],0,[0.08,0.06,0.05],0,undefined,true);cyl(add(p,[0,0.38,0]),add(p,[0,0.46,0]),0.14,0.14,12,[0.62,0.34,0.22],0,null,0,undefined,true);}};
 // ---- props and plants
-K.tree=function(x,z,s,o){o=o||{};cyl([x,0,z],[x+0.12*s,2.2*s,z+0.05*s],0.22*s,0.14*s,9,[0.42,0.34,0.27],15);for(const [dx,dz] of [[0.9,0.3],[-0.8,-0.3],[0.1,-0.8]])cyl([x+0.1*s,1.8*s,z],[x+dx*s,2.9*s,z+dz*s],0.09*s,0.05*s,6,[0.42,0.34,0.27],15);
+K.tree=function(x,z,s,o){o=o||{};if(K.plot&&outP(x,z))return;cyl([x,0,z],[x+0.12*s,2.2*s,z+0.05*s],0.22*s,0.14*s,9,[0.42,0.34,0.27],15);for(const [dx,dz] of [[0.9,0.3],[-0.8,-0.3],[0.1,-0.8]])cyl([x+0.1*s,1.8*s,z],[x+dx*s,2.9*s,z+dz*s],0.09*s,0.05*s,6,[0.42,0.34,0.27],15);
   for(const [dx,dy,dz,r] of [[0,3.3,0,1.5],[0.95,3.0,0.35,1.1],[-0.9,3.05,-0.3,1.15],[0.1,4.0,0.1,1.0],[-0.3,3.4,0.9,0.9]])ico([x+dx*s,dy*s,z+dz*s],r*s,mix3([0.26,0.48,0.2],[0.36,0.58,0.26],rnd()),1,{detail:2,jit:0.12});
   if(o.apples)for(let k=0;k<24;k++){const a=rnd()*6.28,el=rr(-0.2,0.9),r=1.45*s;ico([x+Math.cos(a)*Math.cos(el)*r,3.2*s+Math.sin(el)*r*0.85,z+Math.sin(a)*Math.cos(el)*r],0.07,[0.85,0.18,0.14],0,{detail:1});}
   for(let k=0;k<12;k++){const a=rnd()*6.28,d=rr(0.3,0.9);tuft(x+Math.cos(a)*d,z+Math.sin(a)*d,7,rr(0.2,0.45));}};
@@ -143,13 +145,14 @@ K.pot=function(x,z,fl){cyl([x,0,z],[x,0.34,z],0.15,0.21,12,[0.72,0.4,0.26],0,[0.
 K.ivy=function(x0,z0,nx,nz,h,n){for(let s=0;s<n;s++){let x=x0+rr(-0.25,0.25),y=0.05,z=z0+rr(-0.25,0.25);const dx=rr(-0.3,0.3);while(y<h*rr(0.5,1)){y+=rr(0.06,0.12);x+=dx*0.06*Math.abs(nz)+rr(-0.03,0.03)*Math.abs(nz);z+=dx*0.06*Math.abs(nx)+rr(-0.03,0.03)*Math.abs(nx);
     ico([x+nx*0.05,y,z+nz*0.05],rr(0.045,0.075),mix3([0.16,0.34,0.12],[0.3,0.5,0.18],rnd()),1,{sy:0.8,jit:0.2});}}};
 // grass tufts over an area, with an exclusion test
-K.grass=function(n,x0,x1,z0,z1,skip,hr,blades){for(let k=0;k<n;k++){const x=rr(x0,x1),z=rr(z0,z1);if(skip&&skip(x,z))continue;tuft(x,z,blades||(rnd()<0.3?6:4),rr(hr?hr[0]:0.08,hr?hr[1]:0.2));}};
+K.grass=function(n,x0,x1,z0,z1,skip,hr,blades){if(K.lod>=1||K.plot)return;/* the game draws its own grass; fence-line tufts stay */for(let k=0;k<n;k++){const x=rr(x0,x1),z=rr(z0,z1);if(skip&&skip(x,z))continue;tuft(x,z,blades||(rnd()<0.3?6:4),rr(hr?hr[0]:0.08,hr?hr[1]:0.2));}};
 K.dirt=function(x,z,r){for(let k=0;k<7;k++){const a=rnd()*6.28,d=rr(0,r*0.6),rk=rr(0.25,0.5)*r,h=0.004+k*0.0008;cyl([x+Math.cos(a)*d,0,z+Math.sin(a)*d],[x+Math.cos(a)*d,h,z+Math.sin(a)*d],rk,rk*rr(0.7,1),9,[0.5,0.4,0.28],10,mix3([0.46,0.37,0.26],[0.54,0.43,0.3],rnd()),10);}};
 // one irregular ground patch (earth, gravel, cobbles): a fan with a noisy outline, so edges never look like a cut rectangle
-K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};const N=o.n||40,ph=rr(0,6.28),R=a=>0.82+0.12*Math.sin(a*3+ph)+0.07*Math.sin(a*7+ph*2)+0.05*Math.sin(a*13+ph*3)+rr(-0.03,0.03),y0=y||0.01;const pts=[];
+K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};if(K.plot&&outP(x,z))return;const N=o.n||40,ph=rr(0,6.28),R=a=>0.82+0.12*Math.sin(a*3+ph)+0.07*Math.sin(a*7+ph*2)+0.05*Math.sin(a*13+ph*3)+rr(-0.03,0.03),y0=y||0.01;const pts=[];
   for(let k=0;k<N;k++){const a=k/N*6.283,r=R(a);pts.push([Math.cos(a)*rx*r,Math.sin(a)*rz*r]);}const sd=rnd();
   for(let k=0;k<N;k++){const p=pts[k],q=pts[(k+1)%N];pv([x,y0,z],[0,1,0],col,mat,[0,0],[rx,rz],sd);pv([x+q[0],y0,z+q[1]],[0,1,0],col,mat,[q[0]/rx,q[1]/rz],[rx,rz],sd);pv([x+p[0],y0,z+p[1]],[0,1,0],col,mat,[p[0]/rx,p[1]/rz],[rx,rz],sd);}};
-K.build=function(name,opt){VB.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;return K.models[name](K,opt||{})||{};};
+K.plots={cottage:{x0:-7.75,x1:7.75,z0:-9.45,z1:7.8},tavern:{x0:-8.9,x1:8.8,z0:-13.1,z1:6.2},farmhouse:{x0:-12.9,x1:10.9,z0:-13.2,z1:6.6},shop:{x0:-6.6,x1:9.3,z0:-10.0,z1:6.0}};
+K.build=function(name,opt){VB.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
 
 // ================= GL =================
 let G=null;function sh(t,s){const g=G;const x=g.createShader(t);g.shaderSource(x,s);g.compileShader(x);if(!g.getShaderParameter(x,g.COMPILE_STATUS))throw new Error(g.getShaderInfoLog(x));return x;}
@@ -174,17 +177,9 @@ float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h2(i)
 float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*vn(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return s/.9375;}
 float voro(vec2 p){vec2 i=floor(p),f=fract(p);float d=9.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o=vec2(x,y);vec2 r=o+vec2(h2(i+o),h2(i+o+17.3))-f;d=min(d,dot(r,r));}return sqrt(d);}
 vec3 voro2(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.;vec2 id=vec2(0);for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o=vec2(x,y);vec2 r=o+vec2(h2(i+o),h2(i+o+17.3))*.85-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=i+o;}else if(d<d2)d2=d;}return vec3(sqrt(d1),sqrt(d2)-sqrt(d1),h2(id+3.1));}`;
-const VS=`#version 300 es
-layout(location=0) in vec3 aP;layout(location=1) in vec3 aN;layout(location=2) in vec3 aC;layout(location=3) in float aM;layout(location=4) in vec4 aUH;layout(location=5) in vec2 aS;
-uniform mat4 uVP,uLVP;uniform vec3 uL;out vec3 vW,vN;out vec2 vUV;flat out vec2 vHS;flat out vec3 vC;flat out int vM;flat out float vSeed,vAux;out vec4 vL;
-void main(){vW=aP;vN=aN;vC=aC;vM=int(aM+.5);vUV=aUH.xy;vHS=aUH.zw;vSeed=aS.x;vAux=aS.y;vec3 nl=dot(aN,uL)<0.?-aN:aN;vL=uLVP*vec4(aP+nl*.012,1.);gl_Position=uVP*vec4(aP,1.);}`;
-const FS=`#version 300 es
-precision highp float;precision highp sampler2DShadow;
-in vec3 vW,vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int vM;flat in float vSeed,vAux;in vec4 vL;
-uniform vec3 uEye,uL,uSun,uSky,uGnd;uniform sampler2DShadow uSh;uniform float uShT,uMoss;
-layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;layout(location=2) out vec4 oX;
-${NOISE}
+const MATS=`vec3 gN;
 float edgeD(vec2 q){vec2 e=vHS-abs(q);return min(e.x,e.y);}
+vec3 roofRC(){vec3 th=normalize(cross(vec3(0,1,0),gN)+vec3(1e-4,0,0));float r=floor(vW.y/.17),f=fract(vW.y/.17),su=dot(vW,th)/(.27+.1*h2(vec2(r,5.)))+r*.5;return vec3(r,f,su);}
 float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float bev=smoothstep(0.,.016,e)*.005;float gr=vn(vec2(q.x*60.+sd,q.y*3.5))-.5;float cr=smoothstep(.04,0.,abs(vn(vec2(q.x*9.+sd,q.y*1.3))-.5));return bev+gr*.0018-cr*.004;}
   if(m==8){float mn=min(vHS.x,vHS.y);return sqrt(clamp(e/(mn*.6),0.,1.))*.03+fbm(q*10.+sd)*.009;}
@@ -200,6 +195,8 @@ float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==11)return fbm(q*25.)*.002;
   if(m==18){vec2 cq=vHS-abs(q);float chip=(cq.x<.035&&cq.y<.035&&h2(vec2(sd,sign(q.x)+sign(q.y)*2.))>.55)?-.006:0.;return smoothstep(0.,.01,e)*.003+(1.-pow(q.x/vHS.x,2.))*.006+fbm(q*30.+sd)*.0015+chip;}
   if(m==19){vec3 v=voro2(q/.19);return sqrt(smoothstep(0.,.42,v.y))*.03+fbm(q*12.)*.004;}
+  if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));return (.5-R.y)*.012+(R.y<.14?-.004:0.)-(fract(R.z)<.05?.004:0.)+(id-.5)*.002;}
+  if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s);float ed=min(min(f,1.-f)*.24,min(fs,1.-fs)*.3);return sqrt(clamp(ed/.07,0.,1.))*.025+fbm(q*9.)*.006;}
   return 0.;}
 vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float gr=vn(vec2(q.x*60.+sd,q.y*3.5));c*=.8+.32*gr;c*=mix(.66,1.,smoothstep(-vHS.y,-vHS.y*.25,q.y));c*=mix(.55,1.,smoothstep(0.,.012,e));
@@ -223,9 +220,12 @@ vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==18){c*=.84+.26*fbm(q*7.+sd);c*=1.-.25*smoothstep(.6,.8,fbm(q*14.+sd*3.));c*=mix(.7,1.,smoothstep(-vHS.y,-vHS.y*.3,q.y));return c*mix(.6,1.,smoothstep(0.,.008,e));}
   if(m==19){vec3 v=voro2(q/.19);vec3 k=mix(mix(vec3(.66,.61,.54),vec3(.56,.52,.47),step(.33,v.z)),vec3(.72,.66,.56),step(.7,v.z));k*=.78+.32*fbm(q*6.+v.z*10.);
     float gap=smoothstep(.13,.0,v.y);vec3 gc=mix(vec3(.24,.19,.14),vec3(.25,.38,.14),smoothstep(.45,.6,fbm(q*1.4))*.8);return mix(k,gc,gap);}
+  if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));c*=.78+.36*id;if(id>.88)c=mix(c,vec3(dot(c,vec3(.33))),.5);c*=R.y<.14?.7:1.;c*=fract(R.z)<.05?.6:1.;return c;}
+  if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s),id=h2(vec2(r,floor(s)));vec3 k=c*(.78+.42*id)*(.8+.3*fbm(q*4.+id*9.));
+    return (f<.08||fs<.05)?vec3(.38,.35,.31):k;}
   return c;}
 vec3 weather(int m,vec3 c,vec3 N,vec2 q){float y=vW.y;
-  if(m==4||m==18||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
+  if(m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
     float sunF=clamp(dot(N,uL),0.,1.);float bias=(m==4||m==18)?(m==18?-.05:.04)+.14*smoothstep(-.2,-.9,vUV.y):m==8?(N.y>.6?-.25+.4*smoothstep(.03,0.,edgeD(q)):.0)+.2*smoothstep(.7,0.,y):m==15?.08:.16*smoothstep(.5,0.,y);bias-=.12*sunF;
     float fz=vn(vW.xz*45.+vW.y*35.),moss=smoothstep(.7,.8,mm+bias)*uMoss;vec3 mc=mix(vec3(.17,.3,.09),vec3(.46,.56,.17),fz*.7+.3*vn(vW.xz*6.));
     c=mix(c,mc,moss*smoothstep(.25,.55,fz+moss*.45));
@@ -238,8 +238,21 @@ vec3 weather(int m,vec3 c,vec3 N,vec2 q){float y=vW.y;
   if(m==8&&vAux>0.)c*=mix(1.,.38,vAux*(.6+.4*fbm(vW.xz*4.+y*3.)));
   if(m==4||m==18)c=mix(c,c*vec3(.82,.8,.76),smoothstep(.55,.8,vn(vec2(vW.x*2.5,vW.y*.7)))*.35);
   return c;}
+`;
+K.GLSL={NOISE,MATS};
+const VS=`#version 300 es
+layout(location=0) in vec3 aP;layout(location=1) in vec3 aN;layout(location=2) in vec3 aC;layout(location=3) in float aM;layout(location=4) in vec4 aUH;layout(location=5) in vec2 aS;
+uniform mat4 uVP,uLVP;uniform vec3 uL;out vec3 vW,vN;out vec2 vUV;flat out vec2 vHS;flat out vec3 vC;flat out int vM;flat out float vSeed,vAux;out vec4 vL;
+void main(){vW=aP;vN=aN;vC=aC;vM=int(aM+.5);vUV=aUH.xy;vHS=aUH.zw;vSeed=aS.x;vAux=aS.y;vec3 nl=dot(aN,uL)<0.?-aN:aN;vL=uLVP*vec4(aP+nl*.012,1.);gl_Position=uVP*vec4(aP,1.);}`;
+const FS=`#version 300 es
+precision highp float;precision highp sampler2DShadow;
+in vec3 vW,vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int vM;flat in float vSeed,vAux;in vec4 vL;
+uniform vec3 uEye,uL,uSun,uSky,uGnd;uniform sampler2DShadow uSh;uniform float uShT,uMoss;
+layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;layout(location=2) out vec4 oX;
+${NOISE}
+${MATS}
 float shadowAt(){vec3 p=vL.xyz/vL.w*.5+.5;if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;float s=0.;for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)s+=texture(uSh,vec3(p.xy+vec2(i,j)*.7*uShT,p.z-.0004));return s/9.;}
-void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;
+void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;
   vec3 Nd=Ng;float hc=0.;
   if(m>=4&&m!=13){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -252,7 +265,7 @@ void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;in
     inn=mix(inn,vec3(.5,.3,.18),smoothstep(-.55,-.85,u.y)*.6);float refl=smoothstep(.1,1.,u.y)*.3+smoothstep(.07,0.,abs(u.x+u.y*.6-.25))*.35;col=inn+vec3(.75,.85,.95)*refl*.5;col*=1.-smoothstep(.75,1.,max(abs(u.x),abs(u.y)))*.4;inkW=.7;}
   else if(m==3){col=vC*1.6;inkW=.6;}
   else{float ramp=smoothstep(-.03,.16,ndl)*.6+smoothstep(.38,.6,ndl)*.4;float lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,ndg);
-    float cav=m==4||m==18||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
+    float cav=m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
     col=alb*(uSun*lit+mix(uGnd,uSky,Nd.y*.5+.5)*cav);if(m==9||m==10||m==17)inkW=0.;else if(m==4||m==8||m==18)inkW=.5;else if(m==19)inkW=.35;}
   float id=fract(vSeed*7.31+float(m)*.173+dot(floor(vC*64.),vec3(.013,.029,.047)));
   oC=vec4(col,1.);oN=vec4(Ng*.5+.5,1.);oX=vec4(id,inkW,0.,1.);}`;
