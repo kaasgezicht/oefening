@@ -8,6 +8,18 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
 
+## In progress: building kit in the game, with gardens and LODs (user asked 2026-11; gardens and fences MUST be kept)
+Plan:
+1. **Embed** `buildings/kit.js` + cottage, tavern, farmhouse and shop in `trein.html`. In game mode, each model sets `K.plot={x0,x1,z0,z1}` (local metres, front is -z = street side). Kit builders drop triangles, tufts, trees and patches whose centre falls outside the plot, so the far ground plane, lane and trees go automatically while gardens and fences stay.
+2. **LOD from the same model code** (`K.lod`):
+   - 0: everything;
+   - 1: no individual shingles or stones (the deck and walls paint them in the shader), no grass blades or flowers, small parts dropped;
+   - 2: only large parts.
+   Build 4 types x 3 LODs at startup.
+3. **Renderer**: `R.pKit` (VS_KIT/FS_KIT): the kit materials (bump, weathering) with game lighting (uSunCol/uSunDir/ambient/cloudSh/shadowAt), fog (fogc), snow (uWx.w) and night windows (uMisc.x). Own VAO (16 floats + instance attributes 4/5). Drawn in both passes, with instances per type and LOD by distance (`R.inst('kit_<type>_<lod>')`).
+4. **Villages**: variants 0/5 cottage, 1 shop, 2 farmhouse, 4 tavern (3 church keeps the old mesh). Placement uses plot rectangles (SAT against other plots), checks streets and slope, flattens the whole plot and clears trees and fields. The house's front path starts at the plot gate.
+5. Then: ink lines (stencil + depth edge pass), tests, handoff, push.
+
 ## Building kit (detailed house types, Nov 2026)
 The user approved the style: cel-shaded diorama, rustic and weathered. References are their 9-building sheet (forge, cozy cottage, merchant's shop, tavern, farmhouse, guardhouse, mill, warehouse, windmill).
 - **Files**:
