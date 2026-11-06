@@ -8,6 +8,20 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
 
+## Quality plan (proposed 6 Nov 2026, waiting for the user's go)
+The user wants man-made things cel-shaded but detailed, with a diorama vibe; trees and landscape stay as they are; LOD for speed.
+- Style example: `docs/house-style-before-after.png`, rendered by `tools/proto/cel.js` + `cel_page.js` (standalone, uses the game's mesh helpers).
+  - Lighting: two-tone toon light (warm lit, cool shadow, hard shadow edge).
+  - Ink: screen-space lines from depth, normal and a part id; the line colour is a dark version of the local colour; nature gets no ink.
+  - A light tilt-shift.
+- Steps:
+  - A: cel pipeline in the game, building LOD, new houses with gardens, village streets that grow with the village.
+  - B: all other buildings in the style.
+  - C: railway and roads (track, signals, crossings, bridges, tunnels, road hierarchy).
+  - D: vehicles plus bus logic (former run 2) plus detailed people.
+  - E: terrain (meandering rivers instead of straight D8 canyons, valleys with banks, faster generation).
+  - F: polish (seasons and night for the new models, leftover mesh flicker, UI).
+
 ## Request of 5 Nov 2026 (two runs)
 - **Run 1, done in 3.1.0**: signals, boarding and doors, 30 s stops, longer platforms, locomotive plus individual wagons (mixed allowed), fast forward, build UI tabs, hold-to-hide camera, trip card, village upgrade bar.
 - **Run 2, next**:

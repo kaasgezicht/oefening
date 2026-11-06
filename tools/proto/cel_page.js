@@ -1,0 +1,187 @@
+// Prototype: cel-shaded diorama cottage with a garden, rendered standalone with the game's own mesh helpers (oBox, oOBox, oTri, oIco, oLimb, oPrism).
+// mat field = class: 0 man-made (toon bands + ink), 1 nature (soft light, no ink), 2 glass, 3 lantern glass
+(function(){
+const SZ=+(window.CEL_SIZE||2400);
+const cv=document.createElement('canvas');cv.id='cel';cv.width=SZ;cv.height=SZ;cv.style.cssText=`position:fixed;left:0;top:0;width:${SZ}px;height:${SZ}px;z-index:999`;document.body.appendChild(cv);
+const g=cv.getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
+
+// ---------------- the cottage
+function celCottage(){const M=omesh();
+  const W=7.6,D=6.2,H=3.1,RISE=3.7,OV=0.42,GOV=0.34,PL=0.35,thk=0.16;
+  const brick=[0.78,0.39,0.27],brickD=[0.52,0.25,0.19],mortar=[0.95,0.92,0.84],white=[0.96,0.95,0.91],tile=[0.80,0.37,0.21],tile2=[0.73,0.32,0.19],tile3=[0.84,0.42,0.24],ridge=[0.46,0.21,0.15],
+    green=[0.13,0.40,0.31],greenL=[0.2,0.5,0.38],glass=[0.17,0.26,0.40],stone=[0.80,0.77,0.70],wood=[0.55,0.37,0.22],woodD=[0.42,0.28,0.17],zinc=[0.47,0.5,0.52],gold=[0.95,0.77,0.35],
+    soil=[0.38,0.26,0.17],leaf=[0.30,0.55,0.26],leafD=[0.22,0.43,0.2],grass=[0.43,0.60,0.30],grass2=[0.39,0.54,0.28],terra=[0.76,0.38,0.24];
+  const B=(x,y,z,sx,sy,sz,c,m,r)=>oBox(M,x,y,z,sx,sy,sz,c,m||0,r);
+  // faces: o = point on the wall plane, n = outward normal, t = tangent along the wall
+  const FZm={o:[0,0,-D/2],n:[0,0,-1],t:[-1,0,0]},FZp={o:[0,0,D/2],n:[0,0,1],t:[1,0,0]},FXm={o:[-W/2,0,0],n:[-1,0,0],t:[0,0,-1]},FXp={o:[W/2,0,0],n:[1,0,0],t:[0,0,1]};
+  const fp=(f,u,y,off)=>[f.o[0]+f.t[0]*u+f.n[0]*off,y,f.o[2]+f.t[2]*u+f.n[2]*off];
+  const fb=(f,u,y,off,sx,sy,sz,col,m)=>{const c=fp(f,u,y,off);oOBox(M,c,[f.t[0]*sx/2,0,f.t[2]*sx/2],[0,sy/2,0],[f.n[0]*sz/2,0,f.n[2]*sz/2],col,m||0);};
+  const pal=[[0.92,0.2,0.22],[0.98,0.55,0.7],[0.99,0.82,0.25],[0.62,0.38,0.82],[0.98,0.97,0.94],[0.99,0.5,0.2]];let sd=3;const rnd=()=>{sd=(sd*16807)%2147483647;return(sd&65535)/65536;};
+  const flower=(x,y,z,col,h)=>{h=h||0.32;oLimb(M,[x,y,z],[x,y+h,z],0.014,0.014,4,leafD,1,false);oIco(M,x,y+h+0.03,z,0.075,col,1,{seed:(rnd()*99)|0});};
+  // walls: brick plinth, brick walls, a white stone band, white eaves board
+  B(0,PL/2,0,W+0.14,PL,D+0.14,brickD);B(0,PL+(H-PL)/2,0,W,H-PL,D,brick);B(0,2.74,0,W+0.03,0.12,D+0.03,mortar);B(0,H-0.07,0,W+0.1,0.14,D+0.1,white);
+  for(const e of [-1,1]){const x=e*W/2;oTri(M,[x,H,-D/2],[x,H,D/2],[x,H+RISE,0],brick,0);}
+  // window: glass, white frame and cross, brick lintel, stone sill, hourglass shutters, flower box
+  const win=(f,u,y0,w,h,o)=>{o=o||{};const yc=y0+h/2,fw=0.09;fb(f,u,yc,0.012,w-0.06,h-0.06,0.024,glass,2);
+    fb(f,u,y0+h-fw/2,0.035,w,fw,0.07,white);fb(f,u,y0+fw/2,0.035,w,fw,0.07,white);fb(f,u-w/2+fw/2,yc,0.035,fw,h-2*fw,0.07,white);fb(f,u+w/2-fw/2,yc,0.035,fw,h-2*fw,0.07,white);
+    fb(f,u,yc,0.03,0.05,h-2*fw,0.05,white);fb(f,u,y0+h*0.62,0.03,w-2*fw,0.05,0.05,white);
+    if(!o.noLintel)fb(f,u,y0+h+0.11,0.016,w+0.26,0.2,0.032,brickD);fb(f,u,y0-0.045,0.085,w+0.18,0.09,0.17,stone);
+    if(o.shut)for(const e of [-1,1]){const su=u+e*(w/2+0.26),x0=su-0.17,x1=su+0.17,ya=y0+0.07,yb=y0+h-0.07,off=0.062;fb(f,su,yc,0.03,0.46,h,0.06,green);
+      oTri(M,fp(f,x0,yb,off),fp(f,x1,yb,off),fp(f,su,yc,off),white,0);oTri(M,fp(f,x0,ya,off),fp(f,su,yc,off),fp(f,x1,ya,off),white,0);
+      for(const y of [y0+0.25,y0+h-0.25])fb(f,u+e*(w/2+0.06),y,0.05,0.16,0.05,0.02,[0.15,0.15,0.16]);}
+    if(o.box){fb(f,u,y0-0.21,0.2,w+0.06,0.22,0.27,wood);fb(f,u,y0-0.105,0.2,w-0.06,0.02,0.2,soil);
+      for(let k=0;k<7;k++){const q=fp(f,u-w/2+0.12+k*(w-0.24)/6,0,0.22);oIco(M,q[0],y0-0.08,q[2],0.11,leaf,1,{seed:k+1});flower(q[0],y0-0.12,q[2],pal[(k*2+(u>0?1:0))%pal.length],0.16);}}};
+  // front (z-): two shuttered windows with flower boxes, the door with transom, canopy, lantern, step
+  win(FZm,-2.45,0.95,1.1,1.3,{shut:true,box:true});win(FZm,2.45,0.95,1.1,1.3,{shut:true,box:true});
+  {const f=FZm,u=0,yb=PL,dw=0.96,dh=2.1;fb(f,u,yb+dh/2,0.02,dw,dh,0.04,green);for(const a of [-0.22,0.22])for(const y of [yb+0.55,yb+1.45])fb(f,u+a,y,0.045,0.32,0.62,0.02,greenL);
+    fb(f,u+0.34,yb+1.05,0.07,0.07,0.07,0.06,gold);fb(f,u,yb+0.98,0.048,0.3,0.05,0.014,gold);fb(f,u,yb+dh+0.2,0.012,dw,0.36,0.024,glass,2);for(const a of [-0.16,0.16])fb(f,u+a,yb+dh+0.2,0.03,0.04,0.36,0.04,white);
+    for(const e of [-1,1])fb(f,u+e*(dw/2+0.05),yb+(dh+0.45)/2,0.06,0.1,dh+0.45,0.12,white);fb(f,u,yb+dh+0.43,0.06,dw+0.2,0.1,0.12,white);fb(f,u,yb+dh+0.02,0.05,dw,0.06,0.1,white);
+    fb(f,u,0.1,0.3,1.5,0.2,0.62,stone);fb(f,u,yb+dh+0.78,0.38,1.75,0.1,0.76,white);fb(f,u,yb+dh+0.84,0.38,1.79,0.03,0.8,zinc);
+    for(const e of [-1,1])oLimb(M,fp(f,u+e*0.78,yb+dh+0.42,0.03),fp(f,u+e*0.78,yb+dh+0.74,0.66),0.035,0.035,4,white,0);
+    fb(f,u+0.98,yb+2.05,0.13,0.05,0.05,0.26,[0.12,0.12,0.13]);fb(f,u+0.98,yb+1.86,0.25,0.2,0.28,0.2,[1,0.86,0.5],3);fb(f,u+0.98,yb+2.04,0.25,0.26,0.05,0.26,[0.12,0.12,0.13]);
+    fb(f,u-0.95,yb+1.9,0.02,0.24,0.17,0.02,[0.16,0.3,0.62]);}
+  // sides and back
+  for(const a of [-1.4,1.4]){win(FXm,a,0.95,1.0,1.25,{shut:true});win(FXp,a,0.95,1.0,1.25,{shut:true});win(FZp,a*1.7,0.95,1.1,1.25,{});}
+  // round attic windows in the gables, with a white "makelaar" board at each apex
+  for(const e of [-1,1]){const x=e*W/2,yc=H+1.25;oLimb(M,[x,yc,0],[x+e*0.03,yc,0],0.36,0.36,14,glass,2);oLimb(M,[x,yc,0],[x+e*0.075,yc,0],0.43,0.43,14,white,0,false);
+    B(x+e*0.05,yc,0,0.04,0.74,0.05,white);B(x+e*0.05,yc,0,0.04,0.05,0.74,white);B(x+e*(GOV+0.07),H+RISE-0.5,0,0.05,1.15,0.24,white);}
+  // roof: slabs, nine rows of tiles (segments in a running bond, with a lip at each row's lower edge), ridge, white bargeboards, zinc gutters
+  const tan=RISE/(D/2),eY=H-OV*tan;
+  for(const s of [-1,1]){const A=[0,eY,s*(D/2+OV)],Bp=[0,H+RISE,0],ax=[0,Bp[1]-A[1],Bp[2]-A[2]],L=Math.hypot(ax[1],ax[2]),a=[0,ax[1]/L,ax[2]/L],n=[0,Math.abs(a[2]),s*a[1]];
+    const P=(t,o,x)=>[x||0,A[1]+a[1]*t+n[1]*o,A[2]+a[2]*t+n[2]*o],hx=W/2+GOV;
+    oOBox(M,P(L/2+0.05,thk/2),[hx,0,0],[0,a[1]*(L/2+0.05),a[2]*(L/2+0.05)],[0,n[1]*thk/2,n[2]*thk/2],[0.36,0.2,0.15],0);
+    const nR=9;for(let i=0;i<nR;i++){const t0=i*L/nR,t1=(i+1)*L/nR,sl=1.05,ofs=(i%2)*sl/2;
+      for(let x0=-hx-ofs;x0<hx;x0+=sl){const xa=Math.max(-hx,x0),xb=Math.min(hx,x0+sl);if(xb-xa<0.05)continue;const k=Math.round((x0+20)/sl)+i*3,col=[tile,tile2,tile3][k%3];
+        oOBox(M,P((t0+t1)/2,thk+0.03,(xa+xb)/2),[(xb-xa)/2,0,0],[0,a[1]*(t1-t0)/2,a[2]*(t1-t0)/2],[0,n[1]*0.03,n[2]*0.03],col,0);}
+      oOBox(M,P(t0+0.03,thk+0.07),[hx,0,0],[0,a[1]*0.06,a[2]*0.06],[0,n[1]*0.04,n[2]*0.04],[0.62,0.27,0.16],0);}
+    for(const e of [-1,1])oOBox(M,P(L/2,thk*0.6,e*(hx+0.03)),[0.035,0,0],[0,a[1]*(L/2+0.04),a[2]*(L/2+0.04)],[0,n[1]*0.17,n[2]*0.17],white,0);
+    B(0,eY-0.06,s*(D/2+OV+0.06),W+2*GOV+0.1,0.12,0.15,zinc);}
+  oOBox(M,[0,H+RISE+thk+0.04,0],[W/2+GOV+0.05,0,0],[0,0.13,0.13],[0,0.13,-0.13],ridge,0);
+  // dormer above the door
+  {B(0,4.68,-1.42,1.7,1.26,1.6,zinc);const f={o:[0,0,-2.22],n:[0,0,-1],t:[-1,0,0]};fb(f,0,4.68,0.0,1.74,1.3,0.02,white);win(f,0,4.35,0.86,0.74,{noLintel:true});
+    oTri(M,[-0.85,5.31,-2.225],[0.85,5.31,-2.225],[0,5.86,-2.225],white,0);
+    for(const e of [-1,1]){const A=[e*1.0,5.2,0],Bq=[0,5.95,0],L=Math.hypot(Bq[0]-A[0],Bq[1]-A[1]),a=[(Bq[0]-A[0])/L,(Bq[1]-A[1])/L,0],n=[e*a[1],Math.abs(a[0]),0];
+      oOBox(M,[(A[0]+Bq[0])/2+n[0]*0.06,(A[1]+Bq[1])/2+n[1]*0.06,-1.4],[a[0]*(L/2+0.03),a[1]*(L/2+0.03),0],[0,0,0.98],[n[0]*0.06,n[1]*0.06,0],tile2,0);
+      oOBox(M,[(A[0]+Bq[0])/2+n[0]*0.08,(A[1]+Bq[1])/2+n[1]*0.08,-2.4],[a[0]*(L/2+0.04),a[1]*(L/2+0.04),0],[0,0,0.03],[n[0]*0.12,n[1]*0.12,0],white,0);}}
+  // chimney with a white band, cap and pot
+  B(1.9,6.15,0.9,0.62,2.3,0.62,brick);B(1.9,6.95,0.9,0.7,0.1,0.7,mortar);B(1.9,7.36,0.9,0.8,0.1,0.8,stone);oPrism(M,1.9,0.9,0.13,0.11,7.41,7.8,10,terra,0);
+  // downpipe at the front-left corner into a rain barrel
+  {const px=-W/2+0.2,pz=-D/2-0.13;oLimb(M,[px,1.0,pz],[px,eY-0.1,pz],0.055,0.055,8,zinc,0);oLimb(M,[px,eY-0.1,pz],[px,eY-0.1,-(D/2+OV+0.06)],0.055,0.055,8,zinc,0);
+    oPrism(M,px-0.05,pz-0.42,0.33,0.36,0,0.86,14,wood,0);for(const y of [0.18,0.64])oPrism(M,px-0.05,pz-0.42,0.37,0.37,y,y+0.06,14,[0.2,0.2,0.22],0);oPrism(M,px-0.05,pz-0.42,0.3,0.3,0.86,0.87,14,[0.2,0.32,0.42],2);}
+  // ---------------- garden
+  B(0,-0.05,0,140,0.1,140,grass2,1);for(let i=0;i<10;i++)B(-7.6+(i+0.5)*1.52,0.03,-0.75,1.52,0.06,15.6,i%2?grass:[0.47,0.64,0.32],1);
+  // street, kerb and tiled pavement in front
+  for(let z=-10.45;z>-15;z-=0.42)for(let x=-24+((Math.round(z*10))%2?0.3:0);x<24;x+=0.6){const k=(Math.round(x*7+z*13)%3+3)%3;B(x,0.02,z,0.57,0.06,0.39,[[0.58,0.56,0.53],[0.54,0.52,0.5],[0.62,0.6,0.56]][k],0);}
+  B(0,0.07,-10.2,48,0.16,0.2,stone);for(let x=-24;x<24;x+=0.6)for(const z of [-9.85,-9.25])B(x+0.3,0.05,z,0.58,0.06,0.58,(Math.round(x/0.6)+(z<-9.5?1:0))%2?[0.72,0.68,0.62]:[0.67,0.63,0.58],0);
+  // picket fence with an open gate
+  for(let x=-7.5;x<=7.51;x+=0.2){if(Math.abs(x)<0.65)continue;B(x,0.5,-8.55,0.075,0.8,0.035,white);oPrism(M,x,-8.55,0.054,0,0.9,1.0,4,white,0,0.785);}
+  for(const [xa,xb] of [[-7.6,-0.6],[0.6,7.6]])for(const y of [0.3,0.74])B((xa+xb)/2,y,-8.51,xb-xa,0.07,0.04,white);
+  for(const x of [-7.55,-5,-2.5,-0.68,0.68,2.5,5,7.55]){B(x,0.6,-8.53,0.12,1.2,0.12,white);B(x,1.22,-8.53,0.16,0.05,0.16,white);}
+  {const ang=Math.PI-0.55,d=[Math.cos(ang),Math.sin(ang)],hx=0.62,hz=-8.55;for(let i=0;i<6;i++){const x=hx+d[0]*(0.12+0.2*i),z=hz+d[1]*(0.12+0.2*i);B(x,0.5,z,0.075,0.8,0.035,white,0,ang);oPrism(M,x,z,0.054,0,0.9,1.0,4,white,0,ang+0.785);}
+    for(const y of [0.3,0.74])oOBox(M,[hx+d[0]*0.62,y,hz+d[1]*0.62+0.03],[d[0]*0.62,0,d[1]*0.62],[0,0.035,0],[-d[1]*0.02,0,d[0]*0.02],white,0);}
+  // mailbox at the gate
+  B(1.05,0.55,-8.82,0.09,1.1,0.09,woodD);B(1.05,1.18,-8.82,0.4,0.28,0.26,[0.75,0.16,0.13]);B(1.05,1.33,-8.82,0.44,0.04,0.3,[0.62,0.12,0.1]);
+  // hedges along the sides and back: clipped boxes with bumps
+  for(const [cx,cz,sx,sz] of [[-7.75,-0.75,0.7,15.6],[7.75,-0.75,0.7,15.6],[0,7.4,16.2,0.7]]){B(cx,0.62,cz,sx,1.2,sz,[0.25,0.47,0.22],1);
+    const n=Math.round(Math.max(sx,sz)/0.85);for(let k=0;k<n;k++){const u=(k+0.5)/n-0.5;oIco(M,cx+(sx>sz?u*sx:0),1.18,cz+(sz>sx?u*sz:0),0.42,k%2?[0.27,0.5,0.24]:[0.23,0.44,0.2],1,{detail:1,jit:0.12,sy:0.6,seed:k+9});}}
+  // stepping stones from the gate to the step
+  for(let i=0;i<7;i++){const z=-8.1+i*0.66,x=Math.sin(i*1.7)*0.12;B(x,0.075,z,0.74-0.06*(i%2),0.05,0.46,[[0.78,0.74,0.66],[0.72,0.69,0.62],[0.82,0.78,0.7]][i%3],0,Math.sin(i*2.3)*0.12);}
+  // flower beds along the facade, with a row of white edging stones
+  for(const e of [-1,1]){const cx=e*2.35;B(cx,0.08,-3.58,3.4,0.1,0.8,soil);for(let x=cx-1.6;x<=cx+1.61;x+=0.2)B(x,0.11,-4.0,0.16,0.12,0.08,[0.92,0.9,0.85]);
+    for(let k=0;k<16;k++){const x=cx-1.5+rnd()*3.0,z=-3.85+rnd()*0.5;oIco(M,x,0.17,z,0.15,k%2?leaf:leafD,1,{seed:k+30});flower(x,0.13,z,pal[(k+e+6)%pal.length],0.2+rnd()*0.22);}}
+  // lavender along the inside of the fence, bushes by the gate
+  for(let x=-7.0;x<7.1;x+=0.52){if(Math.abs(x)<1.6)continue;oIco(M,x,0.22,-8.1,0.2,leafD,1,{seed:(x*10)|0,sy:0.7});oIco(M,x,0.48,-8.1,0.16,[0.58,0.47,0.78],1,{detail:1,sy:1.5,jit:0.1,seed:((x*10)|0)+3});}
+  for(const e of [-1,1])oIco(M,e*1.35,0.5,-7.75,0.52,[0.2,0.42,0.22],1,{detail:1,sy:0.85,jit:0.12,seed:e>0?4:5});
+  // vegetable patch on the left: wooden edging, soil, cabbages, a bean tepee
+  {const cx=-5.7,cz=-0.4;B(cx,0.12,cz,2.6,0.14,4.2,soil);for(const [x,z,sx,sz] of [[cx,cz-2.12,2.72,0.08],[cx,cz+2.12,2.72,0.08],[cx-1.32,cz,0.08,4.3],[cx+1.32,cz,0.08,4.3]])B(x,0.15,z,sx,0.22,sz,woodD);
+    for(let r=0;r<3;r++)for(let k=0;k<5;k++)oIco(M,cx-0.8+r*0.8,0.3,cz-1.6+k*0.7,0.24,r===1?[0.55,0.7,0.35]:[0.4,0.6,0.3],1,{detail:1,sy:0.7,jit:0.15,seed:r*7+k});
+    const tp=[cx+0.9,2.2,cz+1.55];for(const [dx,dz] of [[-0.35,-0.35],[0.35,-0.35],[0.35,0.35],[-0.35,0.35]]){const b=[cx+0.9+dx,0.18,cz+1.55+dz];oLimb(M,b,tp,0.025,0.02,4,wood,0);
+      for(let t=0.15;t<0.9;t+=0.17)oIco(M,b[0]+(tp[0]-b[0])*t,b[1]+(tp[1]-b[1])*t,b[2]+(tp[2]-b[2])*t,0.11,leaf,1,{seed:(t*100)|0});}}
+  // apple tree at the back left, with a bench under it
+  {const x=-5.2,z=4.4;oLimb(M,[x,0,z],[x+0.1,2.1,z],0.19,0.13,7,[0.45,0.31,0.2],1);oLimb(M,[x+0.1,1.8,z],[x+0.9,2.7,z+0.3],0.09,0.06,6,[0.45,0.31,0.2],1);oLimb(M,[x+0.05,1.9,z],[x-0.8,2.8,z-0.2],0.09,0.06,6,[0.45,0.31,0.2],1);
+    for(const [dx,dy,dz,r,c] of [[0,3.2,0,1.45,[0.33,0.58,0.27]],[0.9,2.9,0.3,1.05,[0.28,0.52,0.24]],[-0.85,2.95,-0.3,1.1,[0.3,0.55,0.25]],[0.1,3.9,0.1,0.95,[0.36,0.62,0.29]]])oIco(M,x+dx,dy,z+dz,r,c,1,{detail:1,jit:0.14,seed:(r*10)|0});
+    for(let k=0;k<14;k++){const a=k*2.4,el=0.2+(k%4)*0.18,r=1.42;oIco(M,x+Math.cos(a)*Math.cos(el)*r,3.1+Math.sin(el)*r*0.8-0.3,z+Math.sin(a)*Math.cos(el)*r,0.1,[0.86,0.16,0.14],0,{seed:k});}
+    B(x+0.6,0.47,z-1.5,1.6,0.06,0.44,wood,0,0.3);B(x+0.66,0.8,z-1.3,1.6,0.4,0.05,wood,0,0.3);for(const e of [-0.68,0.68])B(x+0.6+Math.cos(0.3)*e,0.23,z-1.5+Math.sin(0.3)*e,0.06,0.46,0.4,woodD,0,0.3);}
+  // birdbath on the front lawn, a garden bench by the right bed
+  oPrism(M,-4.6,-6.0,0.16,0.11,0.06,0.72,10,stone,0);oPrism(M,-4.6,-6.0,0.3,0.44,0.72,0.88,14,stone,0);oPrism(M,-4.6,-6.0,0.37,0.37,0.88,0.885,14,[0.45,0.65,0.8],2);
+  B(4.6,0.48,-6.2,1.6,0.06,0.44,wood);B(4.6,0.82,-6.0,1.6,0.42,0.05,wood);for(const e of [-0.7,0.7])B(4.6+e,0.24,-6.2,0.06,0.46,0.4,woodD);
+  return M;}
+
+// ---------------- GL
+function sh(t,s){const x=g.createShader(t);g.shaderSource(x,s);g.compileShader(x);if(!g.getShaderParameter(x,g.COMPILE_STATUS))throw new Error(g.getShaderInfoLog(x)+'\n'+s);return x;}
+function prog(vs,fs){const p=g.createProgram();g.attachShader(p,sh(g.VERTEX_SHADER,vs));g.attachShader(p,sh(g.FRAGMENT_SHADER,fs));g.linkProgram(p);if(!g.getProgramParameter(p,g.LINK_STATUS))throw new Error(g.getProgramInfoLog(p));return p;}
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],norm=a=>{const l=Math.hypot(...a);return a.map(v=>v/l);};
+function look(e,c,u){const z=norm(sub(e,c)),x=norm(cr(u,z)),y=cr(z,x);return[x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,e),-dot(y,e),-dot(z,e),1];}
+function persp(f,a,n,fa){const t=1/Math.tan(f/2);return[t/a,0,0,0,0,t,0,0,0,0,(fa+n)/(n-fa),-1,0,0,2*fa*n/(n-fa),0];}
+function ortho(l,r,b,t,n,f){return[2/(r-l),0,0,0,0,2/(t-b),0,0,0,0,-2/(f-n),0,-(r+l)/(r-l),-(t+b)/(t-b),-(f+n)/(f-n),1];}
+function mul(a,b){const o=new Array(16).fill(0);for(let i=0;i<4;i++)for(let j=0;j<4;j++)for(let k=0;k<4;k++)o[j*4+i]+=a[k*4+i]*b[j*4+k];return o;}
+
+const VS=`#version 300 es
+layout(location=0) in vec3 aP;layout(location=1) in vec3 aN;layout(location=2) in vec3 aC;layout(location=3) in float aM;
+uniform mat4 uVP,uLVP;uniform vec3 uL;out vec3 vW,vN;flat out vec3 vC;out vec4 vL;flat out int vM;
+void main(){vW=aP;vN=aN;vC=aC;vM=int(aM+.5);vec3 nl=dot(aN,uL)<0.?-aN:aN;vL=uLVP*vec4(aP+nl*.025,1.);gl_Position=uVP*vec4(aP,1.);}`;
+const FS=`#version 300 es
+precision highp float;precision highp sampler2DShadow;in vec3 vW,vN;flat in vec3 vC;in vec4 vL;flat in int vM;uniform vec3 uEye,uL;uniform sampler2DShadow uSh;uniform vec2 uShT;
+layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;
+float shadowAt(vec4 l,float bias){vec3 p=l.xyz/l.w*.5+.5;if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;float s=0.;for(int i=-1;i<=1;i+=2)for(int j=-1;j<=1;j+=2)s+=texture(uSh,vec3(p.xy+vec2(i,j)*.5*uShT,p.z-bias));return s*.25;}
+void main(){vec3 N=normalize(vN),V=normalize(uEye-vW);if(dot(N,V)<0.)N=-N;float d=dot(N,uL);
+  float sh=shadowAt(vL,.0006+.0012*(1.-abs(d)));vec3 c=vC,warm=vec3(1.07,1.,.9),cool=vec3(.56,.61,.84);vec3 col;
+  if(vM==1){float l=clamp(d*.85+.25,0.,1.)*mix(.35,1.,sh);col=c*mix(cool*.86,warm,l);col*=.94+.1*N.y;}
+  else{float lit=smoothstep(.0,.07,d)*smoothstep(.35,.65,sh);col=c*mix(cool,warm,lit);col*=1.+.07*max(N.y,0.)*lit;if(d>.82)col*=1.+.06*lit;col*=mix(.8,1.,smoothstep(0.,.45,vW.y));
+    if(vM==2){float st=smoothstep(.70,.74,fract((vW.x*.6+vW.y*.8+vW.z*.6)*.9))*(1.-smoothstep(.80,.84,fract((vW.x*.6+vW.y*.8+vW.z*.6)*.9)));float fr=pow(1.-max(dot(N,V),0.),2.);
+      col=mix(c*mix(.75,1.15,lit),vec3(.62,.78,.92),.22+.5*fr)+st*.55;}
+    if(vM==3)col=c*1.15;}
+  oC=vec4(col,1.);float id=vM==1?0.:.05+.95*fract(sin(dot(floor(c*255.+.5),vec3(1.2989,7.8233,3.7719)))*437.585453);oN=vec4(N*.5+.5,id);}`;
+const SVS=`#version 300 es
+layout(location=0) in vec3 aP;uniform mat4 uLVP;void main(){gl_Position=uLVP*vec4(aP,1.);}`;
+const SFS=`#version 300 es
+precision mediump float;void main(){}`;
+const QVS=`#version 300 es
+const vec2 P[3]=vec2[3](vec2(-1,-1),vec2(3,-1),vec2(-1,3));out vec2 vU;void main(){vec2 p=P[gl_VertexID];vU=p*.5+.5;gl_Position=vec4(p,0,1);}`;
+// ink: edges where depth, normal or part id changes, wherever a man-made pixel is involved; the line takes a dark version of the local colour
+const INK=`#version 300 es
+precision highp float;in vec2 vU;uniform sampler2D uC,uN,uD;uniform vec2 uPx;uniform float uNear,uFar,uR;out vec4 o;
+float lz(vec2 u){float d=texture(uD,u).r;return uNear*uFar/(uFar-d*(uFar-uNear));}
+void main(){vec3 c=texture(uC,vU).rgb;vec4 n0=texture(uN,vU);float z0=lz(vU),dz0=texture(uD,vU).r;float e=0.;vec3 dk=c;
+  if(dz0<1.){for(int k=0;k<8;k++){float a=float(k)*.785398;vec2 u=vU+vec2(cos(a),sin(a))*uR*uPx;vec4 n1=texture(uN,u);float z1=lz(u);bool mm=n0.a>0.||n1.a>0.;if(!mm)continue;
+    float ed=0.;if(abs(z1-z0)>.012*z0+.02)ed=1.;if(dot(n0.xyz*2.-1.,n1.xyz*2.-1.)<.82)ed=max(ed,.9);if(n0.a>0.&&n1.a>0.&&abs(n0.a-n1.a)>.003)ed=max(ed,.75);
+    if(z1+.02<z0&&n1.a==0.&&n0.a>0.)ed=0.;e=max(e,ed);if(ed>0.&&z1<z0)dk=min(dk,texture(uC,u).rgb);}}
+  vec3 ink=min(c,dk)*.24+vec3(.03,.02,.025);
+  // sky behind everything
+  if(dz0>=1.){c=mix(vec3(.84,.9,.94),vec3(.55,.72,.9),smoothstep(.55,1.,vU.y));}
+  else{float hz=smoothstep(32.,85.,z0);c=mix(c,vec3(.8,.87,.9),hz*.85);ink=mix(ink,c,hz);}
+  o=vec4(mix(c,ink,e),1.);}`;
+// tilt-shift: blur grows toward the top and bottom of the frame, a light vignette
+const TS=`#version 300 es
+precision highp float;in vec2 vU;uniform sampler2D uC;uniform vec2 uPx;out vec4 o;
+void main(){float b=smoothstep(.16,.48,abs(vU.y-.47))*7.;vec3 s=texture(uC,vU).rgb;float w=1.;
+  for(int k=0;k<12;k++){float a=float(k)*2.39996,r=sqrt(float(k)+.5)/3.5*b;vec2 u=vU+vec2(cos(a),sin(a))*r*uPx;s+=texture(uC,u).rgb;w+=1.;}
+  vec3 c=s/w;float vg=smoothstep(1.1,.35,length(vU-vec2(.5,.48)));o=vec4(c*mix(.9,1.,vg),1.);}`;
+
+function tex(w,h,ifmt,fmt,type,filt){const t=g.createTexture();g.bindTexture(g.TEXTURE_2D,t);g.texImage2D(g.TEXTURE_2D,0,ifmt,w,h,0,fmt,type,null);
+  g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,filt);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,filt);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);return t;}
+
+window.CEL={render(opt){opt=opt||{};const M=celCottage(),nv=M.v.length/10;
+  const buf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,buf);g.bufferData(g.ARRAY_BUFFER,new Float32Array(M.v),g.STATIC_DRAW);const vao=g.createVertexArray();g.bindVertexArray(vao);
+  g.enableVertexAttribArray(0);g.vertexAttribPointer(0,3,g.FLOAT,false,40,0);g.enableVertexAttribArray(1);g.vertexAttribPointer(1,3,g.FLOAT,false,40,12);g.enableVertexAttribArray(2);g.vertexAttribPointer(2,3,g.FLOAT,false,40,24);g.enableVertexAttribArray(3);g.vertexAttribPointer(3,1,g.FLOAT,false,40,36);
+  const L=norm(opt.sun||[0.32,0.84,-0.44]),tgt=opt.target||[-0.6,1.9,-2.2],dir=norm(opt.dir||[-0.6,0.56,-0.57]),dist=opt.dist||36,eye=[tgt[0]+dir[0]*dist,tgt[1]+dir[1]*dist,tgt[2]+dir[2]*dist];
+  const near=1,far=260,VP=mul(persp((opt.fov||30)*Math.PI/180,1,near,far),look(eye,tgt,[0,1,0]));
+  const lc=[0,0,-1],LV=look([lc[0]+L[0]*60,lc[1]+L[1]*60,lc[2]+L[2]*60],lc,[0,1,0]),LVP=mul(ortho(-17,17,-17,17,1,140),LV);
+  // shadow map
+  const SS=2048,sT=tex(SS,SS,g.DEPTH_COMPONENT24,g.DEPTH_COMPONENT,g.UNSIGNED_INT,g.LINEAR);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_COMPARE_MODE,g.COMPARE_REF_TO_TEXTURE);
+  const sF=g.createFramebuffer();g.bindFramebuffer(g.FRAMEBUFFER,sF);g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_ATTACHMENT,g.TEXTURE_2D,sT,0);
+  const sp=prog(SVS,SFS);g.useProgram(sp);g.uniformMatrix4fv(g.getUniformLocation(sp,'uLVP'),false,LVP);g.viewport(0,0,SS,SS);g.enable(g.DEPTH_TEST);g.clear(g.DEPTH_BUFFER_BIT);g.drawArrays(g.TRIANGLES,0,nv);
+  // main pass: colour + normal/id + depth
+  const cT=tex(SZ,SZ,g.RGBA8,g.RGBA,g.UNSIGNED_BYTE,g.LINEAR),nT=tex(SZ,SZ,g.RGBA8,g.RGBA,g.UNSIGNED_BYTE,g.NEAREST),dT=tex(SZ,SZ,g.DEPTH_COMPONENT24,g.DEPTH_COMPONENT,g.UNSIGNED_INT,g.NEAREST);
+  const mF=g.createFramebuffer();g.bindFramebuffer(g.FRAMEBUFFER,mF);g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,cT,0);g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT1,g.TEXTURE_2D,nT,0);g.framebufferTexture2D(g.FRAMEBUFFER,g.DEPTH_ATTACHMENT,g.TEXTURE_2D,dT,0);
+  g.drawBuffers([g.COLOR_ATTACHMENT0,g.COLOR_ATTACHMENT1]);g.viewport(0,0,SZ,SZ);g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);
+  const mp=prog(VS,FS);g.useProgram(mp);const U=n=>g.getUniformLocation(mp,n);g.uniformMatrix4fv(U('uVP'),false,VP);g.uniformMatrix4fv(U('uLVP'),false,LVP);g.uniform3fv(U('uEye'),eye);g.uniform3fv(U('uL'),L);g.uniform2f(U('uShT'),1/SS,1/SS);
+  g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,sT);g.uniform1i(U('uSh'),0);g.drawArrays(g.TRIANGLES,0,nv);
+  // ink pass to a texture, then tilt-shift to the canvas
+  const iT=tex(SZ,SZ,g.RGBA8,g.RGBA,g.UNSIGNED_BYTE,g.LINEAR),iF=g.createFramebuffer();g.bindFramebuffer(g.FRAMEBUFFER,iF);g.framebufferTexture2D(g.FRAMEBUFFER,g.COLOR_ATTACHMENT0,g.TEXTURE_2D,iT,0);
+  g.disable(g.DEPTH_TEST);const ip=prog(QVS,INK);g.useProgram(ip);const I=n=>g.getUniformLocation(ip,n);
+  g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,cT);g.uniform1i(I('uC'),0);g.activeTexture(g.TEXTURE1);g.bindTexture(g.TEXTURE_2D,nT);g.uniform1i(I('uN'),1);g.activeTexture(g.TEXTURE2);g.bindTexture(g.TEXTURE_2D,dT);g.uniform1i(I('uD'),2);
+  g.uniform2f(I('uPx'),1/SZ,1/SZ);g.uniform1f(I('uNear'),near);g.uniform1f(I('uFar'),far);g.uniform1f(I('uR'),opt.ink||2.2);g.drawArrays(g.TRIANGLES,0,3);
+  g.bindFramebuffer(g.FRAMEBUFFER,null);const tp=prog(QVS,TS);g.useProgram(tp);g.activeTexture(g.TEXTURE0);g.bindTexture(g.TEXTURE_2D,iT);g.uniform1i(g.getUniformLocation(tp,'uC'),0);g.uniform2f(g.getUniformLocation(tp,'uPx'),1/SZ,1/SZ);g.drawArrays(g.TRIANGLES,0,3);
+  g.finish();return{tris:nv/3,err:g.getError()};}};
+})();
