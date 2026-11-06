@@ -12,7 +12,8 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 The user approved the style: cel-shaded diorama, rustic and weathered. References are their 9-building sheet (forge, cozy cottage, merchant's shop, tavern, farmhouse, guardhouse, mill, warehouse, windmill).
 - **Files**:
   - `buildings/kit.js`: the shared kit. Builders: box, beam, cyl, ico, quad, tri, stones, shingles/tiles, window, bendy gable roof, gable fan, chimney, tree, bush, barrel, crate, pot, ivy, grass, dirt. It also holds the materials and the renderer.
-  - `buildings/cottage.js` and `buildings/tavern.js`: one file per building type, registered in `KIT.models[name]`.
+  - `buildings/cottage.js`, `buildings/tavern.js` and `buildings/farmhouse.js`: one file per building type, registered in `KIT.models[name]`.
+  - `K.patch` lays an irregular ground patch (earth, gravel); use it instead of rectangles.
   - Render one with `node tools/render_building.js <name> <out.jpg>`.
 - **Geometry**: real overlapping shingles or clay tiles (lower edges lifted, staggered, a few missing or replaced) on a bent roof (ridge sag, eave flare, wobble), individually laid stones, timber framing, reveals and frames on the windows.
 - **Vertex format**: 16 floats: pos, normal, colour, material, uv (-1..1 per face), face half-size in metres, seed, aux (soot amount).
@@ -20,9 +21,10 @@ The user approved the style: cel-shaded diorama, rustic and weathered. Reference
   - Every material has a procedural bump: bevels, grain, cracks, pillowed stones, voronoi cobbles, ruts.
   - Weathering: moss and lichen (orange on clay), dirt splash and algae at wall feet, rain streaks under the wall tops, plaster stains, hairline cracks and fallen patches showing brick, soot on chimney tops.
 - **Render**: shadow map, two soft light bands, sky/ground ambient, SSAO, ink lines (depth, normal and part id; thinner between tiles and stones; none on plants or ground), haze, warm bloom, tilt-shift, grade.
-- **Size** with surroundings: cottage ~122k triangles, tavern ~204k. These are the close-up level of detail.
+- **Size** with surroundings: cottage ~122k triangles, tavern ~204k, farmhouse ~159k. These are the close-up level of detail.
 - **Next, not started**: get these into the game (step A). Port the material shader into `FS_OBJ`, add the ink and AO passes, add LOD levels (simplified, then far with the roof as a flat textured surface), and make village plots fit the building footprints.
-- **Renders**: `docs/style/8-cozy-cottage-v2*.jpg`, `docs/style/9-tavern*.jpg`.
+- **Renders**: `docs/style/8-cozy-cottage-v2*.jpg`, `docs/style/9-tavern*.jpg`, `docs/style/10-farmhouse*.jpg`.
+- **Farmhouse**: half-timbered house on a stone base with a veranda, an attached plank barn (one door open on the hay, hayloft with pulley), a lean-to with firewood and a hand cart, a fenced vegetable garden with a scarecrow, and a farmyard with chickens, hay bales, a trough and a wheelbarrow.
 
 ## Quality plan (proposed 6 Nov 2026, waiting for the user's go)
 The user wants man-made things cel-shaded but detailed, with a diorama vibe; trees and landscape stay as they are; LOD for speed.

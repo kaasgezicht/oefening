@@ -145,6 +145,10 @@ K.ivy=function(x0,z0,nx,nz,h,n){for(let s=0;s<n;s++){let x=x0+rr(-0.25,0.25),y=0
 // grass tufts over an area, with an exclusion test
 K.grass=function(n,x0,x1,z0,z1,skip,hr,blades){for(let k=0;k<n;k++){const x=rr(x0,x1),z=rr(z0,z1);if(skip&&skip(x,z))continue;tuft(x,z,blades||(rnd()<0.3?6:4),rr(hr?hr[0]:0.08,hr?hr[1]:0.2));}};
 K.dirt=function(x,z,r){for(let k=0;k<7;k++){const a=rnd()*6.28,d=rr(0,r*0.6),rk=rr(0.25,0.5)*r,h=0.004+k*0.0008;cyl([x+Math.cos(a)*d,0,z+Math.sin(a)*d],[x+Math.cos(a)*d,h,z+Math.sin(a)*d],rk,rk*rr(0.7,1),9,[0.5,0.4,0.28],10,mix3([0.46,0.37,0.26],[0.54,0.43,0.3],rnd()),10);}};
+// one irregular ground patch (earth, gravel, cobbles): a fan with a noisy outline, so edges never look like a cut rectangle
+K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};const N=o.n||40,ph=rr(0,6.28),R=a=>0.82+0.12*Math.sin(a*3+ph)+0.07*Math.sin(a*7+ph*2)+0.05*Math.sin(a*13+ph*3)+rr(-0.03,0.03),y0=y||0.01;const pts=[];
+  for(let k=0;k<N;k++){const a=k/N*6.283,r=R(a);pts.push([Math.cos(a)*rx*r,Math.sin(a)*rz*r]);}const sd=rnd();
+  for(let k=0;k<N;k++){const p=pts[k],q=pts[(k+1)%N];pv([x,y0,z],[0,1,0],col,mat,[0,0],[rx,rz],sd);pv([x+q[0],y0,z+q[1]],[0,1,0],col,mat,[q[0]/rx,q[1]/rz],[rx,rz],sd);pv([x+p[0],y0,z+p[1]],[0,1,0],col,mat,[p[0]/rx,p[1]/rz],[rx,rz],sd);}};
 K.build=function(name,opt){VB.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;return K.models[name](K,opt||{})||{};};
 
 // ================= GL =================
