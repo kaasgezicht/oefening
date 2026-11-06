@@ -121,6 +121,106 @@ function celCottage(o){o=o||{};const M=omesh();const RT=o.roof||'tile';
   B(4.6,0.48,-6.2,1.6,0.06,0.44,wood);B(4.6,0.82,-6.0,1.6,0.42,0.05,wood);for(const e of [-0.7,0.7])B(4.6+e,0.24,-6.2,0.06,0.46,0.4,woodD);
   return M;}
 
+// ---------------- cozy cottage: stone base, timber frame over plaster, bendy shingle roof, stone chimney, porch, rustic garden
+function celCozy(o){o=o||{};const M=omesh();
+  const W=7.0,D=5.6,H=3.0,RISE=3.9,OV=0.42,GOV=0.36,PL=0.3,thk=0.24,SB=1.15;
+  const plaster=[0.93,0.86,0.70],timber=[0.33,0.21,0.13],stone=[0.76,0.69,0.58],stoneD=[0.63,0.57,0.49],shing=o.roofCol||[0.74,0.53,0.33],under=[0.36,0.25,0.16],
+    wood=[0.55,0.38,0.22],woodD=[0.40,0.27,0.16],glow=[1.0,0.74,0.38],iron=[0.16,0.15,0.15],leaf=[0.32,0.55,0.25],leafD=[0.22,0.42,0.19],soil=[0.36,0.25,0.16],terra=[0.74,0.40,0.25];
+  const pal=[[0.93,0.22,0.24],[0.98,0.58,0.72],[0.99,0.84,0.3],[0.62,0.4,0.84],[0.98,0.97,0.94],[0.99,0.52,0.22]];let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return(sd&65535)/65536;};
+  const B=(x,y,z,sx,sy,sz,c,m,r)=>oBox(M,x,y,z,sx,sy,sz,c,m||0,r);
+  const FZm={o:[0,0,-D/2],n:[0,0,-1],t:[-1,0,0]},FZp={o:[0,0,D/2],n:[0,0,1],t:[1,0,0]},FXm={o:[-W/2,0,0],n:[-1,0,0],t:[0,0,-1]},FXp={o:[W/2,0,0],n:[1,0,0],t:[0,0,1]};
+  const fp=(f,u,y,off)=>[f.o[0]+f.t[0]*u+f.n[0]*off,y,f.o[2]+f.t[2]*u+f.n[2]*off];
+  const fb=(f,u,y,off,sx,sy,sz,col,m)=>{const c=fp(f,u,y,off);oOBox(M,c,[f.t[0]*sx/2,0,f.t[2]*sx/2],[0,sy/2,0],[f.n[0]*sz/2,0,f.n[2]*sz/2],col,m||0);};
+  const beam=(p0,p1,f,w,col)=>{const c=[(p0[0]+p1[0])/2,(p0[1]+p1[1])/2,(p0[2]+p1[2])/2],dx=p1[0]-p0[0],dy=p1[1]-p0[1],dz=p1[2]-p0[2],l=Math.hypot(dx,dy,dz),h=Math.hypot(dx,dz);
+    oOBox(M,c,[dx/2,dy/2,dz/2],[f.n[0]*0.035,0,f.n[2]*0.035],[(-dy*(dx/(h||1)))/l*w/2,h/l*w/2,(-dy*(dz/(h||1)))/l*w/2],col||timber,6);};
+  const flower=(x,y,z,col,h)=>{oLimb(M,[x,y,z],[x,y+h,z],0.014,0.014,4,leafD,1,false);oIco(M,x,y+h+0.03,z,0.075,col,1,{seed:(rnd()*99)|0});};
+  // the bendy roof surface: ridge sags in the middle, eave corners flare up, edges wobble a little
+  const tan=RISE/(D/2),eY=H-OV*tan,hx=W/2+GOV;
+  const S=s=>{const A0=[eY,s*(D/2+OV)],B0=[H+RISE,0],L=Math.hypot(B0[0]-A0[0],B0[1]-A0[1]),a=[(B0[0]-A0[0])/L,(B0[1]-A0[1])/L],n=[Math.abs(a[1]),s*a[0]];return{s,A0,L,a,n};};
+  const rp=(R,x,t,o)=>{const u=x/hx,v=t/R.L,dy=-0.3*(1-u*u)*Math.pow(v,1.1)+0.2*u*u*(1-v)*(1-v)+0.05*Math.sin(u*4.2+R.s*1.3)*(1-v)*(1-v);return[x,R.A0[0]+R.a[0]*t+R.n[0]*o+dy,R.A0[1]+R.a[1]*t+R.n[1]*o];};
+  const roofUnder=(x,z)=>{const R=S(z<0?-1:1),t=(z-R.A0[1])/R.a[1];return rp(R,x,clamp(t,0,R.L),0)[1];};
+  // walls: plaster box, fieldstone base, stone quoins at the corners
+  B(0,PL/2,0,W+0.2,PL,D+0.2,stoneD,8);B(0,(PL+H)/2,0,W,H-PL,D,plaster,0);B(0,(PL+SB)/2,0,W+0.1,SB-PL,D+0.1,stone,8);
+  for(const ex of [-1,1])for(const ez of [-1,1])for(let y=SB,k=0;y<H-0.1;y+=0.36,k++){const a=k%2?0.62:0.4,b=k%2?0.4:0.62;B(ex*(W/2-a/2+0.05),y+0.17,ez*(D/2-b/2+0.05),a,0.34,b,k%2?stone:stoneD,8);}
+  // gables: plaster fan up to the curved roof underside, timber posts, collar beam and braces, a small gable window
+  for(const e of [-1,1]){const x=e*W/2,pts=[];for(let k=0;k<=10;k++){const z=-D/2+D*k/10;pts.push([x,Math.min(roofUnder(x,z),H+RISE)-0.02,z]);}
+    const cen=[x,H+RISE*0.35,0];oTri(M,[x,H,-D/2],pts[0],cen,plaster,0);oTri(M,pts[10],[x,H,D/2],cen,plaster,0);oTri(M,[x,H,D/2],[x,H,-D/2],cen,plaster,0);for(let k=0;k<10;k++)oTri(M,pts[k],pts[k+1],cen,plaster,0);
+    const f=e<0?FXm:FXp,yU=z=>roofUnder(x,z)-0.04;for(const z of [-1.3,1.3])beam(fp(f,-e*0+(f.t[2]<0?-z:z),H,0.03),fp(f,(f.t[2]<0?-z:z),yU(z),0.03),f,0.16);
+    beam(fp(f,0,H+2.0,0.03),fp(f,0,yU(0),0.03),f,0.16);fb(f,0,H+1.95,0.03,2*1.1+0.6,0.15,0.07,timber,6);fb(f,0,H+0.06,0.03,D,0.16,0.07,timber,6);
+    for(const z of [-1,1])beam(fp(f,z*0.2,H+2.0,0.03),fp(f,z*1.25,H+2.9,0.03),f,0.13);
+    gwin(f,0,H+0.75,0.75,0.8);}
+  // windows: dark timber frames, six warm-lit panes, timber lintel, sill and flower box
+  function gwin(f,u,y0,w,h,box){const yc=y0+h/2,fw=0.09;fb(f,u,yc,0.012,w-0.06,h-0.06,0.024,glow,3);
+    fb(f,u,y0+h-fw/2,0.04,w,fw,0.08,timber,6);fb(f,u,y0+fw/2,0.04,w,fw,0.08,timber,6);for(const e of [-1,1])fb(f,u+e*(w/2-fw/2),yc,0.04,fw,h-2*fw,0.08,timber,6);
+    for(const k of [-1,1])fb(f,u+k*(w-2*fw)/6,yc,0.03,0.045,h-2*fw,0.05,timber,6);fb(f,u,y0+h*0.52,0.03,w-2*fw,0.045,0.05,timber,6);
+    fb(f,u,y0-0.05,0.09,w+0.22,0.1,0.18,wood,6);fb(f,u,y0+h+0.08,0.035,w+0.3,0.16,0.07,timber,6);
+    if(box){fb(f,u,y0-0.24,0.21,w+0.04,0.24,0.28,woodD,6);for(let k=0;k<6;k++){const q=fp(f,u-w/2+0.12+k*(w-0.24)/5,0,0.23);oIco(M,q[0],y0-0.1,q[2],0.12,leaf,1,{seed:k+2});flower(q[0],y0-0.14,q[2],pal[(k*2+(u>0?1:0))%pal.length],0.15);}}}
+  // half-timber frame on the long walls and sides (sill beam on the stone, top plate, posts, braces)
+  for(const f of [FZm,FZp,FXm,FXp]){const half=(f===FZm||f===FZp?W:D)/2;fb(f,0,SB+0.07,0.06,half*2+0.08,0.15,0.08,timber,6);fb(f,0,H-0.08,0.04,half*2,0.16,0.08,timber,6);
+    const posts=f===FZm||f===FZp?[-3.2,-1.42,-0.62,0.62,1.42,3.2]:[-2.5,-0.45,0.45,2.5];for(const u of posts)fb(f,u,(SB+H)/2,0.04,0.15,H-SB,0.08,timber,6);
+    for(const e of [-1,1]){const u0=e*(f===FZm||f===FZp?3.2:2.5),u1=e*(f===FZm||f===FZp?2.55:1.75);beam(fp(f,u0,SB+0.12,0.04),fp(f,u1,H-0.12,0.04),f,0.13);}}
+  gwin(FZm,-2.15,1.35,1.0,1.05,true);gwin(FZm,2.15,1.35,1.0,1.05,true);gwin(FXm,-1.35,1.35,0.9,1.0,true);gwin(FXm,1.45,1.35,0.9,1.0,false);gwin(FXp,0,1.35,0.9,1.0,false);gwin(FZp,-1.5,1.35,0.9,1.0,false);gwin(FZp,1.5,1.35,0.9,1.0,false);
+  // plank door with iron straps, stone steps, lantern
+  {const f=FZm,yb=PL,dw=0.95,dh=2.0;fb(f,0,yb+dh/2,0.02,dw,dh,0.04,[0.45,0.29,0.17],6);for(const y of [yb+0.4,yb+1.55])fb(f,0,y,0.05,dw-0.08,0.07,0.015,iron);fb(f,0.3,yb+1.0,0.06,0.07,0.07,0.06,[0.85,0.68,0.3]);
+    for(const e of [-1,1])fb(f,e*(dw/2+0.06),yb+dh/2+0.05,0.05,0.13,dh+0.1,0.1,timber,6);fb(f,0,yb+dh+0.06,0.05,dw+0.3,0.14,0.1,timber,6);
+    fb(f,0,0.12,0.32,1.5,0.24,0.62,stone,8);fb(f,0,0.06,0.72,1.8,0.12,0.4,stoneD,8);
+    fb(f,-0.85,yb+1.8,0.12,0.05,0.05,0.24,iron);fb(f,-0.85,yb+1.6,0.25,0.2,0.3,0.2,glow,3);fb(f,-0.85,yb+1.78,0.25,0.26,0.05,0.26,iron);
+    // porch: two posts and a little bendy gable roof over the door
+    const pz=-D/2-1.15;for(const e of [-1,1]){oLimb(M,[e*0.82,0,pz],[e*0.8,2.45,pz],0.08,0.07,6,wood,6);beam([e*0.8,2.2,pz],[e*0.8,2.45,pz+0.5],FXm,0.1,wood);}
+    B(0,2.48,pz+0.55,1.85,0.14,1.4,timber,6);
+    for(const e of [-1,1]){const A=[e*1.15,2.5],T=[0,3.25];const L=Math.hypot(T[0]-A[0],T[1]-A[1]);const NQ=4,NZ=5;for(let i=0;i<NQ;i++)for(let k=0;k<NZ;k++){
+        const P=(ii,kk,oo)=>{const t=ii/NQ,z=pz-0.35+(-D/2+0.3-(pz-0.35))*kk/NZ;const sag=-0.08*Math.sin(Math.PI*kk/NZ)*t;return[A[0]+(T[0]-A[0])*t+e*0.17*oo,A[1]+(T[1]-A[1])*t+0.12*oo*0+oo*0.1+sag,z];};
+        oQuad(M,P(i,k,1),P(i+1,k,1),P(i+1,k+1,1),P(i,k+1,1),shing,4);oQuad(M,P(i,k,0),P(i,k+1,0),P(i+1,k+1,0),P(i+1,k,0),under,6);}
+      oQuad(M,[A[0],A[1],pz-0.35],[A[0],A[1],-D/2+0.3],[A[0]+e*0.17,A[1]+0.1,-D/2+0.3],[A[0]+e*0.17,A[1]+0.1,pz-0.35],shing.map(v=>v*0.7),4);}
+    oTri(M,[-1.1,2.52,pz-0.3],[1.1,2.52,pz-0.3],[0,3.2,pz-0.3],plaster,0);beam([-1.1,2.55,pz-0.33],[0,3.22,pz-0.33],FZm,0.14);beam([1.1,2.55,pz-0.33],[0,3.22,pz-0.33],FZm,0.14);}
+  // main roof: bendy shingled top, timber underside, thick edges, curved ridge cap, dark bargeboards
+  for(const s of [-1,1]){const R=S(s),NX=20,NT=10,xs=i=>-hx+2*hx*i/NX,ts=j=>R.L*j/NT+(j===NT?0.06:0);
+    for(let i=0;i<NX;i++)for(let j=0;j<NT;j++){oQuad(M,rp(R,xs(i),ts(j),thk),rp(R,xs(i+1),ts(j),thk),rp(R,xs(i+1),ts(j+1),thk),rp(R,xs(i),ts(j+1),thk),shing,4);
+      oQuad(M,rp(R,xs(i),ts(j),0),rp(R,xs(i),ts(j+1),0),rp(R,xs(i+1),ts(j+1),0),rp(R,xs(i+1),ts(j),0),under,6);}
+    for(let i=0;i<NX;i++)oQuad(M,rp(R,xs(i),0,0),rp(R,xs(i+1),0,0),rp(R,xs(i+1),0,thk),rp(R,xs(i),0,thk),shing.map(v=>v*0.72),4);
+    for(const i of [0,NX])for(let j=0;j<NT;j++){const x=xs(i);oQuad(M,rp(R,x,ts(j),0),rp(R,x,ts(j+1),0),rp(R,x,ts(j+1),thk),rp(R,x,ts(j),thk),timber,6);
+      const p0=rp(R,x,ts(j),thk*0.5),p1=rp(R,x,ts(j+1),thk*0.5),sx=Math.sign(x);oOBox(M,[(p0[0]+p1[0])/2+sx*0.04,(p0[1]+p1[1])/2,(p0[2]+p1[2])/2],[0.035,0,0],[(p1[0]-p0[0])/2,(p1[1]-p0[1])/2+0.01,(p1[2]-p0[2])/2],[0,R.n[0]*0.2,R.n[1]*0.2],timber,6);}}
+  {const R=S(-1);for(let i=0;i<14;i++){const x0=-hx-0.05+(2*hx+0.1)*i/14,x1=-hx-0.05+(2*hx+0.1)*(i+1)/14,p0=rp(R,clamp(x0,-hx,hx),R.L,thk),p1=rp(R,clamp(x1,-hx,hx),R.L,thk);
+    oOBox(M,[(x0+x1)/2,(p0[1]+p1[1])/2+0.06,0],[(x1-x0)/2+0.02,(p1[1]-p0[1])/2,0],[0,0.15,0.15],[0,0.15,-0.15],shing.map(v=>v*0.62),4);}}
+  // stone chimney against the left gable, tapering, leaning a touch, with cap and pot
+  {const x=-W/2-0.42,z=0.9;B(x,0.9,z,0.95,1.8,1.25,stone,8);oOBox(M,[x+0.04,1.8+0.35,z],[0.47,0,0],[0,0.36,0],[0,0,0.62],stoneD,8);
+    oOBox(M,[x+0.06,(2.5+H+RISE+1.2)/2,z],[0.36,0,0],[0.03,(H+RISE+1.2-2.5)/2,0],[0,0,0.4],stone,8);const top=H+RISE+1.2;oOBox(M,[x+0.11,top+0.07,z],[0.46,0,0],[0,0.07,0],[0,0,0.5],stoneD,8);
+    oPrism(M,x+0.11,z,0.14,0.12,top+0.14,top+0.55,10,terra,0);}
+  // ---------------- garden
+  B(0,-0.05,0,140,0.1,140,[0.40,0.55,0.28],1);B(0,0.03,-0.6,15,0.06,15,[0.45,0.62,0.30],1);
+  B(0,0.03,-11.6,48,0.06,3.6,[0.66,0.56,0.41],1);for(let k=0;k<60;k++)oIco(M,(rnd()-0.5)*40,0.06,-11.6+(rnd()-0.5)*3.2,0.08+rnd()*0.1,[0.62,0.58,0.52],0,{sy:0.4,seed:k});
+  // irregular stone path from the lane to the steps
+  for(let k=0;k<26;k++){const z=-9.6+k*0.24+rnd()*0.1,x=(rnd()-0.5)*1.0,r=0.16+rnd()*0.12;oIco(M,x,0.06,z,r,[[0.76,0.71,0.62],[0.68,0.63,0.55],[0.82,0.77,0.68]][k%3],0,{sy:0.28,jit:0.18,seed:k+70});}
+  // rustic split-rail fence with a gap for the path
+  {const posts=[];for(let x=-7.4;x<=7.41;x+=1.85)posts.push([x,-9.2]);for(let z=-7.35;z<=6.6;z+=1.85){posts.push([-7.4,z]);posts.push([7.4,z]);}
+    for(const [x,z] of posts){if(Math.abs(x)<0.8&&z<-9)continue;oLimb(M,[x,0,z],[x+(rnd()-0.5)*0.08,1.05,z+(rnd()-0.5)*0.08],0.075,0.065,6,woodD,6);}
+    const rail=(a,b)=>{for(const y of [0.48,0.88])oLimb(M,[a[0],y+(rnd()-0.5)*0.06,a[1]],[b[0],y+(rnd()-0.5)*0.06,b[1]],0.045,0.045,5,wood,6);};
+    for(let x=-7.4;x<7.3;x+=1.85){if(x<0.8&&x+1.85>-0.8)continue;rail([x,-9.2],[x+1.85,-9.2]);}rail([-0.75,-9.2],[-0.75+0.1,-9.2]);
+    for(const e of [-1,1])for(let z=-9.2;z<6.5;z+=1.85)rail([e*7.4,z],[e*7.4,Math.min(z+1.85,6.6)]);}
+  // flower beds along the front, bushes hugging the walls, pots and barrels by the door, crates
+  for(const e of [-1,1]){const cx=e*2.2;B(cx,0.08,-3.2,2.9,0.1,0.75,soil);for(let k=0;k<14;k++){const x=cx-1.3+rnd()*2.6,z=-3.45+rnd()*0.5;oIco(M,x,0.17,z,0.16,k%2?leaf:leafD,1,{seed:k+40});flower(x,0.13,z,pal[(k+e+6)%pal.length],0.2+rnd()*0.25);}}
+  for(const [x,z,r] of [[-3.9,-3.4,0.6],[3.9,-3.3,0.55],[-4.0,2.9,0.7],[3.85,-1.0,0.5],[-1.2,-4.6,0.35],[1.25,-4.65,0.32]])oIco(M,x,r*0.7,z,r,[[0.26,0.5,0.23],[0.3,0.55,0.25],[0.22,0.45,0.2]][Math.round(r*10)%3],1,{detail:1,sy:0.8,jit:0.14,seed:(r*100)|0});
+  const barrel=(x,z,r,h)=>{oPrism(M,x,z,r,r*1.06,0,h,12,wood,6);for(const y of [h*0.18,h*0.78])oPrism(M,x,z,r*1.09,r*1.09,y,y+0.05,12,iron,0);oPrism(M,x,z,r*0.95,r*0.95,h,h+0.01,12,woodD,6);};
+  barrel(1.25,-3.85,0.3,0.8);barrel(1.75,-3.6,0.26,0.7);B(-1.45,0.25,-3.95,0.5,0.5,0.5,wood,6,0.3);B(-1.4,0.68,-3.95,0.38,0.36,0.38,woodD,6,0.6);
+  for(const [x,z] of [[-0.95,-3.75],[0.95,-3.8]]){oPrism(M,x,z,0.16,0.21,0,0.32,10,terra,0);oIco(M,x,0.42,z,0.18,leaf,1,{seed:(x*10)|0});flower(x,0.38,z,pal[x<0?0:2],0.12);}
+  // dense planting: bushes along the fence, grass tufts, flower clumps, trees outside the plot
+  for(let k=0;k<26;k++){const side=k%3,u=rnd();const x=side===0?-7.4+u*14.8:side===1?-6.9:6.9,z=side===0?6.3:-8.4+u*14.5;if(side===0&&Math.abs(x)<1.5)continue;if(side===1&&z>-2&&z<2)continue;
+    const r=0.35+rnd()*0.45;oIco(M,x+(rnd()-0.5)*0.4,r*0.7,z,r,[[0.26,0.5,0.23],[0.32,0.57,0.26],[0.22,0.44,0.2],[0.36,0.55,0.24]][k%4],1,{detail:1,sy:0.85,jit:0.16,seed:k+200});
+    if(k%3===0)flower(x+0.3,0.1,z+0.3,pal[k%pal.length],0.3);}
+  for(let k=0;k<70;k++){const x=(rnd()-0.5)*14,z=-8.8+rnd()*15;if(Math.abs(x)<4.2&&z>-4.4&&z<3.4)continue;if(Math.abs(x)<0.8&&z<-3.5)continue;oIco(M,x,0.12,z,0.09+rnd()*0.08,[[0.38,0.6,0.27],[0.3,0.52,0.22]][k%2],1,{sy:1.8,jit:0.3,seed:k+300});
+    if(k%5===0)flower(x+0.1,0.06,z,pal[k%pal.length],0.22);}
+  for(const [x,z,s] of [[-9.5,2,1.3],[9.8,-2,1.1],[-2.5,9.8,1.4],[6.5,9,1.2],[-9.8,-6,1.0]]){oLimb(M,[x,0,z],[x+0.1,2.0*s,z],0.2*s,0.13*s,7,[0.45,0.31,0.2],1);
+    for(const [dx,dy,dz,r,c] of [[0,3.2,0,1.45,[0.31,0.55,0.26]],[0.9,2.9,0.3,1.05,[0.27,0.5,0.23]],[-0.85,2.95,-0.3,1.1,[0.33,0.57,0.27]],[0.1,3.9,0.1,0.95,[0.36,0.6,0.28]]])oIco(M,x+dx*s,dy*s,z+dz*s,r*s,c,1,{detail:1,jit:0.14,seed:((r+x+z)*10)|0});}
+  // woodpile against the right of the chimney with a lean-to and a chopping block
+  {const x=-W/2-0.45;for(let r=0;r<4;r++)for(let k=0;k<6-r;k++){const z=-1.9+k*0.34+r*0.17,y=0.18+r*0.29;oLimb(M,[x-0.4,y,z],[x+0.4,y,z],0.15,0.15,7,[0.52,0.37,0.22],6);}
+    B(x-0.05,1.45,-1.05,1.1,0.06,2.4,woodD,6);oPrism(M,x-1.0,-3.0,0.3,0.3,0,0.5,9,wood,6);oLimb(M,[x-1.0,0.5,-3.0],[x-1.3,0.95,-2.85],0.03,0.03,4,[0.62,0.46,0.28],0);}
+  // vegetable patch and trees
+  {const cx=-5.6,cz=-0.2;B(cx,0.12,cz,2.4,0.14,3.6,soil);for(const [x,z,sx,sz] of [[cx,cz-1.82,2.5,0.08],[cx,cz+1.82,2.5,0.08],[cx-1.22,cz,0.08,3.7],[cx+1.22,cz,0.08,3.7]])B(x,0.15,z,sx,0.22,sz,woodD,6);
+    for(let r=0;r<3;r++)for(let k=0;k<5;k++)oIco(M,cx-0.75+r*0.75,0.3,cz-1.4+k*0.7,0.22,r===1?[0.55,0.7,0.35]:[0.4,0.6,0.3],1,{detail:1,sy:0.7,jit:0.15,seed:r*7+k});}
+  for(const [x,z,s] of [[-5.3,4.4,1],[4.6,4.2,1.2],[1.6,5.6,0.9]]){oLimb(M,[x,0,z],[x+0.1,2.0*s,z],0.2*s,0.13*s,7,[0.45,0.31,0.2],1);
+    for(const [dx,dy,dz,r,c] of [[0,3.2,0,1.45,[0.33,0.58,0.27]],[0.9,2.9,0.3,1.05,[0.28,0.52,0.24]],[-0.85,2.95,-0.3,1.1,[0.3,0.55,0.25]],[0.1,3.9,0.1,0.95,[0.36,0.62,0.29]]])oIco(M,x+dx*s,dy*s,z+dz*s,r*s,c,1,{detail:1,jit:0.14,seed:((r+x)*10)|0});}
+  return M;}
+
 // ---------------- GL
 function sh(t,s){const x=g.createShader(t);g.shaderSource(x,s);g.compileShader(x);if(!g.getShaderParameter(x,g.COMPILE_STATUS))throw new Error(g.getShaderInfoLog(x)+'\n'+s);return x;}
 function prog(vs,fs){const p=g.createProgram();g.attachShader(p,sh(g.VERTEX_SHADER,vs));g.attachShader(p,sh(g.FRAGMENT_SHADER,fs));g.linkProgram(p);if(!g.getProgramParameter(p,g.LINK_STATUS))throw new Error(g.getProgramInfoLog(p));return p;}
@@ -145,15 +245,16 @@ void main(){vec3 N=normalize(vN),V=normalize(uEye-vW);if(dot(N,V)<0.)N=-N;vec3 N
   // relief: 4 wood shingles, 5 brick, 6 planks/beams, 7 thatch, 8 fieldstone. Tilted normals per course give a cel band per shingle/brick;
   // joints darken; each piece gets its own weathered tint
   if(vM>=4){vec3 t=abs(N.y)>.97?vec3(1,0,0):normalize(cross(vec3(0,1,0),N));vec3 b=normalize(cross(N,t));if(b.y<0.)b=-b;float su=dot(vW,t),sv=dot(vW,b);
-    if(vM==4){float rh=.21,r=floor(sv/rh),f=fract(sv/rh),s=su/(.26+.12*h2(vec2(r,7.)))+r*.47,id=h2(vec2(r,floor(s)));c*=.74+.38*id;N=normalize(N-b*.28+t*(id-.5)*.25);
-      if(f<.12){N=normalize(N*.5-b);c*=.82;}if(fract(s)<.05)mort=.38;c=mix(c,vec3(.5,.5,.46),.25*vn(vec2(su,sv)*1.7));}
+    if(vM==4){vec3 th=normalize(cross(vec3(0,1,0),N));float su4=dot(vW,th),sv4=vW.y/.27,r=floor(sv4),f=fract(sv4),w=.36+.16*h2(vec2(r,7.)),s=su4/w+r*.53,id=h2(vec2(r,floor(s)));
+      c*=.76+.34*id;if(id>.86)c=mix(c,vec3(dot(c,vec3(.33))),.55);N=normalize(N+vec3(0,.38,0)*(.5-f)+th*(id-.5)*.32);if(f<.14){N=normalize(N*.45+vec3(0,-1,0)*.6);c*=.74;}if(fract(s)<.045)mort=.42;
+      if(uMoss>0.){float m=step(.58,vn(vec2(su4*.45,vW.y*.7)+3.))*step(.4,id);c=mix(c,vec3(.3,.44,.17),m*uMoss);}}
     else if(vM==5){float rh=.17,r=floor(sv/rh),f=fract(sv/rh),s=su/.36+r*.5,id=h2(vec2(r,floor(s)));c*=.8+.32*id;float fs=fract(s);N=normalize(N+b*(f-.5)*.5+t*(fs-.5)*.3);if(f<.1||fs<.045)mort=.4;}
     else if(vM==8){float rh=.3,r=floor(sv/rh),f=fract(sv/rh),s=su/(.42+.25*h2(vec2(r,3.)))+h2(vec2(r,1.)),id=h2(vec2(r,floor(s)));c*=.72+.45*id;float fs=fract(s);
       N=normalize(N+b*(f-.5)*.9+t*(fs-.5)*.7);if(f<.11||fs<.06)mort=.5;}
     else if(vM==6){float s=su/.21,id=h2(vec2(floor(s),2.));c*=.78+.34*id;c*=.92+.12*vn(vec2(s*3.,sv*.8));if(fract(s)<.05&&abs(N.y)<.7)mort=.6;}
     else if(vM==7){float rh=.55,r=floor(sv/rh),f=fract(sv/rh),edge=.07+.05*sin(su*1.7+r*2.1);float st=vn(vec2(su*11.,sv*.7+r*3.)),st2=vn(vec2(su*31.,sv*.4));c*=.9+.2*st+.12*st2;c*=mix(.86,1.06,f);
       N=normalize(N+t*(st-.5)*.3);if(f<edge){N=normalize(N*.6-b);c*=.84;}c=mix(c,c*vec3(.86,.9,.78),.6*vn(vec2(su,sv)*.45));}
-    if(uMoss>0.&&(vM==4||vM==7||vM==8)){float m=smoothstep(.52,.85,vn(vec2(su,sv)*.9+7.))*uMoss;c=mix(c,vec3(.36,.47,.2),m*.7);}
+    if(uMoss>0.&&(vM==7||vM==8)){float m=smoothstep(.52,.85,vn(vec2(su,sv)*.9+7.))*uMoss;c=mix(c,vec3(.36,.47,.2),m*.7);}
     c=mix(c,c*.42+vec3(.55,.52,.47)*(vM==5?.35:0.),mort);}
   float d=dot(N,uL);
   float sh=shadowAt(vL,.0006+.0012*(1.-abs(dot(Ng,uL))));vec3 warm=vec3(1.07,1.,.9),cool=vec3(.56,.61,.84);vec3 col;
@@ -192,7 +293,7 @@ void main(){float b=smoothstep(.16,.48,abs(vU.y-.47))*7.;vec3 s=texture(uC,vU).r
 function tex(w,h,ifmt,fmt,type,filt){const t=g.createTexture();g.bindTexture(g.TEXTURE_2D,t);g.texImage2D(g.TEXTURE_2D,0,ifmt,w,h,0,fmt,type,null);
   g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MIN_FILTER,filt);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_MAG_FILTER,filt);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_S,g.CLAMP_TO_EDGE);g.texParameteri(g.TEXTURE_2D,g.TEXTURE_WRAP_T,g.CLAMP_TO_EDGE);return t;}
 
-window.CEL={render(opt){opt=opt||{};const M=celCottage(opt.house),nv=M.v.length/10;
+window.CEL={render(opt){opt=opt||{};const M=(opt.house&&opt.house.style==='cozy')?celCozy(opt.house):celCottage(opt.house),nv=M.v.length/10;
   const buf=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,buf);g.bufferData(g.ARRAY_BUFFER,new Float32Array(M.v),g.STATIC_DRAW);const vao=g.createVertexArray();g.bindVertexArray(vao);
   g.enableVertexAttribArray(0);g.vertexAttribPointer(0,3,g.FLOAT,false,40,0);g.enableVertexAttribArray(1);g.vertexAttribPointer(1,3,g.FLOAT,false,40,12);g.enableVertexAttribArray(2);g.vertexAttribPointer(2,3,g.FLOAT,false,40,24);g.enableVertexAttribArray(3);g.vertexAttribPointer(3,1,g.FLOAT,false,40,36);
   const L=norm(opt.sun||[0.32,0.84,-0.44]),tgt=opt.target||[-0.6,1.9,-2.2],dir=norm(opt.dir||[-0.6,0.56,-0.57]),dist=opt.dist||36,eye=[tgt[0]+dir[0]*dist,tgt[1]+dir[1]*dist,tgt[2]+dir[2]*dist];
