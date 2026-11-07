@@ -1,16 +1,30 @@
-# Trein handoff 47 (7 Nov 2026): v3.1.0 + building kit in the game (detailed cottage, shop, farmhouse and tavern with gardens and LODs)
+# Trein handoff 48 (7 Nov 2026): v3.1.1, ground shadow fix and varied grass (on top of the building kit of handoff 47)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
 ## START HERE (restart brief, 7 Nov 2026)
 **Project**: Trein, a toy train sim in one file, `trein.html` (WebGL2, about 6000 lines plus the embedded building kit). The user plays it on a Pixel 9a.
-- Repo `kaasgezicht/oefening`. Always work on, commit to and push to branch `claude/project-improvements-polish-enesc6` (`git push -u origin claude/project-improvements-polish-enesc6`). No PR unless asked.
+- Repo `kaasgezicht/oefening`. Always work on, commit to and push to branch `claude/trein-village-growth-texture-lhhj3b` (`git push -u origin claude/trein-village-growth-texture-lhhj3b`; it continues from `claude/project-improvements-polish-enesc6`). No PR unless asked.
 - End commit messages with these two lines, and put no model names in code or commits:
   ```
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_01XEFkHiq1P6H7Y7V8X4vF2m
+  Claude-Session: https://claude.ai/code/session_01XEFkHm1jcQJ6MRroWR8zg2
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
+
+### Latest (3.1.1, 7 Nov) and open questions to the user
+- **Fixed: dark blotches on open ground.** The shadow pass drew the terrain at half resolution (`if(pass===1)lod=Math.max(lod,1)` in `R.drawTerrain`). In hollows (stream channels, road cuts) the coarse shadow terrain lay above the visible ground and shadowed it: 16 m triangle-shaped blobs with hatched edges, changing with camera distance. Now both passes use the same detail (about +1% triangles). Reproduced and checked at 8 km / 8 m cells.
+- **Grass colour variation** (`grassVar`, Look tab, default 1, 0 = old look) in `FS_TERRAIN`: regions lush or dry (0.5–1.5 km noise), sun-facing slopes drier, wet ground and forest edges lusher, a warm/cool hue drift (230 m), warped meadow patches (~34 m), and dark clumps (2.3 m) plus straw flecks (0.75 m) that fade out by `fwidth` so they don't shimmer. Autumn strengthens it; straw is off in winter.
+- **Asked the user, not started**: how villages should grow (see "Village growth review"), which people activities come first and how detailed people should be.
+
+### Village growth review (7 Nov)
+- **Now**: each village is planned in full at world generation: two straight crossing streets (plus two side lanes when R > 60), a round square, church and inn on its corners, then house slots every 8–12 m sorted by distance from the street middle. The first 35% are hamlet houses (`lvl` 0), the next 35% village (1), the rest town (2); side lanes are village level. Growth points (0/100/300) switch levels, and a third of the houses appear at once.
+- **Why it feels wrong**: houses pop in batches; the layout is a symmetric cross that ignores terrain, the station and the country roads; no new streets appear; nothing is built gradually.
+- **Proposal (organic)**: plan a village by simulating its growth at generation (deterministic, so saves stay small): start at the crossroads or along the main road; each new house picks the best free plot (near the centre, along used roads, toward the station and neighbouring villages, flat and dry); infill first, then extend street ends along roads (ribbon growth), then branch new lanes that follow the contours when frontage runs out. Reveal houses one by one as points arrive, with a short building phase (foundation, frame, roof). Re-plan the unbuilt part when a station or road is built nearby.
+
+### People review (7 Nov)
+- **Now**: one small low-poly `person` mesh; states stroll/home/toStation/wait/board/leave; strollers walk straight lines between random house gates and street points (through gardens and fences).
+- **Proposal**: walk on the street network and garden paths; daily routines by time of day: gardening (kneel at the beds, hoe, water, wheelbarrow), a postman on a round of gates, shopkeepers and market stalls, children playing on the square, chatting pairs and benches, washing on the line, dog walkers, the tavern in the evening. More detailed people up close (head, hair or hat, arms and legs that swing, clothes, children and the elderly) with an LOD.
 
 ### How the user works
 - Ask clarifying questions before long code. Split big requests into steps; they test each step before the next.

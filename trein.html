@@ -190,7 +190,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='3.1.0 (signals obeyed, boarding, platforms, wagon by wagon, fast forward)';
+const VERSION='3.1.1 (ground shadow fix, varied grass)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -284,6 +284,7 @@ def('autoExpo',{tab:'look',label:'Auto exposure (eye adapts to light)',kind:'che
 def('nightBright',{tab:'look',label:'Night brightness',min:0,max:2,step:0.05,def:1,apply:'live'});
 def('shadowSoft',{tab:'look',label:'Shadow softness',min:0,max:1,step:0.01,def:0.45,apply:'live'});
 def('grassHue',{tab:'look',label:'Grass (lush ↔ dry)',min:-1,max:1,step:0.01,def:0,apply:'live'});
+def('grassVar',{tab:'look',label:'Grass colour variation',min:0,max:2,step:0.05,def:1,apply:'live'});
 def('grassMaxSlope',{tab:'look',label:'Rock starts at slope',min:15,max:60,step:1,def:36,unit:'°',apply:'live'});
 def('snowLine',{tab:'look',label:'Snow caps above',min:0.4,max:1.2,step:0.01,def:0.86,unit:'× height',apply:'live'});
 def('sandShore',{tab:'look',label:'Sand on lake shores',min:0,max:2,step:0.05,def:1,apply:'live'});
@@ -1380,7 +1381,7 @@ vec3 fieldCol(vec4 b,vec2 lp,vec4 a,float fj){vec3 base=cropCol(b.y,lp,a,fj,b.z)
   vec3 c=soilCol(k,lp,fj);float edge=min(a.z-abs(lp.x),a.w-abs(lp.y));return mix(L(vec3(.30,.50,.22))*(1.-uSeason.w*.3),c,step(1.1,edge));}
 `;
 const FS_TERRAIN=GLSL_HEAD+GLSL_COMMON+GLSL_FIELDS+GLSL_FIELDWORK+`
-uniform sampler2D uRoad;uniform float uRoadClear;
+uniform sampler2D uRoad;uniform float uRoadClear;uniform float uGrassVar;
 vec3 setts(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.,id=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o2=vec2(x,y);vec2 h=fract(sin(vec2(dot(i+o2,vec2(127.1,311.7)),dot(i+o2,vec2(269.5,183.3))))*43758.5453);vec2 r=o2+.08+h*.84-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=h.x;}else if(d<d2)d2=d;}return vec3(sqrt(d2)-sqrt(d1),id,sqrt(d1));}
 in vec3 vW;uniform float uStep;`+FS_OUT+`
 void main(){vec3 W=vW;vec3 N=normalize(cross(dFdx(W),dFdy(W)));if(N.y<0.)N=-N;
@@ -1391,7 +1392,17 @@ void main(){vec3 W=vW;vec3 N=normalize(cross(dFdx(W),dFdy(W)));if(N.y<0.)N=-N;
   float n1=vnoise(W.xz/110.),n2=vnoise(W.xz/31.+7.3);
   vec3 g0=vec3(.56,.76,.34)*S.x+vec3(.47,.68,.30)*S.y+vec3(.68,.64,.32)*S.z+vec3(.56,.55,.40)*S.w;
   g0=mix(g0,g0*vec3(1.12,1.,.78),clamp(uLook.x,0.,1.));g0=mix(g0,g0*vec3(.82,1.05,.9),clamp(-uLook.x,0.,1.));
-  vec3 c=L(g0)*(.88+.2*n1)*(1.+fj*.09);
+  // grass colour at three scales (uGrassVar): regions lush or dry (km), meadow patches (tens of metres), tufts (metres, faded out where a pixel covers them)
+  vec3 c;{vec2 gp=W.xz;float fw=length(fwidth(gp));
+    float reg=vnoise(gp/1500.+vec2(3.7,1.1))*.6+vnoise(gp/560.+9.2)*.4,hue=vnoise(gp/230.+vec2(1.3,5.1));
+    vec2 wq=gp/34.+vec2(vnoise(gp/21.),vnoise(gp/21.+5.3))*1.7;float pt=(vnoise(wq)*.65+vnoise(wq*2.3+2.)*.35-.5)*(1.-smoothstep(4.,14.,fw));
+    float clump=(smoothstep(.35,.75,vnoise(gp/2.3+vec2(vnoise(gp/.9),0.)*.6))-.45)*(1.-smoothstep(.3,1.2,fw)),straw=smoothstep(.58,.86,vnoise(gp/.75+3.1))*(1.-smoothstep(.1,.4,fw));
+    float sunny=dot(Ns.xz,vec2(.6,-.8))*smoothstep(.02,.18,1.-Ns.y);// slopes that face the sun dry out
+    float dry=clamp((reg-.5)*2.2+sunny*1.6+pt*1.5-wet*.8-forest*.5,-1.,1.)*uGrassVar*(1.+S.z*.5);
+    vec3 gc=g0*mix(vec3(1.),dry>0.?vec3(1.15,1.0,.74):vec3(.8,.99,.9),min(abs(dry),1.)*.72);
+    gc=mix(gc,gc*vec3(1.07,1.02,.84),clamp((hue-.5)*1.8*uGrassVar,-.7,.7));
+    gc*=1.-clump*.42*uGrassVar;gc=mix(gc,gc*vec3(1.22,1.12,.66),straw*.5*uGrassVar*(1.-S.w));// dark lush clumps, pale straw flecks
+    c=L(gc)*(.88+.2*n1)*(1.+fj*.09)*(1.+pt*.3*uGrassVar);}
   c=mix(c,L(vec3(.36,.56,.24)*(1.-S.z*.1)+vec3(.12,.04,0)*S.z),smoothstep(.12,.55,forest)*.75);
   c=mix(c,L(vec3(.40,.62,.30)),clamp(wet*1.3-.3,0.,1.)*.45*(1.-S.w*.5));
   c=mix(c,L(vec3(.66,.68,.38)),smoothstep(.5,.72,alt+n2*.06)*(1.-S.w*.4));
@@ -6100,11 +6111,11 @@ R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;cons
   // resolve
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.colFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);
   R.post(cam,A);};
-R.drawTerrain=function(cam,pass,pl){const T=R.world;const p=pass===1?R.pTerrainSh:R.pTerrain;gl.useProgram(p.p);if(pass!==1)gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);
+R.drawTerrain=function(cam,pass,pl){const T=R.world;const p=pass===1?R.pTerrainSh:R.pTerrain;gl.useProgram(p.p);if(pass!==1){gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
   const list=[];for(const c of R.chunks){if(!boxVisible(pl,c.x,c.y0,c.z,c.x+R.cw,c.y1,c.z+R.cw))continue;list.push([Math.hypot(c.x+R.cw/2-cam.pos[0],c.z+R.cw/2-cam.pos[2]),c]);}
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,c] of list){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
-    const d=Math.hypot(dx,dz,dy);let lod=d<P.terrainLod?0:d<P.terrainLod*2.2?1:d<P.terrainLod*5?2:3;if(pass===1)lod=Math.max(lod,1);
+    const d=Math.hypot(dx,dz,dy);let lod=d<P.terrainLod?0:d<P.terrainLod*2.2?1:d<P.terrainLod*5?2:3;/* same detail in the shadow pass: a coarser shadow terrain lies above the ground in hollows and shadows it */
     const n=Math.max(2,R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);if(pass===0)gl.uniform1f(p.u('uStep'),T.cs*R.cells/n);
     gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.tris;Stats.chunks++;}
   gl.bindVertexArray(null);};
