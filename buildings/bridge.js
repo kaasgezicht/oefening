@@ -44,4 +44,19 @@ K.bridge=function(s,lod){K.VB.length=0;K.plot=null;K.lod=lod||0;K.aux=0;K.seed(s
 // preview for tools/render_building.js: a 9 m stream bridge and a three-arch river bridge on a ground plane
 K.models.bridge=function(K2,opt){const g=u=>-0.4+0.0*u,mkS=(L,sw,water,dy)=>{const deck=[],ground=[];for(let u=-L/2;u<=L/2+1e-6;u+=0.5){const t=(u+L/2)/L;deck.push([u,2.0+dy*t+0.35*Math.sin(Math.PI*t)]);ground.push([u,Math.abs(u)<sw*0.8+0.6?0:1.6]);}return{L,w:1.9,deck,ground,water,sw};};
   K.bridgeGeo(mkS(9,2.2,null,0.2));K.B(0,-0.5,0,160,1.0,160,[0.42,0.56,0.27],9,0,0);return{target:[0,1.6,0],dist:17,dir:[-0.55,0.32,-0.78],shadowC:[0,1,0],shadowR:10,haze:[40,120]};};
+// ---- a culvert mouth where a stream goes into a pipe under a garden or a square (faces +x, the open water; scaled to the stream in the
+// game): fieldstone headwall with a round hole, a dark pipe going in, a ring of dressed stones, coping stones, low wing walls, apron stones
+K.plots.culvert={x0:-2,x1:2,z0:-2,z1:2};
+K.models.culvert=function(K2,opt){const {box,B,beam,quad,cyl,ico,tuft,rr,pick}=K;const R=0.45,cy=0.45,TOP=1.05,HW=1.25,wall=[0.56,0.54,0.5],dressed=[[0.68,0.64,0.57],[0.63,0.6,0.54],[0.71,0.67,0.59]];
+  const dz=K.lod>=2?0.5:0.12;for(let z=-HW;z<HW-1e-6;z+=dz){const z1=Math.min(z+dz,HW),zc=(z+z1)/2,h=Math.abs(zc)<R?Math.sqrt(R*R-zc*zc):0;
+    if(h>0){quad([0,0,z],[0,0,z1],[0,cy-h,z1],[0,cy-h,z],[1,0,0],wall,23,0.3);quad([0,cy+h,z],[0,cy+h,z1],[0,TOP,z1],[0,TOP,z],[1,0,0],wall,23,0.3);}
+    else quad([0,0,z],[0,0,z1],[0,TOP,z1],[0,TOP,z],[1,0,0],wall,23,0.3);}
+  B(-0.35,TOP/2,0,0.7,TOP,HW*2,wall,23);// the wall's body behind the face (its front is cut by the face above)
+  cyl([0.01,cy,0],[-0.75,cy,0],R,R,16,[0.12,0.11,0.1],0,[0.03,0.03,0.03],0);
+  const N=K.lod>=2?8:14;for(let k=0;k<N;k++){const a=(k+0.5)/N*Math.PI*2,c=[0.04,cy+Math.sin(a)*(R+0.11),Math.cos(a)*(R+0.11)];box(c,[0,0,0].map((_,i)=>[0.07,0,0][i]),[0,Math.sin(a)*0.11,Math.cos(a)*0.11],[0,Math.cos(a)*(Math.PI*(R+0.11)/N-0.012),-Math.sin(a)*(Math.PI*(R+0.11)/N-0.012)],pick(dressed),8);}
+  for(let z=-HW-0.05;z<HW;z+=0.5)beam([0.02,TOP+0.06,z],[0.02,TOP+0.06,Math.min(z+0.48,HW+0.05)],[1,0,0],0.5,0.12,pick(dressed),8);
+  for(const e of [-1,1]){B(0.38,0.32,e*(HW+0.2),0.95,0.64,0.32,wall,23,e*0.55);B(0.38,0.68,e*(HW+0.2),1.0,0.08,0.38,pick(dressed),8,e*0.55);}
+  if(K.lod<2)for(let k=0;k<7;k++)B(rr(0.15,0.8),0.02,rr(-0.6,0.6),rr(0.25,0.4),0.06,rr(0.2,0.35),pick(dressed),8,rr(0,3));
+  if(K.lod===0){for(let k=0;k<8;k++)ico([rr(-0.1,0.1),TOP+0.14,rr(-HW,HW)],rr(0.05,0.09),[0.3,0.44,0.15],1,{sy:0.45,jit:0.3,detail:1});for(let k=0;k<10;k++)tuft(rr(-0.6,-0.1),rr(-HW-0.4,HW+0.4),6,rr(0.15,0.35),TOP);}
+  return{target:[0.3,0.5,0],dist:5,dir:[0.8,0.35,-0.5],shadowC:[0,0.5,0],shadowR:4,haze:[30,90]};};
 })();
