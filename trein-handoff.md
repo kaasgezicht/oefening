@@ -1,6 +1,84 @@
-# Trein handoff 46 (5 Nov 2026): v3.1.0 (signals obeyed, boarding, platforms, wagon by wagon, fast forward, build tabs)
+# Trein handoff 47 (7 Nov 2026): v3.1.0 + building kit in the game (detailed cottage, shop, farmhouse and tavern with gardens and LODs)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
+
+## START HERE (restart brief, 7 Nov 2026)
+**Project**: Trein, a toy train sim in one file, `trein.html` (WebGL2, about 6000 lines plus the embedded building kit). The user plays it on a Pixel 9a.
+- Repo `kaasgezicht/oefening`. Always work on, commit to and push to branch `claude/project-improvements-polish-enesc6` (`git push -u origin claude/project-improvements-polish-enesc6`). No PR unless asked.
+- End commit messages with these two lines, and put no model names in code or commits:
+  ```
+  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  Claude-Session: https://claude.ai/code/session_01XEFkHiq1P6H7Y7V8X4vF2m
+  ```
+- After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
+
+### How the user works
+- Ask clarifying questions before long code. Split big requests into steps; they test each step before the next.
+- Keep replies short. Be honest about what was and wasn't tested.
+- Add a setting whenever something is uncertain.
+- They notice shortcuts: removing gardens for convenience was rejected ("I want gardens and fences, make it work").
+
+### Art direction (approved 7 Nov)
+- **Man-made things**: cel-shaded, detailed diorama style, rustic and weathered, like the user's 9-building reference sheet (forge, cozy cottage, merchant's shop, tavern, farmhouse, guardhouse, mill, warehouse, windmill).
+- **Trees and landscape**: stay as they are (the user likes them).
+- **Building technique**:
+  - real geometry for shingles, tiles and stones, plus a procedural bump in the shader;
+  - weathering: moss, lichen, dirt splash, algae, rain streaks, cracks, plaster fallen off to show brick, soot;
+  - a two-band toon light;
+  - ink lines (renders only so far);
+  - bendy roofs (ridge sag, eave flare);
+  - gardens with fences.
+- **Renders**: `docs/style/8-cozy-cottage-v2*.jpg`, `9-tavern*`, `10-farmhouse*`, `11-shop*`, `12-in-game.jpg`.
+
+### Building kit (the most recent work)
+- **Source of truth**: `buildings/`. `kit.js` holds the builders, materials (`K.M`) and the standalone renderer; `cottage.js`, `tavern.js`, `farmhouse.js` and `shop.js` register `KIT.models[name]`.
+- **Embedding**: `python3 tools/embed_buildings.py` copies them into `trein.html` between the `/*@@BUILDINGS@@*/` markers. Never edit the embedded copy; edit `buildings/*.js`, then re-run.
+- **Preview**: `node tools/render_building.js <name> <out.jpg> ['{"game":true,"lod":1}']` (Playwright + SwiftShader, about 1 s per render).
+- **In the game**:
+  - Game mode: `K.plot` from `KIT.plots` keeps everything on the plot (gardens, fences, props) and drops the render surroundings (boxes over 20 m, anything centred off the plot, `K.grass` lawns).
+  - LOD from the same model code:
+    - 0: everything;
+    - 1: no shingles or stones; roofs painted as rows (material 20), walls painted as courses (material 21); parts under 0.12 m dropped;
+    - 2: only parts over about 0.9 m.
+  - LOD distances: under 110 m, 350 m and 2400 m, picked in `Life.kitInst` whenever the camera moves 4 m. (A bug fixed today: it used to be picked only when the village data was rebuilt.) The shadow pass draws one level coarser.
+  - Vertices are packed to 32 bytes (48 MB for 4 types x 3 LODs); built at start-up in about 1–3 s.
+  - Shader `R.pKit` (VS_KIT/FS_KIT) reuses `KIT.GLSL.MATS` with the game's sun, ambient, shadows, cloud shadow, snow, fog and night windows (`uMisc.x`). `R.drawKit(pass)` runs after `Life.draw`.
+  - Phone result: 65 fps at 2.19M triangles.
+- **Villages**:
+  - Variants map to types through `KIT_OF`: 0/5 cottage, 1 shop, 2 farmhouse, 4 tavern (on the square); 3, the church, keeps the old mesh.
+  - Oriented plot rectangles (`rectOf`, `rectHit` SAT, `fitsRect`: other plots, streets within 2 m, the square, slope under 5 m, water, track). `flatRect` levels the whole plot.
+  - The front path starts at the gate (`KIT_GATE`); chimney smoke comes from `KIT_CHIM`. Street slots are every 8–12 m.
+  - Villages hold fewer, roomier houses than before.
+
+### Still to do (in the order I'd suggest)
+1. **Ink lines in the game.** The approved look has them, but only the offline renderer draws them.
+   - Plan: stencil-mark the kit pixels in the main pass, then a full-screen edge pass on depth, plus normals or a part id if a second target is cheap.
+   - Keep trees and terrain without ink.
+   - Check the phone's fps.
+2. **Church in the kit**, so the last old box house goes.
+3. **Remaining types from the sheet**: forge/blacksmith, guardhouse, mill (water wheel), warehouse, windmill. Same workflow: render, fix, user approval, embed, add to `KIT_TYPES`, `KIT_OF` and `KIT.plots`.
+4. **Old run 2** (asked 5 Nov, not done):
+   - buses: a per-bus ordered stop list showing the distance of each leg and of one round, a bus list button, lane driving on the roads, queuing instead of clipping (the bus code in `Buses` is crude);
+   - more detailed people up close.
+5. **Quality plan steps B–F** (see "Quality plan" below): the railway and roads in the new style, vehicles, terrain (rivers carve straight D8 canyons with 48° walls; they should meander), and polish (seasons and night for the new models, remaining mesh flicker).
+6. **OpenTTD gap list**: given to the user, not started.
+
+### Known caveats
+- **Start-up**: the kit build adds about 1–3 s on desktop, more on the phone. It could be deferred or cached.
+- **Old artwork**: the snow and autumn looks of the old box houses don't exist for the kit houses; only roof snow is handled.
+- **Test speed**: headless tests are slower now (heavier scenes). `board_check` may run out of time before the 30 s stop ends; that's not a logic failure.
+
+### Tests and tools (headless Chromium + SwiftShader; never reinstall Playwright)
+- **Boot runner**: `node tools/boot.js trein.html <out> [script]`, with env `WS` (world size) and `MR` (map resolution).
+- **Test scripts**:
+  - `tools/e2e.js`, `crane_e2e.js` (WS=2048), `step1_checks.js` (2048), `step2_checks.js` (2048);
+  - `signal_check.js`, `board_check.js` (2048), `ui_checks.js` (2048), `lake_check.js`.
+- **Meshes**: `node tools/meshcheck.js trein.html <out> [regex]` checks the old meshes.
+- **Syntax check**: extract the biggest `<script>` and run `node --check` on it (a `//` comment once swallowed code on a one-line edit; use `/* */` inside lines).
+- **Pitfalls**:
+  - headless frames are slow, so use `waitForTimeout` generously, set screenshot `timeout` to 180000, and use `deviceScaleFactor` 2 via a copy of boot.js for user-facing shots;
+  - villages show houses only as they grow: use `Life.addGrowth(v,400)` and wait about 30 s.
+
 
 ## Ground rules
 - Toy low-poly models, with photo-real light, water, clouds and mist.
