@@ -1,4 +1,4 @@
-# Trein handoff 53 (7 Nov 2026): v3.5.0, buses with stop lists, a bus list, road-network driving, lanes and queuing
+# Trein handoff 54 (8 Nov 2026): v3.6.0, train load indicators and seats, meandering gorges, smoother grass, lake stripes, stalls
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -12,7 +12,16 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 
-### Latest (3.5.0, 7 Nov)
+### Latest (3.6.0, 8 Nov)
+- **User report (two phone logs, Mali-G715)**: lakes showed dark/sand stripes (a glitch seen earlier in development); one WebGL context loss after regenerating worlds three times (last an 8 km one); ~1 s stalls; grass blotchy/square; wants train load indicators and remaining passengers/cargo; straight gorges should meander.
+- **Lake stripes** (not reproducible in headless SwiftShader, also not with the user's save): FS_WATER now decides where water is from the smooth terrain depth again (`depthT`); the depth-buffer depth only refines it within 150–400 m and only where both agree; the slope derivatives are taken before any discard. Needs a phone check.
+- **Stalls**: the phone log showed `bridges: 93 in stone ... 1085 ms` on every road rebuild. Now `R.bridgeCache` keeps each bridge's packed geometry (key: place, size, deck), so rebuilds only build new bridges (7–34 ms after the first). Lanes added while playing no longer trigger a full road rebuild: `R.addRoadPieces` + bridges for that lane only. `R.buildRoads` reuses its arrays. `rebuildRoads` logs a timing breakdown (gather, distance field, find bridges, bridges, crossings) so the next phone log shows what is left. Tree clearing for a plot only scans its chunks. In headless the full distance-field upload can take ~2 s because SwiftShader's GPU queue is slow; on a phone it should be one frame.
+- **Context loss**: not reproduced. Render targets are deleted correctly on resize; the loss came right after the third world regeneration (8 km, ~450k bridge triangles then); the bridge cache also lowers rebuild memory churn. Recovery path works (the log shows the restart).
+- **Grass** (`FS_TERRAIN`): no per-triangle colour jitter on grass (made 8 m squares); the forest mask is read 4x around a noise-warped point (soft irregular edge instead of cell steps) and darkens less; noise octaves are rotated (`rn`) so nothing lines up with the grid; clumps softer; spring flowers are small dots up close instead of recoloured triangles.
+- **Seats and load**: 24 seats per coach (`SEATS`); the rest keep waiting on the platform. `LoadUI`: a train standing at a station within 700 m shows a card with a passenger bar (aboard/seats, "+n boarding") and a bar per cargo kind in its wagons (20 per wagon), easing toward the real value; every station within 700 m shows a chip with people and goods still waiting. Checked: 40 waiting for one coach → 24 board, 16 stay; card and chips render.
+- **Gorges**: the depression-breaching outlets (`genWater` step 1) used to be carved along the D8 steepest path on the filled surface (ruler-straight on flats). Now the path is traced, smoothed (9 cells), given a meander (amplitude up to 6 cells growing from the lake and easing out at the end, wavelength 26–44 cells, a second harmonic) and carved along the curve with the same falling floor and 48° walls. `T.gorges` keeps the curves (debugging). Checked on the user's seed: the three longest gorges now wind; lakes unchanged.
+
+### Earlier (3.5.0, 7 Nov)
 - **Buses and lorries** (`Buses`, `BusUI`):
   - Each vehicle has `b.stops` (stop ids, driving order) and `b.allStops` (new stops join it until it is edited); default order = nearest-neighbour tour; buses skip cargo bays. `Buses.cur(b)` replaces the old global `stops[leg % n]` (also in `Crane.lorry`).
   - Road graph `Buses.graph()` from `Life.roads` (not garden paths or squares): points every <= 8 m, shared points merged (1.5 m), loose road ends joined to the nearest other road within 7 m; rebuilt after `rebuildRoads`. `roadPath` = heap Dijkstra; fallback `Life.routePath` over the land (shown "off the roads").
