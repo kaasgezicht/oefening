@@ -5529,12 +5529,14 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
       const c=Math.cos(ho.rot),s=Math.sin(ho.rot),lx=def.chim[0],lz=def.chim[2];const x=ho.x+c*lx-s*lz,z=ho.z+s*lx+c*lz;
       Particles.spawn(x,ho.y+def.chim[1],z,(Math.random()-0.5)*0.3,1.0+Math.random()*0.6,(Math.random()-0.5)*0.3,6+Math.random()*4,0.7,4.2,2);}},
   // ---------------- instance buffers
-  prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);
+  // detailed buildings: the level of detail follows the camera (re-picked when it has moved 4 m, or when houses changed)
+  kitInst(B){const cp=Cam.pos||[0,0,0],lp=this.kitCP;if(!this.uploaded)this.kitDirty=true;if(!this.kitDirty&&lp&&Math.hypot(cp[0]-lp[0],cp[1]-lp[1],cp[2]-lp[2])<4)return;this.kitDirty=false;this.kitCP=[cp[0],cp[1],cp[2]];
+    const KB={};for(const t of KIT_TYPES)for(let l=0;l<3;l++)KB[t+l]=[];
+    for(const h of this.houses){const def=R.houseDefs[h.v];if(!def.kit||h.shop||(h.bank&&h.village&&h.village.bankOwned)||!this.houseOn(h))continue;const d=Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]);if(d>2400)continue;KB[def.kit+(d<110?0:d<350?1:2)].push(h);}
+    for(const t of KIT_TYPES)for(let l=0;l<3;l++){const L=KB[t+l],a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}},
+  prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
     if(!this.uploaded){this.uploaded=true;
       for(let v=0;v<R.houseDefs.length;v++){if(R.houseDefs[v].kit){R.inst('house'+v,B(0),0);continue;}const L=this.houses.filter(h=>h.v===v&&!h.shop&&!(h.bank&&h.village&&h.village.bankOwned)&&this.houseOn(h)),a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('house'+v,a,L.length);}
-      {const cp=Cam.pos||[0,0,0],KB={};for(const t of KIT_TYPES)for(let l=0;l<3;l++)KB[t+l]=[];
-        for(const h of this.houses){const def=R.houseDefs[h.v];if(!def.kit||h.shop||(h.bank&&h.village&&h.village.bankOwned)||!this.houseOn(h))continue;const d=Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]);if(d>2200)continue;KB[def.kit+(d<60?0:d<180?1:2)].push(h);}
-        for(const t of KIT_TYPES)for(let l=0;l<3;l++){const L=KB[t+l],a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}}
       const M=this.mills.filter(m=>!m.gone),mb=B(M.length);M.forEach((m,i)=>mb.set([m.x,m.y,m.z,1,m.rot,0.5,m.hash,0],i*8));R.inst('millBody',mb,M.length);
       const Lm=this.lamps.filter(l=>!l.gone&&!(l.vil&&(l.lvl|0)>(l.vil.level|0))),lb=B(Lm.length);Lm.forEach((l,i)=>lb.set([l.x,l.y,l.z,1,0,0.5,l.hash,0],i*8));R.inst('lamps',lb,Lm.length);
       {const SH={bakery:[],restaurant:[]};for(const h of this.houses)if(h.shop&&this.houseOn(h))SH[h.shop].push(h);for(const k in SH){const L=SH[k],b=B(L.length);L.forEach((h,i)=>b.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst(k==='bakery'?'bakeries':'restaurants',b,L.length);}

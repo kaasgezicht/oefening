@@ -15,7 +15,8 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   - 1: no shingles; roofs are painted rows (material 20); stone walls are painted courses (material 21); parts under 0.12 m dropped;
   - 2: only parts over about 0.9 m, a 4x2 roof grid.
   - Sizes: cottage 99.6k/12.9k/2.0k, shop 93.9k/9.1k/1.7k, farmhouse 114.8k/16.2k/4.1k, tavern 156.6k/15.3k/2.5k triangles.
-  - Distances: under 60 m LOD0, under 180 m LOD1, under 2200 m LOD2. The shadow pass draws one level coarser.
+  - Distances: under 110 m LOD0, under 350 m LOD1, under 2400 m LOD2, re-picked in `Life.kitInst` whenever the camera has moved 4 m or the houses changed. (It used to be picked only when the village data was rebuilt, so houses kept the level they had at load.) The shadow pass draws one level coarser.
+  - On the user's phone: 65 fps at 2.19M triangles.
 - **Memory and start-up**: vertices packed to 32 bytes (48 MB for all 12 meshes); built at start-up in ~1–3 s on desktop.
 - **Renderer**: `R.pKit` (VS_KIT/FS_KIT) reuses `KIT.GLSL.MATS` (bump and weathering; weathering heights use local y). It has its own toon light from the game's sun, sky ambient, shadows and cloud shadow, plus snow, fog and windows that glow at night. `R.drawKit(pass)` runs after `Life.draw`.
 - **Villages**: house variants 0 and 5 are cottages, 1 shops, 2 farmhouses, 4 the tavern on the square (3, the church, keeps the old mesh).
