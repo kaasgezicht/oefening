@@ -1,4 +1,4 @@
-# Trein handoff 48 (7 Nov 2026): v3.1.1, ground shadow fix and varied grass (on top of the building kit of handoff 47)
+# Trein handoff 49 (7 Nov 2026): v3.2.0, organic village growth while playing, streams fixed (on top of 3.1.1 and the building kit)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -12,19 +12,19 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 
-### Latest (3.1.1, 7 Nov) and open questions to the user
-- **Fixed: dark blotches on open ground.** The shadow pass drew the terrain at half resolution (`if(pass===1)lod=Math.max(lod,1)` in `R.drawTerrain`). In hollows (stream channels, road cuts) the coarse shadow terrain lay above the visible ground and shadowed it: 16 m triangle-shaped blobs with hatched edges, changing with camera distance. Now both passes use the same detail (about +1% triangles). Reproduced and checked at 8 km / 8 m cells.
-- **Grass colour variation** (`grassVar`, Look tab, default 1, 0 = old look) in `FS_TERRAIN`: regions lush or dry (0.5–1.5 km noise), sun-facing slopes drier, wet ground and forest edges lusher, a warm/cool hue drift (230 m), warped meadow patches (~34 m), and dark clumps (2.3 m) plus straw flecks (0.75 m) that fade out by `fwidth` so they don't shimmer. Autumn strengthens it; straw is off in winter.
-- **Asked the user, not started**: how villages should grow (see "Village growth review"), which people activities come first and how detailed people should be.
-
-### Village growth review (7 Nov)
-- **Now**: each village is planned in full at world generation: two straight crossing streets (plus two side lanes when R > 60), a round square, church and inn on its corners, then house slots every 8–12 m sorted by distance from the street middle. The first 35% are hamlet houses (`lvl` 0), the next 35% village (1), the rest town (2); side lanes are village level. Growth points (0/100/300) switch levels, and a third of the houses appear at once.
-- **Why it feels wrong**: houses pop in batches; the layout is a symmetric cross that ignores terrain, the station and the country roads; no new streets appear; nothing is built gradually.
-- **Proposal (organic)**: plan a village by simulating its growth at generation (deterministic, so saves stay small): start at the crossroads or along the main road; each new house picks the best free plot (near the centre, along used roads, toward the station and neighbouring villages, flat and dry); infill first, then extend street ends along roads (ribbon growth), then branch new lanes that follow the contours when frontage runs out. Reveal houses one by one as points arrive, with a short building phase (foundation, frame, roof). Re-plan the unbuilt part when a station or road is built nearby.
-
-### People review (7 Nov)
-- **Now**: one small low-poly `person` mesh; states stroll/home/toStation/wait/board/leave; strollers walk straight lines between random house gates and street points (through gardens and fences).
-- **Proposal**: walk on the street network and garden paths; daily routines by time of day: gardening (kneel at the beds, hoe, water, wheelbarrow), a postman on a round of gates, shopkeepers and market stalls, children playing on the square, chatting pairs and benches, washing on the line, dog walkers, the tavern in the evening. More detailed people up close (head, hair or hat, arms and legs that swing, clothes, children and the elderly) with an LOD.
+### Latest (3.2.0, 7 Nov)
+- **User's answers (7 Nov)**: villages grow live, reacting to stations and roads (option B); people: all activities in one go, a little toy-like but with normal detailed clothing, with LOD; order villages, then people. Also asked: fix streams (done), fix buses (not yet), remodel the church in the kit style (not yet). Long start-up is fine.
+- **Next steps, in order**: (1) church in the kit (render for approval first), (2) people (routines + detailed toy people with LOD, walk on streets/paths), (3) buses (stop list with leg/round distances, bus list button, lane driving, queuing).
+- **Streams (3.2.0)**: `R.buildStreams` rounds the D8 path with two Chaikin passes, resamples every ~3 m and splits it into pieces of 48 points with a bounding box (`R.stPieces`; `R.drawStreams` culls by frustum and 3 km and merges neighbouring pieces into one draw). `VS_STREAM` puts every vertex on the terrain triangle that is drawn there: per-chunk LOD in `uCL[64]` (from `R.chunkLod`, shared with `R.drawTerrain`), same grid step and diagonal as `gridMesh`, `cornerH`; lift 5 cm + 0.5 mm/m. Plots, house circles and village squares keep off streams (`Life.sgrid`, `streamNear`, `streamHitsRect`; only perennial streams, not rain rills).
+- **Villages (3.2.0)**, all in `Life`:
+  - Generation: square, then `layWay` lays the main street (two arms) and a side street in 10 m steps toward the flattest way (stops at water, track, plots, other streets 20 m away, the square); church and inn on the square as before (`h.fixed`); then a hamlet of `n0` houses (3–5 × villageSize^1.2) by the same `growHouse` used while playing; `v.R0` = planned radius.
+  - `growHouse`: candidates every 2.5 m on both sides of all streets and roads within `maxD = R0·(1.1+0.06·houses)+50` (village lanes, country/station/industry/player roads, so houses ribbon along roads). Score: nearness to the square, attractors (`attractors`: station 0.9, bus stops 0.5, country-road starts 0.3, exp(−d/70)), neighbours (infill), village lanes +0.25, jitter. Type by distance (`zoneType`: shops near the square, cottages, farms outside). Each plot is tried at 3 set-backs; `fitsRect` (method now) checks plots, terrain fall < 5 m, water, track, streets (1 m), squares, streams.
+  - `newLane` when no plot fits: carry a street on or branch at right angles (not within 28 m of the square), toward the strongest attractor; at most 2 lanes in a row without a house (`v.idleLanes`), then wait 90 s.
+  - While playing (`updateGrowth`, every 1.5 s): `wantHouses = n0 + gp/8` (cap n0 + 30·villageSize^1.3); up to `ceil(missing/4)` (1–4) sites at once; a site takes 55 s (farm 75 s) in three stages drawn with `siteMesh(0..2)` (foundation, planks, sand; timber frame, scaffold, ladder; rafters and topping-out bough) plus 2–3 builders in `sitePeople`. `houseOn` = `plotOn` and `prog>=1`; garden paths use `plotOn`.
+  - Live edits are local: `flattenLive` → `R.patchTerrain` (heights, normals, chunk bounds for the patch only), `R.clearVegRect` (trees/rocks in the plot), `R.addRoadPieces` (garden path stamped into the kept road distance field `R.roadD/R.roadK`, patch upload). New lanes trigger a full `rebuildRoads` (bridges). About 10–45 ms per new house on the 8 km world.
+  - Saving: each village keeps `v.log` (`['w',width,...pts]`, `['h',x,z,rot,type,hash]`), saved in the snapshot and replayed in order on load (`replayVillage`, skipping entries that no longer fit). Checked: 35 houses before and after a reload.
+  - Village panel shows "(n being built)".
+- **Known**: the bakery/restaurant/bank-house assignment only takes houses with r ≤ 6.5 m, so no detailed house can become one (as in 3.1.x; the bank upgrade can't appear). Fix with the people/shops work.
 
 ### How the user works
 - Ask clarifying questions before long code. Split big requests into steps; they test each step before the next.
