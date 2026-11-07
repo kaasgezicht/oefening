@@ -8,17 +8,22 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - Keep each reply small: earlier long replies were cut off.
 - Add a setting whenever something is uncertain.
 
-## In progress: building kit in the game, with gardens and LODs (user asked 2026-11; gardens and fences MUST be kept)
-Plan:
-1. **Embed** `buildings/kit.js` + cottage, tavern, farmhouse and shop in `trein.html`. In game mode, each model sets `K.plot={x0,x1,z0,z1}` (local metres, front is -z = street side). Kit builders drop triangles, tufts, trees and patches whose centre falls outside the plot, so the far ground plane, lane and trees go automatically while gardens and fences stay.
-2. **LOD from the same model code** (`K.lod`):
-   - 0: everything;
-   - 1: no individual shingles or stones (the deck and walls paint them in the shader), no grass blades or flowers, small parts dropped;
-   - 2: only large parts.
-   Build 4 types x 3 LODs at startup.
-3. **Renderer**: `R.pKit` (VS_KIT/FS_KIT): the kit materials (bump, weathering) with game lighting (uSunCol/uSunDir/ambient/cloudSh/shadowAt), fog (fogc), snow (uWx.w) and night windows (uMisc.x). Own VAO (16 floats + instance attributes 4/5). Drawn in both passes, with instances per type and LOD by distance (`R.inst('kit_<type>_<lod>')`).
-4. **Villages**: variants 0/5 cottage, 1 shop, 2 farmhouse, 4 tavern (3 church keeps the old mesh). Placement uses plot rectangles (SAT against other plots), checks streets and slope, flattens the whole plot and clears trees and fields. The house's front path starts at the plot gate.
-5. Then: ink lines (stencil + depth edge pass), tests, handoff, push.
+## Done: building kit in the game (with gardens, fences and LODs)
+- **Embedding**: `tools/embed_buildings.py` copies `buildings/kit.js` and the models into `trein.html` between the `/*@@BUILDINGS@@*/` markers. Edit `buildings/*.js`, then re-run it.
+- **Game mode**: `K.plot` (`KIT.plots[type]`, local rect, front -z) keeps everything on the plot (gardens, fences, beds, props, fence-line tufts). It drops the render surroundings: boxes over 20 m, anything centred outside the plot, and `K.grass` lawns.
+- **LOD from the same model code** (`K.lod`):
+  - 1: no shingles; roofs are painted rows (material 20); stone walls are painted courses (material 21); parts under 0.12 m dropped;
+  - 2: only parts over about 0.9 m, a 4x2 roof grid.
+  - Sizes: cottage 99.6k/12.9k/2.0k, shop 93.9k/9.1k/1.7k, farmhouse 114.8k/16.2k/4.1k, tavern 156.6k/15.3k/2.5k triangles.
+  - Distances: under 60 m LOD0, under 180 m LOD1, under 2200 m LOD2. The shadow pass draws one level coarser.
+- **Memory and start-up**: vertices packed to 32 bytes (48 MB for all 12 meshes); built at start-up in ~1–3 s on desktop.
+- **Renderer**: `R.pKit` (VS_KIT/FS_KIT) reuses `KIT.GLSL.MATS` (bump and weathering; weathering heights use local y). It has its own toon light from the game's sun, sky ambient, shadows and cloud shadow, plus snow, fog and windows that glow at night. `R.drawKit(pass)` runs after `Life.draw`.
+- **Villages**: house variants 0 and 5 are cottages, 1 shops, 2 farmhouses, 4 the tavern on the square (3, the church, keeps the old mesh).
+  - Placement uses oriented plot rectangles: SAT against other plots, street samples within 2 m, the square, slope under 5 m, water and track.
+  - `flatRect` levels the whole plot; the house front path starts at the garden gate (`KIT_GATE`); chimney smoke uses `KIT_CHIM`.
+  - Street slots are denser (8–12 m) because plots are wide.
+- **Village view cost**: about 1.4–1.9M triangles, including the shadow pass. Check fps on the Pixel 9a. If it's too slow, pull the LOD distances in or make LOD1 cheaper.
+- **Next**: ink lines in the game (stencil-mask the kit pixels, then a depth/normal edge pass); a church in the kit; the remaining sheet buildings (forge, guardhouse, mill, warehouse, windmill); then run 2 (buses, people).
 
 ## Building kit (detailed house types, Nov 2026)
 The user approved the style: cel-shaded diorama, rustic and weathered. References are their 9-building sheet (forge, cozy cottage, merchant's shop, tavern, farmhouse, guardhouse, mill, warehouse, windmill).
