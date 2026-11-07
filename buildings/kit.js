@@ -11,7 +11,7 @@ const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]
 K.v={add,sub,mul,dot,cross,len,norm,neg,clamp,lerp,mix3,rot};
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646;},rr=(a,b)=>a+(b-a)*rnd(),pick=a=>a[(rnd()*a.length)|0];
 K.rnd=rnd;K.rr=rr;K.pick=pick;
-K.M={paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19};
+K.M={paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22};
 K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],glow:[1,0.8,0.5],iron:[0.2,0.19,0.19],
   stone:[[0.72,0.66,0.57],[0.64,0.6,0.54],[0.76,0.7,0.6],[0.6,0.55,0.48],[0.7,0.62,0.52],[0.66,0.64,0.6]],
   shingle:[[0.66,0.47,0.3],[0.6,0.42,0.27],[0.72,0.53,0.34],[0.55,0.4,0.28],[0.62,0.5,0.38]],
@@ -49,8 +49,8 @@ function ico(c,r,col,m,o){o=o||{};if(K.plot&&outP(c[0],c[2]))return;if((K.lod>=1
 function blade(x,z,h,col,lean,ang,y0){if(K.lod>=1||(K.plot&&outP(x,z)))return;y0=y0||0.02;const w=rr(0.012,0.022),d=[Math.cos(ang),0,Math.sin(ang)],p=[-d[2],0,d[0]];const b0=[x+p[0]*w,y0,z+p[2]*w],b1=[x-p[0]*w,y0,z-p[2]*w],tp=[x+d[0]*lean,y0+h,z+d[2]*lean];
   pv(b0,[0,1,0],col,13,[-1,-1],[w,h/2],0);pv(b1,[0,1,0],col,13,[1,-1],[w,h/2],0);pv(tp,[0,1,0],col,13,[0,1],[w,h/2],0);}
 function tuft(x,z,n,h,y0){const c=pick([[0.32,0.5,0.18],[0.42,0.58,0.22],[0.36,0.54,0.2],[0.5,0.6,0.25]]);for(let k=0;k<n;k++){const a=rnd()*6.283;blade(x+Math.cos(a)*0.03,z+Math.sin(a)*0.03,h*rr(0.6,1.2),c,rr(0.03,0.12),a,y0);}}
-function flower(x,y,z,col,h){if(K.lod>=1||(K.plot&&outP(x,z)))return;cyl([x,y,z],[x+rr(-0.02,0.02),y+h,z+rr(-0.02,0.02)],0.008,0.006,4,[0.3,0.48,0.2],13);ico([x,y+h+0.02,z],rr(0.045,0.065),col,1,{sy:0.7});
-  for(let k=0;k<2;k++){const a=rnd()*6.28;ico([x+Math.cos(a)*0.05,y+h*0.35,z+Math.sin(a)*0.05],0.04,[0.28,0.5,0.2],1,{sy:0.5});}}
+function flower(x,y,z,col,h){if(K.lod>=1||(K.plot&&outP(x,z)))return;K.aux=0.6;/* annual: gone in winter */cyl([x,y,z],[x+rr(-0.02,0.02),y+h,z+rr(-0.02,0.02)],0.008,0.006,4,[0.3,0.48,0.2],13);ico([x,y+h+0.02,z],rr(0.045,0.065),col,1,{sy:0.7});
+  for(let k=0;k<2;k++){const a=rnd()*6.28;ico([x+Math.cos(a)*0.05,y+h*0.35,z+Math.sin(a)*0.05],0.04,[0.28,0.5,0.2],1,{sy:0.5});}K.aux=0;}
 Object.assign(K,{pv,quad,tri,box,B,beam,cyl,ico,blade,tuft,flower});
 // ---- wall faces: o = point on the wall plane, n = outward normal, t = the face's u axis, half = half width
 K.face=(o,n,t,half)=>({o,n,t,half});
@@ -131,8 +131,8 @@ K.chimney=function(s){const lean=y=>y>s.bt+0.35?[(y-s.bt-0.35)*(s.lean?s.lean[0]
   for(const dz of s.pots||[-0.18,0.2]){const p=[ucx+lt[0],top+0.12,ucz+lt[1]+dz];cyl(p,add(p,[0,0.42,0]),0.13,0.11,12,[0.68,0.38,0.25],0,[0.08,0.06,0.05],0,undefined,true);cyl(add(p,[0,0.38,0]),add(p,[0,0.46,0]),0.14,0.14,12,[0.62,0.34,0.22],0,null,0,undefined,true);}};
 // ---- props and plants
 K.tree=function(x,z,s,o){o=o||{};if(K.plot&&outP(x,z))return;cyl([x,0,z],[x+0.12*s,2.2*s,z+0.05*s],0.22*s,0.14*s,9,[0.42,0.34,0.27],15);for(const [dx,dz] of [[0.9,0.3],[-0.8,-0.3],[0.1,-0.8]])cyl([x+0.1*s,1.8*s,z],[x+dx*s,2.9*s,z+dz*s],0.09*s,0.05*s,6,[0.42,0.34,0.27],15);
-  for(const [dx,dy,dz,r] of [[0,3.3,0,1.5],[0.95,3.0,0.35,1.1],[-0.9,3.05,-0.3,1.15],[0.1,4.0,0.1,1.0],[-0.3,3.4,0.9,0.9]])ico([x+dx*s,dy*s,z+dz*s],r*s,mix3([0.26,0.48,0.2],[0.36,0.58,0.26],rnd()),1,{detail:2,jit:0.12});
-  if(o.apples)for(let k=0;k<24;k++){const a=rnd()*6.28,el=rr(-0.2,0.9),r=1.45*s;ico([x+Math.cos(a)*Math.cos(el)*r,3.2*s+Math.sin(el)*r*0.85,z+Math.sin(a)*Math.cos(el)*r],0.07,[0.85,0.18,0.14],0,{detail:1});}
+  K.aux=0.9;/* deciduous canopy: the game turns it in autumn and drops it in winter */for(const [dx,dy,dz,r] of [[0,3.3,0,1.5],[0.95,3.0,0.35,1.1],[-0.9,3.05,-0.3,1.15],[0.1,4.0,0.1,1.0],[-0.3,3.4,0.9,0.9]])ico([x+dx*s,dy*s,z+dz*s],r*s,mix3([0.26,0.48,0.2],[0.36,0.58,0.26],rnd()),1,{detail:2,jit:0.12});
+  if(o.apples)for(let k=0;k<24;k++){const a=rnd()*6.28,el=rr(-0.2,0.9),r=1.45*s;ico([x+Math.cos(a)*Math.cos(el)*r,3.2*s+Math.sin(el)*r*0.85,z+Math.sin(a)*Math.cos(el)*r],0.07,[0.85,0.18,0.14],0,{detail:1});}K.aux=0;
   for(let k=0;k<12;k++){const a=rnd()*6.28,d=rr(0.3,0.9);tuft(x+Math.cos(a)*d,z+Math.sin(a)*d,7,rr(0.2,0.45));}};
 K.bush=function(x,z,r,col,bloom){ico([x,r*0.75,z],r,col||[0.26,0.48,0.2],1,{detail:2,sy:0.85,jit:0.12});if(bloom)for(let k=0;k<6;k++){const a=rnd()*6.28,el=rr(0.1,1.0);ico([x+Math.cos(a)*Math.cos(el)*r,r*0.75+Math.sin(el)*r*0.85,z+Math.sin(a)*Math.cos(el)*r],0.1,pick(bloom),1,{detail:1,jit:0.3});}};
 K.barrel=function(x,z,r,h,o){o=o||{};const st=14,y0=o.y||0,w=[0.5,0.35,0.22];if(o.lying){const d=[Math.cos(o.ry||0),0,Math.sin(o.ry||0)],c=[x,y0+r,z],p0=sub(c,mul(d,h/2)),p1=add(c,mul(d,h/2)),m=mul(add(p0,p1),0.5);
@@ -151,7 +151,7 @@ K.dirt=function(x,z,r){for(let k=0;k<7;k++){const a=rnd()*6.28,d=rr(0,r*0.6),rk=
 K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};if(K.plot&&outP(x,z))return;const N=o.n||40,ph=rr(0,6.28),R=a=>0.82+0.12*Math.sin(a*3+ph)+0.07*Math.sin(a*7+ph*2)+0.05*Math.sin(a*13+ph*3)+rr(-0.03,0.03),y0=y||0.01;const pts=[];
   for(let k=0;k<N;k++){const a=k/N*6.283,r=R(a);pts.push([Math.cos(a)*rx*r,Math.sin(a)*rz*r]);}const sd=rnd();
   for(let k=0;k<N;k++){const p=pts[k],q=pts[(k+1)%N];pv([x,y0,z],[0,1,0],col,mat,[0,0],[rx,rz],sd);pv([x+q[0],y0,z+q[1]],[0,1,0],col,mat,[q[0]/rx,q[1]/rz],[rx,rz],sd);pv([x+p[0],y0,z+p[1]],[0,1,0],col,mat,[p[0]/rx,p[1]/rz],[rx,rz],sd);}};
-K.plots={cottage:{x0:-7.75,x1:7.75,z0:-9.45,z1:7.8},tavern:{x0:-8.9,x1:8.8,z0:-13.1,z1:6.2},farmhouse:{x0:-12.9,x1:10.9,z0:-13.2,z1:6.6},shop:{x0:-6.6,x1:9.3,z0:-10.0,z1:6.0}};
+K.plots={church:{x0:-12.6,x1:12.6,z0:-14.5,z1:12.6},cottage:{x0:-7.75,x1:7.75,z0:-9.45,z1:7.8},tavern:{x0:-8.9,x1:8.8,z0:-13.1,z1:6.2},farmhouse:{x0:-12.9,x1:10.9,z0:-13.2,z1:6.6},shop:{x0:-6.6,x1:9.3,z0:-10.0,z1:6.0}};
 K.build=function(name,opt){VB.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
 
 // ================= GL =================
@@ -178,6 +178,9 @@ float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*vn(p);p=p*2.03+vec2(
 float voro(vec2 p){vec2 i=floor(p),f=fract(p);float d=9.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o=vec2(x,y);vec2 r=o+vec2(h2(i+o),h2(i+o+17.3))-f;d=min(d,dot(r,r));}return sqrt(d);}
 vec3 voro2(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.;vec2 id=vec2(0);for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o=vec2(x,y);vec2 r=o+vec2(h2(i+o),h2(i+o+17.3))*.85-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=i+o;}else if(d<d2)d2=d;}return vec3(sqrt(d1),sqrt(d2)-sqrt(d1),h2(id+3.1));}`;
 const MATS=`vec3 gN;
+// stained glass: irregular jewel-coloured pieces in lead cames, a lead border at the face edge (material 22)
+vec3 stainedC(vec2 q){vec3 v=voro2(q/.12+vSeed*7.);float id=v.z;vec3 c=id<.2?vec3(.78,.1,.12):id<.4?vec3(.12,.22,.72):id<.56?vec3(.95,.7,.12):id<.7?vec3(.16,.55,.24):id<.84?vec3(.52,.18,.62):vec3(.9,.86,.72);
+  c*=.75+.45*h2(vec2(id*91.,3.));float lead=max(smoothstep(.06,.02,v.y),smoothstep(.035,.0,min(vHS.x-abs(q.x),vHS.y-abs(q.y))));return mix(c,vec3(.05,.045,.04),lead);}
 float edgeD(vec2 q){vec2 e=vHS-abs(q);return min(e.x,e.y);}
 vec3 roofRC(){vec3 th=normalize(cross(vec3(0,1,0),gN)+vec3(1e-4,0,0));float r=floor(vW.y/.17),f=fract(vW.y/.17),su=dot(vW,th)/(.27+.1*h2(vec2(r,5.)))+r*.5;return vec3(r,f,su);}
 float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
@@ -264,6 +267,7 @@ void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN
   else if(m==2){vec2 u=vUV;vec3 inn=mix(vec3(1.,.55,.22),vec3(1.,.84,.52),smoothstep(-1.,.7,u.y))*1.25;float cur=smoothstep(.48,.6,abs(u.x));inn=mix(inn,vec3(.7,.22,.16)*(.75+.25*sin(u.x*38.))*1.2,cur*.9);
     inn=mix(inn,vec3(.5,.3,.18),smoothstep(-.55,-.85,u.y)*.6);float refl=smoothstep(.1,1.,u.y)*.3+smoothstep(.07,0.,abs(u.x+u.y*.6-.25))*.35;col=inn+vec3(.75,.85,.95)*refl*.5;col*=1.-smoothstep(.75,1.,max(abs(u.x),abs(u.y)))*.4;inkW=.7;}
   else if(m==3){col=vC*1.6;inkW=.6;}
+  else if(m==22){vec3 sg=stainedC(q);vec3 Rf=reflect(-V,Ng);col=sg*(.32+.25*max(dot(Ng,uL),0.))+mix(uGnd,uSky,clamp(Rf.y*1.5,0.,1.))*.18;inkW=.7;}
   else{float ramp=smoothstep(-.03,.16,ndl)*.6+smoothstep(.38,.6,ndl)*.4;float lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,ndg);
     float cav=m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
     col=alb*(uSun*lit+mix(uGnd,uSky,Nd.y*.5+.5)*cav);if(m==9||m==10||m==17)inkW=0.;else if(m==4||m==8||m==18)inkW=.5;else if(m==19)inkW=.35;}
