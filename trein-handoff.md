@@ -1,4 +1,4 @@
-# Trein handoff 52 (7 Nov 2026): v3.4.0, villagers with routines and detailed people, lakeside roads, shore foam, culverts that work
+# Trein handoff 53 (7 Nov 2026): v3.5.0, buses with stop lists, a bus list, road-network driving, lanes and queuing
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -12,14 +12,25 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 
-### Latest (3.4.0, 7 Nov)
+### Latest (3.5.0, 7 Nov)
+- **Buses and lorries** (`Buses`, `BusUI`):
+  - Each vehicle has `b.stops` (stop ids, driving order) and `b.allStops` (new stops join it until it is edited); default order = nearest-neighbour tour; buses skip cargo bays. `Buses.cur(b)` replaces the old global `stops[leg % n]` (also in `Crane.lorry`).
+  - Road graph `Buses.graph()` from `Life.roads` (not garden paths or squares): points every <= 8 m, shared points merged (1.5 m), loose road ends joined to the nearest other road within 7 m; rebuilt after `rebuildRoads`. `roadPath` = heap Dijkstra; fallback `Life.routePath` over the land (shown "off the roads").
+  - Lane: road line rounded once, 0.9 m to the right; pulls in 1.15 m at the stop. Speed limited by braking for the stop, bends (heading change over the next 14 m) and the vehicle ahead in the lane (same direction, within 1.8 m sideways: stop at 9.5 m centre to centre, smooth braking before); ties at the same spot go to the lower id; a new vehicle starts 10 m behind those at its first stop; a dwelling bus waits if one is pulling out right in front.
+  - Buses and lorries drawn at 0.75 scale (7.5 m village bus) so they fit village lanes.
+  - Bus list: Build → Roads → "Bus list": every vehicle with status (at/to/waiting behind), passengers, Go to, Stops editor (order, road distance from the stop before, round length, ↑ ↓ ✕, add a stop, remove the vehicle).
+  - Saved: `buses.list` (name, goods, stops, allStops); old saves (count only) still load as buses over all stops.
+  - Checked (2 km world): 3 buses on one route for 10 simulated minutes: 100% of driving samples on roads, never closer than 9.5 m in the same lane, 42 legs, passengers carried; panel reorder/remove and the save round trip; a lorry loads wood at a sawmill bay and drives its legs; the four regression suites pass.
+- **Next ideas**: shops/bank assignment for kit houses; benches (sitting pose exists); right-of-way at junctions (vehicles crossing at an angle do not wait for each other yet).
+
+### Earlier (3.4.0, 7 Nov)
 - **User (7 Nov, after 3.3.1)**: lakeside paths got chains of bridges; people lay in the lake; shore foam blocky; "pipes not implemented" (two brown boxes, water ran over the street); asked to test every feature properly; update the people as asked before. They asked whether to raise the effort setting: the real fix is scenario testing (each fix is now checked in-game in the situation the user showed, at 2 km and the default 8 km world).
 - **Lakes**: `Life.lakeAt/nearLake/awayFromLake`: `routePath` output and `layWay` steps keep 3 m from drawn lake water; `findBridges` never bridges a wet run that is lake (river bridges near lake mouths stay). Beach visitors only where no water is drawn within 1 m (search up to 30 m inland). Checked at 8 km: 0 lake-edge bridges, 3 of 11769 road points within 2 m of lake water, 0 of 30 beach people in water.
 - **Water depth** (`FS_WATER`): depth now from the depth copy (view-ray thickness x vertical), so shallows and foam follow the drawn ground, not the bilinear height (that made 8 m squares). Shore foam = distance to the waterline (depth / bottom slope from derivatives) under 1.6 m, broken by a moving lace, plus a faint line at the edge.
 - **Culverts**: stream vertices carry a pipe flag (stride 32, attribute 2); FS_STREAM discards where the interpolated flag > 0.5, i.e. exactly half-way between an open and a piped point, where the headwall stands. The mouth is a kit model (`KIT.models.culvert` in buildings/bridge.js; KIT_TYPES 'culvert'; LOD 90/300 m): fieldstone headwall with a real round hole, dark pipe, dressed ring, coping, wing walls, apron. Only plots, garden paths and squares hide streams now; village streets crossing streams get stone bridges again. Checked: water runs into the pipe; a lane over a stream shows a stone bridge.
 - **People**: `peopleMesh(kind)` for PEOPLE = man, woman, child (0.62 scale, bigger head), elder (grey hair, stick), post (blue coat, cap, satchel), gard (straw hat, hoe), gardw (watering can), sweep (broom); `peopleFarMesh` beyond 80 m. Object kind 22: material = palette + 10*part; VS_OBJ bends knees/hips/shoulders and leans by pose (iB.y*10: 0 walk/stand, 1 kneel, 2 hoe, 3 water, 4 sweep, 5 talk, 6 sit, 7 run/jump, 8 hammer; iB.w = gait speed); FS_OBJ palettes (tunic, trousers/skirt, skin, hair, hat/scarf, shoes, apron, leather). All people (walkers, beach, market, bus stops, builders, villagers) go through `put` in `Life.prepare`.
 - **Daily life** (`Life.updateVillagers`, villages within 900 m of the focus): gardeners at `KIT_WORK` spots per house type for ~2.3 h a day (not in rain/winter), sweepers at the gate 7–9.5 h, chatting groups on the square/streets 8.5–19.5 h, children playing tag on the square (or the end of the green) 10–18.5 h, an evening crowd at the inn 18–23 h, and the postman's round 8–11.5 h (nearest gate first, along `vpath`, 2.5 s at each gate). Strollers and walkers going home follow `vpath` on the street graph (`vgraph`: lane points, junctions within 9 m, a foot node per garden path, gate nodes). Checked: 95% of walker samples on streets/paths/squares (rest: junction short cuts); the station tests still pass (board_check: 10 boarded).
-- **Next**: buses (stop list with distances, bus list, lane driving, queuing); shops/bank assignment for kit houses; benches for sitting people (pose 6 exists but nothing uses it yet).
+- **Next (done in 3.5.0: buses)**: shops/bank assignment for kit houses; benches for sitting people (pose 6 exists but nothing uses it yet).
 
 ### Earlier (3.3.1, 7 Nov)
 - **User (7 Nov, after 3.3.0)**: bridges had no detail; pipes worked badly; streams looked bad (should look like the lakes); tiled streets unrealistic, sand paths preferred.
