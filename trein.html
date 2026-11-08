@@ -47,6 +47,8 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 .ld-r i b{display:block;height:100%;background:linear-gradient(90deg,#7fbf6a,#c6ff9e);transition:width .25s}.ld-r i b.full{background:linear-gradient(90deg,#e9a24a,#ffd27a)}.ld-r em{font-style:normal;font-size:11px;color:#cdbf9f;min-width:38px;text-align:right}.ld-n{font-size:10px;color:#9fdf8a;margin:-1px 0 2px 20px}
 .ldchip{position:fixed;transform:translate(-50%,-100%);pointer-events:none;z-index:7;background:#15191ad9;border:1px solid #c9a14a66;border-radius:9px;padding:3px 7px;color:#f1e7d0;font:600 11px system-ui;white-space:nowrap;display:flex;gap:6px;align-items:center}
 .ldchip b{font:700 11px Georgia,serif;color:#e9c870}.ldchip .none{color:#9f957e;font-weight:500}
+#busy{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;background:#15191af2;border:1px solid #c9a14a99;border-radius:14px;padding:9px 16px;color:#f3e9cf;font:600 14px system-ui;box-shadow:0 6px 18px #000a;pointer-events:none}
+#busy[hidden]{display:none}#busy span{white-space:nowrap}#busy .spin{flex:none;width:18px;height:18px;border-radius:50%;border:3px solid #c9a14a44;border-top-color:#f3d98a;will-change:transform;animation:busySpin .8s linear infinite}@keyframes busySpin{to{transform:rotate(360deg)}}
 #vPanel{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);width:min(92vw,420px);background:#15191af2;border:1px solid #c9a14a80;border-radius:16px;padding:12px 14px;color:#f1e7d0;font:500 14px system-ui;z-index:20;box-shadow:0 8px 24px #000a}#vPanel .vp-h{display:flex;justify-content:space-between;align-items:center}#vPanel .vp-h b{font:700 20px Georgia,serif;color:#f3d98a;margin-right:8px}#vPanel .vp-row{margin:6px 0}#vPanel .vp-bar{height:8px;border-radius:5px;background:#2b3a32;overflow:hidden;margin:4px 0 10px}#vPanel .vp-bar i{display:block;height:100%;background:linear-gradient(90deg,#7fc96b,#e9c870)}#vPanel .vp-tools{display:flex;gap:6px;flex-wrap:wrap}#vPanel .vp-farm{margin:8px 0;padding:8px 10px;border-radius:10px;background:#20302a;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#vPanel .vp-farm.av{background:#3b3518;border:1px solid #e9c870}#vPanel .vp-farm.on{background:#1f3a24}
 .vl-up{display:flex;align-items:center;gap:4px;margin-top:3px;width:100%;min-width:74px}.vl-up em{font-style:normal;font-size:11px;line-height:1;filter:saturate(.8)}.vl-up i{flex:1;height:5px;border-radius:3px;background:#ffffff26;overflow:hidden}
 .vl-up s{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#7fbf6a,#c6ff9e);transition:width .8s ease}.vl-up.ready s{background:linear-gradient(90deg,#e9c870,#fff0a8);box-shadow:0 0 8px #ffe08a;animation:vlready 1.4s infinite alternate}@keyframes vlready{from{opacity:.75}to{opacity:1}}
@@ -190,6 +192,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
   <nav id="tabs"></nav>
   <div id="sections"></div>
 </section>
+<div id="busy" role="status" hidden><i class="spin"></i><span id="busyText">Updating…</span></div>
 <div id="prog" role="status"><div id="progLabel">Starting</div><div class="bar"><i id="progBar"></i></div></div>
 <div id="toast" role="status"></div>
 <div id="err" hidden><div><h3>Trein could not start</h3><p id="errMsg"></p><p class="hint">Export the debug log and send it over so the cause can be fixed.</p><button id="errLog">Export debug log</button></div></div>
@@ -201,7 +204,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='3.6.0 (load indicators and seats, meandering gorges, smoother grass, lake fix, fewer stalls)';
+const VERSION='3.6.1 (busy card while rebuilding, track bed never buried)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -760,6 +763,11 @@ const BusUI={open:false,ed:null,
 // ---- load at a glance: a train standing at a station shows how full it is (seats, and each cargo kind in its wagons), running up and down
 // as people board and goods are loaded; every station near the camera shows what is still waiting there (people and goods)
 const SEATS=24,GOOD_IC={grain:'🌾',produce:'🥕',mail:'✉️',wood:'🪵',gold:'🥇',silver:'🥈',diamond:'💎'};
+// ---- "busy" card for work that holds the game for a moment (rebuilding roads and bridges after a village grows, laying out a station):
+// shown first, the work runs two frames later so the card is on screen; its spinner is a CSS transform animation, which keeps turning
+// on the compositor while the script is busy
+const Busy={n:0,run(text,fn){const el=$('#busy');if(el){$('#busyText').textContent=text||'Updating…';el.hidden=false;}this.n++;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{try{fn();}catch(e){Log.err('busy task failed: '+e);}finally{if(--this.n<=0){this.n=0;const e2=$('#busy');if(e2)e2.hidden=true;}}}));}};
 const LoadUI={tr:new Map(),st:new Map(),
   bar(ic,n,cap,full){const f=cap>0?clamp(n/cap,0,1):0;return`<div class="ld-r"><span>${ic}</span><i><b style="width:${(f*100).toFixed(0)}%" class="${f>0.98?'full':''}"></b></i><em>${Math.round(n)}/${cap}</em></div>`;},
   tick(dt){const show=App.T&&!Build.active,cp=Cam.pos||[0,0,0],live=new Set();
@@ -3906,6 +3914,8 @@ function tunnelContinues(seg,atEnd){const nid=atEnd?seg.b:seg.a;for(const o of T
 // ---- earthworks (deterministic from the track list)
 function carveTrack(T){
   const N=T.N,cs=T.cs,H=T.H;const mask=T.trackMask||(T.trackMask=new Uint8Array(N*N));mask.fill(0);const hole=T.hole||(T.hole=new Uint8Array(N*N));hole.fill(0);const tun=T.tunMask||(T.tunMask=new Uint8Array(N*N));tun.fill(0);
+  // bed level by cell (formation height at the nearest track point, for cells near open track): the drawn-bed pass digs by height above it
+  const bedY=T.bedY||(T.bedY=new Float32Array(N*N));bedY.fill(NaN);const bedD=T.bedD||(T.bedD=new Float32Array(N*N));bedD.fill(1e9);
   const hw=P.formationWidth/2+cs*0.6,emb=P.embSlope,cut=P.cutSlope,reach=70;
   for(const s of Track.segs){
     let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(let i=0;i<=40;i++){const p=segPoint(s,s.L*i/40);x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
@@ -3922,7 +3932,7 @@ function carveTrack(T){
           if(yc>H[k]){const w=clamp((20-d)/(20-(pt?8.5:5)),0,1);H[k]+=Math.min(yc-H[k],14)*w*w*(3-2*w);}const tv=Math.round(255*clamp(1-(d-12)/8,0,1));if(tv>tun[k])tun[k]=tv;}
         continue;}
       if(sp&&sp[2]==='b'){if(d<hw+3&&mask[k]<25)mask[k]=25;continue;}
-      const yF=segY(s,tc)-FORMATION_DROP;
+      const yF=segY(s,tc)-FORMATION_DROP;if(d<bedD[k]&&d<hw+16){bedD[k]=d;bedY[k]=yF;}
       if(d<=hw){H[k]=yF;mask[k]=255;}
       else{const dd=d-hw;H[k]=clamp(H[k],yF-dd*emb,yF+dd*cut);const m=Math.round(255*clamp(1-dd/3,0,1));if(m>mask[k])mask[k]=m;}}
   }
@@ -3942,7 +3952,7 @@ function buildTrackMesh(segs,xray){
   const quad=(a,b,c,d,nm,mat,uv,X)=>{const vv=X?XV:V,ii=X?XI:I,base=X?xn:n;
     for(const [p,u,v] of [[a,uv[0],uv[1]],[b,uv[2],uv[1]],[c,uv[2],uv[3]],[d,uv[0],uv[3]]])vv.push(p[0],p[1],p[2],nm[0],nm[1],nm[2],u,v,mat);
     ii.push(base,base+1,base+2,base,base+2,base+3);if(X)xn+=4;else n+=4;};
-  const prof=[[-2.7,-1.4],[-1.8,-0.36],[1.8,-0.36],[2.7,-1.4]];
+  const prof=[[-3.8,-2.66],[-1.8,-0.36],[1.8,-0.36],[3.8,-2.66]];// shoulders run on below the formation, so ground dug away beside the bed shows a gravel slope, not a gap
   const gr=(x,z)=>T?sampleH(T,x,z):0;
   const Wp=(q,la,dy)=>[q.x-Math.sin(q.h)*la,q.y+dy,q.z+Math.cos(q.h)*la];
   const lat=(q,e)=>[-Math.sin(q.h)*e,0,Math.cos(q.h)*e];
@@ -3952,7 +3962,9 @@ function buildTrackMesh(segs,xray){
     for(let i=0;i<cnt;i++){const a=st[i],b=st[i+1],sp=spanAt(s,(a.t+b.t)/2),inT=!!(sp&&sp[2]==='t'),X=xray&&inT;
       for(let f=0;f<3;f++){const l0=prof[f],l1=prof[f+1],dy=l1[1]-l0[1],dl=l1[0]-l0[0],nl=Math.hypot(dy,dl);
         const nm=f===1?[0,1,0]:[-Math.sin(a.h)*(-dy/nl),dl/nl,Math.cos(a.h)*(-dy/nl)];
-        quad(Wp(a,l0[0],l0[1]),Wp(a,l1[0],l1[1]),Wp(b,l1[0],l1[1]),Wp(b,l0[0],l0[1]),nm,0,[l0[0]*0.5,a.t*0.5,l1[0]*0.5,b.t*0.5]);}
+        // the foot of each shoulder reaches down into the drawn ground where that lies lower (dug cuttings), so no edge ever floats
+        const foot=(p,f0)=>{if(f0&&T&&T.Hr&&!sp){const g=R.drawnH(T,p[0],p[2])-0.25;if(g<p[1])p[1]=g;}return p;};
+        quad(foot(Wp(a,l0[0],l0[1]),f===0),foot(Wp(a,l1[0],l1[1]),f===2),foot(Wp(b,l1[0],l1[1]),f===2),foot(Wp(b,l0[0],l0[1]),f===0),nm,0,[l0[0]*0.5,a.t*0.5,l1[0]*0.5,b.t*0.5]);}
       for(const side of [-1,1]){const c=side*(GAUGE/2+0.035);
         quad(Wp(a,c-0.035,0),Wp(a,c+0.035,0),Wp(b,c+0.035,0),Wp(b,c-0.035,0),[0,1,0],2,[0,a.t,1,b.t],X);
         for(const e of [-1,1])quad(Wp(a,c+e*0.035,0),Wp(a,c+e*0.035,-0.17),Wp(b,c+e*0.035,-0.17),Wp(b,c+e*0.035,0),lat(a,e),2,[0,a.t,0.3,b.t]);}
@@ -5757,7 +5769,7 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
   // ---------------- village growth: growth points → levels (hamlet, village, town); a level reveals more of the planned village
   LEVELS:[{name:'Hamlet',need:0},{name:'Village',need:100},{name:'Town',need:300}],
   addGrowth(v,pts){v.gp=(v.gp||0)+pts;let lv=0;for(let k=0;k<this.LEVELS.length;k++)if(v.gp>=this.LEVELS[k].need)lv=k;if(lv!==(v.level|0)){const up=lv>(v.level|0);v.level=lv;this.uploaded=false;this.roadsDirty=true;this.applyCulverts([v.x-v.R-40,v.z-v.R-40,v.x+v.R+40,v.z+v.R+40]);
-      UI.toast(up?`${v.name} grew into a ${this.LEVELS[lv].name.toLowerCase()}!`:`${v.name} is now a ${this.LEVELS[lv].name.toLowerCase()}`);}VillageUI.refresh(v);},
+      this.busyText=`${v.name} is growing: laying out new streets…`;UI.toast(up?`${v.name} grew into a ${this.LEVELS[lv].name.toLowerCase()}!`:`${v.name} is now a ${this.LEVELS[lv].name.toLowerCase()}`);}VillageUI.refresh(v);},
   growNow(v){const nx=Math.min((v.level|0)+1,this.LEVELS.length-1);if(nx===(v.level|0)){UI.toast(`${v.name} is already a town`);return;}this.addGrowth(v,this.LEVELS[nx].need-(v.gp||0));},
   nearestVillage(x,z,maxD){let best=null,bd=maxD||380;for(const v of this.villages){const d=Math.hypot(v.x-x,v.z-z);if(d<bd){bd=d;best=v;}}return best;},
   // ---------------- per frame
@@ -5782,7 +5794,7 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
       if(this.isLake(nx,nz)){b.x=nx;b.z=nz;}else{b.tx=b.x;b.tz=b.z;}}
     // windmills turn their caps into the wind, sails speed up with it
     const wa=P.windDir*Math.PI/180,ws=Weather.eff().wind;for(const m of this.mills){m.rot=lerpAng(m.rot,wa+Math.PI,dt*0.15);m.ang+=dt*(0.25+ws*0.9)*(m.gone?0:1);}
-    this.updateGrowth(dt);this.updateWalkers(dt,A);this.updateVillagers(dt,A);this.updateFarm(dt);this.updateSnowWork(dt,A);this.updateLeaves(dt);this.updateSteamers(dt);this.updateBalloons(dt);this.updateBeaches(dt,A);Buses.update(dt);if(this.pendingV&&this.villages.length){this.pendingV.forEach((q,i)=>{const v=this.villages[i];if(v){v.gp=q.gp;v.level=q.level;v.farmOwned=!!q.farm;v.sawOwned=!!q.saw;v.mineOwned=!!q.mine;v.bankOwned=!!q.bank;v.docksOwned=!!q.docks;v.trans=q.trans||0;if(q.log&&q.log.length)this.replayVillage(v,q.log);}});this.pendingV=null;this.applyCulverts(null);R.uploadFields(this.T);this.farm.season=null;this.uploaded=false;this.roadsDirty=true;}this.updateSkaters(dt,A);this.updateSledding(dt,A);if(this.roadsDirty){this.roadsDirty=false;this.xingDirty=false;this.rebuildRoads();}else if(this.xingDirty){this.xingDirty=false;this.rebuildCrossings();}this.updateCrossings(dt);this.updateFlocks(dt,A);this.smoke(dt,A);},
+    this.updateGrowth(dt);this.updateWalkers(dt,A);this.updateVillagers(dt,A);this.updateFarm(dt);this.updateSnowWork(dt,A);this.updateLeaves(dt);this.updateSteamers(dt);this.updateBalloons(dt);this.updateBeaches(dt,A);Buses.update(dt);if(this.pendingV&&this.villages.length){this.pendingV.forEach((q,i)=>{const v=this.villages[i];if(v){v.gp=q.gp;v.level=q.level;v.farmOwned=!!q.farm;v.sawOwned=!!q.saw;v.mineOwned=!!q.mine;v.bankOwned=!!q.bank;v.docksOwned=!!q.docks;v.trans=q.trans||0;if(q.log&&q.log.length)this.replayVillage(v,q.log);}});this.pendingV=null;this.applyCulverts(null);R.uploadFields(this.T);this.farm.season=null;this.uploaded=false;this.roadsDirty=true;}this.updateSkaters(dt,A);this.updateSledding(dt,A);if(this.roadsDirty&&!this.roadsBusy){this.roadsBusy=true;Busy.run(this.busyText||'Updating roads and bridges…',()=>{this.roadsDirty=false;this.xingDirty=false;this.busyText=null;try{this.rebuildRoads();}finally{this.roadsBusy=false;}});}else if(this.xingDirty){this.xingDirty=false;this.rebuildCrossings();}this.updateCrossings(dt);this.updateFlocks(dt,A);this.smoke(dt,A);},
   // ---------------- station roads: A* over a 5 m grid (slope-weighted, around water and houses), smoothed
   routeRoad(a,v){let best=null,bd=1e9;for(const s of v.streets||[]){const ex=s[2]-s[0],ez=s[3]-s[1],ll=ex*ex+ez*ez||1,t=clamp(((a[0]-s[0])*ex+(a[1]-s[1])*ez)/ll,0.05,0.95),x=s[0]+ex*t,z=s[1]+ez*t,d=Math.hypot(x-a[0],z-a[1]);if(d<bd){bd=d;best=[x,z];}}
     if(!best||bd<8)return null;return this.routePath(a,best,{cs:5,margin:90,bridge:true,wind:0.25});},
@@ -6446,7 +6458,40 @@ R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr|
       if(M&&M[n]>0)k=Math.max(k,M[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.25));if(Wt&&Wt[n*4+3]>0)k=Math.max(k,1-Math.max(Math.abs(di),Math.abs(dj))*0.3);if(TM&&TM[n]>0)k=Math.max(k,TM[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.2));}
     keep[j*N+i]=k;}
   const flat=T.flatMask;for(let n=0;n<N*N;n++){const w=s*(1-keep[n]);T.Hr[n]=flat&&flat[n]&&keep[n]<0.05?T.flatH[n]:H[n]+(S[n]-H[n])*w;}
+  R.clearTrackBed(T);
 };
+// The ground is drawn from corner heights (each the mean of the 4 cells around it) in triangles one cell (8 m) wide, so near a cutting
+// the drawn surface between the bed cells and the raised cells beside them can rise over the ballast even though every bed cell is at
+// formation level. This pass checks the drawn surface exactly as the GPU builds it, on a dense grid along every piece of open track,
+// and digs the corners of any triangle that pokes above the ballast down until it clears (render heights only, never raised).
+// drawn ground height exactly as the GPU builds it at full detail (corner means of the render heights, two triangles per cell)
+R.drawnH=function(T,x,z){const N=T.N,cs=T.cs,Hr=T.Hr||T.H,hAt=(i,j)=>Hr[clamp(j,0,N-1)*N+clamp(i,0,N-1)],cH=(gx,gz)=>0.25*(hAt(gx-1,gz-1)+hAt(gx,gz-1)+hAt(gx-1,gz)+hAt(gx,gz));
+  const fx=x/cs,fz=z/cs,i=Math.floor(fx),j=Math.floor(fz),u=fx-i,v=fz-j;if(u+v<=1){const a=cH(i,j);return a+(cH(i+1,j)-a)*u+(cH(i,j+1)-a)*v;}const d=cH(i+1,j+1);return d+(cH(i,j+1)-d)*(1-u)+(cH(i+1,j)-d)*(1-v);};
+R.trackBedAllowed=(e)=>{const a=Math.abs(e);return a<=1.6?0.2:Math.min(0.2,0.36-(a-1.8)*1.15+0.12);};// above formation level, by offset from the centre line
+R.clearTrackBed=function(T,segs){const N=T.N,cs=T.cs,Hr=T.Hr;if(!Hr||typeof Track==='undefined')return 0;segs=segs||Track.segs;if(!segs.length)return 0;
+  const hAt=(i,j)=>Hr[clamp(j,0,N-1)*N+clamp(i,0,N-1)],cH=(gx,gz)=>0.25*(hAt(gx-1,gz-1)+hAt(gx,gz-1)+hAt(gx-1,gz)+hAt(gx,gz));
+  // a corner is the mean of 4 cells: take the height off the cells that stand highest above their own bed level first (the cutting side),
+  // so the bed cells it shares with its neighbours stay put, also on a steep grade where the uphill bed cells are simply higher
+  const BY=T.bedY,ex4=new Float32Array(4),ks=[0,0,0,0];
+  const lower=(gx,gz,d)=>{let m=0,refS=0,refN=0;for(const [i,j] of [[gx-1,gz-1],[gx,gz-1],[gx-1,gz],[gx,gz]]){const k=clamp(j,0,N-1)*N+clamp(i,0,N-1);ks[m++]=k;if(BY&&BY[k]===BY[k]){refS+=BY[k];refN++;}}
+    const ref0=refN?refS/refN:0;for(let q=0;q<4;q++){const k=ks[q],r=BY&&BY[k]===BY[k]?BY[k]:refN?ref0:Hr[k];ex4[q]=Hr[k]-r;}
+    // water-filling: find the level L of "height above bed" so that cutting everything above L down to it removes 4·d
+    let need=d*4,lo=-50,hi=50;for(let q=0;q<4;q++)hi=Math.max(hi,ex4[q]);for(let it=0;it<30;it++){const L=(lo+hi)/2;let take=0;for(let q=0;q<4;q++)take+=Math.max(0,ex4[q]-L);if(take>need)lo=L;else hi=L;}
+    for(let q=0;q<4;q++){const c=Math.max(0,ex4[q]-hi);Hr[ks[q]]-=c;}};
+  const pts=[];for(const s of segs){if(s.pend)continue;const step=Math.min(1,cs/8);for(let t=0;t<=s.L+1e-6;t+=step){const tc=Math.min(t,s.L),sp=spanAt(s,tc);if(sp)continue;
+      // near a tunnel mouth the portal block covers the ground; leave that to the portal carve
+      if(s.spans&&s.spans.some(q=>q[2]==='t'&&tc>q[0]-6&&tc<q[1]+6))continue;const q=segPoint(s,tc),yF=segY(s,tc)-FORMATION_DROP,c=-Math.sin(q[2]),sn=Math.cos(q[2]);
+      for(let e=-2.4;e<=2.41;e+=0.4)pts.push(q[0]+c*e,q[1]+sn*e,yF+R.trackBedAllowed(e));}}
+  const t0=performance.now();let dug=0,pass=0;for(;pass<8;pass++){let bad=0;
+    for(let k=0;k<pts.length;k+=3){const fx=pts[k]/cs,fz=pts[k+1]/cs,i=Math.floor(fx),j=Math.floor(fz),u=fx-i,v=fz-j;if(i<0||j<0||i>=N||j>=N)continue;
+      const a=cH(i,j),b=cH(i+1,j),c=cH(i,j+1),d=cH(i+1,j+1);let y,tri;
+      if(u+v<=1){y=a+(b-a)*u+(c-a)*v;tri=[[i,j,1-u-v],[i+1,j,u],[i,j+1,v]];}else{y=d+(c-d)*(1-u)+(b-d)*(1-v);tri=[[i+1,j+1,u+v-1],[i,j+1,1-u],[i+1,j,1-v]];}
+      // clear this point by lowering the corners that stand above its allowed height, the biggest contributor first, and never below that
+      // height: the corners out in the cutting come down, corners already on the bed stay, and nothing is dug deeper than the bed needs
+      const A=pts[k+2]-0.02;let ex=y-A;if(ex>0.025){bad++;for(const t of tri)t.push(cH(t[0],t[1]));tri.sort((p,q)=>q[2]*(q[3]-A)-p[2]*(p[3]-A));
+        for(const [gx,gz,w,h] of tri){if(ex<=0)break;if(w<1e-3||h<=A)continue;const r=Math.min(h-A,ex/w);lower(gx,gz,r);ex-=w*r;dug+=r;}}}
+    if(!bad)break;}
+  if(dug>0)Log.info(`track bed: drawn ground dug down along the track (${pass} passes, ${pts.length/3} points, ${(performance.now()-t0).toFixed(0)} ms)`);return dug;};
 R.sampleHr=(T,x,z)=>sampleH(T,x,z,T.Hr||T.H);
 // water surface for drawing: the flat level is carried a few cells onto the bank (where the ground stands above it),
 // so the shoreline is cut by the ground contour instead of a 4 m staircase of sloping edge triangles
@@ -7155,7 +7200,7 @@ async function boot(){
     if(saved)UI.toast(recovered?'Recovered after a graphics reset':'Restored your last save');
   }catch(e){Log.err('boot failed: '+(e.stack||e));$('#err').hidden=false;$('#errMsg').textContent=String(e.message||e);UI.progress(false);}
 }
-window.TREIN={P,PDEF,Cam,R,App,Log,Stats,Track,Build,Trains,Drive,Sfx,Particles,Life,Weather,Music,Net,Clouds,Input,TouchLog};
+window.TREIN={P,PDEF,Cam,R,App,Log,Stats,Track,Build,Trains,Drive,Sfx,Particles,Life,Weather,Music,Net,Clouds,Input,TouchLog,segPoint,segY,spanAt,segNearest,sampleH};
 boot();
 </script>
 </body></html>
