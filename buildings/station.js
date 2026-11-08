@@ -23,6 +23,9 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
     cyl([x,y0+h+0.42,z],[x,y0+h+0.62,z],0.24,0.03,4,IRON,11);cyl([x,y0+h-0.02,z],[x,y0+h+0.03,z],0.2,0.2,4,IRON,11);};
   // lantern hanging from the canopy beam on a rod
   P.lantern=(x,y,z,yTop)=>{cyl([x,yTop,z],[x,y+0.3,z],0.015,0.015,4,IRON,11);B(x,y,z,0.26,0.36,0.26,[1,0.86,0.55],3);for(const e of [-1,1])for(const e2 of [-1,1])B(x+e*0.13,y,z+e2*0.13,0.03,0.4,0.03,IRON,11);cyl([x,y+0.18,z],[x,y+0.36,z],0.2,0.03,4,IRON,11);B(x,y-0.2,z,0.12,0.05,0.12,IRON,11);};
+  // stone steps from the ground (y -0.2) up to a door at floor level PY in a back wall at z zb (door centre x)
+  P.steps=(x,zb)=>{const n=4,hh=(PY+0.2)/n;for(let k=0;k<n;k++){const d=(n-k)*0.32;B(x,-0.2+hh*(k+0.5),zb+d/2,2.2-k*0.1,hh,d,pick(STONE2),8);}
+    for(const e of [-1,1])B(x+e*1.2,(PY-0.2)/2+0.05,zb+0.7,0.22,PY+0.3,1.4,STONE,8);};
   // bench: wooden slats on cast iron ends, facing -z (dir 1) or +z (dir -1)
   P.bench=(x,y0,z,len,dir)=>{dir=dir||1;for(const dz of [-0.13,0,0.13])B(x,y0+0.45,z+dz*dir,len,0.04,0.11,WOOD,6);for(const dy of [0.66,0.8])B(x,y0+dy,z+0.22*dir,len,0.09,0.035,WOOD,6);
     for(const e of [-1,1]){const ex=x+e*(len/2-0.12);B(ex,y0+0.22,z,0.06,0.44,0.42,IRON,11);B(ex,y0+0.6,z+0.2*dir,0.06,0.5,0.06,IRON,11);B(ex,y0+0.5,z-0.02*dir,0.06,0.05,0.44,IRON,11);}};
@@ -108,15 +111,15 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
     if(K.lod>=2)return;const st=K.lod?0.9:0.42,n=Math.max(2,Math.round(L/st));for(let k=0;k<n;k++){const p0=add(a,mul(sub(b,a),k/n)),p1=add(a,mul(sub(b,a),(k+1)/n));beam(p0,add(p1,[0,hgt,0]),side,0.035,0.02,IRON,11);beam(add(p0,[0,hgt,0]),p1,side,0.035,0.02,IRON,11);
       if(k%4===0)beam(p0,add(p0,[0,hgt,0]),side,0.05,0.05,IRON,11);}};
   // footbridge over the line at x xa..xb (deck at yd), from the platform (z zp) to a landing beyond the far side (z zf); stairs run toward -x
-  P.footbridge=(xa,xb,zp,zf,yd,stairL)=>{const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
+  P.footbridge=(xa,xb,zp,zf,yd,stairL,farY)=>{farY=farY===undefined?-0.2:farY;const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
     // span: deck, two lattice sides, roof-less
     B(xm,yd-0.08,(zp+zf)/2,w,0.16,zp-zf,[0.32,0.3,0.28],12);B(xm,yd-0.3,(zp+zf)/2,w-0.2,0.3,zp-zf,IRON,11);
     for(const x of [xa+0.05,xb-0.05])P.lattice([x,yd,zf],[x,yd,zp],hh);
     // towers: four iron columns under each end with a lamp on top of the corner posts
-    for(const z of [zp-0.4,zf+0.4])for(const x of [xa+0.1,xb-0.1]){const yb=z>0?PY:-0.2;cyl([x,yb,z],[x,yd,z],0.1,0.1,8,IRON,11);cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
+    for(const z of [zp-0.4,zf+0.4])for(const x of [xa+0.1,xb-0.1]){const yb=z>0?PY:farY;cyl([x,yb,z],[x,yd,z],0.1,0.1,8,IRON,11);cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
     P.lamp(xb-0.1,yd+hh+0.3,zp-0.4,0.9);P.lamp(xb-0.1,yd+hh+0.3,zf+0.4,0.9);
     // stairs: platform side (z zp-1.2..zp) from (xa-stairL, PY) to (xa, yd); far side same at zf..zf+1.2 down to ground
-    for(const [zz0,zz1,yb] of [[zp-1.25,zp-0.05,PY],[zf+0.05,zf+1.25,-0.2]]){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
+    for(const [zz0,zz1,yb] of [[zp-1.25,zp-0.05,PY],[zf+0.05,zf+1.25,farY]]){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
       for(let k=0;k<n;k++){const x=x0+run*(k+0.5),y=yb+(yd-yb)*(k+1)/n;B(x,y-0.03,(zz0+zz1)/2,run+0.02,0.06,zz1-zz0,[0.34,0.32,0.3],12);if(K.lod<1)B(x+run/2-0.01,y-0.12,(zz0+zz1)/2,0.03,0.18,zz1-zz0,IRON,11);}
       for(const z of [zz0,zz1]){beam([x0,yb,z],[xa,yd,z],[0,0,1],0.22,0.06,IRON,11);P.lattice([x0,yb+0.05,z],[xa,yd+0.05,z],0.95);}
       // landing at the top joins the span; a post at the foot
@@ -159,7 +162,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.arch(cg.F.front,-0.62,G1+0.5,1.0,2.6,{});P.arch(cg.F.front,0.62,G1+0.5,1.0,2.6,{});fb(cg.F.front,0,G1+0.4,0.08,2.8,0.16,0.22,STONE,8);
     P.arch(cg.F.front,0,G2+1.0,0.7,1.3,{nv:7});
     for(const u of [-4.3,4.3]){P.arch(main.F.front,u,PY+0.8,1.0,2.3);P.arch(main.F.front,u,G1+0.6,0.9,2.1);}
-    for(const u of [-3.5,0,3.5]){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    for(const u of [-3.5,3.5])P.arch(main.F.back,u,PY+0.8,1.0,2.3);for(const u of [-3.5,0,3.5])P.arch(main.F.back,u,G1+0.6,0.9,2.1);P.door(main.F.back,0,PY,1.6,2.9);P.steps(0,12.4);
     for(const f of [main.F.right])for(const u of [-1.6,1.6]){P.arch(f,u,PY+0.8,1.0,2.3);P.arch(f,u,G1+0.6,0.9,2.1);}
     P.arch(main.F.right,0,G2+0.6,0.8,1.6,{nv:7});P.arch(main.F.left,0,G2+0.6,0.8,1.6,{nv:7});
     P.chimney(-3.6,10.6,G2,G2+6.4,0.9,0.7,3);P.chimney(3.8,7.6,G2,G2+6.0,0.9,0.7,2);
@@ -176,7 +179,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     for(const x of [-7.6,7.6])P.bench(x,PY,5.2,1.9,1);P.bench(-2.0+11.0,PY,5.2,1.8,1);
     for(const x of [-4.5,4.0,-12.6])P.planter(x,PY,5.25,0.32);
     P.cart(-1.0,PY,3.6,0.08);P.notice(-16.6,PY,5.3);P.wall(-21.5,-15.2,5.55,PY);
-    for(const x of [-18.2,13.0])P.lamp(x,PY,4.6,3.2);for(const x of [-9,0,6])P.lantern(x,PY+2.7,3.9,PY+3.6);
+    P.lamp(-18.2,PY,4.6,3.2);P.lamp(13.0,PY,2.75,3.2);for(const x of [-9,0,6])P.lantern(x,PY+2.7,3.9,PY+3.6);
     // name boards: on the canopy end and on a pair of posts at the platform end
     {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.05,2.6,0.48);}
     {const f=K.face([-19.2,0,4.4],[0,0,-1],[1,0,0],1);for(const e of [-1.2,1.2])B(-19.2+e,PY+1.1,4.45,0.09,2.2,0.09,IRON,11);P.board(f,0,PY+2.0,2.7,0.55);}
@@ -188,7 +191,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.arch(g1.F.front,-0.66,G1+0.5,1.05,2.9);P.arch(g1.F.front,0.66,G1+0.5,1.05,2.9);fb(g1.F.front,0,G1+0.4,0.08,3.0,0.16,0.22,STONE,8);P.arch(g1.F.front,0,G2+1.4,0.8,1.5,{nv:7});
     const g3=crossGable(10.2,1.8,5.8,9.6,G2+0.7,3.2,{band:G1});P.arch(g3.F.front,0,PY+0.8,1.1,2.4);P.arch(g3.F.front,0,G1+0.6,1.0,2.4);P.arch(g3.F.front,0,G2+0.9,0.6,1.2,{nv:7});
     for(const u of [-12.2,-2.0,6.6,12.6]){P.arch(main.F.front,u,PY+0.8,1.0,2.4);P.arch(main.F.front,u,G1+0.6,0.95,2.2);}
-    for(let u=-12;u<=12;u+=3){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    for(let u=-12;u<=12;u+=3){if(Math.abs(u-6.8)>1.5)P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}P.door(main.F.back,6.8,PY,1.7,3.0);P.steps(-6.8,13.4);
     // dormers with pinnacles on the front slope
     for(const x of [-1.2,6.0]){const zf=6.6,y0=G2+0.9;P.block(x-0.8,x+0.8,zf,zf+1.6,y0-0.6,y0+1.5,{faces:[]});const rf=P.roof([x,zf+0.8],[0,1],0.8,0.8,y0+1.5,1.0,{ends:[-1],nx:6,ov:0.15,gov:0.15});
       const f=K.face([x,0,zf],[0,0,-1],[1,0,0],0.8);P.gable(f,0.8,y0+1.5,y0+2.5);P.barge(rf,-1,{spike:0.9});P.arch(f,0,y0-0.1,0.6,1.3,{nv:7});
@@ -222,15 +225,14 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.clock(clockX,PY+3.1,cn.cz+0.1,0.42);beam([clockX,PY+3.65,cn.cz+0.1],[clockX,cn.H-0.12,cn.cz+0.1],[1,0,0],0.06,0.06,IRON,11);
     for(const x of [-15.6,-11.0,3.0,7.4])P.bench(x,PY,5.2,1.9,1);for(const x of [-13.2,-9.0,0.6,5.6,9.4])P.planter(x,PY,5.25,0.32);
     P.cart(-3.6,PY,3.6,-0.06);P.cart(8.6,PY,3.7,0.12);
-    for(const x of [14.6])P.lamp(x,PY,4.6,3.2);for(const x of [-17,-8,1,9])P.lantern(x,PY+2.8,3.9,PY+3.75);
+    P.lamp(14.6,PY,2.75,3.2);for(const x of [-17,-8,1,9])P.lantern(x,PY+2.8,3.9,PY+3.75);
     {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.2,2.8,0.5);}
 
   }
-  P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0);
   // ground behind the building: a gravel forecourt strip and a few shrubs
   if(K.lod<2){const zb=town?13.4:12.4;for(let k=0;k<(town?10:6);k++){const x=rr(town?-20:-12,town?18:8),z=zb+rr(0.6,1.6);ico([x,0.1,z],rr(0.35,0.6),mix3([0.2,0.36,0.14],[0.32,0.46,0.2],rnd()),1,{detail:1,sy:0.8,jit:0.3});}}
   // preview only: rails, ballast, ground and the platform pieces under the station
-  if(!opt.game){const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
+  if(!opt.game){P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0,-0.2);const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
     B(0,-0.55,0,2*L,0.36,3.6,[0.55,0.52,0.48],10);for(const e of [-1,1])B(0,-0.08,e*0.72,2*L,0.15,0.07,[0.45,0.4,0.36],11);for(let x=-L;x<L;x+=0.62)B(x,-0.28,0,0.24,0.12,2.5,[0.36,0.24,0.15],6);
     B(0,-0.7,8,2*L+6,0.2,36,[0.36,0.5,0.24],9);}
   return town?{target:[0,7.5,4],dist:72,dir:[-0.55,0.45,-0.7],shadowC:[0,6,4],shadowR:42,haze:[90,220]}:{target:[2,5.5,4],dist:52,dir:[-0.55,0.45,-0.7],shadowC:[0,5,4],shadowR:30,haze:[70,180]};}
@@ -238,15 +240,43 @@ function mix3(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2
 
 // ---------------- platform pieces (4.1 m, centred on x): v 0 plain, 1 with a lamp, 2 with a back railing, 3 railing + lamp + bench + planter
 KIT.platPiece=function(K,x,v){const {B,cyl}=K,P=kitOf(K);const L=4.1;
-  B(x,-0.1,3.66,L,2.08,4.08,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
-  B(x,0.965,3.82,L,0.07,3.76,PAVE,24);// paving (bricks laid flat)
+  const zb=v===0?6.5:5.7;// plain pieces (along the building) reach under its front wall, so a curved platform leaves no gap
+  B(x,-0.1,(1.62+zb)/2,L,2.08,zb-1.62,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
+  B(x,0.965,(1.94+zb)/2,L,0.07,zb-1.94,PAVE,24);// paving (bricks laid flat)
   B(x,0.95,1.74,L,0.13,0.5,STONE,8);B(x,1.018,1.56,L,0.008,0.14,[0.95,0.93,0.86],0);// coping with a white edge line
   if(v===1||v===3)P.lamp(x+0.2,PY,5.15,3.2);
   if(v>=2){for(const xx of [x-L/2+0.06,x])B(xx,PY+0.55,5.6,0.08,1.1,0.08,IRON,11);for(const yy of [0.5,1.05])B(x,PY+yy,5.6,L,0.04,0.04,IRON,11);
     if(K.lod<1)for(let xx=x-L/2+0.2;xx<x+L/2;xx+=0.2)B(xx,PY+0.55,5.6,0.018,1.0,0.018,IRON,11);}
   if(v===3){P.bench(x-1.0,PY,5.05,1.7,1);P.planter(x+1.2,PY,5.15,0.28);}};
+// platform end ramp (4.1 m): paving slopes from platform height down to the ground, brick side walls, a handrail on the back edge;
+// a: falls toward +x, b: toward -x
+KIT.platRamp=function(K,dir){const {B,quad,tri}=K,P=kitOf(K),L=4.1,y1=PY+0.02,y0=-0.16,X=u=>u*dir;// u from -L/2 (top) to L/2 (bottom)
+  const top=(u,z)=>[X(u),y1+(y0-y1)*(u+L/2)/L,z];quad(top(-L/2,1.5),top(-L/2,5.7),top(L/2,5.7),top(L/2,1.5),null,PAVE,24);
+  for(const z of [1.5,5.7]){const a=top(-L/2,z),b=top(L/2,z),c=[X(L/2),-1.0,z],d=[X(-L/2),-1.0,z];quad(a,b,c,d,null,z<3?BRICK:BRICK2,24);quad(b,a,d,c,null,BRICK,24);}
+  quad(top(-L/2,1.5),top(L/2,1.5),top(L/2,1.62),top(-L/2,1.62),null,STONE,8);
+  for(const u of [-L/2+0.1,0,L/2-0.1]){const p=top(u,5.55);B(p[0],p[1]+0.5,p[2],0.07,1.0,0.07,IRON,11);}const a=top(-L/2,5.55),b=top(L/2,5.55);K.beam([a[0],a[1]+1.0,a[2]],[b[0],b[1]+1.0,b[2]],[0,0,1],0.05,0.05,IRON,11);};
+KIT.models.platEa=function(K,opt){KIT.platRamp(K,1);return{target:[0,0.5,3.5],dist:10,dir:[-0.55,0.45,-0.7]};};
+KIT.models.platEb=function(K,opt){KIT.platRamp(K,-1);return{target:[0,0.5,3.5],dist:10,dir:[-0.55,0.45,-0.7]};};
+// waiting shelter on a second platform: brick back wall and short side walls, a slate lean-to roof on iron posts with a valance,
+// a bench along the back wall, a lamp, a timetable board; 7 m along x, on the platform (z 3.3..5.7)
+KIT.models.shelter=function(K,opt){const {B,quad,cyl,beam}=K,P=kitOf(K),x0=-3.5,x1=3.5,zb=5.7,zf=3.5,yb=PY+3.25,yf=PY+2.75;
+  B(0,PY+1.6,zb-0.15,x1-x0,3.2,0.3,BRICK,24);for(const x of [x0,x1])B(x,PY+1.4,(zb+zf+0.6)/2,0.3,2.8,zb-zf-0.6,BRICK,24);
+  B(0,PY+0.15,zb-0.15,x1-x0+0.06,0.3,0.36,STONE,8);for(const x of [x0,x1])B(x,PY+2.86,(zb+zf+0.6)/2,0.36,0.1,zb-zf-0.5,STONE,8);
+  for(const x of [-2.4,0,2.4])B(x,PY+2.1,zb-0.31,1.1,0.9,0.02,K.C.glow,2);
+  const r=(x,z,y)=>[x,y,z];quad(r(x0-0.3,zf-0.3,yf-0.05),r(x1+0.3,zf-0.3,yf-0.05),r(x1+0.3,zb+0.15,yb+0.05),r(x0-0.3,zb+0.15,yb+0.05),null,[0.3,0.32,0.37],18);
+  quad(r(x1+0.3,zf-0.3,yf-0.15),r(x0-0.3,zf-0.3,yf-0.15),r(x0-0.3,zb+0.15,yb-0.1),r(x1+0.3,zb+0.15,yb-0.1),null,[0.4,0.29,0.19],12);
+  for(const x of [x0+0.2,0,x1-0.2]){cyl([x,PY,zf],[x,yf-0.15,zf],0.06,0.05,8,IRON,11);}beam([x0-0.3,yf-0.2,zf],[x1+0.3,yf-0.2,zf],[0,1,0],0.14,0.1,IRON,11);
+  if(K.lod<1)for(let x=x0-0.25;x<x1+0.3;x+=0.26){quad([x-0.11,yf-0.2,zf-0.32],[x+0.11,yf-0.2,zf-0.32],[x+0.11,yf-0.45,zf-0.32],[x-0.11,yf-0.45,zf-0.32],[0,0,-1],CREAM,0);K.tri([x-0.11,yf-0.45,zf-0.32],[x+0.11,yf-0.45,zf-0.32],[x,yf-0.6,zf-0.32],CREAM,0);}
+  P.bench(-1.4,PY,zb-0.7,2.2,1);P.bench(1.4,PY,zb-0.7,2.2,1);P.lantern(0,PY+2.2,zf+0.4,yf-0.2);
+  {const f=K.face([x1+0.16,0,4.6],[1,0,0],[0,0,1],0.5);f;B(x1+0.17,PY+1.6,4.6,0.02,0.8,0.6,[0.92,0.9,0.8],0);}
+  if(!opt.game){KIT.platPiece(K,-2.05,2);KIT.platPiece(K,2.05,2);}
+  return{target:[0,2,4],dist:14,dir:[-0.55,0.45,-0.7]};};
+// footbridge over the line, its own piece so its far end can land on the ground (fbG) or on a second platform (fbP); span x -1.1..1.1
+KIT.models.fbG=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,-0.2);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
+KIT.models.fbP=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,PY);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
+KIT.FB={station:[17.4,19.6],stationTown:[20.0,22.2]};
 for(const v of [0,1,2,3])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
 KIT.models.station=function(K,opt){return build(K,opt,false);};
 KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
-Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6}});
+Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbG:{x0:-9,x1:2,z0:-11,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});
 })();

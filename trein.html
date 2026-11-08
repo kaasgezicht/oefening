@@ -49,6 +49,7 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 .ldchip b{font:700 11px Georgia,serif;color:#e9c870}.ldchip .none{color:#9f957e;font-weight:500}
 #stArrows{position:fixed;left:0;top:0;width:0;height:0;z-index:14}#stArrows .stArr{position:absolute;left:0;top:0;display:flex;gap:4px;align-items:center}
 #stArrows button{width:40px;height:40px;border-radius:50%;border:2px solid #f3d98a;background:#15191ae6;color:#f3d98a;font:700 20px system-ui;padding:0;display:grid;place-items:center;box-shadow:0 3px 8px #0008}
+#stArrows .stPlus button{width:46px;height:46px;font-size:30px;font-weight:800;background:#1d3a28ee;border-color:#9fe08a;color:#d8ffd0}
 #stArrows button.in{width:30px;height:30px;font-size:14px;border-width:1px;opacity:.85}
 #busy{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;background:#15191af2;border:1px solid #c9a14a99;border-radius:14px;padding:9px 16px;color:#f3e9cf;font:600 14px system-ui;box-shadow:0 6px 18px #000a;pointer-events:none}
 #busy[hidden]{display:none}#busy span{white-space:nowrap}#busy .spin{flex:none;width:18px;height:18px;border-radius:50%;border:3px solid #c9a14a44;border-top-color:#f3d98a;will-change:transform;animation:busySpin .8s linear infinite}@keyframes busySpin{to{transform:rotate(360deg)}}
@@ -803,9 +804,11 @@ const TripFX={L:[],
 // platform pieces of a passenger station: 4.1 m kit pieces every 4 m from end to end, following the track; inside the building's
 // stretch they are plain (the building brings its own lamps and benches), beyond it they get a railing, and every third a lamp and a bench
 const ST_SPAN={station:[-22,21],stationTown:[-23,23.5],stairs:{station:[9.9,19.8],stationTown:[12.5,22.4]}};
-function stationPieces(st,town){const out=[],L=st.len||44,f=st._f||1,sp=town?ST_SPAN.stationTown:ST_SPAN.station,stairs=ST_SPAN.stairs[town?'stationTown':'station'],n=Math.round(L/4);
+// psi (optional): a second platform's main station; its pieces are judged in the main building's frame (the stairs' foot), none plain for a building
+function stationPieces(st,town,psi,shelterX){const out=[],L=st.len||44,f=st._f||1,sp=town?ST_SPAN.stationTown:ST_SPAN.station,stairs=ST_SPAN.stairs[town?'stationTown':'station'],n=Math.round(L/4);
   for(let k=0;k<n;k++){const d=-L/2+2+k*(L/n);const a=advance({sid:st.sid,t:st.t,dir:1},d);if(a.blocked)continue;const i=posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI;
-    const lx=f>0?-d:d;let v=lx>sp[0]-1&&lx<sp[1]+1?0:(Math.abs(Math.round(d/4))%3===0?3:2);if(lx>stairs[0]-1&&lx<stairs[1]+1)v=0;
+    const lx=psi?-((i.x-psi.x)*psi.dx+(i.z-psi.z)*psi.dz):f>0?-d:d;let v=!psi&&lx>sp[0]-1&&lx<sp[1]+1?0:(Math.abs(Math.round(d/4))%3===0?3:2);if(lx>stairs[0]-1&&lx<stairs[1]+1)v=0;
+    if(psi&&Math.abs(lx-shelterX)<4.6)v=2;
     out.push({x:i.x,y:i.y,z:i.z,rot:h+(f>0?Math.PI:0),hash:0.5,v});}
   return out;}
 // ---- stations in the build menu: the ghost of a station about to be built (drawn on the overlay canvas every frame, with a drag handle),
@@ -837,7 +840,7 @@ const StationUI={ghostHandle:null,ghostPoly:null,drawn:false,els:new Map(),STEP:
     const c=advance({sid:st.sid,t:st.t,dir:1},e*(L1-L0)/2);if(c.blocked){UI.toast('No more track at that end');return;}
     const far=advance(c.pos,e*(c.pos.dir>0?1:-1)*L1/2);if(dl>0&&far.blocked){UI.toast('No more track at that end');return;}
     if(dl>0&&Money.on()){if(!Money.canBuild()){UI.toast('Out of money');return;}Money.spend(2000,'platform');}
-    if(c.pos.dir<0&&!(st.mine||st.sawmill||st.workshop))st.side=-(st.side||1);st.sid=c.pos.sid;st.t=c.pos.t;st.len=L1;
+    if(c.pos.dir<0&&!(st.mine||st.sawmill||st.workshop))st.side=-(st.side||1);st.sid=c.pos.sid;st.t=c.pos.t;st.len=L1;if(dl>0)Net.levelStation(st);
     const lt=Trains.list.reduce((m,t)=>Math.max(m,Trains.length(t.veh)),0);Build.info(`${st.name}: platform ${L1} m.`+(lt?` Your longest train is ${Math.round(lt)} m${lt<=L1-4?' and fits.':', still longer.'}`:''));
     Net.changed();App.trackChanged();Sfx.clunk();},
   arrows(){const box=$('#stArrows'),show=Build.active&&Build.mode==='signals'&&!Build.remove&&!Build.stg&&App.T,cp=Cam.pos||[0,0,0],live=new Set();
@@ -849,6 +852,12 @@ const StationUI={ghostHandle:null,ghostPoly:null,drawn:false,els:new Map(),STEP:
           box.appendChild(el);this.els.set(key,el);}
         const ang=Math.atan2(so[1]-sp[1],so[0]-sp[0]);el.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-50%)`;el.querySelector('.out').style.transform=`rotate(${ang}rad)`;el.querySelector('.in').style.transform=`rotate(${ang+Math.PI}rad)`;
         el.style.flexDirection=Math.cos(ang)<0?'row':'row-reverse';}}
+    // + on the ground beside a station without a second track: lay one (with its platform) on the side away from the building
+    if(show)for(const si of Life.stInfo||[]){if(si.cargo||si.parent||si.twin)continue;const w=Life.stW(si,0,-7.5);if(Math.hypot(w[0]-cp[0],w[1]-cp[2])>Math.max(500,Cam.dist*2.5))continue;
+      const sp=Cam.toScreen(w[0],si.y+0.6,w[1]);if(!sp)continue;const key='plus:'+si.st.id;live.add(key);let el=this.els.get(key);
+      if(!el){el=document.createElement('div');el.className='stArr stPlus';el.innerHTML='<button aria-label="Add a second track and platform">+</button>';const id=si.st.id;
+        el.querySelector('button').onclick=ev=>{ev.stopPropagation();const st=Track.stations.find(o=>o.id===id);if(st)Busy.run('Laying a second track and platform…',()=>Build.addTwin(st));};box.appendChild(el);this.els.set(key,el);}
+      el.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-50%)`;}
     for(const [k,el] of this.els)if(!live.has(k)){el.remove();this.els.delete(k);}},
   tick(){this.drawGhost();if($('#stArrows'))this.arrows();}};
 const IndUI={els:new Map(),
@@ -2696,6 +2705,9 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
     cyl([x,y0+h+0.42,z],[x,y0+h+0.62,z],0.24,0.03,4,IRON,11);cyl([x,y0+h-0.02,z],[x,y0+h+0.03,z],0.2,0.2,4,IRON,11);};
   // lantern hanging from the canopy beam on a rod
   P.lantern=(x,y,z,yTop)=>{cyl([x,yTop,z],[x,y+0.3,z],0.015,0.015,4,IRON,11);B(x,y,z,0.26,0.36,0.26,[1,0.86,0.55],3);for(const e of [-1,1])for(const e2 of [-1,1])B(x+e*0.13,y,z+e2*0.13,0.03,0.4,0.03,IRON,11);cyl([x,y+0.18,z],[x,y+0.36,z],0.2,0.03,4,IRON,11);B(x,y-0.2,z,0.12,0.05,0.12,IRON,11);};
+  // stone steps from the ground (y -0.2) up to a door at floor level PY in a back wall at z zb (door centre x)
+  P.steps=(x,zb)=>{const n=4,hh=(PY+0.2)/n;for(let k=0;k<n;k++){const d=(n-k)*0.32;B(x,-0.2+hh*(k+0.5),zb+d/2,2.2-k*0.1,hh,d,pick(STONE2),8);}
+    for(const e of [-1,1])B(x+e*1.2,(PY-0.2)/2+0.05,zb+0.7,0.22,PY+0.3,1.4,STONE,8);};
   // bench: wooden slats on cast iron ends, facing -z (dir 1) or +z (dir -1)
   P.bench=(x,y0,z,len,dir)=>{dir=dir||1;for(const dz of [-0.13,0,0.13])B(x,y0+0.45,z+dz*dir,len,0.04,0.11,WOOD,6);for(const dy of [0.66,0.8])B(x,y0+dy,z+0.22*dir,len,0.09,0.035,WOOD,6);
     for(const e of [-1,1]){const ex=x+e*(len/2-0.12);B(ex,y0+0.22,z,0.06,0.44,0.42,IRON,11);B(ex,y0+0.6,z+0.2*dir,0.06,0.5,0.06,IRON,11);B(ex,y0+0.5,z-0.02*dir,0.06,0.05,0.44,IRON,11);}};
@@ -2781,15 +2793,15 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
     if(K.lod>=2)return;const st=K.lod?0.9:0.42,n=Math.max(2,Math.round(L/st));for(let k=0;k<n;k++){const p0=add(a,mul(sub(b,a),k/n)),p1=add(a,mul(sub(b,a),(k+1)/n));beam(p0,add(p1,[0,hgt,0]),side,0.035,0.02,IRON,11);beam(add(p0,[0,hgt,0]),p1,side,0.035,0.02,IRON,11);
       if(k%4===0)beam(p0,add(p0,[0,hgt,0]),side,0.05,0.05,IRON,11);}};
   // footbridge over the line at x xa..xb (deck at yd), from the platform (z zp) to a landing beyond the far side (z zf); stairs run toward -x
-  P.footbridge=(xa,xb,zp,zf,yd,stairL)=>{const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
+  P.footbridge=(xa,xb,zp,zf,yd,stairL,farY)=>{farY=farY===undefined?-0.2:farY;const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
     // span: deck, two lattice sides, roof-less
     B(xm,yd-0.08,(zp+zf)/2,w,0.16,zp-zf,[0.32,0.3,0.28],12);B(xm,yd-0.3,(zp+zf)/2,w-0.2,0.3,zp-zf,IRON,11);
     for(const x of [xa+0.05,xb-0.05])P.lattice([x,yd,zf],[x,yd,zp],hh);
     // towers: four iron columns under each end with a lamp on top of the corner posts
-    for(const z of [zp-0.4,zf+0.4])for(const x of [xa+0.1,xb-0.1]){const yb=z>0?PY:-0.2;cyl([x,yb,z],[x,yd,z],0.1,0.1,8,IRON,11);cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
+    for(const z of [zp-0.4,zf+0.4])for(const x of [xa+0.1,xb-0.1]){const yb=z>0?PY:farY;cyl([x,yb,z],[x,yd,z],0.1,0.1,8,IRON,11);cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
     P.lamp(xb-0.1,yd+hh+0.3,zp-0.4,0.9);P.lamp(xb-0.1,yd+hh+0.3,zf+0.4,0.9);
     // stairs: platform side (z zp-1.2..zp) from (xa-stairL, PY) to (xa, yd); far side same at zf..zf+1.2 down to ground
-    for(const [zz0,zz1,yb] of [[zp-1.25,zp-0.05,PY],[zf+0.05,zf+1.25,-0.2]]){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
+    for(const [zz0,zz1,yb] of [[zp-1.25,zp-0.05,PY],[zf+0.05,zf+1.25,farY]]){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
       for(let k=0;k<n;k++){const x=x0+run*(k+0.5),y=yb+(yd-yb)*(k+1)/n;B(x,y-0.03,(zz0+zz1)/2,run+0.02,0.06,zz1-zz0,[0.34,0.32,0.3],12);if(K.lod<1)B(x+run/2-0.01,y-0.12,(zz0+zz1)/2,0.03,0.18,zz1-zz0,IRON,11);}
       for(const z of [zz0,zz1]){beam([x0,yb,z],[xa,yd,z],[0,0,1],0.22,0.06,IRON,11);P.lattice([x0,yb+0.05,z],[xa,yd+0.05,z],0.95);}
       // landing at the top joins the span; a post at the foot
@@ -2832,7 +2844,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.arch(cg.F.front,-0.62,G1+0.5,1.0,2.6,{});P.arch(cg.F.front,0.62,G1+0.5,1.0,2.6,{});fb(cg.F.front,0,G1+0.4,0.08,2.8,0.16,0.22,STONE,8);
     P.arch(cg.F.front,0,G2+1.0,0.7,1.3,{nv:7});
     for(const u of [-4.3,4.3]){P.arch(main.F.front,u,PY+0.8,1.0,2.3);P.arch(main.F.front,u,G1+0.6,0.9,2.1);}
-    for(const u of [-3.5,0,3.5]){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    for(const u of [-3.5,3.5])P.arch(main.F.back,u,PY+0.8,1.0,2.3);for(const u of [-3.5,0,3.5])P.arch(main.F.back,u,G1+0.6,0.9,2.1);P.door(main.F.back,0,PY,1.6,2.9);P.steps(0,12.4);
     for(const f of [main.F.right])for(const u of [-1.6,1.6]){P.arch(f,u,PY+0.8,1.0,2.3);P.arch(f,u,G1+0.6,0.9,2.1);}
     P.arch(main.F.right,0,G2+0.6,0.8,1.6,{nv:7});P.arch(main.F.left,0,G2+0.6,0.8,1.6,{nv:7});
     P.chimney(-3.6,10.6,G2,G2+6.4,0.9,0.7,3);P.chimney(3.8,7.6,G2,G2+6.0,0.9,0.7,2);
@@ -2849,7 +2861,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     for(const x of [-7.6,7.6])P.bench(x,PY,5.2,1.9,1);P.bench(-2.0+11.0,PY,5.2,1.8,1);
     for(const x of [-4.5,4.0,-12.6])P.planter(x,PY,5.25,0.32);
     P.cart(-1.0,PY,3.6,0.08);P.notice(-16.6,PY,5.3);P.wall(-21.5,-15.2,5.55,PY);
-    for(const x of [-18.2,13.0])P.lamp(x,PY,4.6,3.2);for(const x of [-9,0,6])P.lantern(x,PY+2.7,3.9,PY+3.6);
+    P.lamp(-18.2,PY,4.6,3.2);P.lamp(13.0,PY,2.75,3.2);for(const x of [-9,0,6])P.lantern(x,PY+2.7,3.9,PY+3.6);
     // name boards: on the canopy end and on a pair of posts at the platform end
     {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.05,2.6,0.48);}
     {const f=K.face([-19.2,0,4.4],[0,0,-1],[1,0,0],1);for(const e of [-1.2,1.2])B(-19.2+e,PY+1.1,4.45,0.09,2.2,0.09,IRON,11);P.board(f,0,PY+2.0,2.7,0.55);}
@@ -2861,7 +2873,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.arch(g1.F.front,-0.66,G1+0.5,1.05,2.9);P.arch(g1.F.front,0.66,G1+0.5,1.05,2.9);fb(g1.F.front,0,G1+0.4,0.08,3.0,0.16,0.22,STONE,8);P.arch(g1.F.front,0,G2+1.4,0.8,1.5,{nv:7});
     const g3=crossGable(10.2,1.8,5.8,9.6,G2+0.7,3.2,{band:G1});P.arch(g3.F.front,0,PY+0.8,1.1,2.4);P.arch(g3.F.front,0,G1+0.6,1.0,2.4);P.arch(g3.F.front,0,G2+0.9,0.6,1.2,{nv:7});
     for(const u of [-12.2,-2.0,6.6,12.6]){P.arch(main.F.front,u,PY+0.8,1.0,2.4);P.arch(main.F.front,u,G1+0.6,0.95,2.2);}
-    for(let u=-12;u<=12;u+=3){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    for(let u=-12;u<=12;u+=3){if(Math.abs(u-6.8)>1.5)P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}P.door(main.F.back,6.8,PY,1.7,3.0);P.steps(-6.8,13.4);
     // dormers with pinnacles on the front slope
     for(const x of [-1.2,6.0]){const zf=6.6,y0=G2+0.9;P.block(x-0.8,x+0.8,zf,zf+1.6,y0-0.6,y0+1.5,{faces:[]});const rf=P.roof([x,zf+0.8],[0,1],0.8,0.8,y0+1.5,1.0,{ends:[-1],nx:6,ov:0.15,gov:0.15});
       const f=K.face([x,0,zf],[0,0,-1],[1,0,0],0.8);P.gable(f,0.8,y0+1.5,y0+2.5);P.barge(rf,-1,{spike:0.9});P.arch(f,0,y0-0.1,0.6,1.3,{nv:7});
@@ -2895,15 +2907,14 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
     P.clock(clockX,PY+3.1,cn.cz+0.1,0.42);beam([clockX,PY+3.65,cn.cz+0.1],[clockX,cn.H-0.12,cn.cz+0.1],[1,0,0],0.06,0.06,IRON,11);
     for(const x of [-15.6,-11.0,3.0,7.4])P.bench(x,PY,5.2,1.9,1);for(const x of [-13.2,-9.0,0.6,5.6,9.4])P.planter(x,PY,5.25,0.32);
     P.cart(-3.6,PY,3.6,-0.06);P.cart(8.6,PY,3.7,0.12);
-    for(const x of [14.6])P.lamp(x,PY,4.6,3.2);for(const x of [-17,-8,1,9])P.lantern(x,PY+2.8,3.9,PY+3.75);
+    P.lamp(14.6,PY,2.75,3.2);for(const x of [-17,-8,1,9])P.lantern(x,PY+2.8,3.9,PY+3.75);
     {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.2,2.8,0.5);}
 
   }
-  P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0);
   // ground behind the building: a gravel forecourt strip and a few shrubs
   if(K.lod<2){const zb=town?13.4:12.4;for(let k=0;k<(town?10:6);k++){const x=rr(town?-20:-12,town?18:8),z=zb+rr(0.6,1.6);ico([x,0.1,z],rr(0.35,0.6),mix3([0.2,0.36,0.14],[0.32,0.46,0.2],rnd()),1,{detail:1,sy:0.8,jit:0.3});}}
   // preview only: rails, ballast, ground and the platform pieces under the station
-  if(!opt.game){const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
+  if(!opt.game){P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0,-0.2);const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
     B(0,-0.55,0,2*L,0.36,3.6,[0.55,0.52,0.48],10);for(const e of [-1,1])B(0,-0.08,e*0.72,2*L,0.15,0.07,[0.45,0.4,0.36],11);for(let x=-L;x<L;x+=0.62)B(x,-0.28,0,0.24,0.12,2.5,[0.36,0.24,0.15],6);
     B(0,-0.7,8,2*L+6,0.2,36,[0.36,0.5,0.24],9);}
   return town?{target:[0,7.5,4],dist:72,dir:[-0.55,0.45,-0.7],shadowC:[0,6,4],shadowR:42,haze:[90,220]}:{target:[2,5.5,4],dist:52,dir:[-0.55,0.45,-0.7],shadowC:[0,5,4],shadowR:30,haze:[70,180]};}
@@ -2911,17 +2922,45 @@ function mix3(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2
 
 // ---------------- platform pieces (4.1 m, centred on x): v 0 plain, 1 with a lamp, 2 with a back railing, 3 railing + lamp + bench + planter
 KIT.platPiece=function(K,x,v){const {B,cyl}=K,P=kitOf(K);const L=4.1;
-  B(x,-0.1,3.66,L,2.08,4.08,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
-  B(x,0.965,3.82,L,0.07,3.76,PAVE,24);// paving (bricks laid flat)
+  const zb=v===0?6.5:5.7;// plain pieces (along the building) reach under its front wall, so a curved platform leaves no gap
+  B(x,-0.1,(1.62+zb)/2,L,2.08,zb-1.62,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
+  B(x,0.965,(1.94+zb)/2,L,0.07,zb-1.94,PAVE,24);// paving (bricks laid flat)
   B(x,0.95,1.74,L,0.13,0.5,STONE,8);B(x,1.018,1.56,L,0.008,0.14,[0.95,0.93,0.86],0);// coping with a white edge line
   if(v===1||v===3)P.lamp(x+0.2,PY,5.15,3.2);
   if(v>=2){for(const xx of [x-L/2+0.06,x])B(xx,PY+0.55,5.6,0.08,1.1,0.08,IRON,11);for(const yy of [0.5,1.05])B(x,PY+yy,5.6,L,0.04,0.04,IRON,11);
     if(K.lod<1)for(let xx=x-L/2+0.2;xx<x+L/2;xx+=0.2)B(xx,PY+0.55,5.6,0.018,1.0,0.018,IRON,11);}
   if(v===3){P.bench(x-1.0,PY,5.05,1.7,1);P.planter(x+1.2,PY,5.15,0.28);}};
+// platform end ramp (4.1 m): paving slopes from platform height down to the ground, brick side walls, a handrail on the back edge;
+// a: falls toward +x, b: toward -x
+KIT.platRamp=function(K,dir){const {B,quad,tri}=K,P=kitOf(K),L=4.1,y1=PY+0.02,y0=-0.16,X=u=>u*dir;// u from -L/2 (top) to L/2 (bottom)
+  const top=(u,z)=>[X(u),y1+(y0-y1)*(u+L/2)/L,z];quad(top(-L/2,1.5),top(-L/2,5.7),top(L/2,5.7),top(L/2,1.5),null,PAVE,24);
+  for(const z of [1.5,5.7]){const a=top(-L/2,z),b=top(L/2,z),c=[X(L/2),-1.0,z],d=[X(-L/2),-1.0,z];quad(a,b,c,d,null,z<3?BRICK:BRICK2,24);quad(b,a,d,c,null,BRICK,24);}
+  quad(top(-L/2,1.5),top(L/2,1.5),top(L/2,1.62),top(-L/2,1.62),null,STONE,8);
+  for(const u of [-L/2+0.1,0,L/2-0.1]){const p=top(u,5.55);B(p[0],p[1]+0.5,p[2],0.07,1.0,0.07,IRON,11);}const a=top(-L/2,5.55),b=top(L/2,5.55);K.beam([a[0],a[1]+1.0,a[2]],[b[0],b[1]+1.0,b[2]],[0,0,1],0.05,0.05,IRON,11);};
+KIT.models.platEa=function(K,opt){KIT.platRamp(K,1);return{target:[0,0.5,3.5],dist:10,dir:[-0.55,0.45,-0.7]};};
+KIT.models.platEb=function(K,opt){KIT.platRamp(K,-1);return{target:[0,0.5,3.5],dist:10,dir:[-0.55,0.45,-0.7]};};
+// waiting shelter on a second platform: brick back wall and short side walls, a slate lean-to roof on iron posts with a valance,
+// a bench along the back wall, a lamp, a timetable board; 7 m along x, on the platform (z 3.3..5.7)
+KIT.models.shelter=function(K,opt){const {B,quad,cyl,beam}=K,P=kitOf(K),x0=-3.5,x1=3.5,zb=5.7,zf=3.5,yb=PY+3.25,yf=PY+2.75;
+  B(0,PY+1.6,zb-0.15,x1-x0,3.2,0.3,BRICK,24);for(const x of [x0,x1])B(x,PY+1.4,(zb+zf+0.6)/2,0.3,2.8,zb-zf-0.6,BRICK,24);
+  B(0,PY+0.15,zb-0.15,x1-x0+0.06,0.3,0.36,STONE,8);for(const x of [x0,x1])B(x,PY+2.86,(zb+zf+0.6)/2,0.36,0.1,zb-zf-0.5,STONE,8);
+  for(const x of [-2.4,0,2.4])B(x,PY+2.1,zb-0.31,1.1,0.9,0.02,K.C.glow,2);
+  const r=(x,z,y)=>[x,y,z];quad(r(x0-0.3,zf-0.3,yf-0.05),r(x1+0.3,zf-0.3,yf-0.05),r(x1+0.3,zb+0.15,yb+0.05),r(x0-0.3,zb+0.15,yb+0.05),null,[0.3,0.32,0.37],18);
+  quad(r(x1+0.3,zf-0.3,yf-0.15),r(x0-0.3,zf-0.3,yf-0.15),r(x0-0.3,zb+0.15,yb-0.1),r(x1+0.3,zb+0.15,yb-0.1),null,[0.4,0.29,0.19],12);
+  for(const x of [x0+0.2,0,x1-0.2]){cyl([x,PY,zf],[x,yf-0.15,zf],0.06,0.05,8,IRON,11);}beam([x0-0.3,yf-0.2,zf],[x1+0.3,yf-0.2,zf],[0,1,0],0.14,0.1,IRON,11);
+  if(K.lod<1)for(let x=x0-0.25;x<x1+0.3;x+=0.26){quad([x-0.11,yf-0.2,zf-0.32],[x+0.11,yf-0.2,zf-0.32],[x+0.11,yf-0.45,zf-0.32],[x-0.11,yf-0.45,zf-0.32],[0,0,-1],CREAM,0);K.tri([x-0.11,yf-0.45,zf-0.32],[x+0.11,yf-0.45,zf-0.32],[x,yf-0.6,zf-0.32],CREAM,0);}
+  P.bench(-1.4,PY,zb-0.7,2.2,1);P.bench(1.4,PY,zb-0.7,2.2,1);P.lantern(0,PY+2.2,zf+0.4,yf-0.2);
+  {const f=K.face([x1+0.16,0,4.6],[1,0,0],[0,0,1],0.5);f;B(x1+0.17,PY+1.6,4.6,0.02,0.8,0.6,[0.92,0.9,0.8],0);}
+  if(!opt.game){KIT.platPiece(K,-2.05,2);KIT.platPiece(K,2.05,2);}
+  return{target:[0,2,4],dist:14,dir:[-0.55,0.45,-0.7]};};
+// footbridge over the line, its own piece so its far end can land on the ground (fbG) or on a second platform (fbP); span x -1.1..1.1
+KIT.models.fbG=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,-0.2);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
+KIT.models.fbP=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,PY);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
+KIT.FB={station:[17.4,19.6],stationTown:[20.0,22.2]};
 for(const v of [0,1,2,3])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
 KIT.models.station=function(K,opt){return build(K,opt,false);};
 KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
-Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6}});
+Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbG:{x0:-9,x1:2,z0:-11,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});
 })();
 
 /*@@END_BUILDINGS@@*/
@@ -2961,7 +3000,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','station','stationTown','plat0','plat1','plat2','plat3'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','station','stationTown','plat0','plat1','plat2','plat3','platEa','platEb','fbG','fbP','shelter'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -4250,6 +4289,18 @@ function carveTrack(T){
       else{const dd=d-hw;H[k]=clamp(H[k],yF-dd*emb,yF+dd*cut);const m=Math.round(255*clamp(1-dd/3,0,1));if(m>mask[k])mask[k]=m;}}
   }
   for(const st of Track.stations||[]){const s=Track.segs.find(q=>q.id===st.sid);if(!s)continue;const sp=spanAt(s,st.t);if(sp)continue;const c=segPoint(s,st.t),yP=segY(s,st.t)-0.18,R2=Math.max(34,(st.len||44)/2+12);
+    // a passenger station stands on a level terrace: the rectangle under the building, platform, forecourt and the footbridge landing
+    // (model frame, see buildings/station.js) is levelled at the forecourt height; around it the ground falls or rises as cutting or
+    // embankment slopes, as real stations are built into a hillside or on a bank of fill
+    if(!(st.mine||st.sawmill||st.workshop)){const f=st._f||st.side||1,h=c[2],tx=Math.cos(h)*f,tz=Math.sin(h)*f,nx=Math.sin(h)*f,nz=-Math.cos(h)*f;
+      const v=typeof Life!=='undefined'?Life.nearestVillage(c[0],c[1],420):null,town=!!(v&&(v.level|0)>=Life.LEVELS.length-1),span=town?[-24,23.5]:[-22,21],L2=(st.len||44)/2+5;
+      const tw=!!st.twinOf,X0=tw?-L2:Math.min(span[0]-1.5,-L2),X1=tw?L2:Math.max(span[1]+1.5,L2),Z0=tw?-6:-11.5,Z1=tw?7.5:(town?13.4:12.4)+4.6,RR=Math.max(-X0,X1)+45;
+      const i0=clamp(Math.floor((c[0]-RR)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+RR)/cs),0,N-1),j0=clamp(Math.floor((c[1]-RR)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+RR)/cs),0,N-1);
+      for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,rx=x-c[0],rz=z-c[1],mx=-(rx*tx+rz*tz),mz=rx*nx+rz*nz,k=j*N+i;
+        const ex=Math.max(X0-mx,0,mx-X1),ez=Math.max(Z0-mz,0,mz-Z1),e=Math.hypot(ex,ez);if(e>40)continue;
+        if(mask[k]===255&&H[k]<yP&&e===0)continue;// the track bed itself
+        if(e===0){H[k]=yP;mask[k]=255;}else{H[k]=clamp(H[k],yP-e*emb,yP+e*cut);const m=Math.round(255*clamp(1-e/5,0,1));if(m>mask[k])mask[k]=m;}}
+      continue;}
     const i0=clamp(Math.floor((c[0]-R2)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+R2)/cs),0,N-1),j0=clamp(Math.floor((c[1]-R2)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+R2)/cs),0,N-1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,[t,d]=segNearest(s,x,z),k=j*N+i;if(d<=hw)continue;const along=Math.abs(t-st.t);
       const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
@@ -4485,6 +4536,24 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
     for(const m of mods){m.seg.prof=m.prof;m.seg.y0=m.prof[0];m.seg.y1=m.prof[m.prof.length-1];}
     for(const n of Track.nodes){const s1=Track.segs.find(q=>!q.pend&&(q.a===n.id||q.b===n.id));if(!s1)continue;if(mods.some(m=>m.seg===s1||m.seg.a===n.id||m.seg.b===n.id)){const at=s1.a===n.id?0:s1.L;n.y=segY(s1,at);n.g=s1.a===n.id?-segGrade(s1,0):segGrade(s1,s1.L);}}
     this.changed();return{mods};},
+  // ---- a station stands on level track: the platform stretch (centre ± half + 4 m) is made level at the centre's height, with ramps
+  // either side that blend back into the old profile (stops at junctions: the stretch beyond one keeps its heights)
+  levelStation(st){const s0=segById(st.sid);if(!s0)return false;const yc=segY(s0,st.t),H=(st.len||44)/2+4;
+    const visit=[];// {seg, d(t) -> signed distance from the centre}
+    visit.push({seg:s0,d:t=>t-st.t});
+    for(const sg of [1,-1]){let seg=s0,node=sg>0?s0.b:s0.a,dEnd=sg>0?s0.L-st.t:st.t,guard=0;
+      while(dEnd<H+160&&guard++<40){const nx=this.linked(node).filter(q=>q!==seg);if(nx.length!==1)break;const n2=nx[0];if(visit.some(v=>v.seg===n2))break;const fromA=n2.a===node,d0=dEnd;
+        visit.push({seg:n2,d:fromA?(t=>sg*(d0+t)):(t=>sg*(d0+n2.L-t))});dEnd+=n2.L;seg=n2;node=fromA?n2.b:n2.a;}
+      visit.find(v=>v.seg===seg).end=dEnd;}
+    // ramps: long enough for a gentle change (2.5%), but they end where the walk stopped (a junction or the end of the line)
+    let dev=0;for(const v of visit)for(let t=0;t<=v.seg.L;t+=2){const d=Math.abs(v.d(t));if(d<=H)dev=Math.max(dev,Math.abs(segY(v.seg,t)-yc));}
+    if(dev<0.03)return false;const ramp=clamp(dev/0.025,12,160);
+    const lim={};for(const sg of [1,-1]){let m=0;for(const v of visit)for(const t of [0,v.seg.L]){const d=v.d(t);if(Math.sign(d)===sg)m=Math.max(m,Math.abs(d));}lim[sg]=m;}
+    const w=d=>{const a=Math.abs(d),R=Math.max(0,Math.min(ramp,lim[d<0?-1:1]-H));if(a<=H)return 1;if(R<=0||a>=H+R)return 0;const u=1-(a-H)/R;return u*u*(3-2*u);};
+    for(const v of visit){const sg=v.seg,n=Math.max(2,Math.ceil(sg.L/2)),prof=[];let any=false;for(let i=0;i<=n;i++){const t=sg.L*i/n,y=segY(sg,t),k=w(v.d(t));if(k>0)any=true;prof.push(y+(yc-y)*k);}
+      if(any){sg.prof=prof;sg.y0=prof[0];sg.y1=prof[n];}}
+    for(const n of Track.nodes){const s1=Track.segs.find(q=>!q.pend&&(q.a===n.id||q.b===n.id));if(!s1||!visit.some(v=>v.seg.a===n.id||v.seg.b===n.id))continue;const at=s1.a===n.id?0:s1.L;n.y=segY(s1,at);n.g=s1.a===n.id?-segGrade(s1,0):segGrade(s1,s1.L);}
+    Log.info(`station ${st.name}: track levelled over ${Math.round(2*H)} m (it was ${dev.toFixed(2)} m off level), ramps ${Math.round(ramp)} m`);this.changed();return true;},
   // ---- blocks between signals
   buildBlocks(){const parent=new Map(),find=k=>{while(parent.get(k)!==k){parent.set(k,parent.get(parent.get(k)));k=parent.get(k);}return k;},union=(a,b)=>{parent.set(find(a),find(b));};
     const segSig=new Map();for(const s of Track.segs)segSig.set(s.id,Track.sigs.filter(g=>g.sid===s.id).map(g=>g.t).sort((a,b)=>a-b));
@@ -4526,7 +4595,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
         const until=tr.depT==null?0:(()=>{const d=((tr.depT-now)%1440+1440)%1440;return d>720?d-1440:d;})(),hm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(Math.floor(m%60)).padStart(2,'0');
         const boarding=Life.walkers.some(w=>w.state==='board'&&w.train===tr),ttOk=!P.timetable||until<=0||tr.dwell>240;
         const crn=Crane.holds(tr);tr.status=`At ${tr.nextStation.name}`+(P.timetable&&tr.depT!=null?` · departs ${hm(tr.depT)}`:'')+(boarding?' · boarding':'')+(crn?' · '+Crane.what(tr):'');
-        if(tr.dwell>P.dwell&&ttOk&&!crn&&(!boarding||tr.dwell>P.dwell+2)){tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;this.arrived(tr,tr.lastStation);}}
+        if(tr.dwell>P.dwell&&ttOk&&!crn&&(!boarding||tr.dwell>P.dwell+25)){tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;this.arrived(tr,tr.lastStation);}}
       else if(why==='end'){tr.dwell=(tr.dwell||0)+dt;tr.status='Reversing';if(tr.dwell>3){tr.rev=-(tr.rev||1);tr.dwell=0;if(Track.stations.length<2)tr.lastStation=null;}}
       else tr.status=why==='signal'?'Waiting at a red signal':'Stopped';return;}
     tr.dwell=0;tr.status=why==='signal'?'Slowing for a red signal':why==='station'?`Arriving at ${tr.nextStation.name}`:'Running';
@@ -4578,17 +4647,20 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   setSig(t){this.sigTool=t;if(t!=='station')this.stg=null;this.ui();this.hint();},
   // ---- station ghost: where the station will stand; drag it along the track, flip it to the other side, then Build it (the ground is
   // levelled only then). The building side defaults to the village's side of the line.
-  stSide(sid,t){const s=segById(sid);if(!s)return 1;const q=segPoint(s,t),c=Math.cos(q[2]),sn=Math.sin(q[2]),v=Life.nearestVillage(q[0],q[1],420);return v&&sn*(v.x-q[0])-c*(v.z-q[1])<0?-1:1;},
+  stSide(sid,t){const s=segById(sid);if(!s)return 1;const fixed=this.curveSide(s);if(fixed)return fixed;const q=segPoint(s,t),c=Math.cos(q[2]),sn=Math.sin(q[2]),v=Life.nearestVillage(q[0],q[1],420);return v&&sn*(v.x-q[0])-c*(v.z-q[1])<0?-1:1;},
+  // on a curve tighter than 450 m the building must stand on the outside: on the inside its straight front would close in on the
+  // curving track (canopy columns in the way of the trains). k > 0 turns left, so the outside is the right-hand side (+1).
+  curveSide(s){return Math.abs(s.k)>1/450?(s.k>0?1:-1):0;},
   reach(pos,d){let lo=0,hi=d;if(!advance(pos,d).blocked)return d;for(let k=0;k<14;k++){const m=(lo+hi)/2;if(advance(pos,m).blocked)hi=m;else lo=m;}return lo;},
   // keep the whole platform on track: slide the centre back from a dead end
   fitPlat(g){for(let k=0;k<2;k++){const c={sid:g.sid,t:g.t,dir:1},f=this.reach(c,g.len/2),b=this.reach({...c,dir:-1},g.len/2),sh=(g.len/2-f)-(g.len/2-b);
       if(Math.abs(sh)<0.05)break;const a=advance(c,-sh);if(a.blocked)break;const p=a.pos;g.t=p.t;g.sid=p.sid;if(p.dir<0){/* crossed onto a reversed piece: keep the same physical side */g.side=-(g.side||1);}}},
   ghostAt(near){const g={sid:near.seg.id,t:near.t,len:44};g.side=this.stSide(g.sid,g.t);this.stg=g;this.fitPlat(g);this.ui();
     this.info('This is where the station will be. Drag it along the track, ⇅ puts the building on the other side. Build it when it is right.');},
-  flipGhost(){if(!this.stg)return;this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();},
+  flipGhost(){if(!this.stg)return;const s=segById(this.stg.sid),cs=s?this.curveSide(s):0;if(cs&&-(this.stg.side||1)!==cs){UI.toast('The curve is too tight here for the building on the inside: it stays on the outside');return;}this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();},
   placeStation(g){const n=Track.stations.length+1,s=segById(g.sid);if(!s)return;const q=segPoint(s,g.t),v=Life.nearestVillage(q[0],q[1],420);const names=['Halte Heide','Halte Bos','Halte Meer','Kruispunt','Halte Berg','Halte Veld'];
     let name=v?v.name:names[(n-1)%names.length];if(Track.stations.some(s=>s.name===name))name+=' '+(Track.stations.filter(s=>s.name.startsWith(name)).length+1);
-    const st={id:Track.nextId++,sid:g.sid,t:g.t,name,side:g.side||1};if(g.len&&g.len!==44)st.len=g.len;Track.stations.push(st);Life.attachSawmill(st);
+    const st={id:Track.nextId++,sid:g.sid,t:g.t,name,side:g.side||1};if(g.len&&g.len!==44)st.len=g.len;Track.stations.push(st);Life.attachSawmill(st);Net.levelStation(st);
     this.info(v?`Station ${name} built. People from ${v.name} will walk over and take the train.`:`Station ${name} built. Build it near a village and people will come and ride.`);
     Net.changed();App.trackChanged();Sfx.clunk();},
   info(t){if(t!=='')$('#buildInfo').textContent=t;},
@@ -4658,6 +4730,37 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   makeSiding(x,z,h){const L=70,c=Math.cos(h),s2=Math.sin(h),x0=x-c*L/2,z0=z-s2*L/2,y=ground0(x,z)+FORMATION_DROP;const a={id:Track.nextId++,x:x0,z:z0,y,h:h+Math.PI,g:0},b={id:Track.nextId++,x:x0+c*L,z:z0+s2*L,y,h,g:0};
     Track.undo.push(JSON.stringify(Track.serialize()));Track.nodes.push(a,b);const sg={id:Track.nextId++,a:a.id,b:b.id,x0,z0,h0:h,k:0,L,y0:y,y1:y,g0:0,g1:0,spans:[]};Track.segs.push(sg);Net.changed();App.trackChanged();if(Money.on())Money.spend(Math.round(L*110),'station siding');
     this.info('Station siding laid: join its gold ends to your line.');return{seg:sg,t:L/2};},
+  // ---- a second station track: a parallel track 4.5 m out on the side away from the building, over the platform plus 24 m each way
+  // (room for the player's switches), with its own platform on the outer side and a waiting shelter. Its ends are left free (gold
+  // rings) for the player to join to the line. Each piece is the exact offset of the line beside it (same heading, curvature k/(1-k·o)).
+  addTwin(st){if(st.twinId&&Track.stations.some(q=>q.id===st.twinId)){UI.toast('This station already has a second track');return;}
+    const si=Life.stInfo.find(q=>q.st===st);if(!si||si.cargo||si.parent)return;const s0=segById(st.sid);if(!s0)return;const G=4.5,H=(st.len||44)/2+24;
+    const pcs=[{seg:s0,ta:Math.max(0,st.t-H),tb:Math.min(s0.L,st.t+H),dOf:t=>t-st.t}];
+    for(const sg of [1,-1]){let seg=s0,node=sg>0?s0.b:s0.a,dE=sg>0?s0.L-st.t:st.t,guard=0;
+      while(dE<H&&guard++<40){const nx=Net.linked(node).filter(q=>q!==seg);if(nx.length!==1)break;const n2=nx[0];if(pcs.some(p=>p.seg===n2))break;const fromA=n2.a===node,d0=dE,len=Math.min(n2.L,H-dE);
+        pcs.push(fromA?{seg:n2,ta:0,tb:len,dOf:t=>sg*(d0+t)}:{seg:n2,ta:n2.L-len,tb:n2.L,dOf:t=>sg*(d0+n2.L-t)});dE+=n2.L;seg=n2;node=fromA?n2.b:n2.a;}}
+    if(pcs.some(p=>(p.seg.spans||[]).some(q=>q[1]>p.ta&&q[0]<p.tb))){UI.toast('The second track cannot run over a bridge or through a tunnel here');return;}
+    const away=[-si.nx,-si.nz],out=[];
+    for(const p of pcs){if(p.tb-p.ta<0.5)continue;const tm=(p.ta+p.tb)/2,qm=segPoint(p.seg,tm),o=G*Math.sign(-Math.sin(qm[2])*away[0]+Math.cos(qm[2])*away[1]||1),s=p.seg,q0=segPoint(s,p.ta),fac=1-s.k*o;
+      if(fac<0.3){UI.toast('The curve is too tight for a second track here');return;}
+      const L=(p.tb-p.ta)*fac,n=Math.max(2,Math.ceil(L/2)),prof=[];for(let i=0;i<=n;i++)prof.push(segY(s,p.ta+(p.tb-p.ta)*i/n));
+      const ns={id:Track.nextId++,x0:q0[0]-Math.sin(q0[2])*o,z0:q0[1]+Math.cos(q0[2])*o,h0:q0[2],k:s.k/fac,L,y0:prof[0],y1:prof[n],g0:0,g1:0,prof,spans:[]};
+      const dA=p.dOf(p.ta),dB=p.dOf(p.tb);out.push({ns,lo:Math.min(dA,dB),aIsLo:dA<dB,src:p,fac});}
+    out.sort((a,b)=>a.lo-b.lo);const nodes=[];
+    const mk=(pt,h,y)=>{const nd={id:Track.nextId++,x:pt[0],z:pt[1],y,h:wrapPi(h),g:0};nodes.push(nd);return nd;};
+    let prev=null;out.forEach((e,i)=>{const s=e.ns,pa=[s.x0,s.z0],pb=segPoint(s,s.L),hA=s.h0,hB=segPoint(s,s.L)[2];
+      const loPt=e.aIsLo?pa:pb,hiPt=e.aIsLo?pb:pa,loY=e.aIsLo?s.y0:s.y1,hiY=e.aIsLo?s.y1:s.y0;
+      // heading pointing toward +d at either end
+      const fwdLo=e.aIsLo?hA:hB+Math.PI,fwdHi=e.aIsLo?hB:hA+Math.PI;
+      const nLo=prev||mk(loPt,i===0?fwdLo+Math.PI:fwdLo,loY),nHi=mk(hiPt,i===out.length-1?fwdHi:fwdHi,hiY);
+      if(e.aIsLo){s.a=nLo.id;s.b=nHi.id;}else{s.b=nLo.id;s.a=nHi.id;}prev=nHi;});
+    Track.undo.push(JSON.stringify(Track.serialize()));Track.nodes.push(...nodes);Track.segs.push(...out.map(e=>e.ns));
+    // the second platform's station: same name, centre opposite the first, platform on the outer side
+    const ce=out.find(e=>e.src.seg===s0);const tC=(st.t-ce.src.ta)*ce.fac,qc=segPoint(ce.ns,tC),side=Math.sign(Math.sin(qc[2])*away[0]-Math.cos(qc[2])*away[1])||1;
+    const tw={id:Track.nextId++,sid:ce.ns.id,t:tC,name:st.name,side,twinOf:st.id};if(st.len&&st.len!==44)tw.len=st.len;Track.stations.push(tw);st.twinId=tw.id;
+    const Lt=out.reduce((a,e)=>a+e.ns.L,0);if(Money.on())Money.spend(Math.round(Lt*110+6000),'second station track');
+    Log.info(`second track at ${st.name}: ${out.length} pieces, ${Lt.toFixed(0)} m, platform ${(tw.len||44)} m`);
+    Net.changed();App.trackChanged();Sfx.clunk();this.info(`A second track and platform at ${st.name}. Join its two gold ends to your line with switches.`);},
   branchMode(){this.pc.branch=!this.pc.branch;this.pc.newLine=false;if(this.pc.branch){this.pc.cur=null;this.plan=null;R.setPreview(null);this.info('Tap the track where the junction should be.');}else this.hint();this.ui();},
   branchAt(h){const hit=Net.nearestOnTrack(h[0],h[2],10);if(!hit){UI.toast('Tap on the track to place a junction');return;}const s=hit.seg;let t=hit.t;
     const endNode=t<5?Track.node(s.a):t>s.L-5?Track.node(s.b):null;
@@ -6360,27 +6463,32 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
   // ---------------- people: strollers, waiting passengers, boarding and alighting  // ---------------- people: strollers, waiting passengers, boarding and alighting
   updateWalkers(dt,A){const Hr0=(x,z)=>R.sampleHr(this.T,x,z);const T=this.T,want=Math.round(Math.min(320,this.houses.length*0.7*P.people)),out=1-smooth(0.35,0.85,A.night)*0.85;
     let n=this.walkers.filter(w=>w.state==='stroll').length;
-    if(n<want*out&&this.houses.length&&Math.random()<dt*6){const h=this.houses[Math.floor(Math.random()*this.houses.length)];if(this.houseOn(h))this.walkers.push(this.newWalker(h.front[0],h.front[1],h.village));}
-    for(const w of this.walkers){if(w.state==='stroll'&&n>want*out+2&&Math.random()<dt*0.3){w.state='home';const h=w.v.houses[Math.floor(Math.random()*w.v.houses.length)];w.tx=h.front[0];w.tz=h.front[1];const pth=this.vpath(w.v,[w.x,w.z],h.front);w.wp=pth&&pth.length>1?pth:null;n--;}
-      if(w.wait>0){w.wait-=dt;w.mv=0;w.hidden=w.state==='leave';continue;}
-      if(w.bp&&w.bp.length&&(w.state==='board'||w.state==='leave')){
-        if(w.state==='board'&&!(w.train&&w.st&&w.train.atSt===w.st.st.id&&Math.abs(w.train.v||0)<0.1)){w.bp=null;w.y=null;w.state='toStation';w.train=null;w.tx=w.st?w.st.px:w.x;w.tz=w.st?w.st.pz:w.z;continue;}
-        if(w.icon){Icons.add(w.x,(w.y!=null?w.y:w.st?w.st.y:Hr0(w.x,w.z))+3.2,w.z,w.icon);w.icon=null;}w.hidden=false;
+    if(n<want*out&&this.houses.length&&Math.random()<dt*6){const h=this.houses[Math.floor(Math.random()*this.houses.length)];if(this.houseOn(h)&&!this.stFoot(h.front[0],h.front[1],1))this.walkers.push(this.newWalker(h.front[0],h.front[1],h.village));}
+    for(const w of this.walkers){if(w.state==='stroll'&&n>want*out+2&&Math.random()<dt*0.3){w.state='home';let h=w.v.houses[Math.floor(Math.random()*w.v.houses.length)];if(h&&this.stFoot(h.front[0],h.front[1],1))h=w.v.houses.find(q=>!this.stFoot(q.front[0],q.front[1],1))||h;w.tx=h.front[0];w.tz=h.front[1];const pth=this.vpath(w.v,[w.x,w.z],h.front);w.wp=pth&&pth.length>1?pth:null;n--;}
+      if(w.wait>0){w.wait-=dt;w.mv=0;w.hidden=!!w.inside||(w.state==='leave'&&!w.out);continue;}
+      // arrived at the station forecourt: in through the building to a spot on the platform
+      if(w.state==='toStation'&&w.st&&!w.st.cargo&&!w.inDone&&!(w.wp&&w.wp.length)&&!w.bp){w.inDone=true;w.bp=w.far?[...this.farIn(w.st),[w.tx,w.tz,w.st.y+0.85]]:this.stIn(w.st,[w.tx,w.tz]);w.spd=1.3;}
+      if(w.bp&&w.bp.length&&(w.state==='board'||w.state==='leave'||w.state==='toStation')){
+        if(w.state==='board'&&!(w.train&&w.st&&w.train.atSt===(w.bst||w.st).st.id&&Math.abs(w.train.v||0)<0.1)){// the train left without them: back to the main platform (over the footbridge if they were crossing)
+          const back=w.bst&&w.bst.parent;w.state='toStation';w.train=null;w.inDone=true;w.tx=w.st?w.st.px+w.st.dx*(Math.random()-0.5)*20:w.x;w.tz=w.st?w.st.pz+w.st.dz*(Math.random()-0.5)*20:w.z;
+          w.bp=back?[...this.fbPath(w.st,-1),[w.tx,w.tz,w.st.y+0.85]]:[[w.tx,w.tz,w.st?w.st.y+0.85:w.y]];w.bst=null;w.spd=1.4;continue;}
+        if(w.icon){Icons.add(w.x,(w.y!=null?w.y:w.st?w.st.y:Hr0(w.x,w.z))+3.2,w.z,w.icon);w.icon=null;}w.out=true;w.hidden=!!w.inside;
         const q=w.bp[0],dx=q[0]-w.x,dz=q[1]-w.z,d=Math.hypot(dx,dz),sp=(w.spd||2.2)*dt,py=w.st?w.st.y+0.85:Hr0(w.x,w.z);
-        if(d<=sp){w.x=q[0];w.z=q[1];w.y=q[2];w.bp.shift();
-          if(!w.bp.length){w.bp=null;if(w.state==='board'){w.done=true;Icons.add(w.x,(w.y||py)+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}}}
+        if(d<=sp){w.x=q[0];w.z=q[1];w.y=q[2];w.bp.shift();if(q[3]==='in')w.inside=true;else if(q[3]==='out')w.inside=false;else if(q[3]==='wait')w.wait=q[4]||2;w.hidden=!!w.inside;
+          if(!w.bp.length){w.bp=null;if(w.state==='board'&&w.train){w.done=true;Icons.add(w.x,(w.y||py)+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}
+            else if(w.state==='toStation'){w.state='wait';w.rot=w.faceRot;w.mv=0;w.y=null;continue;}else if(w.state==='leave')w.y=null;}}
         else{w.x+=dx/d*sp;w.z+=dz/d*sp;const y0=w.y!=null?w.y:py,y1=q[2]!=null?q[2]:py;w.y=q[2]==null&&w.y==null?null:y0+(y1-y0)*Math.min(1,sp/d);if(w.y!=null&&q[2]==null&&Math.abs(w.y-py)<0.02)w.y=null;}
         if(d>0.01)w.rot=lerpAng(w.rot,Math.atan2(dz,dx),dt*8);w.mv=1;continue;}if(w.icon){Icons.add(w.x,(w.st?w.st.y:Hr0(w.x,w.z))+3.2,w.z,w.icon);w.icon=null;}w.hidden=false;let gx=w.tx,gz=w.tz;if(w.wp&&w.wp.length){if(Math.hypot(w.wp[0][0]-w.x,w.wp[0][1]-w.z)<1.6)w.wp.shift();if(w.wp.length){gx=w.wp[0][0];gz=w.wp[0][1];}}
       const dx=gx-w.x,dz=gz-w.z,d=Math.hypot(dx,dz);
       if(d<0.4&&!(w.wp&&w.wp.length)){w.mv=0;if(w.state==='stroll'){this.pickStrollTarget(w);w.wait=1+Math.random()*7;}else if(w.state==='toStation'){w.state='wait';w.rot=w.faceRot;}
-        else if(w.state==='board'){if(w.train&&w.st&&w.train.atSt===w.st.st.id){w.done=true;Icons.add(w.x,w.st.y+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}else{w.state='toStation';w.train=null;w.tx=w.st?w.st.px:w.x;w.tz=w.st?w.st.pz:w.z;}}else if(w.state==='home'||w.state==='leave')w.done=true;continue;}
+        else if(w.state==='board'){if(w.train&&w.st&&w.train.atSt===(w.bst||w.st).st.id){w.done=true;Icons.add(w.x,w.st.y+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}else{w.state='toStation';w.train=null;w.tx=w.st?w.st.px:w.x;w.tz=w.st?w.st.pz:w.z;}}else if(w.state==='home'||w.state==='leave')w.done=true;continue;}
       const sp=(w.state==='board'?(w.spd||2.2):w.state==='leave'?1.6:1.25)*dt;w.x+=dx/d*Math.min(sp,d);w.z+=dz/d*Math.min(sp,d);w.rot=lerpAng(w.rot,Math.atan2(dz,dx),dt*6);w.mv=1;}
     this.walkers=this.walkers.filter(w=>!w.done);},
   newWalker(x,z,v){const hs=Math.random(),w={x,z,tx:x,tz:z,rot:Math.random()*6.28,v,hash:hs,state:'stroll',wait:Math.random()*3,mv:0,var:this.pvar(hs)};if(w.var==='child')w.sc=0.62;this.pickStrollTarget(w);return w;},
   pvar(h){return h<0.44?'man':h<0.86?'woman':h<0.94?'elder':'child';},
   // ---------------- a village's street graph (lane points, junctions, the foot of every garden path, the gates) so people keep to streets and paths
-  vgraph(v){const key=(v.ways||[]).length*10007+v.houses.length;if(v.G&&v.G.key===key)return v.G;const N=[],E=[],node=(x,z)=>{N.push([x,z]);E.push([]);return N.length-1;},
-      link=(a,b)=>{if(a===b)return;const d=Math.hypot(N[a][0]-N[b][0],N[a][1]-N[b][1]);E[a].push([b,d]);E[b].push([a,d]);};
+  vgraph(v){const key=(v.ways||[]).length*10007+v.houses.length+(this.stVer||0)*1e7;if(v.G&&v.G.key===key)return v.G;const N=[],E=[],node=(x,z)=>{N.push([x,z]);E.push([]);return N.length-1;},
+      link=(a,b)=>{if(a===b)return;{const L=Math.hypot(N[b][0]-N[a][0],N[b][1]-N[a][1]),n=Math.max(1,Math.ceil(L/1.5));for(let i=0;i<=n;i++){const u=i/n;if(this.stFoot(N[a][0]+(N[b][0]-N[a][0])*u,N[a][1]+(N[b][1]-N[a][1])*u,1.8))return;}}const d=Math.hypot(N[a][0]-N[b][0],N[a][1]-N[b][1]);E[a].push([b,d]);E[b].push([a,d]);};
     const WS=v.ways||[],WI=WS.map(W=>{const ids=W.p.map(p=>node(p[0],p[1]));for(let i=0;i+1<ids.length;i++)link(ids[i],ids[i+1]);return ids;});
     WI.forEach((ids,wi)=>{for(const e of [ids[0],ids[ids.length-1]]){let best=-1,bd=9;WI.forEach((o,oi)=>{if(oi===wi)return;for(const k of o){const d=Math.hypot(N[k][0]-N[e][0],N[k][1]-N[e][1]);if(d<bd){bd=d;best=k;}}});if(best>=0)link(e,best);}});
     const gate=new Map();for(const h of v.houses){if(h.gone||!h.front)continue;let bd=60,bw=-1,bi=-1,bp=null;WS.forEach((W,wi)=>{for(let i=0;i+1<W.p.length;i++){const q=VG.segDist([W.p[i][0],W.p[i][1],W.p[i+1][0],W.p[i+1][1]],h.front[0],h.front[1]);if(q[0]<bd){bd=q[0];bw=wi;bi=i;bp=[q[1],q[2]];}}});
@@ -6427,31 +6535,73 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
     if(r<0.45&&v.houses.length){const h=v.houses[Math.floor(Math.random()*v.houses.length)];w.tx=h.front[0];w.tz=h.front[1];}
     else if(r<0.8&&v.streets&&v.streets.length){const s=v.streets[Math.floor(Math.random()*v.streets.length)],u=Math.random();w.tx=s[0]+(s[2]-s[0])*u;w.tz=s[1]+(s[3]-s[1])*u;}
     else{w.tx=v.x+(Math.random()-0.5)*14;w.tz=v.z+(Math.random()-0.5)*14;}
-    {const pth=this.vpath(v,[w.x,w.z],[w.tx,w.tz]);w.wp=pth&&pth.length>1?pth:null;}
+    if(this.stFoot(w.tx,w.tz,1.5)){const t=this.safeSpot(v,w);w.tx=t[0];w.tz=t[1];}
+    {const pth=this.vpath(v,[w.x,w.z],[w.tx,w.tz]);w.wp=pth&&pth.length>1?pth:null;
+      // no street path: a straight walk, but never across a station (platforms, tracks between them, the building)
+      if(!w.wp&&this.stInfo&&this.stInfo.length){const L=Math.hypot(w.tx-w.x,w.tz-w.z),n=Math.ceil(L/2);for(let i=1;i<=n;i++){const u=i/n;if(this.stFoot(w.x+(w.tx-w.x)*u,w.z+(w.tz-w.z)*u,0.8)){w.tx=w.x+(Math.random()-0.5)*6;w.tz=w.z+(Math.random()-0.5)*6;if(this.stFoot(w.tx,w.tz,0.8)){w.tx=w.x;w.tz=w.z;}break;}}}}
     // now and then someone heads for the station
-    const st=this.stInfo.find(s=>s.v===v&&!s.cargo);const lvq=st&&st.v?(st.v.level|0):0;if(st&&Math.random()<0.18*(1+lvq*0.7)&&this.walkers.filter(q=>q.st&&q.st.st.id===st.st.id&&(q.state==='wait'||q.state==='toStation')).length<6+lvq*6){const u=(Math.random()-0.5)*Math.max(26,(st.half||22)*2-14);
-      w.state='toStation';w.st=st;w.tx=st.px+st.dx*u;w.tz=st.pz+st.dz*u;w.faceRot=Math.atan2(-st.nz,-st.nx);w.wp=st.road?st.road.slice().reverse():null;}},
+    const st=this.stInfo.find(s=>s.v===v&&!s.cargo&&!s.parent);const lvq=st&&st.v?(st.v.level|0):0;if(st&&Math.random()<0.18*(1+lvq*0.7)&&this.walkers.filter(q=>q.st&&q.st.st.id===st.st.id&&(q.state==='wait'||q.state==='toStation')).length<6+lvq*6){const u=(Math.random()-0.5)*Math.max(26,(st.half||22)*2-14);
+      w.state='toStation';w.st=st;w.tx=st.px+st.dx*u;w.tz=st.pz+st.dz*u;w.faceRot=Math.atan2(-st.nz,-st.nx);w.inDone=false;
+      if(this.stFar(st,w.x,w.z)){w.far=true;const fs=this.farStart(st),pth=this.vpath(v,[w.x,w.z],[fs[0],fs[1]]);w.wp=pth&&pth.length>1?[...pth,[fs[0],fs[1]]]:[[fs[0],fs[1]]];}
+      else if(st.road)w.wp=st.road.slice().reverse();else{const fc=this.stW(st,this.stDoorX(st),this.stBack(st)+3.2),pth=this.vpath(v,[w.x,w.z],fc);w.wp=pth&&pth.length>1?[...pth,fc]:[fc];}}},
+  // somewhere in the village that is not under a station: the centre, else a house front, else where the walker stands
+  safeSpot(v,w){if(!this.stFoot(v.x,v.z,1.5))return[v.x,v.z];for(let k=0;k<12;k++){const h=v.houses[Math.floor(Math.random()*v.houses.length)];if(h&&h.front&&!this.stFoot(h.front[0],h.front[1],1.5))return h.front.slice();}return[w.x,w.z];},
+  // inside a passenger station's building or on its platforms (a margin m): village streets do not run there and nobody strolls there
+  stFoot(x,z,m){m=m||0;for(const si of this.stInfo||[]){if(si.cargo)continue;const rx=x-si.x,rz=z-si.z;if(Math.abs(rx)>60||Math.abs(rz)>60)continue;const mx=-(rx*si.dx+rz*si.dz),mz=rx*si.nx+rz*si.nz,L=(si.st.len||44)/2+4;
+      if(Math.abs(mx)<L+m&&mz>(si.twin?-10.5:1.2)-m&&mz<6+m)return true;if(!si.parent){const town=this.stTown(si),bx=town?[-22,19.5]:[-14,5.5];if(mx>bx[0]-m&&mx<bx[1]+m&&mz>5.5-m&&mz<this.stBack(si)+1.4+m)return true;}}return false;},
+  // ---- the station building's frame: model x along the building, z out from the track toward it (see buildings/station.js)
+  stW(si,mx,mz){return[si.x-si.dx*mx+si.nx*mz,si.z-si.dz*mx+si.nz*mz];},
+  stTown(si){return!!(si&&si.v&&(si.v.level|0)>=this.LEVELS.length-1);},
+  stDoorX(si){return this.stTown(si)?-6.8:0;},stBack(si){return this.stTown(si)?13.4:12.4;},
+  // the way in: from the forecourt up the steps to the rear door, through the booking hall (out of sight a few seconds), out of the front
+  // door under the canopy and on to a spot on the platform. Points are [x, z, y, flag, seconds]; flag 'in' hides, 'wait' pauses, 'out' shows.
+  stIn(si,to){const dx=this.stDoorX(si),bk=this.stBack(si),G=p=>[p[0],p[1],R.sampleHr(this.T,p[0],p[1])-0.05],py=si.y+0.85,W=(x,z)=>this.stW(si,x,z);
+    const a=W(dx,bk+2.4),b=W(dx,bk+0.25),c=W(dx,6.6),d=W(dx,4.4);return[G(a),[b[0],b[1],py,'in'],[c[0],c[1],py,'wait',2+Math.random()*5],[c[0],c[1],py,'out'],[d[0],d[1],py],[to[0],to[1],py]];},
+  // the way out: to the front door, through the hall, down the rear steps to the forecourt
+  stOut(si){const dx=this.stDoorX(si),bk=this.stBack(si),G=p=>[p[0],p[1],R.sampleHr(this.T,p[0],p[1])-0.05],py=si.y+0.85,W=(x,z)=>this.stW(si,x,z);
+    const d=W(dx+(Math.random()-0.5)*1.4,4.2),c=W(dx,6.6),b=W(dx,bk+0.25),a=W(dx+(Math.random()-0.5)*2,bk+2.6);return[[d[0],d[1],py],[c[0],c[1],py,'in'],[b[0],b[1],py,'wait',1+Math.random()*2],[b[0],b[1],py,'out'],G(a)];},
   updateStations(){this.stInfo=[];this.kitDirty=true;for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const q=segPoint(s,st.t),y=segY(s,st.t);let c=Math.cos(q[2]),sn=Math.sin(q[2]);
       // a station at a sawmill or workshop turns its yard (and platform) toward it
       st._f=1;const cargo=!!(st.sawmill||st.workshop||st.mine);{const kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null,m=kind?Crane.ind(kind,st[kind]):null;if(m&&sn*(m.x-q[0])-c*(m.z-q[1])<0){st._f=-1;c=-c;sn=-sn;}}
       if(!cargo&&(st.side||1)<0){st._f=-1;c=-c;sn=-sn;}
       const px=q[0]+sn*3.6,pz=q[1]-c*3.6,v=this.nearestVillage(q[0],q[1],420);
       const si={st,v,cargo,px,pz,y,half:(st.len||44)/2,dx:c,dz:sn,nx:sn,nz:-c,x:q[0],z:q[1],lx:[q[0]+sn*5.4-c*7,q[1]-c*5.4-sn*7],lx2:[q[0]+sn*5.4+c*7,q[1]-c*5.4+sn*7]};
-      if(v&&!cargo){const key=st.id+':'+Math.round(q[0])+','+Math.round(q[1]);if(!(key in this.stRoads)){this.stRoads[key]=this.routeRoad([q[0]+sn*15.5,q[1]-c*15.5],v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
+      if(v&&!cargo&&!st.twinOf){const town=this.stTown(si),key=st.id+':'+Math.round(q[0])+','+Math.round(q[1])+(town?'T':'');if(!(key in this.stRoads)){const p0=this.stW(si,this.stDoorX(si),this.stBack(si)+3.2);this.stRoads[key]=this.routeRoad(p0,v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
       this.stInfo.push(si);}
+    // a second platform belongs to its station: its people wait at the main platform and cross by the footbridge
+    {const sig=this.stInfo.map(q=>q.st.id+':'+Math.round(q.x)+','+Math.round(q.z)+(this.stTown(q)?'T':'')).join('|');if(sig!==this.stSig){this.stSig=sig;this.stVer=(this.stVer||0)+1;
+      // walks planned before this station stood here: plan them again around it
+      for(const w of this.walkers){if(!(w.state==='stroll'||w.state==='home')||!w.v)continue;if(this.stFoot(w.tx,w.tz,1)){const t=this.safeSpot(w.v,w);w.tx=t[0];w.tz=t[1];}if(w.wp&&w.wp.some(p=>this.stFoot(p[0],p[1],1.8))){const pth=this.vpath(w.v,[w.x,w.z],[w.tx,w.tz]);w.wp=pth&&pth.length>1?pth:null;}}}}
+    for(const si of this.stInfo)if(si.st.twinOf){const p=this.stInfo.find(q=>q.st.id===si.st.twinOf);if(p){si.parent=p;p.twin=si;si.v=p.v;}}
     {const live=new Set(this.stInfo.map(q=>q.rkey).filter(Boolean));for(const k in this.stRoads)if(!live.has(k)){delete this.stRoads[k];this.roadsDirty=true;}}
     for(const tr of Trains.list){if(!tr.pax)tr.pax=[];if(!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;
-      let at=null;if(Math.abs(tr.v)<0.4)for(const si of this.stInfo){const cr=si.cargo;if(Math.hypot(mid.c[0]-si.x,mid.c[2]-si.z)<28||(cr&&tr.poses.some(p=>p&&Math.hypot(p.c[0]-si.x,p.c[2]-si.z)<22))){at=si;break;}}
+      let at=null;if(Math.abs(tr.v)<0.4)for(const si of this.stInfo){const cr=si.cargo;if((Math.hypot(mid.c[0]-si.x,mid.c[2]-si.z)<28&&Math.abs((mid.c[0]-si.x)*si.nx+(mid.c[2]-si.z)*si.nz)<2.4)||(cr&&tr.poses.some(p=>p&&Math.hypot(p.c[0]-si.x,p.c[2]-si.z)<22))){at=si;break;}}
       if(at&&tr.atSt!==at.st.id){tr.atSt=at.st.id;this.stop(tr,at);}else if(!at&&tr.atSt&&Math.abs(tr.v)>1)tr.atSt=null;}},
   // the way into a coach: platform edge beside its end platform -> onto the end platform -> through the end door (x, z, y; y null = platform)
   doorPath(p,si,e){const X=p.X,Zl=[-X[2],0,X[0]],sd=(Zl[0]*si.nx+Zl[2]*si.nz)>0?1:-1,P=(a,l,y)=>[p.c[0]+X[0]*a+Zl[0]*l*sd,p.c[2]+X[2]*a+Zl[2]*l*sd,y],fy=p.c[1]+1.18;
     return[P(e*7.02,1.95,null),P(e*7.0,0.95,fy),P(e*6.55,0,fy)];},
-  stop(tr,si){if(tr.veh.some(q=>q.k==='wagon'))Goods.trainStop(tr,si);if(si.cargo)return;const others=this.stInfo.filter(s=>s!==si);const coaches=tr.poses.filter((p,i)=>p&&tr.veh[i].k==='coach');if(!coaches.length)return;
+  // over the footbridge between the main platform and the second one (dir 1: main -> second, -1 back): along the platform to the foot of the
+  // stairs, up, across the span, down the far stairs; without a second platform the far stairs end on the ground
+  fbPath(psi,dir){const fb=KIT.FB[this.stTown(psi)?'stationTown':'station'],x0=fb[0],xm=(fb[0]+fb[1])/2,py=psi.y+0.85,deck=psi.y+6.55,tw=psi.twin,pt=tw?py:null,
+      P=(x,z,y)=>{const w=this.stW(psi,x,z);return[w[0],w[1],y==null?R.sampleHr(this.T,w[0],w[1])-0.05:y];};
+    const r=[P(x0-8.4,4.4,py),P(x0-7.3,5.0,py),P(x0-0.15,5.0,deck),P(xm,5.0,deck),P(xm,-8.95,deck),P(x0-0.15,-8.95,deck),P(x0-7.3,-8.95,pt),P(x0-8.6,tw?-8.1:-10.8,pt)];return dir>0?r:r.reverse();},
+  // the far side of the line (away from the building): people from there come and go over the footbridge; with a second platform they
+  // use its ramp end nearest the stairs. farIn: from the far ground to the foot of the main stairs on the platform (then fbPath(-1) is included)
+  stFar(psi,x,z){const rx=x-psi.x,rz=z-psi.z;return rx*psi.nx+rz*psi.nz<-3;},
+  farIn(psi){const fb=KIT.FB[this.stTown(psi)?'stationTown':'station'],x0=fb[0],py=psi.y+0.85,G=(x,z)=>{const w=this.stW(psi,x,z);return[w[0],w[1],R.sampleHr(this.T,w[0],w[1])-0.05];},T=(x,z)=>{const w=this.stW(psi,x,z);return[w[0],w[1],py];};
+    if(!psi.twin)return[G(x0-9.8,-12.5),...this.fbPath(psi,-1)];const L=(psi.twin.st.len||44)/2,e=x0>0?1:-1;return[G(e*(L+7),-8.6),T(e*(L+0.6),-8.4),...this.fbPath(psi,-1)];},
+  farStart(psi){return this.farIn(psi)[0];},
+  stop(tr,si){if(tr.veh.some(q=>q.k==='wagon'))Goods.trainStop(tr,si);if(si.cargo)return;const psi=si.parent||si,fam=new Set([psi.st.id,psi.twin?psi.twin.st.id:-1]),others=this.stInfo.filter(s=>!fam.has(s.st.id)&&!s.parent&&!s.cargo);const coaches=tr.poses.filter((p,i)=>p&&tr.veh[i].k==='coach');if(!coaches.length)return;
     const door=()=>this.doorPath(coaches[Math.floor(Math.random()*coaches.length)],si,Math.random()<0.5?-1:1),budget=Math.max(8,P.dwell-5);
-    let off=0,inc=0;const stay=[];for(const p of tr.pax){if(p.dest===si.st.id||(!p.dest&&Math.random()<0.35)||Math.random()<0.12){if(Money.on())inc+=Money.fare(p,si);const dp=door(),d=dp[2];const w={x:d[0],z:d[1],y:d[2],bp:[dp[1],dp[0],[si.px,si.pz,null]],spd:2.4,tx:si.px,tz:si.pz,rot:0,v:si.v,hash:Math.random(),state:'leave',wait:Math.min(off*0.22,budget*0.35),mv:0,st:si,icon:'-'};
-        off++;if(si.v){const h=si.v.houses[Math.floor(Math.random()*si.v.houses.length)];w.tx=h?h.front[0]:si.v.x;w.tz=h?h.front[1]:si.v.z;if(si.road)w.wp=si.road.slice();}else{w.tx=si.px+si.nx*25;w.tz=si.pz+si.nz*25;}this.walkers.push(w);}else stay.push(p);}
-    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);tr.pax=stay;let board=0;const seats=coaches.length*SEATS-tr.pax.length;for(const w of this.walkers)if(w.st&&w.st.st.id===si.st.id&&(w.state==='wait'||w.state==='toStation')&&board<seats){const dp=door();w.state='board';w.bp=dp;w.tx=dp[2][0];w.tz=dp[2][1];w.train=tr;w.wait=1+Math.min(board*0.15,budget*0.3);board++;
-        {let L=Math.hypot(dp[0][0]-w.x,dp[0][1]-w.z)+Math.hypot(dp[1][0]-dp[0][0],dp[1][1]-dp[0][1])+Math.hypot(dp[2][0]-dp[1][0],dp[2][1]-dp[1][1]);w.spd=clamp(L/Math.max(2,budget-w.wait),1.5,4.2);}
+    let off=0,inc=0;const stay=[];for(const p of tr.pax){if(fam.has(p.dest)||(!p.dest&&Math.random()<0.35)||Math.random()<0.12){if(Money.on())inc+=Money.fare(p,si);const dp=door(),d=dp[2];const w={x:d[0],z:d[1],y:d[2],bp:[dp[1],dp[0],...(si.parent?this.fbPath(psi,-1):[]),...this.stOut(psi)],spd:2.4,tx:psi.px,tz:psi.pz,rot:0,v:psi.v,hash:Math.random(),state:'leave',wait:Math.min(off*0.22,budget*0.35),mv:0,st:psi,icon:'-'};
+        off++;if(psi.v){const h=psi.v.houses[Math.floor(Math.random()*psi.v.houses.length)];w.tx=h?h.front[0]:psi.v.x;w.tz=h?h.front[1]:psi.v.z;
+          if(this.stFar(psi,w.tx,w.tz)){// home is on the far side: no way out through the booking hall
+            const fi=this.farIn(psi).reverse();w.bp=[dp[1],dp[0],...fi];if(si.parent){// already on the second platform: just along it and down its ramp
+            const L=(si.st.len||44)/2,fb=KIT.FB[this.stTown(psi)?'stationTown':'station'],e=fb[0]>0?1:-1,py=psi.y+0.85,a=this.stW(psi,e*(L+0.6),-8.4),b=this.stW(psi,e*(L+7),-8.6);w.bp=[dp[1],dp[0],[a[0],a[1],py],[b[0],b[1],R.sampleHr(this.T,b[0],b[1])-0.05]];}
+            const st0=w.bp[w.bp.length-1],pth=this.vpath(psi.v,[st0[0],st0[1]],[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}
+          else if(psi.road)w.wp=psi.road.slice();else{const fc=this.stW(psi,this.stDoorX(psi),this.stBack(psi)+3.2),pth=this.vpath(psi.v,fc,[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}}else{const o=this.stW(psi,this.stDoorX(psi)+(Math.random()-0.5)*20,this.stBack(psi)+25);w.tx=o[0];w.tz=o[1];}this.walkers.push(w);}else stay.push(p);}
+    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);tr.pax=stay;let board=0;const seats=coaches.length*SEATS-tr.pax.length;for(const w of this.walkers)if(w.st&&w.st.st.id===psi.st.id&&(w.state==='wait'||(w.state==='toStation'&&w.inDone&&!w.bp))&&board<seats){const dp=door();w.state='board';w.bp=si.parent?[...this.fbPath(psi,1),...dp]:dp;w.bst=si;w.tx=dp[2][0];w.tz=dp[2][1];w.train=tr;w.wait=1+Math.min(board*0.15,budget*0.3);board++;
+        {let L=Math.hypot(w.bp[0][0]-w.x,w.bp[0][1]-w.z);for(let i=1;i<w.bp.length;i++)L+=Math.hypot(w.bp[i][0]-w.bp[i-1][0],w.bp[i][1]-w.bp[i-1][1],((w.bp[i][2]||0)-(w.bp[i-1][2]||0))*(w.bp[i][2]!=null&&w.bp[i-1][2]!=null?1:0));w.spd=clamp(L/Math.max(2,budget+(si.parent?18:0)-w.wait),1.4,3.2);}
         w.dest=others.length?others[Math.floor(Math.random()*others.length)].st.id:null;}
     if(si.v&&(off||board)){const gp0=si.v.gp||0;si.v.trans=(si.v.trans||0)+off+board;Life.addGrowth(si.v,(off+board)*0.5);TripFX.show(si,inc,(off+board)*0.5,si.v,gp0);}else if(inc>0)TripFX.show(si,inc,0,null,0);
     if(off||board)Log.info(`${tr.name} at ${si.st.name}: ${off} off, ${board} on`);
@@ -6484,7 +6634,17 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
     for(const c of this.culverts||[]){const d=Math.hypot(c.x-cp[0],c.y-cp[1],c.z-cp[2]);if(d<1500)KB['culvert'+(d<90?0:d<300?1:2)].push({x:c.x,y:c.y,z:c.z,rot:c.rot,hash:0.5,sc:c.sc});}
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
     for(const si of this.stInfo||[]){if(si.cargo)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=d<110?0:d<350?1:2,town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
+      if(si.parent){// second platform: a waiting shelter half way between the stairs' foot and the far end, then the pieces
+        const ps=si.parent,tp=this.stTown(ps),fb=KIT.FB[tp?'stationTown':'station'],mxs=fb[0]-17,w=this.stW(ps,mxs,-8.6),f=si.st._f||1,ns=Net.nearestOnTrack(w[0],w[1],8);
+        if(ns&&ns.seg.id===si.st.sid){const q=segPoint(ns.seg,ns.t),hq=q[2],ds=Math.hypot(q[0]-cp[0],q[1]-cp[2]);KB['shelter'+(ds<110?0:ds<350?1:2)].push({x:q[0],y:segY(ns.seg,ns.t),z:q[1],rot:hq+(f>0?Math.PI:0),hash:0.5});}
+        for(const pc of stationPieces(si.st,tp,ps,mxs)){const dp=Math.hypot(pc.x-cp[0],pc.y-cp[1],pc.z-cp[2]);if(dp>1800)continue;KB['plat'+pc.v+(dp<110?0:dp<350?1:2)].push(pc);}
+        for(const e of [-1,1]){const a=advance({sid:si.st.sid,t:si.st.t,dir:1},e*((si.st.len||44)/2+2.05)),i=a.blocked?null:posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI,dp=Math.hypot(i.x-cp[0],i.y-cp[1],i.z-cp[2]);if(dp>1800)continue;KB[((f>0?-1:1)===e?'platEa':'platEb')+(dp<110?0:dp<350?1:2)].push({x:i.x,y:i.y,z:i.z,rot:h+(f>0?Math.PI:0),hash:0.5});}
+        continue;}
       KB[(town?'stationTown':'station')+L].push({x:si.x,y:si.y,z:si.z,rot:Math.atan2(si.dz,si.dx)+Math.PI,hash:(si.st.id*0.618)%1});
+      {const fb=KIT.FB[town?'stationTown':'station'],f=si.st._f||1,lx=(fb[0]+fb[1])/2,a=advance({sid:si.st.sid,t:si.st.t,dir:1},f>0?-lx:lx),i=a.blocked?null:posInfo(a.pos);
+        if(i){const h=a.pos.dir>0?i.h:i.h+Math.PI,dp=Math.hypot(i.x-cp[0],i.y-cp[1],i.z-cp[2]);KB[(si.twin?'fbP':'fbG')+(dp<110?0:dp<350?1:2)].push({x:i.x,y:i.y,z:i.z,rot:h+(f>0?Math.PI:0),hash:0.5});}}
+      for(const e of [-1,1]){const f=si.st._f||1,a=advance({sid:si.st.sid,t:si.st.t,dir:1},e*((si.st.len||44)/2+2.05)),i=a.blocked?null:posInfo(a.pos);if(!i)continue;
+        const h=a.pos.dir>0?i.h:i.h+Math.PI,dp=Math.hypot(i.x-cp[0],i.y-cp[1],i.z-cp[2]);if(dp>1800)continue;KB[((f>0?-1:1)===e?'platEa':'platEb')+(dp<110?0:dp<350?1:2)].push({x:i.x,y:i.y,z:i.z,rot:h+(f>0?Math.PI:0),hash:0.5});}
       for(const pc of stationPieces(si.st,town)){const dp=Math.hypot(pc.x-cp[0],pc.y-cp[1],pc.z-cp[2]);if(dp>1800)continue;KB['plat'+pc.v+(dp<110?0:dp<350?1:2)].push(pc);}}
     for(const t of KIT_TYPES)for(let l=0;l<3;l++){const L=KB[t+l],a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}},
   prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
