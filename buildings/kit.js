@@ -11,7 +11,7 @@ const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]
 K.v={add,sub,mul,dot,cross,len,norm,neg,clamp,lerp,mix3,rot};
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646;},rr=(a,b)=>a+(b-a)*rnd(),pick=a=>a[(rnd()*a.length)|0];
 K.rnd=rnd;K.rr=rr;K.pick=pick;K.seed=n=>{SEED=n;};
-K.M={paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23};
+K.M={brick:24,paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23};
 K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],glow:[1,0.8,0.5],iron:[0.2,0.19,0.19],
   stone:[[0.72,0.66,0.57],[0.64,0.6,0.54],[0.76,0.7,0.6],[0.6,0.55,0.48],[0.7,0.62,0.52],[0.66,0.64,0.6]],
   shingle:[[0.66,0.47,0.3],[0.6,0.42,0.27],[0.72,0.53,0.34],[0.55,0.4,0.28],[0.62,0.5,0.38]],
@@ -183,6 +183,8 @@ vec3 stainedC(vec2 q){vec3 v=voro2(q/.12+vSeed*7.);float id=v.z;vec3 c=id<.2?vec
   c*=.75+.45*h2(vec2(id*91.,3.));float lead=max(smoothstep(.06,.02,v.y),smoothstep(.035,.0,min(vHS.x-abs(q.x),vHS.y-abs(q.y))));return mix(c,vec3(.05,.045,.04),lead);}
 float edgeD(vec2 q){vec2 e=vHS-abs(q);return min(e.x,e.y);}
 vec3 roofRC(){vec3 th=normalize(cross(vec3(0,1,0),gN)+vec3(1e-4,0,0));float r=floor(vW.y/.17),f=fract(vW.y/.17),su=dot(vW,th)/(.27+.1*h2(vec2(r,5.)))+r*.5;return vec3(r,f,su);}
+// stretcher-bond bricks 23 x 7.7 cm (with joints): x random id, y row, z column, w distance to the nearest joint (m)
+vec4 brickC(vec2 q){float r=floor(q.y/.077),f=fract(q.y/.077),s=q.x/.23+r*.5,fs=fract(s);float jw=min(min(f,1.-f)*.077-.0055,min(fs,1.-fs)*.23-.006);return vec4(h2(vec2(r,floor(s))),r,floor(s),jw);}
 float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float bev=smoothstep(0.,.016,e)*.005;float gr=vn(vec2(q.x*60.+sd,q.y*3.5))-.5;float cr=smoothstep(.04,0.,abs(vn(vec2(q.x*9.+sd,q.y*1.3))-.5));return bev+gr*.0018-cr*.004;}
   if(m==8){float mn=min(vHS.x,vHS.y);return sqrt(clamp(e/(mn*.6),0.,1.))*.03+fbm(q*10.+sd)*.009;}
@@ -200,6 +202,7 @@ float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==19){vec3 v=voro2(q/.19);return sqrt(smoothstep(0.,.42,v.y))*.03+fbm(q*12.)*.004;}
   if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));return (.5-R.y)*.012+(R.y<.14?-.004:0.)-(fract(R.z)<.05?.004:0.)+(id-.5)*.002;}
   if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s);float ed=min(min(f,1.-f)*.24,min(fs,1.-fs)*.3);return sqrt(clamp(ed/.07,0.,1.))*.025+fbm(q*9.)*.006;}
+  if(m==24){vec4 b=brickC(q);return smoothstep(.002,.008,b.w)*.005+fbm(q*14.)*.0012;}
   return 0.;}
 vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float gr=vn(vec2(q.x*60.+sd,q.y*3.5));c*=.8+.32*gr;c*=mix(.66,1.,smoothstep(-vHS.y,-vHS.y*.25,q.y));c*=mix(.55,1.,smoothstep(0.,.012,e));
@@ -226,9 +229,11 @@ vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));c*=.78+.36*id;if(id>.88)c=mix(c,vec3(dot(c,vec3(.33))),.5);c*=R.y<.14?.7:1.;c*=fract(R.z)<.05?.6:1.;return c;}
   if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s),id=h2(vec2(r,floor(s)));vec3 k=c*(.78+.42*id)*(.8+.3*fbm(q*4.+id*9.));
     return (f<.08||fs<.05)?vec3(.38,.35,.31):k;}
+  if(m==24){vec4 b=brickC(q);vec3 k=c*(.74+.5*b.x);k=mix(k,k*vec3(.72,.6,.72),step(.86,b.x));k=mix(k,k*vec3(1.08,.95,.82),step(b.x,.1));k*=.86+.22*fbm(q*5.+b.x*9.);
+    vec3 mo=vec3(.66,.62,.55);float fw=clamp(length(fwidth(q))*9.,0.,1.);vec3 avg=mix(c*.98,mo,.16);return mix(mix(mo,k,smoothstep(.0,.004,b.w)),avg,fw);}
   return c;}
 vec3 weather(int m,vec3 c,vec3 N,vec2 q){float y=vW.y;
-  if(m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
+  if(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
     float sunF=clamp(dot(N,uL),0.,1.);float bias=(m==4||m==18)?(m==18?-.05:.04)+.14*smoothstep(-.2,-.9,vUV.y):m==8?(N.y>.6?-.25+.4*smoothstep(.03,0.,edgeD(q)):.0)+.2*smoothstep(.7,0.,y):m==15?.08:.16*smoothstep(.5,0.,y);bias-=.12*sunF;
     float fz=vn(vW.xz*45.+vW.y*35.),moss=smoothstep(.7,.8,mm+bias)*uMoss;vec3 mc=mix(vec3(.17,.3,.09),vec3(.46,.56,.17),fz*.7+.3*vn(vW.xz*6.));
     c=mix(c,mc,moss*smoothstep(.25,.55,fz+moss*.45));
@@ -255,7 +260,7 @@ layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;layout(location=2)
 ${NOISE}
 ${MATS}
 float shadowAt(){vec3 p=vL.xyz/vL.w*.5+.5;if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;float s=0.;for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)s+=texture(uSh,vec3(p.xy+vec2(i,j)*.7*uShT,p.z-.0004));return s/9.;}
-void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}
+void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);
   vec3 Nd=Ng;float hc=0.;
   if(m>=4&&m!=13){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -269,7 +274,7 @@ void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN
   else if(m==3){col=vC*1.6;inkW=.6;}
   else if(m==22){vec3 sg=stainedC(q);vec3 Rf=reflect(-V,Ng);col=sg*(.32+.25*max(dot(Ng,uL),0.))+mix(uGnd,uSky,clamp(Rf.y*1.5,0.,1.))*.18;inkW=.7;}
   else{float ramp=smoothstep(-.03,.16,ndl)*.6+smoothstep(.38,.6,ndl)*.4;float lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,ndg);
-    float cav=m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
+    float cav=m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
     col=alb*(uSun*lit+mix(uGnd,uSky,Nd.y*.5+.5)*cav);if(m==9||m==10||m==17)inkW=0.;else if(m==4||m==8||m==18)inkW=.5;else if(m==19)inkW=.35;}
   float id=fract(vSeed*7.31+float(m)*.173+dot(floor(vC*64.),vec3(.013,.029,.047)));
   oC=vec4(col,1.);oN=vec4(Ng*.5+.5,1.);oX=vec4(id,inkW,0.,1.);}`;

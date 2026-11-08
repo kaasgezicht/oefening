@@ -5,7 +5,7 @@ const [,,name,out,optJson]=process.argv;const dir=path.join(__dirname,'..','buil
 (async()=>{const b=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  const p=await b.newPage({viewport:{width:2400,height:2400}});const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('console',m=>{if(m.type()==='error')errs.push(m.text());});
  await p.setContent('<!doctype html><html><body style="margin:0;background:#000"></body></html>');
- for(const f of ['kit.js',fs.existsSync(path.join(dir,name+'.js'))?name+'.js':'bridge.js'])await p.addScriptTag({content:fs.readFileSync(path.join(dir,f),'utf8')});
+ for(const f of ['kit.js',fs.existsSync(path.join(dir,name+'.js'))?name+'.js':/^(station|plat)/.test(name)?'station.js':'bridge.js'])await p.addScriptTag({content:fs.readFileSync(path.join(dir,f),'utf8')});
  if(errs.length){console.log('ERRORS\n'+errs.join('\n'));process.exit(1);}
  const r=await p.evaluate(([n,o])=>{try{const cam=KIT.build(n,o);const t0=performance.now();const r=KIT.render({...cam,...o});r.ms=Math.round(performance.now()-t0);return r;}catch(e){return{error:String(e.stack||e).slice(0,3000)};}},[name,optJson?JSON.parse(optJson):{}]);
  console.log(name,JSON.stringify(r));const png=out.replace(/\.jpg$/,'.png');await p.locator('#kit').screenshot({path:png,timeout:600000});await b.close();

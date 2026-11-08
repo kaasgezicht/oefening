@@ -47,6 +47,9 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 .ld-r i b{display:block;height:100%;background:linear-gradient(90deg,#7fbf6a,#c6ff9e);transition:width .25s}.ld-r i b.full{background:linear-gradient(90deg,#e9a24a,#ffd27a)}.ld-r em{font-style:normal;font-size:11px;color:#cdbf9f;min-width:38px;text-align:right}.ld-n{font-size:10px;color:#9fdf8a;margin:-1px 0 2px 20px}
 .ldchip{position:fixed;transform:translate(-50%,-100%);pointer-events:none;z-index:7;background:#15191ad9;border:1px solid #c9a14a66;border-radius:9px;padding:3px 7px;color:#f1e7d0;font:600 11px system-ui;white-space:nowrap;display:flex;gap:6px;align-items:center}
 .ldchip b{font:700 11px Georgia,serif;color:#e9c870}.ldchip .none{color:#9f957e;font-weight:500}
+#stArrows{position:fixed;left:0;top:0;width:0;height:0;z-index:14}#stArrows .stArr{position:absolute;left:0;top:0;display:flex;gap:4px;align-items:center}
+#stArrows button{width:40px;height:40px;border-radius:50%;border:2px solid #f3d98a;background:#15191ae6;color:#f3d98a;font:700 20px system-ui;padding:0;display:grid;place-items:center;box-shadow:0 3px 8px #0008}
+#stArrows button.in{width:30px;height:30px;font-size:14px;border-width:1px;opacity:.85}
 #busy{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:10px;background:#15191af2;border:1px solid #c9a14a99;border-radius:14px;padding:9px 16px;color:#f3e9cf;font:600 14px system-ui;box-shadow:0 6px 18px #000a;pointer-events:none}
 #busy[hidden]{display:none}#busy span{white-space:nowrap}#busy .spin{flex:none;width:18px;height:18px;border-radius:50%;border:3px solid #c9a14a44;border-top-color:#f3d98a;will-change:transform;animation:busySpin .8s linear infinite}@keyframes busySpin{to{transform:rotate(360deg)}}
 #vPanel{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);width:min(92vw,420px);background:#15191af2;border:1px solid #c9a14a80;border-radius:16px;padding:12px 14px;color:#f1e7d0;font:500 14px system-ui;z-index:20;box-shadow:0 8px 24px #000a}#vPanel .vp-h{display:flex;justify-content:space-between;align-items:center}#vPanel .vp-h b{font:700 20px Georgia,serif;color:#f3d98a;margin-right:8px}#vPanel .vp-row{margin:6px 0}#vPanel .vp-bar{height:8px;border-radius:5px;background:#2b3a32;overflow:hidden;margin:4px 0 10px}#vPanel .vp-bar i{display:block;height:100%;background:linear-gradient(90deg,#7fc96b,#e9c870)}#vPanel .vp-tools{display:flex;gap:6px;flex-wrap:wrap}#vPanel .vp-farm{margin:8px 0;padding:8px 10px;border-radius:10px;background:#20302a;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}#vPanel .vp-farm.av{background:#3b3518;border:1px solid #e9c870}#vPanel .vp-farm.on{background:#1f3a24}
@@ -176,7 +179,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
   <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic" data-ic="roadBend">Scenic (hug the land)</button><button data-prefer="direct" data-ic="direct">Direct</button></span><button id="rClear" class="tog" data-ic="restart">Start the route over</button></div></div>
   <div class="chips" id="bTrackOpts"><span class="seg" id="bProfile"><button data-v="follow" data-ic="follow">Follow ground</button><button data-v="grade" data-ic="grade">Even grade</button></span><button id="bBridges" class="tog" data-ic="bridge">Bridges</button><button id="bBridgeType">Stone arch</button><button id="bTunnels" class="tog" data-ic="tunnel">Tunnels</button></div>
   <div class="tools" id="bIdle"><button id="btnUndo" data-ic="undo">Undo</button><button id="btnRemove" data-ic="eraser">Remove track</button><button id="btnClearAll" data-ic="trash">Clear all</button><button id="btnDone" data-ic="done">Done</button></div>
-  <div class="tools" id="bPending" hidden><button id="btnDiscard" data-ic="close">Discard plan</button><button id="btnBuildOK" class="go big keepcap" data-ic="hammerCheck">Build it</button></div>
+  <div class="tools" id="bPending" hidden><button id="btnDiscard" data-ic="close">Discard plan</button><button id="btnStFlip" hidden>⇅ Other side</button><button id="btnBuildOK" class="go big keepcap" data-ic="hammerCheck">Build it</button></div>
 </div>
 <div id="driveBar" hidden>
   <div id="trainList" hidden></div>
@@ -192,6 +195,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
   <nav id="tabs"></nav>
   <div id="sections"></div>
 </section>
+<div id="stArrows"></div>
 <div id="busy" role="status" hidden><i class="spin"></i><span id="busyText">Updating…</span></div>
 <div id="prog" role="status"><div id="progLabel">Starting</div><div class="bar"><i id="progBar"></i></div></div>
 <div id="toast" role="status"></div>
@@ -204,7 +208,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='3.6.1 (busy card while rebuilding, track bed never buried)';
+const VERSION='3.7.0 (Victorian stations, station ghost and platform arrows, track bed never buried)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -796,6 +800,57 @@ const TripFX={L:[],
       if(!q.grown&&q.t>0.6){q.grown=true;const n=q.el.querySelector('.tb .n');if(n)n.style.width=(Math.min(1-q.f0,Math.max(0.07,q.f1-q.f0))*100).toFixed(1)+'%';}
       if(q.t>5.2)q.el.classList.add('out');}
     this.L=this.L.filter(q=>{if(q.t>6){q.el.remove();return false;}return true;});}};
+// platform pieces of a passenger station: 4.1 m kit pieces every 4 m from end to end, following the track; inside the building's
+// stretch they are plain (the building brings its own lamps and benches), beyond it they get a railing, and every third a lamp and a bench
+const ST_SPAN={station:[-22,21],stationTown:[-23,23.5],stairs:{station:[9.9,19.8],stationTown:[12.5,22.4]}};
+function stationPieces(st,town){const out=[],L=st.len||44,f=st._f||1,sp=town?ST_SPAN.stationTown:ST_SPAN.station,stairs=ST_SPAN.stairs[town?'stationTown':'station'],n=Math.round(L/4);
+  for(let k=0;k<n;k++){const d=-L/2+2+k*(L/n);const a=advance({sid:st.sid,t:st.t,dir:1},d);if(a.blocked)continue;const i=posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI;
+    const lx=f>0?-d:d;let v=lx>sp[0]-1&&lx<sp[1]+1?0:(Math.abs(Math.round(d/4))%3===0?3:2);if(lx>stairs[0]-1&&lx<stairs[1]+1)v=0;
+    out.push({x:i.x,y:i.y,z:i.z,rot:h+(f>0?Math.PI:0),hash:0.5,v});}
+  return out;}
+// ---- stations in the build menu: the ghost of a station about to be built (drawn on the overlay canvas every frame, with a drag handle),
+// and arrow buttons at both ends of every platform to lengthen (outward arrow) or shorten (inward arrow) that end by 8 m
+const StationUI={ghostHandle:null,ghostPoly:null,drawn:false,els:new Map(),STEP:8,
+  // points along the platform: from the centre `pos` (dir 1) to ±len/2, with the side normal following the track
+  band(sid,t,side,len,l0,l1,step,d0,d1){const out=[[],[]];if(d0===undefined){d0=-len/2;d1=len/2;}for(let d=d0;d<=d1+1e-6;d+=step){const a=advance({sid,t,dir:1},d),i=posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI;// heading of the centre's direction
+      const nx=Math.sin(h)*side,nz=-Math.cos(h)*side;out[0].push([i.x+nx*l0,i.y+1,i.z+nz*l0]);out[1].push([i.x+nx*l1,i.y+1,i.z+nz*l1]);}return out;},
+  poly(b){const P=[];for(const p of b[0]){const q=Cam.toScreen(p[0],p[1],p[2]);if(!q)return null;P.push(q);}for(const p of b[1].slice().reverse()){const q=Cam.toScreen(p[0],p[1],p[2]);if(!q)return null;P.push(q);}return P;},
+  inGhost(x,y){const P=this.ghostPoly;if(!P)return false;let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;},
+  drawGhost(){const c=$('#ovl');if(!c)return;const g=c.getContext('2d'),G=Build.stg,on=Build.active&&Build.mode==='signals'&&G;
+    if(!on){this.ghostHandle=null;this.ghostPoly=null;if(this.drawn){g.clearRect(0,0,c.width,c.height);this.drawn=false;}return;}
+    if(c.width!==innerWidth*devicePixelRatio){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;}g.clearRect(0,0,c.width,c.height);this.drawn=true;
+    const side=G.side||1,town=this.isTown(G.sid,G.t),bx=town?[-22,19.5]:[-14,5.5],bd=side>0?[-bx[1],-bx[0]]:bx;// model x runs against the track when side > 0
+    const plat=this.poly(this.band(G.sid,G.t,side,G.len,1.5,5.7,4)),bld=this.poly(this.band(G.sid,G.t,side,0,5.8,town?13.4:12.4,(bd[1]-bd[0])/5,bd[0],bd[1]));this.ghostPoly=plat;
+    g.save();g.scale(devicePixelRatio,devicePixelRatio);const t=performance.now()/1000,pulse=0.5+0.5*Math.sin(t*4);
+    const fill=(P,col,dash)=>{if(!P)return;g.beginPath();P.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle=col;g.fill();g.setLineDash(dash);g.lineDashOffset=-t*20;g.lineWidth=2.5;g.strokeStyle='#fff8e0';g.stroke();};
+    fill(bld,`rgba(201,161,74,${0.42+0.14*pulse})`,[8,6]);fill(plat,`rgba(243,217,138,${0.5+0.16*pulse})`,[6,5]);g.setLineDash([]);
+    const s=segById(G.sid),ci=s?posInfo({sid:G.sid,t:G.t,dir:1}):null;this.ghostHandle=null;
+    if(ci){const nx=Math.sin(ci.h)*side,nz=-Math.cos(ci.h)*side,hp=Cam.toScreen(ci.x+nx*3.6,ci.y+1.2,ci.z+nz*3.6);
+      if(hp){this.ghostHandle=hp;g.beginPath();g.arc(hp[0],hp[1],22,0,6.283);g.fillStyle='#15191ae6';g.fill();g.lineWidth=3;g.strokeStyle='#f3d98a';g.stroke();
+        g.fillStyle='#f3d98a';g.font='700 20px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('⇆',hp[0],hp[1]+1);
+        const lp=Cam.toScreen(ci.x+nx*9,ci.y+(town?16:11),ci.z+nz*9);if(lp){g.font='600 13px system-ui';const tx=`New station · ${G.len} m platform`;const w=g.measureText(tx).width+16;g.fillStyle='#15191ad9';g.fillRect(lp[0]-w/2,lp[1]-12,w,24);g.fillStyle='#f3e9cf';g.fillText(tx,lp[0],lp[1]+1);}}}
+    g.restore();},
+  isTown(sid,t){const s=segById(sid);if(!s)return false;const q=segPoint(s,t),v=Life.nearestVillage(q[0],q[1],420);return !!(v&&(v.level|0)>=Life.LEVELS.length-1);},
+  // the end of a platform: e = +1 front (direction of the piece), -1 back
+  endPos(st,e){const a=advance({sid:st.sid,t:st.t,dir:1},e*((st.len||44)/2));return a;},
+  resize(st,e,dl){const L0=st.len||44,L1=clamp(L0+dl,44,172);if(L1===L0){UI.toast(dl>0?`${st.name}: platforms go up to 172 m`:`${st.name}: 44 m is the shortest platform`);return;}
+    const c=advance({sid:st.sid,t:st.t,dir:1},e*(L1-L0)/2);if(c.blocked){UI.toast('No more track at that end');return;}
+    const far=advance(c.pos,e*(c.pos.dir>0?1:-1)*L1/2);if(dl>0&&far.blocked){UI.toast('No more track at that end');return;}
+    if(dl>0&&Money.on()){if(!Money.canBuild()){UI.toast('Out of money');return;}Money.spend(2000,'platform');}
+    if(c.pos.dir<0&&!(st.mine||st.sawmill||st.workshop))st.side=-(st.side||1);st.sid=c.pos.sid;st.t=c.pos.t;st.len=L1;
+    const lt=Trains.list.reduce((m,t)=>Math.max(m,Trains.length(t.veh)),0);Build.info(`${st.name}: platform ${L1} m.`+(lt?` Your longest train is ${Math.round(lt)} m${lt<=L1-4?' and fits.':', still longer.'}`:''));
+    Net.changed();App.trackChanged();Sfx.clunk();},
+  arrows(){const box=$('#stArrows'),show=Build.active&&Build.mode==='signals'&&!Build.remove&&!Build.stg&&App.T,cp=Cam.pos||[0,0,0],live=new Set();
+    if(show)for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const ci=posInfo({sid:st.sid,t:st.t,dir:1});if(!ci||Math.hypot(ci.x-cp[0],ci.z-cp[2])>Math.max(500,Cam.dist*2.5))continue;
+      const f=st._f||1;for(const e of [-1,1]){const a=this.endPos(st,e),i=posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI,fx=Math.cos(h)*e,fz=Math.sin(h)*e,nx=Math.sin(h)*f,nz=-Math.cos(h)*f;
+        const P=[i.x+nx*3.6+fx*4,i.y+1.4,i.z+nz*3.6+fz*4],sp=Cam.toScreen(...P),so=Cam.toScreen(P[0]+fx*10,P[1],P[2]+fz*10);if(!sp||!so)continue;
+        const key=st.id+':'+e;live.add(key);let el=this.els.get(key);if(!el){el=document.createElement('div');el.className='stArr';el.innerHTML='<button class="out" aria-label="Longer platform">➜</button><button class="in" aria-label="Shorter platform">➜</button>';
+          el.querySelector('.out').onclick=ev=>{ev.stopPropagation();const q=Track.stations.find(o=>o.id===st.id);if(q)this.resize(q,e,this.STEP);};el.querySelector('.in').onclick=ev=>{ev.stopPropagation();const q=Track.stations.find(o=>o.id===st.id);if(q)this.resize(q,e,-this.STEP);};
+          box.appendChild(el);this.els.set(key,el);}
+        const ang=Math.atan2(so[1]-sp[1],so[0]-sp[0]);el.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-50%)`;el.querySelector('.out').style.transform=`rotate(${ang}rad)`;el.querySelector('.in').style.transform=`rotate(${ang+Math.PI}rad)`;
+        el.style.flexDirection=Math.cos(ang)<0?'row':'row-reverse';}}
+    for(const [k,el] of this.els)if(!live.has(k)){el.remove();this.els.delete(k);}},
+  tick(){this.drawGhost();if($('#stArrows'))this.arrows();}};
 const IndUI={els:new Map(),
   tick(){const show=App.T&&!(Build.active&&Build.mode!=='signals'&&Build.mode!=='roads');const all=[];for(const [kind,L] of Life.inds())L.forEach((m,i)=>{if(Life.indOn(kind,m))all.push([kind,m,i]);});const live=new Set();
     for(const [kind,m,mi] of all){live.add(m);let el=this.els.get(m);if(!el){el=document.createElement('div');el.className='ilabel';el.innerHTML=kind==='sawmill'?'🪚':kind==='mine'?'⛏️':'🪑';document.body.appendChild(el);this.els.set(m,el);el.onclick=e=>{e.stopPropagation();this.info(kind,m,mi);};}
@@ -1597,7 +1652,7 @@ const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]
 K.v={add,sub,mul,dot,cross,len,norm,neg,clamp,lerp,mix3,rot};
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646;},rr=(a,b)=>a+(b-a)*rnd(),pick=a=>a[(rnd()*a.length)|0];
 K.rnd=rnd;K.rr=rr;K.pick=pick;K.seed=n=>{SEED=n;};
-K.M={paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23};
+K.M={brick:24,paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23};
 K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],glow:[1,0.8,0.5],iron:[0.2,0.19,0.19],
   stone:[[0.72,0.66,0.57],[0.64,0.6,0.54],[0.76,0.7,0.6],[0.6,0.55,0.48],[0.7,0.62,0.52],[0.66,0.64,0.6]],
   shingle:[[0.66,0.47,0.3],[0.6,0.42,0.27],[0.72,0.53,0.34],[0.55,0.4,0.28],[0.62,0.5,0.38]],
@@ -1769,6 +1824,8 @@ vec3 stainedC(vec2 q){vec3 v=voro2(q/.12+vSeed*7.);float id=v.z;vec3 c=id<.2?vec
   c*=.75+.45*h2(vec2(id*91.,3.));float lead=max(smoothstep(.06,.02,v.y),smoothstep(.035,.0,min(vHS.x-abs(q.x),vHS.y-abs(q.y))));return mix(c,vec3(.05,.045,.04),lead);}
 float edgeD(vec2 q){vec2 e=vHS-abs(q);return min(e.x,e.y);}
 vec3 roofRC(){vec3 th=normalize(cross(vec3(0,1,0),gN)+vec3(1e-4,0,0));float r=floor(vW.y/.17),f=fract(vW.y/.17),su=dot(vW,th)/(.27+.1*h2(vec2(r,5.)))+r*.5;return vec3(r,f,su);}
+// stretcher-bond bricks 23 x 7.7 cm (with joints): x random id, y row, z column, w distance to the nearest joint (m)
+vec4 brickC(vec2 q){float r=floor(q.y/.077),f=fract(q.y/.077),s=q.x/.23+r*.5,fs=fract(s);float jw=min(min(f,1.-f)*.077-.0055,min(fs,1.-fs)*.23-.006);return vec4(h2(vec2(r,floor(s))),r,floor(s),jw);}
 float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float bev=smoothstep(0.,.016,e)*.005;float gr=vn(vec2(q.x*60.+sd,q.y*3.5))-.5;float cr=smoothstep(.04,0.,abs(vn(vec2(q.x*9.+sd,q.y*1.3))-.5));return bev+gr*.0018-cr*.004;}
   if(m==8){float mn=min(vHS.x,vHS.y);return sqrt(clamp(e/(mn*.6),0.,1.))*.03+fbm(q*10.+sd)*.009;}
@@ -1786,6 +1843,7 @@ float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==19){vec3 v=voro2(q/.19);return sqrt(smoothstep(0.,.42,v.y))*.03+fbm(q*12.)*.004;}
   if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));return (.5-R.y)*.012+(R.y<.14?-.004:0.)-(fract(R.z)<.05?.004:0.)+(id-.5)*.002;}
   if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s);float ed=min(min(f,1.-f)*.24,min(fs,1.-fs)*.3);return sqrt(clamp(ed/.07,0.,1.))*.025+fbm(q*9.)*.006;}
+  if(m==24){vec4 b=brickC(q);return smoothstep(.002,.008,b.w)*.005+fbm(q*14.)*.0012;}
   return 0.;}
 vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float gr=vn(vec2(q.x*60.+sd,q.y*3.5));c*=.8+.32*gr;c*=mix(.66,1.,smoothstep(-vHS.y,-vHS.y*.25,q.y));c*=mix(.55,1.,smoothstep(0.,.012,e));
@@ -1812,9 +1870,11 @@ vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));c*=.78+.36*id;if(id>.88)c=mix(c,vec3(dot(c,vec3(.33))),.5);c*=R.y<.14?.7:1.;c*=fract(R.z)<.05?.6:1.;return c;}
   if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s),id=h2(vec2(r,floor(s)));vec3 k=c*(.78+.42*id)*(.8+.3*fbm(q*4.+id*9.));
     return (f<.08||fs<.05)?vec3(.38,.35,.31):k;}
+  if(m==24){vec4 b=brickC(q);vec3 k=c*(.74+.5*b.x);k=mix(k,k*vec3(.72,.6,.72),step(.86,b.x));k=mix(k,k*vec3(1.08,.95,.82),step(b.x,.1));k*=.86+.22*fbm(q*5.+b.x*9.);
+    vec3 mo=vec3(.66,.62,.55);float fw=clamp(length(fwidth(q))*9.,0.,1.);vec3 avg=mix(c*.98,mo,.16);return mix(mix(mo,k,smoothstep(.0,.004,b.w)),avg,fw);}
   return c;}
 vec3 weather(int m,vec3 c,vec3 N,vec2 q){float y=vW.y;
-  if(m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
+  if(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
     float sunF=clamp(dot(N,uL),0.,1.);float bias=(m==4||m==18)?(m==18?-.05:.04)+.14*smoothstep(-.2,-.9,vUV.y):m==8?(N.y>.6?-.25+.4*smoothstep(.03,0.,edgeD(q)):.0)+.2*smoothstep(.7,0.,y):m==15?.08:.16*smoothstep(.5,0.,y);bias-=.12*sunF;
     float fz=vn(vW.xz*45.+vW.y*35.),moss=smoothstep(.7,.8,mm+bias)*uMoss;vec3 mc=mix(vec3(.17,.3,.09),vec3(.46,.56,.17),fz*.7+.3*vn(vW.xz*6.));
     c=mix(c,mc,moss*smoothstep(.25,.55,fz+moss*.45));
@@ -1841,7 +1901,7 @@ layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;layout(location=2)
 ${NOISE}
 ${MATS}
 float shadowAt(){vec3 p=vL.xyz/vL.w*.5+.5;if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;float s=0.;for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)s+=texture(uSh,vec3(p.xy+vec2(i,j)*.7*uShT,p.z-.0004));return s/9.;}
-void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}
+void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);
   vec3 Nd=Ng;float hc=0.;
   if(m>=4&&m!=13){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -1855,7 +1915,7 @@ void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN
   else if(m==3){col=vC*1.6;inkW=.6;}
   else if(m==22){vec3 sg=stainedC(q);vec3 Rf=reflect(-V,Ng);col=sg*(.32+.25*max(dot(Ng,uL),0.))+mix(uGnd,uSky,clamp(Rf.y*1.5,0.,1.))*.18;inkW=.7;}
   else{float ramp=smoothstep(-.03,.16,ndl)*.6+smoothstep(.38,.6,ndl)*.4;float lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,ndg);
-    float cav=m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
+    float cav=m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
     col=alb*(uSun*lit+mix(uGnd,uSky,Nd.y*.5+.5)*cav);if(m==9||m==10||m==17)inkW=0.;else if(m==4||m==8||m==18)inkW=.5;else if(m==19)inkW=.35;}
   float id=fract(vSeed*7.31+float(m)*.173+dot(floor(vC*64.),vec3(.013,.029,.047)));
   oC=vec4(col,1.);oN=vec4(Ng*.5+.5,1.);oX=vec4(id,inkW,0.,1.);}`;
@@ -2611,6 +2671,259 @@ K.models.culvert=function(K2,opt){const {box,B,beam,quad,cyl,ico,tuft,rr,pick}=K
   return{target:[0.3,0.5,0],dist:5,dir:[0.8,0.35,-0.5],shadowC:[0,0.5,0],shadowR:4,haze:[30,90]};};
 })();
 
+// ===== buildings/station.js — Victorian brick railway stations (user's two reference images, Nov 2026: "Ravenbrook").
+// Local frame: the track runs along x through the origin (rail top y = 0); the platform is z 1.5..5.7 (top y = 1.0) and is drawn
+// from 4 m platform pieces (plat*) so it can follow curves and grow; the building stands behind it (z >= 5.8) and faces the track (-z).
+// station: the default one: two-storey red brick house with a big cross gable over the platform (paired arched windows, ornate
+// bargeboards, finial), a one-storey wing with its own small gable, cream stone quoins and dressings, slate roofs with iron cresting,
+// tall chimneys; a slate canopy on cast iron columns with spandrel brackets and a dagged valance, a hanging clock, a name board,
+// gas lamps, benches, planters and hanging baskets, a luggage cart with trunks, a notice board, a low wall with railings, and a
+// green lattice footbridge over the line.
+// stationTown: the grand one for a town at its largest: a long two-storey range with three cross gables, dormers with pinnacles,
+// and a square clock tower (clocks on four sides, slate spire with lucarnes and a cross) in the middle.
+(function(){
+const STONE=[0.86,0.79,0.62],STONE2=[[0.86,0.79,0.62],[0.82,0.74,0.57],[0.88,0.82,0.66],[0.8,0.72,0.55]],BRICK=[0.6,0.27,0.18],BRICK2=[0.5,0.22,0.15],
+  IRON=[0.13,0.21,0.18],CREAM=[0.9,0.84,0.66],PAVE=[0.58,0.4,0.3],WOOD=[0.46,0.3,0.18],DOOR=[0.36,0.16,0.12],BLUE=[0.1,0.18,0.42],GOLD=[0.86,0.68,0.26];
+const SLATE={mat:18,pal:[[0.3,0.32,0.37],[0.27,0.29,0.34],[0.34,0.36,0.41],[0.25,0.26,0.3],[0.32,0.33,0.36]],exp:0.15,len:0.28,th:0.016,w:[0.2,0.3],wideP:0.05,phi:[0.05,0.08],gap:0.012,missing:0.003,fresh:[0.4,0.42,0.48],aged:[0.4,0.38,0.34],agedP:0.95,yaw:0.03};
+const PY=1.0;// platform top
+
+// ---------------- shared pieces
+function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K,{add,sub,mul,norm,mix3}=K.v;
+  const P={};
+  // gas lamp post on the platform (or ground y0): fluted base, slim shaft, ladder bar, lantern with glow panes and a cap
+  P.lamp=(x,y0,z,h)=>{h=h||3.4;cyl([x,y0,z],[x,y0+0.45,z],0.15,0.11,8,IRON,11);cyl([x,y0+0.45,z],[x,y0+h,z],0.06,0.045,8,IRON,11);B(x,y0+h-0.55,z,0.5,0.04,0.04,IRON,11);
+    B(x,y0+h+0.22,z,0.28,0.4,0.28,[1,0.86,0.55],3);for(const e of [-1,1])for(const e2 of [-1,1])B(x+e*0.14,y0+h+0.22,z+e2*0.14,0.035,0.44,0.035,IRON,11);
+    cyl([x,y0+h+0.42,z],[x,y0+h+0.62,z],0.24,0.03,4,IRON,11);cyl([x,y0+h-0.02,z],[x,y0+h+0.03,z],0.2,0.2,4,IRON,11);};
+  // lantern hanging from the canopy beam on a rod
+  P.lantern=(x,y,z,yTop)=>{cyl([x,yTop,z],[x,y+0.3,z],0.015,0.015,4,IRON,11);B(x,y,z,0.26,0.36,0.26,[1,0.86,0.55],3);for(const e of [-1,1])for(const e2 of [-1,1])B(x+e*0.13,y,z+e2*0.13,0.03,0.4,0.03,IRON,11);cyl([x,y+0.18,z],[x,y+0.36,z],0.2,0.03,4,IRON,11);B(x,y-0.2,z,0.12,0.05,0.12,IRON,11);};
+  // bench: wooden slats on cast iron ends, facing -z (dir 1) or +z (dir -1)
+  P.bench=(x,y0,z,len,dir)=>{dir=dir||1;for(const dz of [-0.13,0,0.13])B(x,y0+0.45,z+dz*dir,len,0.04,0.11,WOOD,6);for(const dy of [0.66,0.8])B(x,y0+dy,z+0.22*dir,len,0.09,0.035,WOOD,6);
+    for(const e of [-1,1]){const ex=x+e*(len/2-0.12);B(ex,y0+0.22,z,0.06,0.44,0.42,IRON,11);B(ex,y0+0.6,z+0.2*dir,0.06,0.5,0.06,IRON,11);B(ex,y0+0.5,z-0.02*dir,0.06,0.05,0.44,IRON,11);}};
+  // planter tub with flowers
+  P.planter=(x,y0,z,r)=>{r=r||0.32;cyl([x,y0,z],[x,y0+0.42,z],r*0.82,r,10,[0.42,0.28,0.18],16,[0.3,0.22,0.15],10);for(let k=0;k<7;k++){const a=k*0.9,rr2=k?r*0.55:0;ico([x+Math.cos(a)*rr2,y0+0.5,z+Math.sin(a)*rr2],0.16,mix3([0.25,0.46,0.18],[0.4,0.56,0.22],rnd()),1,{detail:1,sy:0.8,jit:0.25});}
+    for(let k=0;k<8;k++){const a=rnd()*6.28,d=rnd()*r*0.8;flower(x+Math.cos(a)*d,y0+0.5,z+Math.sin(a)*d,pick(K.C.flowers),0.18);}};
+  // hanging basket: chains, a moss ball with trailing green and flowers
+  P.basket=(x,y,z)=>{cyl([x,y+0.55,z],[x,y,z],0.008,0.008,4,IRON,11);ico([x,y-0.12,z],0.22,[0.28,0.48,0.2],1,{detail:1,sy:0.75,jit:0.3});
+    for(let k=0;k<10;k++){const a=k*0.63;flower(x+Math.cos(a)*0.17,y-0.14,z+Math.sin(a)*0.17,pick(K.C.flowers),0.08);if(k%3===0)ico([x+Math.cos(a)*0.2,y-0.3,z+Math.sin(a)*0.2],0.07,[0.25,0.45,0.18],1);}};
+  // luggage cart with trunks
+  P.cart=(x,y0,z,ry)=>{const c=Math.cos(ry||0),s=Math.sin(ry||0),T=(a,b)=>[x+c*a-s*b,z+s*a+c*b];
+    {const q=T(0,0);B(q[0],y0+0.55,q[1],1.9,0.08,0.9,WOOD,6,ry);}for(const [a,b] of [[-0.7,-0.48],[0.7,-0.48],[-0.7,0.48],[0.7,0.48]]){const q=T(a,b),n=[-s,0,c];cyl([q[0]-n[0]*0.03,y0+0.28,q[1]-n[2]*0.03],[q[0]+n[0]*0.03,y0+0.28,q[1]+n[2]*0.03],0.28,0.28,12,IRON,11,IRON,11);}
+    {const q=T(-1.05,0);beam([q[0],y0+0.6,q[1]],[q[0]-c*0.5,y0+1.0,q[1]-s*0.5],[0,0,1],0.05,0.05,IRON,11);}
+    const tk=[[-0.45,-0.18,0.8,0.42,0.5,[0.45,0.25,0.14]],[0.42,-0.15,0.7,0.36,0.48,[0.34,0.2,0.12]],[-0.1,0.2,0.9,0.36,0.4,[0.52,0.32,0.18]],[0.0,-0.05,0.6,0.3,0.36,[0.4,0.28,0.2]]];
+    tk.forEach(([a,b,l,h,w,col],i)=>{const q=T(a,b),yy=y0+0.59+(i===3?0.45:0)+h/2;B(q[0],yy,q[1],l,h,w,col,6,ry);B(q[0],yy,q[1],l+0.02,0.05,w+0.02,[0.25,0.16,0.1],6,ry);for(const e of [-1,1]){const q2=T(a+e*l*0.3,b);B(q2[0],yy,q2[1],0.05,h+0.02,w+0.02,[0.2,0.14,0.08],6,ry);}});};
+  // round-arched window: glass, stone jambs and sill, voussoirs alternating stone and dark brick, keystone; o.pair: two lights under one arch
+  P.arch=(f,u,y0,w,h,o)=>{o=o||{};const r=w/2,ys=y0+h-r,dep=o.dep||0.18;fb(f,u,(y0+ys)/2,0.01,w,ys-y0,0.01,K.C.glow,2);
+    const N=8;for(let k=0;k<N;k++){const a0=Math.PI*k/N,a1=Math.PI*(k+1)/N,Pp=a=>fp(f,u+Math.cos(a)*r,ys+Math.sin(a)*r,0.012),c=fp(f,u,ys,0.012);tri(c,Pp(a0),Pp(a1),K.C.glow,2);}
+    // frame bars
+    fb(f,u,(y0+ys)/2,0.04,0.05,ys-y0,0.04,CREAM,0);for(const yy of [y0+(ys-y0)*0.33,y0+(ys-y0)*0.66,ys])fb(f,u,yy,0.04,w,0.04,0.04,CREAM,0);
+    if(o.pair){const m=fp(f,u,0,0);B(m[0],(y0+ys)/2,m[2],0.16,ys-y0,0.16,STONE,8);}
+    for(const e of [-1,1]){fb(f,u+e*(r+0.09),(y0+ys)/2,0.04,0.18,ys-y0,dep,pick(STONE2),8);}
+    const NV=o.nv||9,rv=r+0.12;for(let k=0;k<NV;k++){const a=Math.PI*(k+0.5)/NV,c=fp(f,u+Math.cos(a)*rv,ys+Math.sin(a)*rv,0.04),Tt=add(mul(f.t,-Math.sin(a)),[0,Math.cos(a),0]),Rd=add(mul(f.t,Math.cos(a)),[0,Math.sin(a),0]),kst=k===(NV>>1);
+      box(c,mul(Tt,Math.PI*rv/NV/2-0.01),mul(Rd,kst?0.17:0.13),mul(f.n,dep/2+(kst?0.03:0)),kst||k%2===0?pick(STONE2):BRICK2,kst||k%2===0?8:24);}
+    fb(f,u,y0-0.07,0.06,w+0.42,0.14,dep+0.12,STONE,8);};
+  // pointed-arch double door with fanlight under a stone surround
+  P.door=(f,u,y0,w,h)=>{const r=w/2,ys=y0+h-r;fb(f,u,(y0+ys)/2,0.01,w,ys-y0,0.02,DOOR,6);for(const e of [-1,1])for(let k=0;k<3;k++)fb(f,u+e*w*(0.12+k*0.13),(y0+ys)/2-0.1,0.03,0.03,ys-y0-0.5,0.03,[0.26,0.11,0.08],6);
+    const N=8;for(let k=0;k<N;k++){const a0=Math.PI*k/N,a1=Math.PI*(k+1)/N,Pp=a=>fp(f,u+Math.cos(a)*r,ys+Math.sin(a)*r,0.012),c=fp(f,u,ys,0.012);tri(c,Pp(a0),Pp(a1),K.C.glow,2);}
+    fb(f,u,ys,0.03,w,0.06,0.04,STONE,8);for(const e of [-1,1])fb(f,u+e*(r+0.1),(y0+ys)/2,0.04,0.2,ys-y0,0.22,pick(STONE2),8);
+    const NV=9,rv=r+0.13;for(let k=0;k<NV;k++){const a=Math.PI*(k+0.5)/NV,c=fp(f,u+Math.cos(a)*rv,ys+Math.sin(a)*rv,0.05),Tt=add(mul(f.t,-Math.sin(a)),[0,Math.cos(a),0]),Rd=add(mul(f.t,Math.cos(a)),[0,Math.sin(a),0]);
+      box(c,mul(Tt,Math.PI*rv/NV/2-0.01),mul(Rd,0.14),mul(f.n,0.13),k%2===0?pick(STONE2):BRICK2,k%2===0?8:24);}};
+  // a brick block from y0 to y1 with stone quoins and a stone plinth band; returns its walls
+  P.block=(x0,x1,z0,z1,y0,y1,o)=>{o=o||{};B((x0+x1)/2,(y0+y1)/2,(z0+z1)/2,x1-x0,y1-y0,z1-z0,o.col||BRICK,24);const F=K.walls(x0,x1,z0,z1);
+    const faces=o.faces||[F.front,F.back,F.left,F.right];
+    for(const f of faces){fb(f,0,y0+0.25,0.04,f.half*2+0.1,0.5,0.1,STONE,8);if(o.bands)for(const yb of o.bands)fb(f,0,yb,0.04,f.half*2+0.08,0.16,0.1,STONE,8);
+      if(K.lod<2)for(const e of [-1,1])for(let y=y0+0.5,k=0;y<y1-0.12;y+=0.36,k++){const l=k%2?0.3:0.52,hh=Math.min(0.34,y1-y);fb(f,e*(f.half-l/2+0.03),y+hh/2,0.025,l,hh-0.02,0.1,pick(STONE2),8);}}
+    return F;};
+  // brick gable triangle over a wall face from yb (width = 2*half) to the apex at ya
+  P.gable=(f,half,yb,ya,col)=>{const a=fp(f,-half,yb,0.002),b=fp(f,half,yb,0.002),c=fp(f,0,ya,0.002);tri(a,b,c,col||BRICK,24);const a2=fp(f,-half,yb,-0.3),b2=fp(f,half,yb,-0.3),c2=fp(f,0,ya,-0.3);tri(b2,a2,c2,col||BRICK,24);};
+  // decorative bargeboard: cream board under the verge with a drop finial and a spike at the apex
+  P.barge=(rf,end,o)=>{o=o||{};const u=end*(rf.hx+0.04),Sf=rf.slope(-1),Sb=rf.slope(1);
+    for(const Sl of [Sf,Sb]){const n=K.lod?3:8;for(let j=0;j<n;j++){const p0=rf.rp(Sl,u,Sl.L*j/n,-0.14),p1=rf.rp(Sl,u,Sl.L*(j+1)/n,-0.14);beam(p0,add(p1,[0,0,0]),[0,1,0],0.06,0.32,CREAM,0);
+        if(K.lod<1){const m=mul(add(p0,p1),0.5);ico([m[0],m[1]-0.24,m[2]],0.07,CREAM,0);}}}
+    const top=rf.rp(Sf,u,Sf.L,0.1);cyl(add(top,[0,-0.6,0]),add(top,[0,0.15,0]),0.07,0.06,6,CREAM,0);cyl(add(top,[0,0.1,0]),add(top,[0,o.spike||1.3,0]),0.06,0.012,6,IRON,11);
+    ico(add(top,[0,0.35,0]),0.09,IRON,11);};
+  // iron cresting along a ridge (rf from K.roof)
+  P.crest=(rf,x0,x1)=>{if(K.lod>=2)return;const Sf=rf.slope(-1);const a=rf.rp(Sf,x0,Sf.L,0.16),b=rf.rp(Sf,x1,Sf.L,0.16);beam(a,b,[0,1,0],0.04,0.04,IRON,11);
+    const n=Math.round((x1-x0)/0.3);for(let k=0;k<=n;k++){const p=rf.rp(Sf,x0+(x1-x0)*k/n,Sf.L,0.16);cyl(p,add(p,[0,k%2?0.22:0.34,0]),0.016,0.008,4,IRON,11);if(k%4===0)ico(add(p,[0,0.36,0]),0.035,IRON,11);}};
+  // brick chimney stack with a corbelled stone cap and pots
+  P.chimney=(x,z,y0,y1,w,d,pots)=>{B(x,(y0+y1)/2,z,w,y1-y0,d,BRICK,24);B(x,y1-0.5,z,w+0.12,0.12,d+0.12,STONE,8);B(x,y1+0.06,z,w+0.22,0.12,d+0.22,STONE,8);B(x,y1-0.18,z,w+0.06,0.36,d+0.06,BRICK2,24);
+    for(let k=0;k<(pots||2);k++){const px=x+(k-((pots||2)-1)/2)*w/(pots||2);cyl([px,y1+0.12,z],[px,y1+0.6,z],0.12,0.1,10,[0.66,0.36,0.23],0,[0.08,0.06,0.05],0);}};
+  // a slate gable roof with bargeboards (ridge along dir) — K.roof with station defaults
+  P.roof=(c,dir,halfLen,half,H,rise,o)=>K.roof(Object.assign({c,dir,halfLen,half,H,rise,ov:0.35,gov:0.3,th:0.14,sag:0.05,flare:0.06,wob:0.01,nx:Math.max(8,Math.round(halfLen*3)),cover:SLATE,trim:CREAM,mossClumps:6,ridgeMoss:0.03},o||{}));
+  // the canopy over the platform: slate roof, cast iron columns with capitals and spandrel brackets, beams to the wall, a dagged valance
+  P.canopy=(x0,x1,zf,zb,o)=>{o=o||{};const H=o.H||4.7,half=(zb-zf)/2,zc=(zf+zb)/2,rf=P.roof([(x0+x1)/2,zc],[1,0],(x1-x0)/2,half,H,0.9,{ov:0.25,gov:0.15,mossClumps:4});
+    const eY=rf.eY,zE=zf-0.25;// eave line at the front
+    // columns every ~4 m
+    const n=Math.max(2,Math.round((x1-x0)/4)),cz=zf+0.35;const cols=[];for(let k=0;k<=n;k++){const x=x0+0.3+(x1-x0-0.6)*k/n;cols.push(x);
+      cyl([x,PY,cz],[x,PY+0.35,cz],0.14,0.11,8,IRON,11);cyl([x,PY+0.35,cz],[x,H-0.25,cz],0.075,0.065,8,IRON,11);cyl([x,H-0.4,cz],[x,H-0.18,cz],0.08,0.16,8,IRON,11);
+      beam([x,H-0.12,cz],[x,H-0.12,zb+0.02],[0,1,0],0.12,0.1,IRON,11);
+      // spandrel brackets: quarter arcs from the column to the eave beam both ways along the track, and toward the wall
+      if(K.lod<2)for(const [dx,dz] of [[1,0],[-1,0],[0,1]]){const R=0.85,N=K.lod?3:6;for(let j=0;j<N;j++){const a0=Math.PI/2*j/N,a1=Math.PI/2*(j+1)/N,P0=[x+dx*(R-R*Math.cos(a0)),H-0.15-R+R*Math.sin(a0)*1,cz+dz*(R-R*Math.cos(a0))],P1=[x+dx*(R-R*Math.cos(a1)),H-0.15-R+R*Math.sin(a1),cz+dz*(R-R*Math.cos(a1))];
+          beam(P0,P1,[dz,0,-dx],0.045,0.045,IRON,11);}if(K.lod<1)ico([x+dx*0.28,H-0.45,cz+dz*0.28],0.07,IRON,11);}}
+    beam([x0,H-0.12,cz],[x1,H-0.12,cz],[0,1,0],0.16,0.12,IRON,11);
+    // valance: cream boards with pointed drops along the front and both ends
+    const val=(a,b,y)=>{const L=Math.hypot(b[0]-a[0],b[2]-a[2]),d=[(b[0]-a[0])/L,0,(b[2]-a[2])/L],nn=[-d[2],0,d[0]];beam([a[0],y-0.07,a[2]],[b[0],y-0.07,b[2]],[0,1,0],0.16,0.04,CREAM,0);
+      if(K.lod>=2)return;if(K.lod>=1){beam([a[0],y-0.3,a[2]],[b[0],y-0.3,b[2]],[0,1,0],0.3,0.03,CREAM,0);return;}
+      const m=Math.floor(L/0.26);for(let k=0;k<m;k++){const t=(k+0.5)/m*L,p=[a[0]+d[0]*t,y,a[2]+d[2]*t],w=0.11;quad([p[0]-d[0]*w,y-0.12,p[2]-d[2]*w],[p[0]+d[0]*w,y-0.12,p[2]+d[2]*w],[p[0]+d[0]*w,y-0.34,p[2]+d[2]*w],[p[0]-d[0]*w,y-0.34,p[2]-d[2]*w],nn,CREAM,0);
+        tri([p[0]-d[0]*w,y-0.34,p[2]-d[2]*w],[p[0]+d[0]*w,y-0.34,p[2]+d[2]*w],[p[0],y-0.5,p[2]],CREAM,0);}};
+    val([x0-0.15,0,zE],[x1+0.15,0,zE],eY+0.02);for(const xe of [x0-0.15,x1+0.15])val([xe,0,zE],[xe,0,zb],eY+0.02);
+    return {rf,cols,H,cz};};
+  // clock: a two-faced drum hanging from a bracket, faces looking along +-x (o.axis 'z' turns it to face +-z)
+  P.clock=(x,y,z,r,o)=>{o=o||{};const ax=o.axis==='z'?[0,0,1]:[1,0,0],tk=o.depth||0.14,a=[x-ax[0]*tk,y,z-ax[2]*tk],b=[x+ax[0]*tk,y,z+ax[2]*tk];
+    cyl(a,b,r+0.06,r+0.06,20,IRON,11,o.single?IRON:null,11);for(const s of o.single?[o.sgn||1]:[-1,1]){const c=[x+ax[0]*(tk+0.01)*s,y,z+ax[2]*(tk+0.01)*s],u=o.axis==='z'?[1,0,0]:[0,0,1];
+      cyl(c,[c[0]+ax[0]*0.015*s,y,c[2]+ax[2]*0.015*s],r,r,20,[0.95,0.92,0.82],0,[0.95,0.92,0.82],0);
+      if(K.lod<2)for(let k=0;k<12;k++){const an=k/12*Math.PI*2,p=[c[0]+ax[0]*0.03*s+u[0]*Math.cos(an)*r*0.82,y+Math.sin(an)*r*0.82,c[2]+ax[2]*0.03*s+u[2]*Math.cos(an)*r*0.82];box(p,mul(u,k%3?0.012:0.022),[0,k%3?0.03:0.05,0],mul(ax,0.006),[0.08,0.07,0.06],0);}
+      const hc=[c[0]+ax[0]*0.035*s,y,c[2]+ax[2]*0.035*s];beam(hc,[hc[0]+u[0]*r*0.05,y+r*0.5,hc[2]+u[2]*r*0.05],ax,0.035,0.01,[0.06,0.05,0.05],0);beam(hc,[hc[0]+u[0]*r*0.62*s,y-r*0.2,hc[2]+u[2]*r*0.62*s],ax,0.025,0.01,[0.06,0.05,0.05],0);}};
+  // name board: blue with a gold border and gold "lettering" (blocks of letter strokes), facing f.n
+  P.board=(f,u,y,w,h)=>{fb(f,u,y,0.02,w,h,0.06,BLUE,0);for(const e of [-1,1]){fb(f,u,y+e*(h/2-0.03),0.06,w,0.05,0.03,GOLD,11);fb(f,u+e*(w/2-0.03),y,0.06,0.05,h,0.03,GOLD,11);}
+    if(K.lod<1){let x=-w/2+0.25;const lh=h*0.42;let k=0;while(x<w/2-0.3){const lw=k===0?0.14:rr(0.07,0.12);fb(f,u+x,y,0.065,0.025,lh*(k===0?1.15:1),0.01,GOLD,0);if(rnd()<0.7)fb(f,u+x+lw/2,y+(rnd()<0.5?lh/2:-lh/2+0.01)*(k===0?1.1:1),0.065,lw,0.025,0.01,GOLD,0);if(rnd()<0.5)fb(f,u+x+lw,y,0.065,0.025,lh*rr(0.5,1),0.01,GOLD,0);x+=lw+0.11;k++;}}};
+  // lattice girder side between two points (top chord at +hgt): chords and X lattice
+  P.lattice=(a,b,hgt,o)=>{o=o||{};const L=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]),d=norm(sub(b,a)),side=norm([-d[2],0,d[0]]);beam(a,b,side,0.07,0.09,IRON,11);beam(add(a,[0,hgt,0]),add(b,[0,hgt,0]),side,0.09,0.07,IRON,11);
+    if(K.lod>=2)return;const st=K.lod?0.9:0.42,n=Math.max(2,Math.round(L/st));for(let k=0;k<n;k++){const p0=add(a,mul(sub(b,a),k/n)),p1=add(a,mul(sub(b,a),(k+1)/n));beam(p0,add(p1,[0,hgt,0]),side,0.035,0.02,IRON,11);beam(add(p0,[0,hgt,0]),p1,side,0.035,0.02,IRON,11);
+      if(k%4===0)beam(p0,add(p0,[0,hgt,0]),side,0.05,0.05,IRON,11);}};
+  // footbridge over the line at x xa..xb (deck at yd), from the platform (z zp) to a landing beyond the far side (z zf); stairs run toward -x
+  P.footbridge=(xa,xb,zp,zf,yd,stairL)=>{const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
+    // span: deck, two lattice sides, roof-less
+    B(xm,yd-0.08,(zp+zf)/2,w,0.16,zp-zf,[0.32,0.3,0.28],12);B(xm,yd-0.3,(zp+zf)/2,w-0.2,0.3,zp-zf,IRON,11);
+    for(const x of [xa+0.05,xb-0.05])P.lattice([x,yd,zf],[x,yd,zp],hh);
+    // towers: four iron columns under each end with a lamp on top of the corner posts
+    for(const z of [zp-0.4,zf+0.4])for(const x of [xa+0.1,xb-0.1]){const yb=z>0?PY:-0.2;cyl([x,yb,z],[x,yd,z],0.1,0.1,8,IRON,11);cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
+    P.lamp(xb-0.1,yd+hh+0.3,zp-0.4,0.9);P.lamp(xb-0.1,yd+hh+0.3,zf+0.4,0.9);
+    // stairs: platform side (z zp-1.2..zp) from (xa-stairL, PY) to (xa, yd); far side same at zf..zf+1.2 down to ground
+    for(const [zz0,zz1,yb] of [[zp-1.25,zp-0.05,PY],[zf+0.05,zf+1.25,-0.2]]){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
+      for(let k=0;k<n;k++){const x=x0+run*(k+0.5),y=yb+(yd-yb)*(k+1)/n;B(x,y-0.03,(zz0+zz1)/2,run+0.02,0.06,zz1-zz0,[0.34,0.32,0.3],12);if(K.lod<1)B(x+run/2-0.01,y-0.12,(zz0+zz1)/2,0.03,0.18,zz1-zz0,IRON,11);}
+      for(const z of [zz0,zz1]){beam([x0,yb,z],[xa,yd,z],[0,0,1],0.22,0.06,IRON,11);P.lattice([x0,yb+0.05,z],[xa,yd+0.05,z],0.95);}
+      // landing at the top joins the span; a post at the foot
+      B(xa-0.0,yd-0.06,(zz0+zz1)/2,0.3,0.12,zz1-zz0,[0.34,0.32,0.3],12);cyl([x0,yb,zz0],[x0,yb+1.3,zz0],0.07,0.07,8,IRON,11);cyl([x0,yb,zz1],[x0,yb+1.3,zz1],0.07,0.07,8,IRON,11);
+      cyl([(x0+xa)/2,yb,zz0],[(x0+xa)/2,(yb+yd)/2,zz0],0.08,0.08,8,IRON,11);cyl([(x0+xa)/2,yb,zz1],[(x0+xa)/2,(yb+yd)/2,zz1],0.08,0.08,8,IRON,11);}};
+  // a low brick wall with stone-capped pillars and iron railings between (along x at z, from x0 to x1, base y0)
+  P.wall=(x0,x1,z,y0)=>{B((x0+x1)/2,y0+0.3,z,x1-x0,0.6,0.32,BRICK,24);B((x0+x1)/2,y0+0.64,z,x1-x0+0.04,0.08,0.4,STONE,8);
+    const n=Math.max(1,Math.round((x1-x0)/2.4));for(let k=0;k<=n;k++){const x=x0+(x1-x0)*k/n;B(x,y0+0.55,z,0.44,1.1,0.44,BRICK,24);B(x,y0+1.14,z,0.54,0.08,0.54,STONE,8);ico([x,y0+1.3,z],0.15,STONE,8);}
+    if(K.lod<2)for(let k=0;k<n;k++){const a=x0+(x1-x0)*k/n+0.3,b=x0+(x1-x0)*(k+1)/n-0.3;for(const yy of [0.82,1.4])B((a+b)/2,y0+yy,z,b-a,0.035,0.035,IRON,11);
+      if(K.lod<1)for(let x=a;x<=b;x+=0.14){cyl([x,y0+0.68,z],[x,y0+1.5,z],0.012,0.012,4,IRON,11);cyl([x,y0+1.5,z],[x,y0+1.62,z],0.025,0.002,4,IRON,11);}}};
+  // notice board with a little slate roof on two posts
+  P.notice=(x,y0,z)=>{for(const e of [-0.55,0.55])B(x+e,y0+0.9,z,0.08,1.8,0.08,WOOD,6);B(x,y0+1.25,z,1.2,0.9,0.08,[0.35,0.24,0.15],6);B(x,y0+1.25,z-0.045,1.05,0.75,0.01,[0.92,0.9,0.8],0);
+    for(let k=0;k<4;k++)B(x-0.3+(k%2)*0.55,y0+1.05+(k>>1)*0.38,z-0.05,0.36,0.26,0.01,[0.98,0.96,0.88],0);
+    const a=[x-0.75,y0+1.95,z-0.35],b=[x+0.75,y0+1.95,z-0.35],c=[x+0.75,y0+2.2,z],d=[x-0.75,y0+2.2,z];quad(a,b,c,d,null,[0.3,0.32,0.37],18);quad([x-0.75,y0+2.2,z],[x+0.75,y0+2.2,z],[x+0.75,y0+1.95,z+0.35],[x-0.75,y0+1.95,z+0.35],null,[0.3,0.32,0.37],18);};
+  return P;}
+KIT.stationKit=kitOf;
+
+// ---------------- the station buildings
+function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft}=K,P=kitOf(K);
+  // ---- main two-storey block
+  const G1=PY+3.9,G2=PY+7.4;// first floor level, eaves
+  const parts=[];
+  const brickHouse=(x0,x1,z0,z1,eav,rise,o)=>{o=o||{};const F=P.block(x0,x1,z0,z1,-1.0,eav,{bands:o.band?[o.band]:[]});
+    const rf=P.roof([(x0+x1)/2,(z0+z1)/2],[1,0],(x1-x0)/2,(z1-z0)/2,eav,rise,{skip:o.skip,ends:o.ends||[-1,1]});
+    for(const e of o.ends||[-1,1]){P.gable(e<0?F.left:F.right,(z1-z0)/2,eav,eav+rise);P.barge(rf,e);}
+    P.crest(rf,-rf.hl+0.4,rf.hl-0.4);parts.push({x0,x1,z0,z1,eav,rise,rf,F});return{F,rf};};
+  // a cross gable facing the platform: front wall (z zf) from x0..x1, ridge back to zr; returns its front face
+  const crossGable=(xc,hw,zf,zr,eav,rise,o)=>{o=o||{};const F=P.block(xc-hw,xc+hw,zf,zr,-1.0,eav,{bands:o.band?[o.band]:[],faces:o.faces});
+    const rf=P.roof([xc,(zf+zr)/2],[0,1],(zr-zf)/2,hw,eav,rise,{ends:[-1],nx:Math.round((zr-zf)*3)});P.gable(F.front,hw,eav,eav+rise);P.barge(rf,-1,{spike:o.spike||1.6});
+    return{F,rf};};
+  // main-roof slates hidden only where a cross gable's roof lies over them: [xc, half width, front z limit, cross eave, cross rise]
+  const skipIn=list=>Pt=>list.some(([xc,hw,zm,ev,ri,z0])=>Math.abs(Pt[0]-xc)<hw+0.3&&Pt[2]<zm&&Pt[2]>(z0||-99)&&Pt[1]<ev+ri*(1-Math.max(0,Math.abs(Pt[0]-xc)-0.0)/(hw+0.35))+0.12);
+  let nameX,clockX,fbX0,fbX1;
+  if(!town){
+    // default: main house x -5.5..5.5, z 6..12.4; cross gable x -2.7..2.7 out to z 5.7; wing x -14..-5.5 (one storey) with a small gable
+    const main=brickHouse(-5.5,5.5,6.0,12.4,G2,4.6,{band:G1,skip:skipIn([[0,2.7,9.6,PY+7.8,3.9]])});
+    const cg=crossGable(0,2.7,5.7,9.4,G2+0.4,3.9,{band:G1});
+    // ground floor: arched door and windows under the canopy; first floor: a big paired arched window in the cross gable, side windows
+    P.door(cg.F.front,0,PY,1.7,3.0);for(const u of [-1.7,1.7])P.arch(cg.F.front,u,PY+0.8,0.9,2.3);
+    P.arch(cg.F.front,-0.62,G1+0.5,1.0,2.6,{});P.arch(cg.F.front,0.62,G1+0.5,1.0,2.6,{});fb(cg.F.front,0,G1+0.4,0.08,2.8,0.16,0.22,STONE,8);
+    P.arch(cg.F.front,0,G2+1.0,0.7,1.3,{nv:7});
+    for(const u of [-4.3,4.3]){P.arch(main.F.front,u,PY+0.8,1.0,2.3);P.arch(main.F.front,u,G1+0.6,0.9,2.1);}
+    for(const u of [-3.5,0,3.5]){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    for(const f of [main.F.right])for(const u of [-1.6,1.6]){P.arch(f,u,PY+0.8,1.0,2.3);P.arch(f,u,G1+0.6,0.9,2.1);}
+    P.arch(main.F.right,0,G2+0.6,0.8,1.6,{nv:7});P.arch(main.F.left,0,G2+0.6,0.8,1.6,{nv:7});
+    P.chimney(-3.6,10.6,G2,G2+6.4,0.9,0.7,3);P.chimney(3.8,7.6,G2,G2+6.0,0.9,0.7,2);
+    // wing
+    const EW=PY+4.4,wing=brickHouse(-14.0,-5.5,6.4,11.8,EW,3.2,{ends:[-1],skip:skipIn([[-10,1.5,9.0,PY+4.7,2.6]])});
+    const wg=crossGable(-10.0,1.5,6.1,8.8,EW+0.3,2.6,{});P.arch(wg.F.front,0,EW+0.45,0.6,1.15,{nv:7});P.arch(wg.F.front,0,PY+0.8,1.2,2.4);
+    for(const u of [-6.4,-1.8,2.2])P.arch(wing.F.front,u,PY+0.8,1.0,2.3);P.arch(wing.F.left,0.0,PY+0.8,1.0,2.3);for(const u of [-2.5,0.8,3.2])P.arch(wing.F.back,u,PY+0.8,1.0,2.3);
+    P.chimney(-12.6,9.0,EW,EW+4.2,0.8,0.6,2);
+    // dormers on the main roof front
+    nameX=-12.4;clockX=2.6;fbX0=17.4;fbX1=19.6;
+    const cn=P.canopy(-14.6,11.5,1.9,6.0,{H:PY+3.75});
+    for(const k of [1,3,5])if(cn.cols[k]!==undefined)P.basket(cn.cols[k],PY+3.0,cn.cz);
+    P.clock(clockX,PY+3.0,cn.cz+0.1,0.42);beam([clockX,PY+3.55,cn.cz+0.1],[clockX,cn.H-0.12,cn.cz+0.1],[1,0,0],0.06,0.06,IRON,11);
+    for(const x of [-7.6,7.6])P.bench(x,PY,5.2,1.9,1);P.bench(-2.0+11.0,PY,5.2,1.8,1);
+    for(const x of [-4.5,4.0,-12.6])P.planter(x,PY,5.25,0.32);
+    P.cart(-1.0,PY,3.6,0.08);P.notice(-16.6,PY,5.3);P.wall(-21.5,-15.2,5.55,PY);
+    for(const x of [-18.2,13.0])P.lamp(x,PY,4.6,3.2);for(const x of [-9,0,6])P.lantern(x,PY+2.7,3.9,PY+3.6);
+    // name boards: on the canopy end and on a pair of posts at the platform end
+    {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.05,2.6,0.48);}
+    {const f=K.face([-19.2,0,4.4],[0,0,-1],[1,0,0],1);for(const e of [-1.2,1.2])B(-19.2+e,PY+1.1,4.45,0.09,2.2,0.09,IRON,11);P.board(f,0,PY+2.0,2.7,0.55);}
+  }else{
+    // town: long main range x -14..14 (two storeys), wings x -22..-14 and 14..20; three cross gables; clock tower at x 2.5
+    const T0=2.5,TW=2.3;
+    const main=brickHouse(-14,14,6.0,13.4,G2+0.6,5.0,{band:G1,skip:skipIn([[-6.8,2.8,10.2,G2+1.0,4.3],[T0,TW-0.25,10.0,99,0,5.6],[10.2,1.8,9.8,G2+0.7,3.2],[-1.2,0.6,8.3,G2+2.4,1.0,6.4],[6.0,0.6,8.3,G2+2.4,1.0,6.4]])});
+    const g1=crossGable(-6.8,2.8,5.6,10.0,G2+1.0,4.3,{band:G1});P.door(g1.F.front,0,PY,1.8,3.1);for(const u of [-1.8,1.8])P.arch(g1.F.front,u,PY+0.8,0.9,2.4);
+    P.arch(g1.F.front,-0.66,G1+0.5,1.05,2.9);P.arch(g1.F.front,0.66,G1+0.5,1.05,2.9);fb(g1.F.front,0,G1+0.4,0.08,3.0,0.16,0.22,STONE,8);P.arch(g1.F.front,0,G2+1.4,0.8,1.5,{nv:7});
+    const g3=crossGable(10.2,1.8,5.8,9.6,G2+0.7,3.2,{band:G1});P.arch(g3.F.front,0,PY+0.8,1.1,2.4);P.arch(g3.F.front,0,G1+0.6,1.0,2.4);P.arch(g3.F.front,0,G2+0.9,0.6,1.2,{nv:7});
+    for(const u of [-12.2,-2.0,6.6,12.6]){P.arch(main.F.front,u,PY+0.8,1.0,2.4);P.arch(main.F.front,u,G1+0.6,0.95,2.2);}
+    for(let u=-12;u<=12;u+=3){P.arch(main.F.back,u,PY+0.8,1.0,2.3);P.arch(main.F.back,u,G1+0.6,0.9,2.1);}
+    // dormers with pinnacles on the front slope
+    for(const x of [-1.2,6.0]){const zf=6.6,y0=G2+0.9;P.block(x-0.8,x+0.8,zf,zf+1.6,y0-0.6,y0+1.5,{faces:[]});const rf=P.roof([x,zf+0.8],[0,1],0.8,0.8,y0+1.5,1.0,{ends:[-1],nx:6,ov:0.15,gov:0.15});
+      const f=K.face([x,0,zf],[0,0,-1],[1,0,0],0.8);P.gable(f,0.8,y0+1.5,y0+2.5);P.barge(rf,-1,{spike:0.9});P.arch(f,0,y0-0.1,0.6,1.3,{nv:7});
+      for(const e of [-1,1]){cyl([x+e*0.85,y0+1.5,zf],[x+e*0.85,y0+2.4,zf],0.09,0.02,4,STONE,8);}}
+    P.chimney(-11.4,11.2,G2+0.6,G2+7.6,1.0,0.7,3);P.chimney(-2.4,11.6,G2+0.6,G2+7.9,0.9,0.7,2);P.chimney(8.0,11.4,G2+0.6,G2+7.6,1.0,0.7,3);P.chimney(12.4,8.0,G2+0.6,G2+6.8,0.8,0.6,2);
+    // wings
+    const EW=PY+5.0,wl=brickHouse(-22,-14,6.4,12.6,EW,3.6,{ends:[-1],skip:skipIn([[-18,2.0,9.8,PY+5.4,3.0]])});const wg=crossGable(-18,2.0,6.0,9.6,EW+0.4,3.0,{});
+    P.arch(wg.F.front,-0.5,PY+0.8,0.9,2.3);P.arch(wg.F.front,0.5,PY+0.8,0.9,2.3);P.arch(wg.F.front,0,EW+0.5,0.7,1.4,{nv:7});for(const u of [-3.2,3.2])P.arch(wl.F.front,-u,PY+0.8,1.0,2.3);P.arch(wl.F.left,0,PY+0.8,1.0,2.3);
+    const wr=brickHouse(14,19.5,6.6,12.4,G2-0.2,4.0,{band:G1,ends:[1]});for(const u of [-1.4,1.4]){P.arch(wr.F.right,u,PY+0.8,1.0,2.3);P.arch(wr.F.right,u,G1+0.6,0.9,2.1);}P.arch(wr.F.front,0,PY+0.8,1.0,2.3);P.arch(wr.F.front,0,G1+0.6,0.9,2.1);
+    P.chimney(-19.6,10.6,EW,EW+4.6,0.8,0.6,2);P.chimney(17.6,10.8,G2-0.2,G2+5.0,0.8,0.6,2);
+    // the clock tower: square brick shaft with stone quoins rising from the front of the main range, belfry stage with clocks, slate spire
+    {const z0=5.5,z1=z0+2*TW,y1=PY+17.2,F=P.block(T0-TW,T0+TW,z0,z1,-1.0,y1,{bands:[G1,G2+0.6,PY+12.2]});
+      P.door(F.front,0,PY,1.6,3.0);P.arch(F.front,0,G1+0.6,1.0,2.4);P.arch(F.front,-0.5,G2+1.0,0.7,2.0,{nv:7});P.arch(F.front,0.5,G2+1.0,0.7,2.0,{nv:7});
+      const yc=PY+14.6;for(const [f,ax,sg] of [[F.front,'z',-1],[F.back,'z',1],[F.left,'x',-1],[F.right,'x',1]]){const c=fp(f,0,yc,0.02);P.clock(c[0],yc,c[2],1.15,{axis:ax,single:true,depth:0.08,sgn:sg});
+        // stone surround and a small gable over each clock
+        const a=fp(f,-1.6,yc+1.5,0.12),b=fp(f,1.6,yc+1.5,0.12),cc=fp(f,0,yc+3.0,0.12);tri(a,b,cc,STONE,8);const a2=fp(f,-1.6,yc+1.5,-0.2),b2=fp(f,1.6,yc+1.5,-0.2),c2=fp(f,0,yc+3.0,-0.2);tri(b2,a2,c2,BRICK,24);
+        fb(f,0,yc-1.5,0.08,3.2,0.18,0.24,STONE,8);for(const e of [-1,1])fb(f,e*1.45,yc,0.06,0.22,2.9,0.2,STONE,8);}
+      for(const e of [-1,1])for(const e2 of [-1,1]){const x=T0+e*TW,z=(z0+z1)/2+e2*TW;cyl([x,y1,z],[x,y1+2.4,z],0.22,0.04,4,STONE,8);ico([x,y1+2.45,z],0.08,IRON,11);}
+      // spire: a steep square slate pyramid with lucarnes, a finial and a cross
+      const sh=9.5,top=[T0,y1+sh,(z0+z1)/2],c4=[[T0-TW-0.15,z0-0.15],[T0+TW+0.15,z0-0.15],[T0+TW+0.15,z1+0.15],[T0-TW-0.15,z1+0.15]];
+      B(T0,y1+0.12,(z0+z1)/2,2*TW+0.5,0.24,2*TW+0.5,STONE,8);
+      for(let k=0;k<4;k++){const a=c4[k],b=c4[(k+1)%4];const A=[a[0],y1+0.24,a[1]],Bp=[b[0],y1+0.24,b[1]];const N=K.lod?2:6;
+        for(let j=0;j<N;j++){const t0=j/N,t1=(j+1)/N,l=(p,t)=>[p[0]+(top[0]-p[0])*t,p[1]+(top[1]-p[1])*t,p[2]+(top[2]-p[2])*t];quad(l(A,t0),l(Bp,t0),l(Bp,t1),l(A,t1),null,j%2?[0.28,0.3,0.35]:[0.31,0.33,0.38],18);}
+        // lucarne: a little gabled window half way up each face
+        const mid=[(a[0]+b[0])/2,y1+0.24,(a[1]+b[1])/2],out=K.v.norm([mid[0]-T0,0,mid[2]-(z0+z1)/2]),lp=[mid[0]-out[0]*0.9,y1+2.4,mid[2]-out[2]*0.9];
+        const tg=[-out[2],0,out[0]];const fl=K.face([lp[0],0,lp[2]],out,tg,0.45);fb(fl,0,y1+2.6,-0.25,0.9,1.1,0.8,STONE,8);fb(fl,0,y1+2.55,0.16,0.45,0.75,0.02,K.C.glow,2);
+        const g0=fp(fl,-0.5,y1+3.15,0.18),g1=fp(fl,0.5,y1+3.15,0.18),g2=fp(fl,0,y1+3.75,0.18);tri(g0,g1,g2,STONE,8);cyl(g2,K.v.add(g2,[0,0.4,0]),0.04,0.01,4,IRON,11);}
+      cyl([top[0],top[1]-0.3,top[2]],[top[0],top[1]+1.6,top[2]],0.08,0.03,6,IRON,11);ico([top[0],top[1]+0.3,top[2]],0.16,GOLD,11);B(top[0],top[1]+1.3,top[2],0.07,0.75,0.07,IRON,11);B(top[0],top[1]+1.42,top[2],0.42,0.07,0.07,IRON,11);}
+    nameX=-20.4;clockX=-2.0;fbX0=20.0;fbX1=22.2;
+    const cn=P.canopy(-22.6,13.0,1.9,6.0,{H:PY+3.9});for(const k of [1,3,5,7,9])if(cn.cols[k]!==undefined)P.basket(cn.cols[k],PY+3.1,cn.cz);
+    P.clock(clockX,PY+3.1,cn.cz+0.1,0.42);beam([clockX,PY+3.65,cn.cz+0.1],[clockX,cn.H-0.12,cn.cz+0.1],[1,0,0],0.06,0.06,IRON,11);
+    for(const x of [-15.6,-11.0,3.0,7.4])P.bench(x,PY,5.2,1.9,1);for(const x of [-13.2,-9.0,0.6,5.6,9.4])P.planter(x,PY,5.25,0.32);
+    P.cart(-3.6,PY,3.6,-0.06);P.cart(8.6,PY,3.7,0.12);
+    for(const x of [14.6])P.lamp(x,PY,4.6,3.2);for(const x of [-17,-8,1,9])P.lantern(x,PY+2.8,3.9,PY+3.75);
+    {const f=K.face([nameX,0,1.62],[0,0,-1],[1,0,0],1);P.board(f,0,PY+4.2,2.8,0.5);}
+
+  }
+  P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0);
+  // ground behind the building: a gravel forecourt strip and a few shrubs
+  if(K.lod<2){const zb=town?13.4:12.4;for(let k=0;k<(town?10:6);k++){const x=rr(town?-20:-12,town?18:8),z=zb+rr(0.6,1.6);ico([x,0.1,z],rr(0.35,0.6),mix3([0.2,0.36,0.14],[0.32,0.46,0.2],rnd()),1,{detail:1,sy:0.8,jit:0.3});}}
+  // preview only: rails, ballast, ground and the platform pieces under the station
+  if(!opt.game){const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
+    B(0,-0.55,0,2*L,0.36,3.6,[0.55,0.52,0.48],10);for(const e of [-1,1])B(0,-0.08,e*0.72,2*L,0.15,0.07,[0.45,0.4,0.36],11);for(let x=-L;x<L;x+=0.62)B(x,-0.28,0,0.24,0.12,2.5,[0.36,0.24,0.15],6);
+    B(0,-0.7,8,2*L+6,0.2,36,[0.36,0.5,0.24],9);}
+  return town?{target:[0,7.5,4],dist:72,dir:[-0.55,0.45,-0.7],shadowC:[0,6,4],shadowR:42,haze:[90,220]}:{target:[2,5.5,4],dist:52,dir:[-0.55,0.45,-0.7],shadowC:[0,5,4],shadowR:30,haze:[70,180]};}
+function mix3(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+
+// ---------------- platform pieces (4.1 m, centred on x): v 0 plain, 1 with a lamp, 2 with a back railing, 3 railing + lamp + bench + planter
+KIT.platPiece=function(K,x,v){const {B,cyl}=K,P=kitOf(K);const L=4.1;
+  B(x,-0.1,3.66,L,2.08,4.08,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
+  B(x,0.965,3.82,L,0.07,3.76,PAVE,24);// paving (bricks laid flat)
+  B(x,0.95,1.74,L,0.13,0.5,STONE,8);B(x,1.018,1.56,L,0.008,0.14,[0.95,0.93,0.86],0);// coping with a white edge line
+  if(v===1||v===3)P.lamp(x+0.2,PY,5.15,3.2);
+  if(v>=2){for(const xx of [x-L/2+0.06,x])B(xx,PY+0.55,5.6,0.08,1.1,0.08,IRON,11);for(const yy of [0.5,1.05])B(x,PY+yy,5.6,L,0.04,0.04,IRON,11);
+    if(K.lod<1)for(let xx=x-L/2+0.2;xx<x+L/2;xx+=0.2)B(xx,PY+0.55,5.6,0.018,1.0,0.018,IRON,11);}
+  if(v===3){P.bench(x-1.0,PY,5.05,1.7,1);P.planter(x+1.2,PY,5.15,0.28);}};
+for(const v of [0,1,2,3])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
+KIT.models.station=function(K,opt){return build(K,opt,false);};
+KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
+Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6}});
+})();
+
 /*@@END_BUILDINGS@@*/
 const VS_OBJ=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;
@@ -2648,7 +2961,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','station','stationTown','plat0','plat1','plat2','plat3'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -2664,7 +2977,7 @@ in vec3 vW;in vec3 vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int v
 const float uMoss=1.;
 `+KIT.GLSL.NOISE+KIT.GLSL.MATS.replace('float y=vW.y;','float y=vY;')+`
 void main(){if(uPass==1){o=vec4(0);return;}
-  vec3 Ng=normalize(vN),V=normalize(uCamPos.xyz-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}vec3 Nd=Ng;float hc=0.;
+  vec3 Ng=normalize(vN),V=normalize(uCamPos.xyz-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);vec3 Nd=Ng;float hc=0.;
   float fade=smoothstep(140.,60.,length(uCamPos.xyz-vW));
   if(m>=4&&m!=13&&fade>0.){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -2681,7 +2994,7 @@ void main(){if(uPass==1){o=vec4(0);return;}
   else if(m==3)col=L(vC)*(.45+3.*uMisc.x);
   else if(m==22){vec3 sg=L(stainedC(q)),Rf=reflect(-V,Ng);col=sg*(uSunCol.rgb*.1*max(dot(Ng,uL),0.)+ambient(Ng)*.4+.04+2.6*uMisc.x)+L(mix(uSkyH.rgb,uSkyZ.rgb,clamp(Rf.y*1.5,0.,1.)))*.12*(1.-uMisc.x);}
   else{float nl=dot(Nd,uL),ramp=smoothstep(-.03,.16,nl)*.6+smoothstep(.38,.6,nl)*.4,lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,dot(Ng,uL));
-    float cav=(m==4||m==18||m==20||m==21||m==8||m==6||m==16||m==19)?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;col=A*(uSunCol.rgb*lit+ambient(Nd)*cav);}
+    float cav=(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19)?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;col=A*(uSunCol.rgb*lit+ambient(Nd)*cav);}
   o=vec4(fogc(col,vW),1.);}`;
 const FS_OBJ=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;flat in float vHash;flat in float vTint;uniform int uPass;uniform int uKind;`+FS_OUT+`
@@ -3936,10 +4249,10 @@ function carveTrack(T){
       if(d<=hw){H[k]=yF;mask[k]=255;}
       else{const dd=d-hw;H[k]=clamp(H[k],yF-dd*emb,yF+dd*cut);const m=Math.round(255*clamp(1-dd/3,0,1));if(m>mask[k])mask[k]=m;}}
   }
-  for(const st of Track.stations||[]){const s=Track.segs.find(q=>q.id===st.sid);if(!s)continue;const sp=spanAt(s,st.t);if(sp)continue;const c=segPoint(s,st.t),yP=segY(s,st.t)-0.18,R2=34;
+  for(const st of Track.stations||[]){const s=Track.segs.find(q=>q.id===st.sid);if(!s)continue;const sp=spanAt(s,st.t);if(sp)continue;const c=segPoint(s,st.t),yP=segY(s,st.t)-0.18,R2=Math.max(34,(st.len||44)/2+12);
     const i0=clamp(Math.floor((c[0]-R2)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+R2)/cs),0,N-1),j0=clamp(Math.floor((c[1]-R2)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+R2)/cs),0,N-1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,[t,d]=segNearest(s,x,z),k=j*N+i;if(d<=hw)continue;const along=Math.abs(t-st.t);
-      const w=clamp((28-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:17)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
+      const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
 }
 
 // ---- meshes: ballast, sleepers, rails, stone viaducts, tunnel tubes and portals
@@ -4225,7 +4538,8 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
       gl.uniform3f(p.u('uLamp'),red?1.6:0.05,red?0.08:1.3,red?0.04:0.2);gl.uniformMatrix4fv(p.u('uModel'),false,mat(s,g.t,-2.7));gl.bindVertexArray(R.signalMesh.vao);gl.drawElements(gl.TRIANGLES,R.signalMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
     gl.uniform3f(p.u('uLamp'),1,1,1);
     const matF=(s,t,f)=>{const q=segPoint(s,t),y=segY(s,t),c=Math.cos(q[2])*f,sn=Math.sin(q[2])*f;return new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],y,q[1],1]);};
-    for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const m=st.mine&&R.veh&&R.veh[31]?R.veh[31]:(st.sawmill||st.workshop)&&R.veh&&R.veh[10]?R.veh[10]:R.stationMesh;gl.uniformMatrix4fv(p.u('uModel'),false,matF(s,st.t,st._f||1));gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;
+    for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;if(!(st.mine||st.sawmill||st.workshop)&&R.kitVao)continue;// passenger stations are kit buildings (Life.kitInst)
+      const m=st.mine&&R.veh&&R.veh[31]?R.veh[31]:(st.sawmill||st.workshop)&&R.veh&&R.veh[10]?R.veh[10]:R.stationMesh;gl.uniformMatrix4fv(p.u('uModel'),false,matF(s,st.t,st._f||1));gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;
       if((st.len||44)>44&&R.platMesh&&R.platMesh[1]){const n=Math.round(((st.len||44)-44)/8),f=st._f||1;for(const e of [-1,1])for(let k=0;k<n;k++){const a=advance({sid:st.sid,t:st.t,dir:1},e*(24+4*k));if(a.blocked)break;const ps=a.pos,s2=segById(ps.sid);if(!s2)break;
           const q=segPoint(s2,ps.t),h=q[2]+(ps.dir<0?Math.PI:0),c=Math.cos(h)*f,sn=Math.sin(h)*f,pm=R.platMesh[k%3===1?1:0];gl.uniformMatrix4fv(p.u('uModel'),false,new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],segY(s2,ps.t),q[1],1]));gl.bindVertexArray(pm.vao);gl.drawElements(gl.TRIANGLES,pm.count,gl.UNSIGNED_INT,0);Stats.draws++;}}}
     gl.bindVertexArray(null);},
@@ -4261,16 +4575,31 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     else if(m==='draw')this.info(Track.segs.length?'Draw with one finger on the map, starting on a gold ring to extend the track. End on another ring to join up.':'Draw your railway with one finger on the map. Two fingers move the camera.');
     else if(m==='signals')this.info(this.sigTool==='signal'?'Tap the track to put up a signal. Signals split the line into blocks; trains on Auto only enter an empty block.':this.sigTool==='station'?'Tap the track to build a station. Trains on Auto stop at every station.':this.sigTool==='longer'?'Tap a station to make its platform 16 m (about one coach) longer, so long trains fit.':this.sigTool==='shorter'?'Tap a station to make its platform 16 m shorter.':'Tap a signal or station to remove it.');
     else this.info(!this.rt.a?'Tap where the line should start: a gold ring, or open ground.':!this.rt.b?'Now tap the destination: another ring to join up, or open ground.':'');},
-  setSig(t){this.sigTool=t;this.ui();this.hint();},
+  setSig(t){this.sigTool=t;if(t!=='station')this.stg=null;this.ui();this.hint();},
+  // ---- station ghost: where the station will stand; drag it along the track, flip it to the other side, then Build it (the ground is
+  // levelled only then). The building side defaults to the village's side of the line.
+  stSide(sid,t){const s=segById(sid);if(!s)return 1;const q=segPoint(s,t),c=Math.cos(q[2]),sn=Math.sin(q[2]),v=Life.nearestVillage(q[0],q[1],420);return v&&sn*(v.x-q[0])-c*(v.z-q[1])<0?-1:1;},
+  reach(pos,d){let lo=0,hi=d;if(!advance(pos,d).blocked)return d;for(let k=0;k<14;k++){const m=(lo+hi)/2;if(advance(pos,m).blocked)hi=m;else lo=m;}return lo;},
+  // keep the whole platform on track: slide the centre back from a dead end
+  fitPlat(g){for(let k=0;k<2;k++){const c={sid:g.sid,t:g.t,dir:1},f=this.reach(c,g.len/2),b=this.reach({...c,dir:-1},g.len/2),sh=(g.len/2-f)-(g.len/2-b);
+      if(Math.abs(sh)<0.05)break;const a=advance(c,-sh);if(a.blocked)break;const p=a.pos;g.t=p.t;g.sid=p.sid;if(p.dir<0){/* crossed onto a reversed piece: keep the same physical side */g.side=-(g.side||1);}}},
+  ghostAt(near){const g={sid:near.seg.id,t:near.t,len:44};g.side=this.stSide(g.sid,g.t);this.stg=g;this.fitPlat(g);this.ui();
+    this.info('This is where the station will be. Drag it along the track, ⇅ puts the building on the other side. Build it when it is right.');},
+  flipGhost(){if(!this.stg)return;this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();},
+  placeStation(g){const n=Track.stations.length+1,s=segById(g.sid);if(!s)return;const q=segPoint(s,g.t),v=Life.nearestVillage(q[0],q[1],420);const names=['Halte Heide','Halte Bos','Halte Meer','Kruispunt','Halte Berg','Halte Veld'];
+    let name=v?v.name:names[(n-1)%names.length];if(Track.stations.some(s=>s.name===name))name+=' '+(Track.stations.filter(s=>s.name.startsWith(name)).length+1);
+    const st={id:Track.nextId++,sid:g.sid,t:g.t,name,side:g.side||1};if(g.len&&g.len!==44)st.len=g.len;Track.stations.push(st);Life.attachSawmill(st);
+    this.info(v?`Station ${name} built. People from ${v.name} will walk over and take the train.`:`Station ${name} built. Build it near a village and people will come and ride.`);
+    Net.changed();App.trackChanged();Sfx.clunk();},
   info(t){if(t!=='')$('#buildInfo').textContent=t;},
   stateOf(n){return{node:n,x:n.x,z:n.z,y:n.y,h:n.h,g:n.g};},
-  ui(){const m=this.mode,pend=!!(this.plan&&this.plan.pieces&&m!=='pieces'&&!this.stroke);
+  ui(){const m=this.mode,gh=!!(this.stg&&m==='signals'),pend=gh||!!(this.plan&&this.plan.pieces&&m!=='pieces'&&!this.stroke);
     for(const b of document.querySelectorAll('#buildBar [data-mode]'))b.classList.toggle('on',b.dataset.mode===m);const tab=this.tabOf(m);
     for(const b of document.querySelectorAll('#buildBar [data-btab]'))b.classList.toggle('on',b.dataset.btab===tab);$('#mTrackHow').hidden=tab!=='track'||this.remove;$('#bTrackOpts').hidden=tab!=='track'||this.remove;$('#btnRemove').hidden=tab!=='track';
     $('#bChoice').hidden=!this.choice||!!this.stroke;if(this.choice){const j=this.choice.kind==='join';$('#cA').textContent=j?'Join, fix heights':'Level crossing';$('#cB').textContent=j?'Join as drawn':'Junction (switch)';$('#cC').textContent=j?"Don't join":'Cancel';}
     $('#mSignals').hidden=m!=='signals';for(const b of document.querySelectorAll('#buildBar [data-sig]'))b.classList.toggle('on',b.dataset.sig===this.sigTool);
     $('#mPieces').hidden=m!=='pieces'||this.remove;$('#mRoute').hidden=m!=='route'||this.remove;$('#bProfile').hidden=m==='pieces'||m==='roads';$('#mRoads').hidden=m!=='roads';for(const b of document.querySelectorAll('#buildBar [data-rtool]'))b.classList.toggle('on',b.dataset.rtool===Roads.tool);
-    $('#bPending').hidden=!pend;$('#bIdle').hidden=pend;$('#btnBuildOK').disabled=!(this.plan&&this.plan.ok);
+    $('#bPending').hidden=!pend;$('#bIdle').hidden=pend;$('#btnBuildOK').disabled=!gh&&!(this.plan&&this.plan.ok);$('#btnStFlip').hidden=!gh;$('#btnDiscard').textContent=gh?'Discard':'Discard plan';
     for(const b of document.querySelectorAll('#buildBar [data-v]'))b.classList.toggle('on',b.dataset.v===P.trackProfile);
     for(const b of document.querySelectorAll('#buildBar [data-dir]'))b.classList.toggle('on',+b.dataset.dir===this.pc.dir);
     for(const b of document.querySelectorAll('#buildBar [data-slope]'))b.classList.toggle('on',b.dataset.slope===this.pc.slope);
@@ -4424,19 +4753,23 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   setPrefer(p){this.rt.prefer=p;this.ui();if(this.rt.a&&this.rt.b)this.runRoute();},
   routeClear(){this.rt.a=this.rt.b=null;this.plan=null;R.setPreview(null);this.ui();this.hint();},
   // ---- pointer: Draw captures one finger; everything else is taps (one-finger drags pan)
-  down(e){this.lastXY=[e.clientX,e.clientY];if(this.mode!=='draw'||this.remove)return false;
+  down(e){this.lastXY=[e.clientX,e.clientY];
+    if(this.mode==='signals'&&this.stg&&!this.remove){const hd=StationUI.ghostHandle;if(hd&&(Math.hypot(hd[0]-e.clientX,hd[1]-e.clientY)<70||StationUI.inGhost(e.clientX,e.clientY))){this.stDrag=true;this.buzz();return true;}return false;}
+    if(this.mode!=='draw'||this.remove)return false;
     const h=Cam.pick(e.clientX,e.clientY);if(!h)return false;
     if(this.plan&&this.plan.endXY&&this.plan.stroke){const s=Cam.toScreen(...this.plan.endXY);if(s&&Math.hypot(s[0]-e.clientX,s[1]-e.clientY)<this.snapPx){this.stroke={...this.plan.stroke,trail:this.plan.stroke.trail.slice()};this.ui();return true;}}
     this.discard(true);const n=this.endNear(e.clientX,e.clientY);
     this.stroke=n?{node:n.id,trail:[[n.x,n.z]]}:{node:0,ax:h[0],az:h[2],trail:[[h[0],h[2]]]};if(n)this.buzz();this.ui();return true;},
-  move(e){this.lastXY=[e.clientX,e.clientY];if(!this.stroke)return;const h=Cam.pick(e.clientX,e.clientY);if(!h)return;
+  move(e){this.lastXY=[e.clientX,e.clientY];
+    if(this.stDrag&&this.stg){const h=Cam.pick(e.clientX,e.clientY);if(!h)return;const n=Net.nearestOnTrack(h[0],h[2],Math.max(40,Cam.dist*0.2));if(n){const g=this.stg;g.sid=n.seg.id;g.t=n.t;if(!g.sideSet)g.side=this.stSide(g.sid,g.t);this.fitPlat(g);}return;}
+    if(!this.stroke)return;const h=Cam.pick(e.clientX,e.clientY);if(!h)return;
     const tr=this.stroke.trail,l=tr[tr.length-1];if(Math.hypot(h[0]-l[0],h[2]-l[1])<2.5)return;tr.push([h[0],h[2]]);
     const snap=this.endNear(e.clientX,e.clientY,this.stroke.node);if((snap?snap.id:0)!==(this.stroke.snap||0)){this.stroke.snap=snap?snap.id:0;if(snap)this.buzz();}
     const now=performance.now();if(!this.lastMake||now-this.lastMake>60){this.lastMake=now;this.plan=this.make(this.stroke);this.show();}this.drawTrail();},
-  up(e){const st=this.stroke;this.stroke=null;this.lastXY=null;this.hold=null;if(!st){this.ui();return;}
+  up(e){if(this.stDrag){this.stDrag=false;this.lastXY=null;this.ui();return;}const st=this.stroke;this.stroke=null;this.lastXY=null;this.hold=null;if(!st){this.ui();return;}
     this.plan=this.make(st);if(!this.plan||!this.plan.pieces){this.plan=null;R.setPreview(null);this.ui();this.drawTrail();return;}
     this.plan.stroke=st;this.show();this.ui();this.drawTrail();},
-  cancel(){const st=this.stroke;this.stroke=null;this.lastXY=null;if(st&&this.plan&&this.plan.pieces){this.plan.stroke=st;this.show();}else{this.plan=null;R.setPreview(null);}this.ui();this.drawTrail();},
+  cancel(){if(this.stDrag){this.stDrag=false;this.ui();return;}const st=this.stroke;this.stroke=null;this.lastXY=null;if(st&&this.plan&&this.plan.pieces){this.plan.stroke=st;this.show();}else{this.plan=null;R.setPreview(null);}this.ui();this.drawTrail();},
   tap(e){const h=Cam.pick(e.clientX,e.clientY);
     if(this.mode==='signals'&&!this.remove){if(!h)return;
       if(this.sigTool==='remove'){let best=null,bd=15,list=null;for(const L of [Track.sigs,Track.stations])for(const o of L){const s=segById(o.sid);if(!s)continue;const q=segPoint(s,o.t),d=Math.hypot(q[0]-h[0],q[1]-h[2]);if(d<bd){bd=d;best=o;list=L;}}
@@ -4448,6 +4781,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
         const lt=Trains.list.reduce((m,t)=>Math.max(m,Trains.length(t.veh)),0);this.info(`${best.name}: platform ${L1} m.`+(lt?` Your longest train is ${Math.round(lt)} m${lt<=L1-4?' and fits.':', still longer.'}`:''));
         Net.changed();App.trackChanged();Sfx.clunk();return;}
       let near=null;if(this.sigTool==='station'){const sw=Life.nearSawSlot(h[0],h[2],38);if(sw&&!Track.stations.some(q=>q[sw.kind]&&q[sw.kind].mi===sw.mi&&q[sw.kind].k===sw.k)){const sl=sw.slot;near=Net.nearestOnTrack(sl.p[0],sl.p[1],9)||this.makeSiding(sl.p[0],sl.p[1],sl.t);}}
+      if(!near&&this.sigTool==='station'){const on=Net.nearestOnTrack(h[0],h[2],Math.max(14,Cam.dist*0.04));if(on){this.ghostAt(on);return;}if(this.stg){this.info('Tap the track to move the station there, or drag it.');return;}}
       if(!near)near=Net.nearestOnTrack(h[0],h[2],Math.max(8,Cam.dist*0.02));
       if(!near&&this.sigTool==='station'){const cp=Cam.pos||[h[0],0,h[2]+1];let t=Math.atan2(h[2]-cp[2],h[0]-cp[0])+Math.PI/2;const nt=Net.nearestOnTrack(h[0],h[2],200);if(nt){const q=segPoint(nt.seg,nt.t);t=q[2];}near=this.makeSiding(h[0],h[2],t);}
       if(!near){this.info('Tap closer to the track.');return;}
@@ -4480,9 +4814,10 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     if(p.junc){const seg=segById(p.junc.sid);if(seg){const J=Net.split(seg,p.junc.t);J.h=p.junc.h;p={...p,snap:J};}}
     let start=p.start.node?{node:Track.node(p.start.node.id)}:p.start;if(p.start.sj){const seg=segById(p.start.sj.sid);if(seg){const J=Net.split(seg,p.start.sj.t);start={node:J};}}addPieces(start,p,false);
     Log.info(`track built (${this.mode}): ${p.msg}; total ${Track.segs.length} pieces ${Track.length().toFixed(0)} m`);App.trackChanged();Sfx.clunk();},
-  confirm(){const p=this.plan;if(!p||!p.ok||!p.pieces||this.mode==='pieces')return;this.commit(p);this.plan=null;R.setPreview(null);
+  confirm(){if(this.stg&&this.mode==='signals'){const g=this.stg;this.stg=null;this.ui();Busy.run('Building the station and levelling the ground…',()=>this.placeStation(g));return;}
+    const p=this.plan;if(!p||!p.ok||!p.pieces||this.mode==='pieces')return;this.commit(p);this.plan=null;R.setPreview(null);
     if(this.mode==='route'){this.rt.a=this.rt.b=null;}this.ui();this.drawTrail();this.info(p.snap?'Joined up!':this.mode==='draw'?'Built. Draw on from the gold ring at its end.':'Built. Tap a new start for the next route.');},
-  discard(quiet){if(this.plan||this.stroke){this.plan=null;this.stroke=null;R.setPreview(null);if(this.mode==='route'){this.rt.b=null;}if(!quiet)this.info('Discarded.');}if(document.querySelector('#ovl'))this.drawTrail();this.ui();},
+  discard(quiet){if(this.stg){this.stg=null;this.stDrag=false;if(!quiet)this.info('Discarded.');}if(this.plan||this.stroke){this.plan=null;this.stroke=null;R.setPreview(null);if(this.mode==='route'){this.rt.b=null;}if(!quiet)this.info('Discarded.');}if(document.querySelector('#ovl'))this.drawTrail();this.ui();},
   undo(){if(this.plan&&this.mode!=='pieces'){this.discard();return;}const u=Track.undo.pop();if(!u){UI.toast('Nothing to undo');return;}const d=JSON.parse(u);Track.load(d);
     App.trackChanged();Trains.trackChanged();if(this.pc.cur&&this.pc.cur.node){const n=Track.node(this.pc.cur.node.id);this.pc.cur=n&&Track.links(n.id)<2?this.stateOf(n):null;}
     if(this.mode==='pieces'&&!this.pc.cur){const e=Track.freeEnds();if(e.length)this.pc.cur=this.stateOf(e[e.length-1]);}this.refresh();this.ui();this.info('Undone.');},
@@ -6096,12 +6431,13 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
     // now and then someone heads for the station
     const st=this.stInfo.find(s=>s.v===v&&!s.cargo);const lvq=st&&st.v?(st.v.level|0):0;if(st&&Math.random()<0.18*(1+lvq*0.7)&&this.walkers.filter(q=>q.st&&q.st.st.id===st.st.id&&(q.state==='wait'||q.state==='toStation')).length<6+lvq*6){const u=(Math.random()-0.5)*Math.max(26,(st.half||22)*2-14);
       w.state='toStation';w.st=st;w.tx=st.px+st.dx*u;w.tz=st.pz+st.dz*u;w.faceRot=Math.atan2(-st.nz,-st.nx);w.wp=st.road?st.road.slice().reverse():null;}},
-  updateStations(){this.stInfo=[];for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const q=segPoint(s,st.t),y=segY(s,st.t);let c=Math.cos(q[2]),sn=Math.sin(q[2]);
+  updateStations(){this.stInfo=[];this.kitDirty=true;for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const q=segPoint(s,st.t),y=segY(s,st.t);let c=Math.cos(q[2]),sn=Math.sin(q[2]);
       // a station at a sawmill or workshop turns its yard (and platform) toward it
       st._f=1;const cargo=!!(st.sawmill||st.workshop||st.mine);{const kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null,m=kind?Crane.ind(kind,st[kind]):null;if(m&&sn*(m.x-q[0])-c*(m.z-q[1])<0){st._f=-1;c=-c;sn=-sn;}}
+      if(!cargo&&(st.side||1)<0){st._f=-1;c=-c;sn=-sn;}
       const px=q[0]+sn*3.6,pz=q[1]-c*3.6,v=this.nearestVillage(q[0],q[1],420);
       const si={st,v,cargo,px,pz,y,half:(st.len||44)/2,dx:c,dz:sn,nx:sn,nz:-c,x:q[0],z:q[1],lx:[q[0]+sn*5.4-c*7,q[1]-c*5.4-sn*7],lx2:[q[0]+sn*5.4+c*7,q[1]-c*5.4+sn*7]};
-      if(v&&!cargo){const key=st.id+':'+Math.round(q[0])+','+Math.round(q[1]);if(!(key in this.stRoads)){this.stRoads[key]=this.routeRoad([px+sn*3,pz-c*3],v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
+      if(v&&!cargo){const key=st.id+':'+Math.round(q[0])+','+Math.round(q[1]);if(!(key in this.stRoads)){this.stRoads[key]=this.routeRoad([q[0]+sn*15.5,q[1]-c*15.5],v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
       this.stInfo.push(si);}
     {const live=new Set(this.stInfo.map(q=>q.rkey).filter(Boolean));for(const k in this.stRoads)if(!live.has(k)){delete this.stRoads[k];this.roadsDirty=true;}}
     for(const tr of Trains.list){if(!tr.pax)tr.pax=[];if(!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;
@@ -6146,6 +6482,10 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
     const KB={};for(const t of KIT_TYPES)for(let l=0;l<3;l++)KB[t+l]=[];
     for(const h of this.houses){const def=R.houseDefs[h.v];if(!def.kit||h.shop||(h.bank&&h.village&&h.village.bankOwned)||!this.houseOn(h))continue;const d=Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]);if(d>2400)continue;KB[def.kit+(d<110?0:d<350?1:2)].push(h);}
     for(const c of this.culverts||[]){const d=Math.hypot(c.x-cp[0],c.y-cp[1],c.z-cp[2]);if(d<1500)KB['culvert'+(d<90?0:d<300?1:2)].push({x:c.x,y:c.y,z:c.z,rot:c.rot,hash:0.5,sc:c.sc});}
+    // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
+    for(const si of this.stInfo||[]){if(si.cargo)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=d<110?0:d<350?1:2,town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
+      KB[(town?'stationTown':'station')+L].push({x:si.x,y:si.y,z:si.z,rot:Math.atan2(si.dz,si.dx)+Math.PI,hash:(si.st.id*0.618)%1});
+      for(const pc of stationPieces(si.st,town)){const dp=Math.hypot(pc.x-cp[0],pc.y-cp[1],pc.z-cp[2]);if(dp>1800)continue;KB['plat'+pc.v+(dp<110?0:dp<350?1:2)].push(pc);}}
     for(const t of KIT_TYPES)for(let l=0;l<3;l++){const L=KB[t+l],a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}},
   prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
     if(!this.uploaded){this.uploaded=true;
@@ -6194,7 +6534,7 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
       {const BL=Buses.list.filter(b=>near(b.x,b.z,1500)),bb=B(BL.length),lb=B(BL.length);let nB=0,nL=0;BL.forEach((b,i)=>{const y=Math.max(Hr(b.x,b.z),this.deckY(b.x,b.z)),a=Hr(b.x+Math.cos(b.rot)*3,b.z+Math.sin(b.rot)*3),c=Hr(b.x-Math.cos(b.rot)*3,b.z-Math.sin(b.rot)*3);const row=[b.x,y,b.z,0.75,b.rot,clamp(0.5+Math.atan((a-c)/6)/2,0,1),b.hash,0];if(b.goods)lb.set(row,(nL++)*8);else bb.set(row,(nB++)*8);});R.inst('buses',bb,nB);R.inst('lorries',lb,nL);
         const SS=Buses.stops,sb2=B(SS.length);SS.forEach((s,i)=>sb2.set([s.x,Hr(s.x,s.z),s.z,1,s.rot,0.5,0.5,0],i*8));R.inst('busstops',sb2,SS.length);
         const BW=[];for(const s of SS){if(!near(s.x,s.z,600))continue;const n=Math.min(6,Math.floor(s.waiting));for(let k=0;k<n;k++){const u=0.6+k*0.55,x=s.x+Math.cos(s.rot)*u-Math.sin(s.rot)*0.3,z=s.z+Math.sin(s.rot)*u+Math.cos(s.rot)*0.3;BW.push({x,z,y:Hr(x,z)-0.05,rot:s.rot-Math.PI/2,hash:(s.id*0.37+k*0.21)%1,k:'stand'});}}this.busWait=BW;}
-      {const SHL=(this.stInfo||[]).filter(si=>si.v&&(si.v.level|0)>=2&&!si.cargo&&near(si.x,si.z,1500)),hb=B(SHL.length);SHL.forEach((si,i)=>{const x=si.x+si.nx*9.6,z=si.z+si.nz*9.6;hb.set([x,si.y,z,1,Math.atan2(si.dz,si.dx)+Math.PI,0.5,0.5,0],i*8);});R.inst('stationhalls',hb,SHL.length);}
+      {const SHL=[],hb=B(SHL.length);SHL.forEach((si,i)=>{const x=si.x+si.nx*9.6,z=si.z+si.nz*9.6;hb.set([x,si.y,z,1,Math.atan2(si.dz,si.dx)+Math.PI,0.5,0.5,0],i*8);});R.inst('stationhalls',hb,SHL.length);}
       {const SE=[];const cp=Cam.pos||[0,0,0];for(const tr of Trains.list){if(!tr.poses)continue;const nc=tr.veh.filter(q=>q.k==='coach').length||1,occ=!tr.veh.some(q=>q.k==='coach')?0:clamp(0.15+(tr.pax?tr.pax.length:0)/(nc*16),0,0.9);
           tr.poses.forEach((p,vi)=>{if(!p||tr.veh[vi].k!=='coach'||Math.hypot(p.c[0]-cp[0],p.c[2]-cp[2])>260)return;const X=p.X,m=p.m,Y=[m[4],m[5],m[6]],Z=[m[8],m[9],m[10]],yaw=Math.atan2(X[2],X[0]);
             for(let w=0;w<8;w++)for(const sd of [-1,1])for(const f of [-1,1])for(const lz of [-0.24,0.24]){const h=Math.abs(Math.sin((w*7.13+sd*3.7+f*1.9+lz*11.3+vi*5.31+Trains.list.indexOf(tr)*2.17)*43758.5))%1;if(h>=occ)continue;
@@ -7156,7 +7496,7 @@ function loop(ts){
   R.ensureTargets(gl.canvas.width,gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
   const cpu=performance.now()-c0,pf=App.perf;pf.fr.push(dt*1000);if(pf.fr.length>240)pf.fr.shift();pf.cpu=(pf.cpu||cpu)*0.95+cpu*0.05;
-  AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
+  AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();StationUI.tick();BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
     if(P.showStats){const a=pf.fr.slice(-60),avg=a.reduce((x,y)=>x+y,0)/a.length;
       st.textContent=`${(1000/avg).toFixed(0)} fps   ${avg.toFixed(1)} ms   cpu ${pf.cpu.toFixed(1)} ms   draws ${Stats.draws}   tris ${(Stats.tris/1e6).toFixed(2)}M   ${R.tw}×${R.th}`;}
     Sky.clock();}
@@ -7179,7 +7519,7 @@ async function boot(){
   on('#buildBar [data-sig]',b=>Build.setSig(b.dataset.sig));$('#btnClearAll').onclick=()=>Build.clearAll();
   $('#cA').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'fix':'cross');$('#cB').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'asis':'junc');$('#cC').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'none':'cancel');
   $('#bBridges').onclick=()=>Build.toggle('trackBridges');{const nm=['Stone arch','Brick arch','Steel truss','Plate girder','Concrete','Timber trestle'],up=()=>{$('#bBridgeType').textContent=nm[+P.bridgeType|0];};up();$('#bBridgeType').onclick=()=>{P.bridgeType=((+P.bridgeType|0)+1)%6;UI.refresh('bridgeType');up();};}$('#bTunnels').onclick=()=>Build.toggle('trackTunnels');
-  $('#btnRemove').onclick=()=>Build.toggleRemove();$('#btnBuildOK').onclick=()=>Build.confirm();$('#btnDiscard').onclick=()=>Build.discard();
+  $('#btnRemove').onclick=()=>Build.toggleRemove();$('#btnBuildOK').onclick=()=>Build.confirm();$('#btnStFlip').onclick=()=>Build.flipGhost();$('#btnDiscard').onclick=()=>Build.discard();
   $('#btnDrive').onclick=()=>Drive.enter();$('#btnSound').onclick=()=>Sfx.toggle();App.setFF=f=>{App.ff=f;const b=$('#btnFF');b.innerHTML=svgIcon('fast')+'<span>'+f+'×</span>';b.classList.toggle('on',f>1);b.title=f>1?`Fast forward ${f}× (tap for ${f>=8?1:f*2}×)`:'Fast forward';};
   $('#btnFF').onclick=()=>App.setFF((App.ff||1)>=8?1:(App.ff||1)*2);App.setFF(1);Drive.bind();Sky.bind();Sfx.syncBtn();
   // sound and music pause while the tab is in the background (they used to keep playing with the screen off)
@@ -7200,7 +7540,7 @@ async function boot(){
     if(saved)UI.toast(recovered?'Recovered after a graphics reset':'Restored your last save');
   }catch(e){Log.err('boot failed: '+(e.stack||e));$('#err').hidden=false;$('#errMsg').textContent=String(e.message||e);UI.progress(false);}
 }
-window.TREIN={P,PDEF,Cam,R,App,Log,Stats,Track,Build,Trains,Drive,Sfx,Particles,Life,Weather,Music,Net,Clouds,Input,TouchLog,segPoint,segY,spanAt,segNearest,sampleH};
+window.TREIN={P,PDEF,Cam,R,App,Log,Stats,Track,Build,Trains,Drive,Sfx,Particles,Life,Weather,Music,Net,Clouds,Input,TouchLog,segPoint,segY,spanAt,segNearest,sampleH,StationUI,Busy};
 boot();
 </script>
 </body></html>
