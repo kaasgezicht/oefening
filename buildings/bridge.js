@@ -59,4 +59,15 @@ K.models.culvert=function(K2,opt){const {box,B,beam,quad,cyl,ico,tuft,rr,pick}=K
   if(K.lod<2)for(let k=0;k<7;k++)B(rr(0.15,0.8),0.02,rr(-0.6,0.6),rr(0.25,0.4),0.06,rr(0.2,0.35),pick(dressed),8,rr(0,3));
   if(K.lod===0){for(let k=0;k<8;k++)ico([rr(-0.1,0.1),TOP+0.14,rr(-HW,HW)],rr(0.05,0.09),[0.3,0.44,0.15],1,{sy:0.45,jit:0.3,detail:1});for(let k=0;k<10;k++)tuft(rr(-0.6,-0.1),rr(-HW-0.4,HW+0.4),6,rr(0.15,0.35),TOP);}
   return{target:[0.3,0.5,0],dist:5,dir:[0.8,0.35,-0.5],shadowC:[0,0.5,0],shadowR:4,haze:[30,90]};};
+// ---- a small brook's culvert: just a concrete pipe coming out of the bank at the end of a dug ditch, its mouth ringed with a few stones
+// (faces +x like the stone culvert; the pipe's invert is at y=0, the ditch floor; the game sinks the ditch so the bank covers the pipe)
+K.plots.culvertPipe={x0:-3,x1:2,z0:-2,z1:2};
+K.models.culvertPipe=function(K2,opt){const {B,cyl,ico,tuft,rr,pick}=K;const R=0.45,cy=R+0.06,conc=[0.58,0.59,0.58],stones=[[0.55,0.53,0.49],[0.48,0.46,0.42],[0.62,0.6,0.55]];
+  cyl([0.4,cy,0],[-2.6,cy,0],R+0.07,R+0.07,K.lod>=2?8:18,conc,0,conc,0);// a concrete pipe
+  cyl([0.41,cy,0],[0.402,cy,0],R-0.03,R-0.03,K.lod>=2?8:18,[0.05,0.05,0.045],0,[0.03,0.03,0.03],0);
+  // the wider socket at the mouth
+  if(K.lod<2)cyl([0.36,cy,0],[0.3,cy,0],R+0.1,R+0.1,K.lod>=1?8:18,[0.52,0.52,0.5],0,[0.55,0.55,0.53],0);// the socket at the mouth
+  if(K.lod<2)for(let k=0;k<9;k++){const a=rr(-1.2,1.2),r=R+0.25+rr(0,0.35);B(rr(0.3,0.9),0.04+Math.max(0,Math.sin(a))*0.2,Math.sin(a)*r*1.1,rr(0.25,0.42),rr(0.1,0.18),rr(0.22,0.38),pick(stones),8,rr(0,3));}
+  if(K.lod===0){for(let k=0;k<6;k++)ico([rr(-0.3,0.2),cy+R+0.12,rr(-0.7,0.7)],rr(0.05,0.08),[0.3,0.44,0.15],1,{sy:0.45,jit:0.3,detail:1});for(let k=0;k<10;k++)tuft(rr(-0.4,0.3),rr(-1,1)*(R+0.6),6,rr(0.15,0.32),cy+R*0.4);}
+  return{target:[0.3,0.5,0],dist:4,dir:[0.8,0.35,-0.5],shadowC:[0,0.5,0],shadowR:3,haze:[30,90]};};
 })();

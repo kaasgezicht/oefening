@@ -53,7 +53,7 @@ function mill(K,opt,dir){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick}=K,{ad
   const WX=X1+0.85,WZ=-1,WR=3.2;// wheel centre x, z, radius (hub height WR+0.05)
   // a raised stone wheel pit (water 0.3 m up, the wheel dips into it) and the raised tailrace channel to the brook at x 27
   B(WX,0.05,WZ,2.3,0.3,2*WR+1.4,STONE[1],8);B(WX,0.32,WZ,1.7,0.04,2*WR+0.9,WATER,0);for(const e of [-1,1])B(WX+e*1.05,0.4,WZ,0.3,0.8,2*WR+1.4,STONE[0],8);for(const e of [-1,1])B(WX,0.4,WZ+e*(WR+0.6),2.3,0.8,0.3,STONE[0],8);
-  {const xa=WX+1.2,xb=27.5,xm=(xa+xb)/2,L=xb-xa;for(const e of [-1,1])B(xm,0.25,WZ+e*0.95,L,0.6,0.3,STONE[2],8);B(xm,0.0,WZ,L,0.1,1.9,STONE[3],8);B(xm,0.22,WZ,L,0.04,1.6,WATER,0);
+  {const xa=WX+1.2,xb=21.6,xm=(xa+xb)/2,L=xb-xa;for(const e of [-1,1])B(xm,0.25,WZ+e*0.95,L,0.6,0.3,STONE[2],8);B(xm,0.0,WZ,L,0.1,1.9,STONE[3],8);B(xm,0.22,WZ,L,0.04,1.6,WATER,0);
     B(WX+1.05,0.22,WZ,0.3,0.04,1.6,WATER,0);}
   // axle bearing on the wall
   cyl([X1+0.02,WR,WZ],[X1+0.25,WR,WZ],0.35,0.35,10,STONE[2],8,STONE[2],8);
@@ -69,8 +69,8 @@ function mill(K,opt,dir){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick}=K,{ad
         beam([p[0]-n[0]*0.62,p[1]*0.45,p[2]-n[2]*0.62],[p[0]+n[0]*0.62,p[1]*0.45,p[2]+n[2]*0.62],[0,1,0],0.1,0.12,WOODD,6);
         if(K.lod<1){beam([p[0]-n[0]*0.5,p[1]*0.75,p[2]-n[2]*0.5],[p[0]+n[0]*0.5,0.5,p[2]+n[2]*0.5],[0,1,0],0.08,0.08,WOODD,6);}}}
     // the weir across the brook at the intake, with a sluice gate
-    B(I[0]+0.4,0.2,I[2],5,1.0,0.5,STONE[0],8);B(I[0],yI-0.4,I[2],1.3,1.1,0.3,WOODD,6);beam([I[0]-0.7,yI-1,I[2]],[I[0]-0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);beam([I[0]+0.7,yI-1,I[2]],[I[0]+0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);
-    beam([I[0],yI-2.5,I[2]],[I[0],yI-0.2,I[2]],[1,0,0],0.5,0.3,WOODD,6);}
+    B(I[0]+0.4,-2.6,I[2],5,6.6,0.6,STONE[0],8);B(I[0],yI-0.4,I[2],1.3,1.1,0.3,WOODD,6);beam([I[0]-0.7,yI-1,I[2]],[I[0]-0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);beam([I[0]+0.7,yI-1,I[2]],[I[0]+0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);
+    beam([I[0],-6,I[2]],[I[0],yI-0.2,I[2]],[1,0,0],0.5,0.3,WOODD,6);}
   // ---- yard: dirt and sawdust, log decks on the -x side, stacked sawn timber by ±z, sawhorses with a log, a cart, tools
   if(K.lod<2){K.patch(2,0,21,14.5,SOIL,10,0.012);K.patch(-5,4,5,3,DUST,10,0.02);K.patch(15,-6,3,2.2,DUST,10,0.02);}
   const logPile=(x,z,n,L,ry)=>{const c=Math.cos(ry),s=Math.sin(ry);let k=0;for(let row=0;row<3&&k<n;row++)for(let i=0;i<4-row&&k<n;i++,k++){const off=(i-(3-row)/2)*0.62,r=rr(0.26,0.32),y=r+row*0.52;
