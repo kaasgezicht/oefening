@@ -42,6 +42,7 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 .bp-v{border-top:1px solid #c9a14a33;padding:8px 0}.bp-h{display:flex;align-items:center;gap:6px}.bp-h>div{flex:1;min-width:0}.bp-h b{display:block}.bp-h span{font-size:12px;color:#cdbf9f}.bp-sum{font-size:12px;color:#e9c870;margin-top:3px}
 .bp-s{margin:6px 0 4px 18px;padding:0}.bp-s li{display:flex;align-items:center;gap:5px;padding:3px 0}.bp-s li span{flex:1}.bp-s li em{font-style:normal;font-size:12px;color:#cdbf9f;min-width:64px;text-align:right}.bp-s li.cur span{color:#f3d98a;font-weight:700}
 .bp-s button{padding:2px 7px}#busPanel select{background:#1d3a2e;color:#f1e7d0;border:1px solid #c9a14a66;border-radius:8px;padding:6px 8px;font:600 13px system-ui;max-width:60%}.bp-cap{font-size:11px;color:#9f957e;margin:4px 0 0 18px}.bp-f{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.bp-note{font-size:13px;color:#cdbf9f;margin-top:6px}
+.ld-short{margin:3px 0 4px;padding:4px 6px;border-radius:7px;background:#3b2f12cc;border:1px solid #e9c87088;font-size:11px;color:#f6e6b8}.ld-short .ld-r b{background:linear-gradient(90deg,#e9c870,#f3d98a)}.ldchip .warn{color:#ffd27a}
 .ldcard{position:fixed;transform:translate(-50%,-100%);pointer-events:none;z-index:8;background:#10241ce6;border:1px solid #c9a14a99;border-radius:10px;padding:5px 8px 6px;min-width:128px;color:#f3e9cf;font:600 12px system-ui;box-shadow:0 2px 8px #0008}
 .ldcard .ld-h{font:700 12px Georgia,serif;color:#f3d98a;margin-bottom:3px}.ld-r{display:flex;align-items:center;gap:5px;margin:2px 0}.ld-r i{flex:1;height:7px;border-radius:4px;background:#2b3a32;overflow:hidden;min-width:56px}
 .ld-r i b{display:block;height:100%;background:linear-gradient(90deg,#7fbf6a,#c6ff9e);transition:width .25s}.ld-r i b.full{background:linear-gradient(90deg,#e9a24a,#ffd27a)}.ld-r em{font-style:normal;font-size:11px;color:#cdbf9f;min-width:38px;text-align:right}.ld-n{font-size:10px;color:#9fdf8a;margin:-1px 0 2px 20px}
@@ -776,16 +777,19 @@ const Busy={n:0,run(text,fn){const el=$('#busy');if(el){$('#busyText').textConte
 const LoadUI={tr:new Map(),st:new Map(),
   bar(ic,n,cap,full){const f=cap>0?clamp(n/cap,0,1):0;return`<div class="ld-r"><span>${ic}</span><i><b style="width:${(f*100).toFixed(0)}%" class="${f>0.98?'full':''}"></b></i><em>${Math.round(n)}/${cap}</em></div>`;},
   tick(dt){const show=App.T&&!Build.active,cp=Cam.pos||[0,0,0],live=new Set();
-    if(show)for(const tr of Trains.list){if(tr.atSt==null||Math.abs(tr.v||0)>0.3||!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;const c=mid.c;if(Math.hypot(c[0]-cp[0],c[2]-cp[2])>700)continue;
+    if(show)for(const tr of Trains.list){if(tr.atSt==null||(Math.abs(tr.v||0)>0.3&&!(tr.plat&&tr.plat.moving))||!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;const c=mid.c;if(Math.hypot(c[0]-cp[0],c[2]-cp[2])>700)continue;
       live.add(tr);let q=this.tr.get(tr);if(!q){q={el:document.createElement('div'),disp:{}};q.el.className='ldcard';document.body.appendChild(q.el);this.tr.set(tr,q);}
       const coaches=tr.veh.filter(v=>v.k==='coach').length,boarding=Life.walkers.filter(w=>w.state==='board'&&w.train===tr).length,goal={};
       if(coaches)goal.pax=[tr.pax.length,coaches*SEATS,'🧍',boarding];for(const v of tr.veh)if(v.k==='wagon'){const g=goal[v.ctype]||(goal[v.ctype]=[0,0,GOOD_IC[v.ctype]||'📦',0]);g[0]+=v.n||0;g[1]+=20;}
-      let h=`<div class="ld-h">${esc(tr.name)}</div>`;for(const k in goal){const g=goal[k],d=q.disp[k]==null?g[0]:q.disp[k];q.disp[k]=d+(g[0]-d)*Math.min(1,dt*1.6);h+=this.bar(g[2],q.disp[k],g[1])+(k==='pax'&&g[3]?`<div class="ld-n">+${g[3]} boarding</div>`:'');}
+      let h=`<div class="ld-h">${esc(tr.name)}</div>`;const pl=tr.plat;
+      // too long for the platform: only the coaches beside it open; the train pulls up for the rest
+      if(pl&&pl.short){const done=pl.served.size,n=pl.all.length,f=n?done/n:1;h+=`<div class="ld-short"><div>⚠ Platform ${pl.len} m · train ${Math.round(pl.trainL)} m</div><div class="ld-r"><span>🚃</span><i><b style="width:${(f*100).toFixed(0)}%"></b></i><em>${done}/${n}</em></div><div class="ld-n">${pl.moving?'Pulling up for the next coaches…':pl.blocked?'No room to pull up: some coaches stay shut':done<n?`${n-done} coach${n-done>1?'es':''} beyond the platform`:'All coaches done'}</div></div>`;}
+      for(const k in goal){const g=goal[k],d=q.disp[k]==null?g[0]:q.disp[k];q.disp[k]=d+(g[0]-d)*Math.min(1,dt*1.6);h+=this.bar(g[2],q.disp[k],g[1])+(k==='pax'&&g[3]?`<div class="ld-n">+${g[3]} boarding</div>`:'');}
       if(q.h!==h){q.el.innerHTML=h;q.h=h;}const p=Cam.toScreen(c[0],c[1]+7,c[2]);if(p){q.el.style.display='';q.el.style.left=p[0]+'px';q.el.style.top=p[1]+'px';}else q.el.style.display='none';}
     for(const [tr,q] of this.tr)if(!live.has(tr)){q.el.remove();this.tr.delete(tr);}
     const ls=new Set();if(show)for(const si of Life.stInfo||[]){const d=Math.hypot(si.x-cp[0],si.z-cp[2]);if(d>700)continue;const id=si.st.id;ls.add(id);let q=this.st.get(id);if(!q){q={el:document.createElement('div')};q.el.className='ldchip';document.body.appendChild(q.el);this.st.set(id,q);}
       const wait=si.cargo?0:Life.walkers.filter(w=>w.st&&w.st.st&&w.st.st.id===id&&(w.state==='wait'||w.state==='toStation')).length,g=Goods.get('st:'+id);let h=`<b>${esc(si.st.name)}</b>`;
-      if(!si.cargo)h+=`<span>🧍 ${wait}</span>`;for(const k in g)if(g[k]>=1)h+=`<span>${GOOD_IC[k]||'📦'} ${Math.floor(g[k])}</span>`;if(h===`<b>${esc(si.st.name)}</b>`)h+='<span class="none">nothing waiting</span>';
+      if(!si.cargo&&!si.parent)h+=`<span>🧍 ${wait}</span>`;{const sh=Trains.list.find(t=>t.plat&&t.plat.short&&t.plat.id===id);if(sh)h+=`<span class="warn" title="The train is longer than the platform">⚠ ${si.st.len||44} m platform, too short for ${esc(sh.name)}</span>`;}for(const k in g)if(g[k]>=1)h+=`<span>${GOOD_IC[k]||'📦'} ${Math.floor(g[k])}</span>`;if(h===`<b>${esc(si.st.name)}</b>`)h+='<span class="none">nothing waiting</span>';
       if(q.h!==h){q.el.innerHTML=h;q.h=h;}const p=Cam.toScreen(si.x,si.y+3,si.z);if(p){q.el.style.display='';q.el.style.left=p[0]+'px';q.el.style.top=p[1]+'px';}else q.el.style.display='none';}
     for(const [id,q] of this.st)if(!ls.has(id)){q.el.remove();this.st.delete(id);}}};
 const TripFX={L:[],
@@ -4587,15 +4591,23 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
       if(e.type==='station'&&P.stopStations&&tr.lastStation!==e.o.id&&!((e.o.sawmill||e.o.workshop||e.o.mine)&&!tr.veh.some(v=>v.k==='wagon'))&&(P.stopAll||!this.destOf(tr)||this.destOf(tr).id===e.o.id)){const sd=e.d+Crane.stopAt(tr,e.o,L);if(sd<stop){stop=sd;why='station';tr.nextStation=e.o;tr.stopTgt={id:e.o.id,o:e.o,rem:sd};}break;}}
     // the stop point lies beyond the platform marker: keep braking for it after the head has passed the marker
     if(why!=='station'&&tr.stopTgt&&tr.lastStation!==tr.stopTgt.id){tr.stopTgt.rem-=v*dt;if(tr.stopTgt.rem<stop){stop=tr.stopTgt.rem;why='station';tr.nextStation=tr.stopTgt.o;}if(tr.stopTgt.rem<-20)tr.stopTgt=null;}
-    const vmax=P.autoSpeed/3.6,vt=Math.min(vmax,Math.sqrt(2*0.6*Math.max(0,stop-1.5)));tr.wait=why;
+    const vmax=P.autoSpeed/3.6,vt=Math.min(vmax,Math.sqrt(2*0.6*Math.max(0,stop-1.5)),tr.plat&&tr.plat.moving?2.2:1e9);tr.wait=why;
     tr.vCap=why?vt:null;
     if(stop<2.5&&v<0.3){tr.throttle=0;tr.brake=1;tr.v=0;
-      if(why==='station'){tr.dwell=(tr.dwell||0)+dt;const now=P.timeOfDay*60;
+      if(why==='station'){const pl=tr.plat;
+        // pulled up along a short platform: work the coaches that now stand at it
+        if(pl&&pl.moving){pl.moving=false;tr.dwell=0;Life.stopPhase(tr,pl.si,Life.platCoaches(tr,pl.si));}
+        tr.dwell=(tr.dwell||0)+dt;const now=P.timeOfDay*60;
+        // a train longer than the platform: once the coaches at it are done, pull up so the next ones stand at the platform
+        if(pl&&pl.short&&pl.served.size<pl.all.length&&tr.dwell>Math.max(8,P.dwell*0.45)&&!Life.walkers.some(w=>w.state==='board'&&w.train===tr)){
+          const D=Life.moveUpBy(tr),endAt=ev.find(e=>e.type==='end');
+          if(D&&!(endAt&&endAt.d<D+8)){pl.moving=true;pl.moves++;tr.dwell=0;tr.stopTgt={id:tr.nextStation.id,o:tr.nextStation,rem:D+2.4};tr.status=`Pulling up at ${tr.nextStation.name}`;return;}
+          else{for(const i of pl.all)pl.served.add(i);pl.blocked=true;}}
         if(P.timetable&&tr.depT==null){const iv=Math.max(5,P.ttInterval),off=(Trains.list.indexOf(tr)*7)%iv;tr.depT=(Math.ceil((now+P.dwell/30+0.5-off)/iv)*iv+off)%1440;}
         const until=tr.depT==null?0:(()=>{const d=((tr.depT-now)%1440+1440)%1440;return d>720?d-1440:d;})(),hm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(Math.floor(m%60)).padStart(2,'0');
         const boarding=Life.walkers.some(w=>w.state==='board'&&w.train===tr),ttOk=!P.timetable||until<=0||tr.dwell>240;
-        const crn=Crane.holds(tr);tr.status=`At ${tr.nextStation.name}`+(P.timetable&&tr.depT!=null?` · departs ${hm(tr.depT)}`:'')+(boarding?' · boarding':'')+(crn?' · '+Crane.what(tr):'');
-        if(tr.dwell>P.dwell&&ttOk&&!crn&&(!boarding||tr.dwell>P.dwell+25)){tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;this.arrived(tr,tr.lastStation);}}
+        const crn=Crane.holds(tr);tr.status=`At ${tr.nextStation.name}`+(P.timetable&&tr.depT!=null?` · departs ${hm(tr.depT)}`:'')+(boarding?' · boarding':'')+(crn?' · '+Crane.what(tr):'')+(pl&&pl.short?` · platform too short (${pl.served.size}/${pl.all.length} coaches)`:'');
+        if(tr.dwell>P.dwell&&ttOk&&!crn&&(!boarding||tr.dwell>P.dwell+25)&&!(pl&&pl.short&&pl.served.size<pl.all.length)){tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;tr.plat=null;this.arrived(tr,tr.lastStation);}}
       else if(why==='end'){tr.dwell=(tr.dwell||0)+dt;tr.status='Reversing';if(tr.dwell>3){tr.rev=-(tr.rev||1);tr.dwell=0;if(Track.stations.length<2)tr.lastStation=null;}}
       else tr.status=why==='signal'?'Waiting at a red signal':'Stopped';return;}
     tr.dwell=0;tr.status=why==='signal'?'Slowing for a red signal':why==='station'?`Arriving at ${tr.nextStation.name}`:'Running';
@@ -6475,13 +6487,13 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
         if(w.icon){Icons.add(w.x,(w.y!=null?w.y:w.st?w.st.y:Hr0(w.x,w.z))+3.2,w.z,w.icon);w.icon=null;}w.out=true;w.hidden=!!w.inside;
         const q=w.bp[0],dx=q[0]-w.x,dz=q[1]-w.z,d=Math.hypot(dx,dz),sp=(w.spd||2.2)*dt,py=w.st?w.st.y+0.85:Hr0(w.x,w.z);
         if(d<=sp){w.x=q[0];w.z=q[1];w.y=q[2];w.bp.shift();if(q[3]==='in')w.inside=true;else if(q[3]==='out')w.inside=false;else if(q[3]==='wait')w.wait=q[4]||2;w.hidden=!!w.inside;
-          if(!w.bp.length){w.bp=null;if(w.state==='board'&&w.train){w.done=true;Icons.add(w.x,(w.y||py)+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}
+          if(!w.bp.length){w.bp=null;if(w.state==='board'&&w.train){w.done=true;Icons.add(w.x,(w.y||py)+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time,ci:w.ci});}
             else if(w.state==='toStation'){w.state='wait';w.rot=w.faceRot;w.mv=0;w.y=null;continue;}else if(w.state==='leave')w.y=null;}}
         else{w.x+=dx/d*sp;w.z+=dz/d*sp;const y0=w.y!=null?w.y:py,y1=q[2]!=null?q[2]:py;w.y=q[2]==null&&w.y==null?null:y0+(y1-y0)*Math.min(1,sp/d);if(w.y!=null&&q[2]==null&&Math.abs(w.y-py)<0.02)w.y=null;}
         if(d>0.01)w.rot=lerpAng(w.rot,Math.atan2(dz,dx),dt*8);w.mv=1;continue;}if(w.icon){Icons.add(w.x,(w.st?w.st.y:Hr0(w.x,w.z))+3.2,w.z,w.icon);w.icon=null;}w.hidden=false;let gx=w.tx,gz=w.tz;if(w.wp&&w.wp.length){if(Math.hypot(w.wp[0][0]-w.x,w.wp[0][1]-w.z)<1.6)w.wp.shift();if(w.wp.length){gx=w.wp[0][0];gz=w.wp[0][1];}}
       const dx=gx-w.x,dz=gz-w.z,d=Math.hypot(dx,dz);
       if(d<0.4&&!(w.wp&&w.wp.length)){w.mv=0;if(w.state==='stroll'){this.pickStrollTarget(w);w.wait=1+Math.random()*7;}else if(w.state==='toStation'){w.state='wait';w.rot=w.faceRot;}
-        else if(w.state==='board'){if(w.train&&w.st&&w.train.atSt===(w.bst||w.st).st.id){w.done=true;Icons.add(w.x,w.st.y+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time});}else{w.state='toStation';w.train=null;w.tx=w.st?w.st.px:w.x;w.tz=w.st?w.st.pz:w.z;}}else if(w.state==='home'||w.state==='leave')w.done=true;continue;}
+        else if(w.state==='board'){if(w.train&&w.st&&w.train.atSt===(w.bst||w.st).st.id){w.done=true;Icons.add(w.x,w.st.y+3.2,w.z,'+');w.train.pax.push({dest:w.dest,fx:w.st.x,fz:w.st.z,t0:App.time,ci:w.ci});}else{w.state='toStation';w.train=null;w.tx=w.st?w.st.px:w.x;w.tz=w.st?w.st.pz:w.z;}}else if(w.state==='home'||w.state==='leave')w.done=true;continue;}
       const sp=(w.state==='board'?(w.spd||2.2):w.state==='leave'?1.6:1.25)*dt;w.x+=dx/d*Math.min(sp,d);w.z+=dz/d*Math.min(sp,d);w.rot=lerpAng(w.rot,Math.atan2(dz,dx),dt*6);w.mv=1;}
     this.walkers=this.walkers.filter(w=>!w.done);},
   newWalker(x,z,v){const hs=Math.random(),w={x,z,tx:x,tz:z,rot:Math.random()*6.28,v,hash:hs,state:'stroll',wait:Math.random()*3,mv:0,var:this.pvar(hs)};if(w.var==='child')w.sc=0.62;this.pickStrollTarget(w);return w;},
@@ -6575,8 +6587,9 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
     for(const si of this.stInfo)if(si.st.twinOf){const p=this.stInfo.find(q=>q.st.id===si.st.twinOf);if(p){si.parent=p;p.twin=si;si.v=p.v;}}
     {const live=new Set(this.stInfo.map(q=>q.rkey).filter(Boolean));for(const k in this.stRoads)if(!live.has(k)){delete this.stRoads[k];this.roadsDirty=true;}}
     for(const tr of Trains.list){if(!tr.pax)tr.pax=[];if(!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;
-      let at=null;if(Math.abs(tr.v)<0.4)for(const si of this.stInfo){const cr=si.cargo;if((Math.hypot(mid.c[0]-si.x,mid.c[2]-si.z)<28&&Math.abs((mid.c[0]-si.x)*si.nx+(mid.c[2]-si.z)*si.nz)<2.4)||(cr&&tr.poses.some(p=>p&&Math.hypot(p.c[0]-si.x,p.c[2]-si.z)<22))){at=si;break;}}
-      if(at&&tr.atSt!==at.st.id){tr.atSt=at.st.id;this.stop(tr,at);}else if(!at&&tr.atSt&&Math.abs(tr.v)>1)tr.atSt=null;}},
+      let at=null;if(Math.abs(tr.v)<0.4)for(const si of this.stInfo){const cr=si.cargo;if((Math.hypot(mid.c[0]-si.x,mid.c[2]-si.z)<28&&Math.abs((mid.c[0]-si.x)*si.nx+(mid.c[2]-si.z)*si.nz)<2.4)||(!cr&&tr.poses.some(p=>p&&Math.abs((p.c[0]-si.x)*si.dx+(p.c[2]-si.z)*si.dz)<si.half-2&&Math.abs((p.c[0]-si.x)*si.nx+(p.c[2]-si.z)*si.nz)<2.4))||(cr&&tr.poses.some(p=>p&&Math.hypot(p.c[0]-si.x,p.c[2]-si.z)<22))){at=si;break;}}
+      if(tr.plat&&tr.plat.moving)continue;// pulling up along a short platform: still at this station
+      if(at&&tr.atSt!==at.st.id){tr.atSt=at.st.id;this.stop(tr,at);}else if(!at&&tr.atSt&&Math.abs(tr.v)>1){tr.atSt=null;tr.plat=null;}}},
   // the way into a coach: platform edge beside its end platform -> onto the end platform -> through the end door (x, z, y; y null = platform)
   doorPath(p,si,e){const X=p.X,Zl=[-X[2],0,X[0]],sd=(Zl[0]*si.nx+Zl[2]*si.nz)>0?1:-1,P=(a,l,y)=>[p.c[0]+X[0]*a+Zl[0]*l*sd,p.c[2]+X[2]*a+Zl[2]*l*sd,y],fy=p.c[1]+1.18;
     return[P(e*7.02,1.95,null),P(e*7.0,0.95,fy),P(e*6.55,0,fy)];},
@@ -6591,21 +6604,44 @@ const Life={tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:
   farIn(psi){const fb=KIT.FB[this.stTown(psi)?'stationTown':'station'],x0=fb[0],py=psi.y+0.85,G=(x,z)=>{const w=this.stW(psi,x,z);return[w[0],w[1],R.sampleHr(this.T,w[0],w[1])-0.05];},T=(x,z)=>{const w=this.stW(psi,x,z);return[w[0],w[1],py];};
     if(!psi.twin)return[G(x0-9.8,-12.5),...this.fbPath(psi,-1)];const L=(psi.twin.st.len||44)/2,e=x0>0?1:-1;return[G(e*(L+7),-8.6),T(e*(L+0.6),-8.4),...this.fbPath(psi,-1)];},
   farStart(psi){return this.farIn(psi)[0];},
-  stop(tr,si){if(tr.veh.some(q=>q.k==='wagon'))Goods.trainStop(tr,si);if(si.cargo)return;const psi=si.parent||si,fam=new Set([psi.st.id,psi.twin?psi.twin.st.id:-1]),others=this.stInfo.filter(s=>!fam.has(s.st.id)&&!s.parent&&!s.cargo);const coaches=tr.poses.filter((p,i)=>p&&tr.veh[i].k==='coach');if(!coaches.length)return;
-    const door=()=>this.doorPath(coaches[Math.floor(Math.random()*coaches.length)],si,Math.random()<0.5?-1:1),budget=Math.max(8,P.dwell-5);
-    let off=0,inc=0;const stay=[];for(const p of tr.pax){if(fam.has(p.dest)||(!p.dest&&Math.random()<0.35)||Math.random()<0.12){if(Money.on())inc+=Money.fare(p,si);const dp=door(),d=dp[2];const w={x:d[0],z:d[1],y:d[2],bp:[dp[1],dp[0],...(si.parent?this.fbPath(psi,-1):[]),...this.stOut(psi)],spd:2.4,tx:psi.px,tz:psi.pz,rot:0,v:psi.v,hash:Math.random(),state:'leave',wait:Math.min(off*0.22,budget*0.35),mv:0,st:psi,icon:'-'};
+  // coaches standing beside the platform (whole coach within it, 1 m grace), as indices into tr.veh
+  platCoaches(tr,si){const half=(si.st.len||44)/2,out=[];tr.veh.forEach((v,i)=>{const p=tr.poses[i];if(!p||v.k!=='coach')return;const a=(p.c[0]-si.x)*si.dx+(p.c[2]-si.z)*si.dz;if(Math.abs(a)+6.6<=half+1)out.push(i);});
+    if(!out.length)tr.veh.forEach((v,i)=>{const p=tr.poses[i];if(!p||v.k!=='coach')return;const a=(p.c[0]-si.x)*si.dx+(p.c[2]-si.z)*si.dz;if(Math.abs(a)<=half)out.push(i);});return out;},
+  // a train arrives: who leaves is decided now (each passenger rides in a coach, p.ci); then the coaches beside the platform are worked
+  // (stopPhase). A train longer than the platform is moved up afterwards (Drive) and the next coaches are worked, until all are done.
+  stop(tr,si){if(tr.veh.some(q=>q.k==='wagon'))Goods.trainStop(tr,si);if(si.cargo)return;const psi=si.parent||si,fam=new Set([psi.st.id,psi.twin?psi.twin.st.id:-1]);
+    const ci=[];tr.veh.forEach((v,i)=>{if(v.k==='coach')ci.push(i);});if(!ci.length)return;
+    for(const p of tr.pax){if(p.ci==null||tr.veh[p.ci]?.k!=='coach')p.ci=ci[Math.floor(Math.random()*ci.length)];p.off=fam.has(p.dest)||(!p.dest&&Math.random()<0.35)||Math.random()<0.12;}
+    const now=this.platCoaches(tr,si);tr.plat={id:si.st.id,si,all:ci.slice(),served:new Set(),short:now.length<ci.length,len:si.st.len||44,trainL:Trains.length(tr.veh),moves:0,moving:false};
+    if(tr.plat.short)Log.info(`${tr.name} at ${si.st.name}: platform ${tr.plat.len} m, train ${tr.plat.trainL.toFixed(0)} m, ${ci.length-now.length} of ${ci.length} coaches off the platform`);
+    this.stopPhase(tr,si,now);},
+  stopPhase(tr,si,cs){const psi=si.parent||si,fam=new Set([psi.st.id,psi.twin?psi.twin.st.id:-1]),others=this.stInfo.filter(s=>!fam.has(s.st.id)&&!s.parent&&!s.cargo);const pl=tr.plat;
+    const fresh=cs.filter(i=>!pl.served.has(i));for(const i of fresh)pl.served.add(i);if(!fresh.length)return;
+    const door=i=>this.doorPath(tr.poses[i],si,Math.random()<0.5?-1:1),budget=Math.max(8,P.dwell-5);
+    let off=0,inc=0;const stay=[];for(const p of tr.pax){if(p.off&&fresh.includes(p.ci)){if(Money.on())inc+=Money.fare(p,si);const dp=door(p.ci),d=dp[2];const w={x:d[0],z:d[1],y:d[2],bp:[dp[1],dp[0],...(si.parent?this.fbPath(psi,-1):[]),...this.stOut(psi)],spd:2.4,tx:psi.px,tz:psi.pz,rot:0,v:psi.v,hash:Math.random(),state:'leave',wait:Math.min(off*0.22,budget*0.35),mv:0,st:psi,icon:'-'};
         off++;if(psi.v){const h=psi.v.houses[Math.floor(Math.random()*psi.v.houses.length)];w.tx=h?h.front[0]:psi.v.x;w.tz=h?h.front[1]:psi.v.z;
           if(this.stFar(psi,w.tx,w.tz)){// home is on the far side: no way out through the booking hall
             const fi=this.farIn(psi).reverse();w.bp=[dp[1],dp[0],...fi];if(si.parent){// already on the second platform: just along it and down its ramp
             const L=(si.st.len||44)/2,fb=KIT.FB[this.stTown(psi)?'stationTown':'station'],e=fb[0]>0?1:-1,py=psi.y+0.85,a=this.stW(psi,e*(L+0.6),-8.4),b=this.stW(psi,e*(L+7),-8.6);w.bp=[dp[1],dp[0],[a[0],a[1],py],[b[0],b[1],R.sampleHr(this.T,b[0],b[1])-0.05]];}
             const st0=w.bp[w.bp.length-1],pth=this.vpath(psi.v,[st0[0],st0[1]],[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}
           else if(psi.road)w.wp=psi.road.slice();else{const fc=this.stW(psi,this.stDoorX(psi),this.stBack(psi)+3.2),pth=this.vpath(psi.v,fc,[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}}else{const o=this.stW(psi,this.stDoorX(psi)+(Math.random()-0.5)*20,this.stBack(psi)+25);w.tx=o[0];w.tz=o[1];}this.walkers.push(w);}else stay.push(p);}
-    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);tr.pax=stay;let board=0;const seats=coaches.length*SEATS-tr.pax.length;for(const w of this.walkers)if(w.st&&w.st.st.id===psi.st.id&&(w.state==='wait'||(w.state==='toStation'&&w.inDone&&!w.bp))&&board<seats){const dp=door();w.state='board';w.bp=si.parent?[...this.fbPath(psi,1),...dp]:dp;w.bst=si;w.tx=dp[2][0];w.tz=dp[2][1];w.train=tr;w.wait=1+Math.min(board*0.15,budget*0.3);board++;
-        {let L=Math.hypot(w.bp[0][0]-w.x,w.bp[0][1]-w.z);for(let i=1;i<w.bp.length;i++)L+=Math.hypot(w.bp[i][0]-w.bp[i-1][0],w.bp[i][1]-w.bp[i-1][1],((w.bp[i][2]||0)-(w.bp[i-1][2]||0))*(w.bp[i][2]!=null&&w.bp[i-1][2]!=null?1:0));w.spd=clamp(L/Math.max(2,budget+(si.parent?18:0)-w.wait),1.4,3.2);}
-        w.dest=others.length?others[Math.floor(Math.random()*others.length)].st.id:null;}
-    if(si.v&&(off||board)){const gp0=si.v.gp||0;si.v.trans=(si.v.trans||0)+off+board;Life.addGrowth(si.v,(off+board)*0.5);TripFX.show(si,inc,(off+board)*0.5,si.v,gp0);}else if(inc>0)TripFX.show(si,inc,0,null,0);
-    if(off||board)Log.info(`${tr.name} at ${si.st.name}: ${off} off, ${board} on`);
-    if(board||off)UI.toast(`${si.st.name}: ${off} getting off, ${board} getting on`);},
+    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);tr.pax=stay;
+    // seats free in the coaches at the platform
+    const free=new Map(fresh.map(i=>[i,SEATS-tr.pax.filter(p=>p.ci===i).length]));let board=0;const pick=()=>{let b=-1,bv=0;for(const [i,n] of free)if(n>bv){bv=n;b=i;}return b;};
+    for(const w of this.walkers){if(!(w.st&&w.st.st.id===psi.st.id&&(w.state==='wait'||(w.state==='toStation'&&w.inDone&&!w.bp))))continue;const c=pick();if(c<0)break;free.set(c,free.get(c)-1);
+      const dp=door(c);w.state='board';w.ci=c;w.bp=si.parent?[...this.fbPath(psi,1),...dp]:dp;w.bst=si;w.tx=dp[2][0];w.tz=dp[2][1];w.train=tr;w.wait=1+Math.min(board*0.15,budget*0.3);board++;
+      {let L=Math.hypot(w.bp[0][0]-w.x,w.bp[0][1]-w.z);for(let i=1;i<w.bp.length;i++)L+=Math.hypot(w.bp[i][0]-w.bp[i-1][0],w.bp[i][1]-w.bp[i-1][1],((w.bp[i][2]||0)-(w.bp[i-1][2]||0))*(w.bp[i][2]!=null&&w.bp[i-1][2]!=null?1:0));w.spd=clamp(L/Math.max(2,budget+(si.parent?18:0)-w.wait),1.4,3.2);}
+      w.dest=others.length?others[Math.floor(Math.random()*others.length)].st.id:null;}
+    if(psi.v&&(off||board)){const gp0=psi.v.gp||0;psi.v.trans=(psi.v.trans||0)+off+board;Life.addGrowth(psi.v,(off+board)*0.5);TripFX.show(si,inc,(off+board)*0.5,psi.v,gp0);}else if(inc>0)TripFX.show(si,inc,0,null,0);
+    if(off||board)Log.info(`${tr.name} at ${si.st.name}: ${off} off, ${board} on`+(pl.short?` (coaches ${pl.served.size}/${pl.all.length})`:''));
+    if((board||off)&&!pl.moves)UI.toast(`${si.st.name}: ${off} getting off, ${board} getting on`);},
+  // after the coaches at the platform are worked: how far to pull up so the next coaches stand at it (null when all are done)
+  moveUpBy(tr){const pl=tr.plat;if(!pl||!pl.short||pl.served.size>=pl.all.length)return null;const si=pl.si,half=pl.len/2;
+    // signed position along the platform in the direction the train moves (the head is ahead)
+    const lead=(tr.rev||1)<0?tr.poses[tr.poses.length-1]:tr.poses[0],tail=(tr.rev||1)<0?tr.poses[0]:tr.poses[tr.poses.length-1],al=p=>(p.c[0]-si.x)*si.dx+(p.c[2]-si.z)*si.dz,sg=lead&&tail?Math.sign(al(lead)-al(tail))||1:1;
+    let need=0,amax=-1e9;for(const i of pl.all){if(pl.served.has(i))continue;const p=tr.poses[i];if(!p)continue;const a=al(p)*sg;need=Math.max(need,-half+6.6-a);amax=Math.max(amax,a);}
+    // far enough to bring the waiting coaches up, but the first of them must not run past the platform's far end
+    return clamp(Math.min(need+0.6,half-6.6-amax),3,pl.len-6);},
   // ---------------- birds: flocks swooping over the land, gulls over the lakes
   updateBalloons(dt){const B=this.balloons||(this.balloons=[]),T=this.T,f=R.focus;if(!T||!f)return;const W=T.W,h=P.timeOfDay,E=Weather.eff(),ok=P.season==='summer'&&h>6.5&&h<19.5&&E.rain<0.15&&(E.snow||0)<0.05&&P.windStrength<1.6&&P.balloons>0;
     if(!ok){B.length=0;return;}this.bt=(this.bt||0)-dt;if(this.bt<=0){this.bt=40+Math.random()*80;if(B.length<Math.round(2*P.balloons)&&Math.random()<0.5){const a=Math.random()*6.283,r=500+Math.random()*900,x=clamp(f[0]+Math.cos(a)*r,80,W-80),z=clamp(f[2]+Math.sin(a)*r,80,W-80);
