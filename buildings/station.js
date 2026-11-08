@@ -125,6 +125,19 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
       // landing at the top joins the span; a post at the foot
       B(xa-0.0,yd-0.06,(zz0+zz1)/2,0.3,0.12,zz1-zz0,[0.34,0.32,0.3],12);cyl([x0,yb,zz0],[x0,yb+1.3,zz0],0.07,0.07,8,IRON,11);cyl([x0,yb,zz1],[x0,yb+1.3,zz1],0.07,0.07,8,IRON,11);
       cyl([(x0+xa)/2,yb,zz0],[(x0+xa)/2,(yb+yd)/2,zz0],0.08,0.08,8,IRON,11);cyl([(x0+xa)/2,yb,zz1],[(x0+xa)/2,(yb+yd)/2,zz1],0.08,0.08,8,IRON,11);}};
+  // footbridge with several stairs: span x xa..xb from z zA down to zB (deck yd); stairs [[z0,z1,yFoot],...] each rise from xa-stairL to xa;
+  // iron columns under the span beside every stair, a lamp on the corner posts at both ends of the span
+  P.footbridgeN=(xa,xb,zA,zB,yd,stairL,stairs)=>{const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
+    B(xm,yd-0.08,(zA+zB)/2,w,0.16,zA-zB,[0.32,0.3,0.28],12);B(xm,yd-0.3,(zA+zB)/2,w-0.2,0.3,zA-zB,IRON,11);
+    for(const x of [xa+0.05,xb-0.05])P.lattice([x,yd,zB],[x,yd,zA],hh);
+    for(const st of stairs){const zc=(st[0]+st[1])/2,zcol=st[0]>0?st[0]-0.15:st[1]+0.15;for(const x of [xa+0.1,xb-0.1]){cyl([x,st[2],zcol],[x,yd,zcol],0.1,0.1,8,IRON,11);}}
+    for(const z of [zA-0.3,zB+0.3])for(const x of [xa+0.1,xb-0.1]){cyl([x,yd,z],[x,yd+hh+0.25,z],0.08,0.08,8,IRON,11);ico([x,yd+hh+0.32,z],0.1,IRON,11);}
+    P.lamp(xb-0.1,yd+hh+0.3,zA-0.3,0.9);P.lamp(xb-0.1,yd+hh+0.3,zB+0.3,0.9);
+    for(const [zz0,zz1,yb] of stairs){const x0=xa-stairL,n=Math.round((yd-yb)/0.19),run=stairL/n;
+      for(let k=0;k<n;k++){const x=x0+run*(k+0.5),y=yb+(yd-yb)*(k+1)/n;B(x,y-0.03,(zz0+zz1)/2,run+0.02,0.06,zz1-zz0,[0.34,0.32,0.3],12);if(K.lod<1)B(x+run/2-0.01,y-0.12,(zz0+zz1)/2,0.03,0.18,zz1-zz0,IRON,11);}
+      for(const z of [zz0,zz1]){beam([x0,yb,z],[xa,yd,z],[0,0,1],0.22,0.06,IRON,11);P.lattice([x0,yb+0.05,z],[xa,yd+0.05,z],0.95);}
+      B(xa,yd-0.06,(zz0+zz1)/2,0.3,0.12,zz1-zz0,[0.34,0.32,0.3],12);cyl([x0,yb,zz0],[x0,yb+1.3,zz0],0.07,0.07,8,IRON,11);cyl([x0,yb,zz1],[x0,yb+1.3,zz1],0.07,0.07,8,IRON,11);
+      cyl([(x0+xa)/2,yb,zz0],[(x0+xa)/2,(yb+yd)/2,zz0],0.08,0.08,8,IRON,11);cyl([(x0+xa)/2,yb,zz1],[(x0+xa)/2,(yb+yd)/2,zz1],0.08,0.08,8,IRON,11);}};
   // a low brick wall with stone-capped pillars and iron railings between (along x at z, from x0 to x1, base y0)
   P.wall=(x0,x1,z,y0)=>{B((x0+x1)/2,y0+0.3,z,x1-x0,0.6,0.32,BRICK,24);B((x0+x1)/2,y0+0.64,z,x1-x0+0.04,0.08,0.4,STONE,8);
     const n=Math.max(1,Math.round((x1-x0)/2.4));for(let k=0;k<=n;k++){const x=x0+(x1-x0)*k/n;B(x,y0+0.55,z,0.44,1.1,0.44,BRICK,24);B(x,y0+1.14,z,0.54,0.08,0.54,STONE,8);ico([x,y0+1.3,z],0.15,STONE,8);}
@@ -232,7 +245,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
   // ground behind the building: a gravel forecourt strip and a few shrubs
   if(K.lod<2){const zb=town?13.4:12.4;for(let k=0;k<(town?10:6);k++){const x=rr(town?-20:-12,town?18:8),z=zb+rr(0.6,1.6);ico([x,0.1,z],rr(0.35,0.6),mix3([0.2,0.36,0.14],[0.32,0.46,0.2],rnd()),1,{detail:1,sy:0.8,jit:0.3});}}
   // preview only: rails, ballast, ground and the platform pieces under the station
-  if(!opt.game){P.footbridge(fbX0,fbX1,5.65,-9.6,PY+5.7,7.0,-0.2);const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
+  if(!opt.game){if(town)P.footbridgeN(fbX0,fbX1,5.65,-5.65,PY+5.7,7.0,[[4.4,5.6,PY],[-5.6,-4.4,PY]]);const L=town?36:24;for(let x=-L;x<L;x+=4.1)KIT.platPiece(K,x+2.05,Math.abs(x+2.05)>(town?23:15)?2:0);
     B(0,-0.55,0,2*L,0.36,3.6,[0.55,0.52,0.48],10);for(const e of [-1,1])B(0,-0.08,e*0.72,2*L,0.15,0.07,[0.45,0.4,0.36],11);for(let x=-L;x<L;x+=0.62)B(x,-0.28,0,0.24,0.12,2.5,[0.36,0.24,0.15],6);
     B(0,-0.7,8,2*L+6,0.2,36,[0.36,0.5,0.24],9);}
   return town?{target:[0,7.5,4],dist:72,dir:[-0.55,0.45,-0.7],shadowC:[0,6,4],shadowR:42,haze:[90,220]}:{target:[2,5.5,4],dist:52,dir:[-0.55,0.45,-0.7],shadowC:[0,5,4],shadowR:30,haze:[70,180]};}
@@ -244,6 +257,7 @@ KIT.platPiece=function(K,x,v){const {B,cyl}=K,P=kitOf(K);const L=4.1;
   B(x,-0.1,(1.62+zb)/2,L,2.08,zb-1.62,BRICK,24);// body (y -1.14..0.94) faced in brick on the track side
   B(x,0.965,(1.94+zb)/2,L,0.07,zb-1.94,PAVE,24);// paving (bricks laid flat)
   B(x,0.95,1.74,L,0.13,0.5,STONE,8);B(x,1.018,1.56,L,0.008,0.14,[0.95,0.93,0.86],0);// coping with a white edge line
+  if(v>=4){B(x,0.95,5.58,L,0.13,0.5,STONE,8);B(x,1.018,5.76,L,0.008,0.14,[0.95,0.93,0.86],0);if(v===5){P.lamp(x+0.9,PY,3.62,3.2);P.bench(x-0.9,PY,3.62,1.7,1);}return;}
   if(v===1||v===3)P.lamp(x+0.2,PY,5.15,3.2);
   if(v>=2){for(const xx of [x-L/2+0.06,x])B(xx,PY+0.55,5.6,0.08,1.1,0.08,IRON,11);for(const yy of [0.5,1.05])B(x,PY+yy,5.6,L,0.04,0.04,IRON,11);
     if(K.lod<1)for(let xx=x-L/2+0.2;xx<x+L/2;xx+=0.2)B(xx,PY+0.55,5.6,0.018,1.0,0.018,IRON,11);}
@@ -272,11 +286,14 @@ KIT.models.shelter=function(K,opt){const {B,quad,cyl,beam}=K,P=kitOf(K),x0=-3.5,
   if(!opt.game){KIT.platPiece(K,-2.05,2);KIT.platPiece(K,2.05,2);}
   return{target:[0,2,4],dist:14,dir:[-0.55,0.45,-0.7]};};
 // footbridge over the line, its own piece so its far end can land on the ground (fbG) or on a second platform (fbP); span x -1.1..1.1
-KIT.models.fbG=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,-0.2);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
-KIT.models.fbP=function(K,opt){kitOf(K).footbridge(-1.1,1.1,5.65,-9.6,PY+5.7,7.0,PY);return{target:[-3,3,-2],dist:30,dir:[-0.55,0.45,-0.7]};};
+// the town station's footbridge: fbT1 over its one track to the platform across (stairs onto both platforms), fbT2 over both tracks with
+// stairs onto the building platform, the island platform between the tracks (7.2 m apart) and the outer platform
+KIT.models.fbT1=function(K,opt){kitOf(K).footbridgeN(-1.1,1.1,5.65,-5.65,PY+5.7,7.0,[[4.4,5.6,PY],[-5.6,-4.4,PY]]);return{target:[-3,3,0],dist:30,dir:[-0.55,0.45,-0.7]};};
+KIT.models.fbT2=function(K,opt){kitOf(K).footbridgeN(-1.1,1.1,5.65,-12.85,PY+5.7,7.0,[[4.4,5.6,PY],[-5.6,-4.4,PY],[-12.8,-11.6,PY]]);return{target:[-3,3,-4],dist:36,dir:[-0.55,0.45,-0.7]};};
+KIT.TWIN_G=7.2;
 KIT.FB={station:[17.4,19.6],stationTown:[20.0,22.2]};
-for(const v of [0,1,2,3])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
+for(const v of [0,1,2,3,4,5])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
 KIT.models.station=function(K,opt){return build(K,opt,false);};
 KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
-Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:6},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbG:{x0:-9,x1:2,z0:-11,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});
+Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat4:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat5:{x0:-2.2,x1:2.2,z0:1.3,z1:7},fbT1:{x0:-9,x1:2,z0:-7,z1:7},fbT2:{x0:-9,x1:2,z0:-14,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});
 })();
