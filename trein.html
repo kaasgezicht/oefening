@@ -48,6 +48,10 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 .ld-r i b{display:block;height:100%;background:linear-gradient(90deg,#7fbf6a,#c6ff9e);transition:width .25s}.ld-r i b.full{background:linear-gradient(90deg,#e9a24a,#ffd27a)}.ld-r em{font-style:normal;font-size:11px;color:#cdbf9f;min-width:38px;text-align:right}.ld-n{font-size:10px;color:#9fdf8a;margin:-1px 0 2px 20px}
 .ldchip{position:fixed;transform:translate(-50%,-100%);pointer-events:none;z-index:7;background:#15191ad9;border:1px solid #c9a14a66;border-radius:9px;padding:3px 7px;color:#f1e7d0;font:600 11px system-ui;white-space:nowrap;display:flex;gap:6px;align-items:center}
 .ldchip b{font:700 11px Georgia,serif;color:#e9c870}.ldchip .none{color:#9f957e;font-weight:500}
+#upNotes{position:fixed;right:10px;top:calc(62px + env(safe-area-inset-top));z-index:19;display:flex;flex-direction:column;gap:6px;align-items:flex-end;max-width:min(70vw,260px)}
+#upNotes .un{display:flex;align-items:center;gap:8px;background:#15231bf0;border:1px solid #e9c870;border-radius:12px;padding:6px 6px 6px 10px;color:#f3e9cf;font:600 13px/1.25 system-ui;box-shadow:0 4px 14px #0009;animation:unIn .5s ease-out;cursor:pointer}
+#upNotes .un em{font-style:normal;font-size:20px}#upNotes .un small{display:block;font-weight:500;color:#cfc3a3;font-size:11px}#upNotes .un button{border:0;background:#0000;color:#cfc3a3;font:600 15px system-ui;padding:4px 6px}
+@keyframes unIn{from{opacity:0;transform:translateX(30px)}}#vPanel .vp-why{margin:8px 0;padding:8px 10px;border-radius:10px;background:#3b3518;border:1px solid #e9c870;font-size:13px;line-height:1.4}#vPanel .vp-why b{color:#f3d98a}
 #banner{position:fixed;left:50%;top:calc(58px + env(safe-area-inset-top));transform:translateX(-50%);width:min(92vw,430px);z-index:41;background:linear-gradient(#1b2a22f5,#10201af5);border:1px solid #e9c870;border-radius:16px;padding:12px 14px 10px;color:#f3e9cf;font:500 14px/1.4 system-ui;box-shadow:0 10px 30px #000b;animation:bnIn .45s ease-out}
 #banner[hidden]{display:none}#banner .bn-h{font:700 18px Georgia,serif;color:#f3d98a;margin-bottom:4px}#banner .bn-b ul{margin:4px 0 0 18px;padding:0}#banner .bn-t{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 #banner button{border-radius:10px;padding:6px 14px;border:1px solid #c9a14a99;background:#22322a;color:#f3e9cf;font:600 13px system-ui}#banner button.go{background:#c9a14a;color:#1a1408}@keyframes bnIn{from{opacity:0;transform:translate(-50%,-14px)}}
@@ -201,6 +205,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
   <div id="sections"></div>
 </section>
 <div id="stArrows"></div>
+<div id="upNotes" aria-live="polite"></div>
 <div id="banner" role="status" hidden><div class="bn-h"></div><div class="bn-b"></div><div class="bn-t"><button class="bn-show">Show me</button><button class="bn-ok go">OK</button></div></div>
 <div id="busy" role="status" hidden><i class="spin"></i><span id="busyText">Updating…</span></div>
 <div id="prog" role="status"><div id="progLabel">Starting</div><div class="bar"><i id="progBar"></i></div></div>
@@ -825,6 +830,17 @@ function stationPieces(st,o){const out=[],L=st.len||44,sf=o.sf||1,n=Math.round(L
 function alongD(st,x,z){const s=segById(st.sid);if(!s)return 0;const q=segPoint(s,st.t);return(x-q[0])*Math.cos(q[2])+(z-q[1])*Math.sin(q[2]);}
 // ---- stations in the build menu: the ghost of a station about to be built (drawn on the overlay canvas every frame, with a drag handle),
 // and arrow buttons at both ends of every platform to lengthen (outward arrow) or shorten (inward arrow) that end by 8 m
+// ---- upgrade notifications (top right): one card per village upgrade as soon as it can be bought. Tapping it flies to the village and
+// opens its panel with a short explanation of the upgrade; the card goes when it is tapped, closed, or the upgrade is bought.
+const UpgNotes={L:[],seen:new Set(),t:0,
+  tick(dt){this.t-=dt;if(this.t>0||!App.T)return;this.t=1;const box=$('#upNotes');if(!box)return;
+    for(const v of Life.villages||[])for(const k of Object.keys(Life.UPG)){const key=v.name+'|'+k,st=Life.upgState(v,k);if(st==='available'&&!this.seen.has(key)){this.seen.add(key);this.add(v,k);}}
+    for(const q of this.L.slice())if(Life.upgState(q.v,q.k)!=='available')this.drop(q);box.hidden=!!Build.active;},
+  add(v,k){const box=$('#upNotes'),el=document.createElement('div');el.className='un';el.setAttribute('role','button');
+    el.innerHTML=`<em>${Life.upgIcon(v,k)}</em><span>${esc(Life.upgName(v,k))} available<small>${esc(v.name)} · tap to see</small></span><button aria-label="Dismiss">✕</button>`;
+    const q={v,k,el};el.onclick=()=>{this.open(q);};el.querySelector('button').onclick=e=>{e.stopPropagation();this.drop(q);};box.appendChild(el);this.L.push(q);if(this.L.length>4)this.drop(this.L[0]);Sfx.clunk&&Sfx.clunk();},
+  drop(q){q.el.remove();this.L=this.L.filter(o=>o!==q);},
+  open(q){const v=q.v;Cam.mode='free';Cam.flyTo([v.x,R.sampleHr(R.world,v.x,v.z),v.z],Math.max(160,v.R*3.2));VillageUI.why=q.k;VillageUI.open(v);this.drop(q);}};
 // banner when a station becomes the grand one (its town has grown to its full size): what changed and what is now possible
 const Banner={t:null,show(head,body,go){const el=$('#banner');if(!el)return;el.querySelector('.bn-h').textContent=head;el.querySelector('.bn-b').innerHTML=body;el.hidden=false;
     el.querySelector('.bn-ok').onclick=()=>this.hide();const sb=el.querySelector('.bn-show');sb.hidden=!go;sb.onclick=()=>{if(go)go();this.hide();};clearTimeout(this.t);this.t=setTimeout(()=>this.hide(),16000);Sfx.clunk&&Sfx.clunk();},
@@ -899,12 +915,13 @@ const VillageUI={els:new Map(),panel:null,cur:null,
   nextUpg(v){let best=null;for(const k of Object.keys(Life.UPG)){const s=Life.upgState(v,k);if(s==='owned'||s==='none')continue;const U=Life.UPG[k],L=Life.LEVELS;
       const fl=(v.level|0)>=U.level?1:clamp((v.gp||0)/L[U.level].need,0,1),ft=U.trans?clamp((v.trans||0)/U.trans,0,1):1,f=s==='available'?1:Math.min(0.96,(fl+ft)/2);
       if(!best||f>best.f)best={k,f:Math.round(f*25)/25,icon:Life.upgIcon(v,k),title:s==='available'?`${U.name||k}: ready to buy`:`Next upgrade: ${U.name||k} (${Math.round(f*100)}%)`};}return best;},
-  bind(el,v){let tm=null,held=false;el.onpointerdown=e=>{e.stopPropagation();held=false;tm=setTimeout(()=>{held=true;if(navigator.vibrate)navigator.vibrate(15);this.open(v);},480);};
+  bind(el,v){let tm=null,held=false;el.onpointerdown=e=>{e.stopPropagation();held=false;tm=setTimeout(()=>{held=true;if(navigator.vibrate)navigator.vibrate(15);this.why=null;this.open(v);},480);};
     el.onpointerup=e=>{e.stopPropagation();clearTimeout(tm);if(!held){Cam.flyTo([v.x,R.sampleHr(R.world,v.x,v.z),v.z]);}};el.onpointerleave=()=>clearTimeout(tm);el.oncontextmenu=e=>e.preventDefault();},
   open(v){this.cur=v;let p=this.panel;if(!p){p=this.panel=document.createElement('div');p.id='vPanel';document.body.appendChild(p);}p.hidden=false;this.refresh(v);},
   refresh(v){const p=this.panel;if(!p||p.hidden||v!==this.cur)return;const L=Life.LEVELS,lv=v.level|0,nx=L[lv+1],gp=Math.round(v.gp||0),houses=v.houses.filter(h=>Life.houseOn(h)).length,building=v.houses.filter(h=>!h.gone&&h.prog<1).length;
     const pct=nx?clamp((gp-L[lv].need)/(nx.need-L[lv].need),0,1)*100:100;
     p.innerHTML=`<div class="vp-h"><div><b>${v.name}</b><span>${L[lv].name}</span></div><button id="vpX" aria-label="Close" title="Close">✕</button></div>
+      ${this.why&&Life.UPG[this.why]?`<div class="vp-why"><b>${Life.upgIcon(v,this.why)} ${esc(Life.upgName(v,this.why))}</b><br>${esc(Life.UPG_WHY[this.why](v))}</div>`:''}
       <div class="vp-row">${houses} houses${building?` (${building} being built)`:''} · ${['a few','more','many'][lv]} travellers${['',' · church, inn, bakery, small market',' · church, inn, bakery, restaurant, café, market square, station hall'][lv]}</div><div class="vp-row">Growth points: ${gp}${nx?` / ${nx.need} for ${nx.name.toLowerCase()}`:' (fully grown)'}</div><div class="vp-bar"><i style="width:${pct}%"></i></div>
       ${Object.keys(Life.UPG).map(k=>{const st=Life.upgState(v,k),U=Life.UPG[k],nm=Life.upgName(v,k),ic=Life.upgIcon(v,k);if(st==='none')return'';if(st==='owned')return`<div class="vp-farm on">${ic} ${nm}: ${U.desc}</div>`;
         if(st==='available')return`<div class="vp-farm av">${ic} ${nm} upgrade available<button class="go vpUp" data-up="${k}">Buy${Money.on()?' €'+Money.fmt(U.cost):''}</button></div>`;
@@ -912,7 +929,7 @@ const VillageUI={els:new Map(),panel:null,cur:null,
       ${(()=>{const S=Goods.summary(v),acc=['grain','produce','mail','gold','silver','diamond'].filter(t=>Goods.accepts(v,t)).map(t=>Goods.T[t].icon).join(' ');const w=Object.entries(S).filter(([t,n])=>n>=1).map(([t,n])=>`${Math.floor(n)} ${Goods.T[t].icon}`).join('  ');return`<div class="vp-row">Accepts: ${acc||'—'}${w?` · waiting: ${w}`:''}</div>`;})()}
       <div class="vp-tools"><button id="vpG10">+10 growth</button><button id="vpT20">+20 passengers (test)</button><button id="vpG50">+50 growth</button><button id="vpGrow" class="go">${nx?'Grow to '+nx.name.toLowerCase()+' now':'Fully grown'}</button></div>
       <div class="vp-note">Later, growth comes from connecting ${v.name} and carrying passengers and goods.</div>`;
-    p.querySelector('#vpX').onclick=()=>{p.hidden=true;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
+    p.querySelector('#vpX').onclick=()=>{p.hidden=true;this.why=null;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
 function snapshot(){
   return{app:'Trein',saveVersion:SAVE_VERSION,build:VERSION,savedAt:new Date().toISOString(),params:{...P},camera:Cam.state(),
     clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
@@ -2998,6 +3015,118 @@ KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
 Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat4:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat5:{x0:-2.2,x1:2.2,z0:1.3,z1:7},fbT1:{x0:-9,x1:2,z0:-7,z1:7},fbT2:{x0:-9,x1:2,z0:-14,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});
 })();
 
+// ===== buildings/sawmill.js — the water-powered sawmill (user's reference picture, Nov 2026): a two-storey mill on a rubble-stone
+// foundation, red brick ground floor with round-arched windows and an arched log door, a board-and-batten timber upper floor and gables
+// with fretwork bargeboards and finials, a steep shingle roof with a louvred ventilator, a tall iron engine stack, a lean-to log shed;
+// an overshot water wheel (drawn separately so it turns: Life adds it) in a stone wheel pit, fed by a timber flume on trestles from a
+// weir upstream on the brook, the tailrace back to the brook; a jack ladder bringing logs up into the shed; log decks, stacked sawn
+// timber with stickers, sawhorses with a log, a rail fence along the bank.
+// Frame: the mill's plot centre at the origin, +x the road and brook side (the brook runs along z about 28 m out), the loading sides
+// -x and ±z stay clear beyond 20 m / 15 m for the wood-mill stations. dir = +1: the brook comes from +z (upstream), -1 from -z.
+(function(){
+const STONE=[[0.62,0.6,0.56],[0.55,0.53,0.5],[0.68,0.65,0.6],[0.5,0.49,0.47]],BRICK=[0.6,0.28,0.19],WOOD=[0.47,0.34,0.24],WOODD=[0.36,0.26,0.18],WOODL=[0.6,0.46,0.32],
+  IRON=[0.16,0.16,0.17],WATER=[0.2,0.33,0.34],SOIL=[0.47,0.39,0.29],DUST=[0.7,0.58,0.4],BARK=[0.38,0.27,0.18],END=[0.78,0.62,0.4],PLANK=[0.82,0.66,0.45];
+const PY=0;// ground
+function mill(K,opt,dir){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick}=K,{add,mul,norm}=K.v,ST=KIT.stationKit(K);
+  const X0=1.5,X1=11.5,Z0=-7,Z1=5,FL=1.1,G1=4.3,EV=7.6;// walls, foundation top, upper floor, eaves
+  // ---- foundation: rubble stone, with the wheel pit on the +x side
+  const F=K.walls(X0,X1,Z0,Z1);B((X0+X1)/2,FL/2-0.2,(Z0+Z1)/2,X1-X0+0.3,FL+0.4,Z1-Z0+0.3,STONE[1],8);
+  if(K.lod<2)for(const f of [F.front,F.back,F.left,F.right])K.stones(f,-f.half-0.15,f.half+0.15,-0.2,FL,{pal:STONE,h:[0.22,0.32],l:[0.35,0.7]});
+  // ---- brick ground floor with round-arched windows, the log door (left gable) and a plank door
+  B((X0+X1)/2,(FL+G1)/2,(Z0+Z1)/2,X1-X0,G1-FL,Z1-Z0,BRICK,24);fb(F.front,0,G1-0.08,0.05,X1-X0+0.12,0.16,0.12,STONE[2],8);fb(F.back,0,G1-0.08,0.05,X1-X0+0.12,0.16,0.12,STONE[2],8);
+  for(const f of [F.left,F.right])fb(f,0,G1-0.08,0.05,f.half*2+0.12,0.16,0.12,STONE[2],8);
+  for(const u of [-3.5,-1,1.5,4])ST.arch(F.right,u,FL+0.7,0.9,2.0,{nv:7});for(const u of [-3,3])ST.arch(F.front,u,FL+0.7,0.9,2.0,{nv:7});
+  ST.door(F.front,0,FL,1.8,2.6);ST.arch(F.back,-2.5,FL+0.7,0.9,2.0,{nv:7});ST.door(F.back,2.2,FL,1.4,2.3);
+  // ---- timber upper floor: boards with battens, small-paned windows, a loft door with a hoist beam in the front gable
+  B((X0+X1)/2,(G1+EV)/2,(Z0+Z1)/2,X1-X0+0.12,EV-G1,Z1-Z0+0.12,WOOD,6);
+  const battens=(f,y0,y1)=>{if(K.lod>=2)return;for(let u=-f.half+0.25;u<f.half;u+=K.lod?0.9:0.45)fb(f,u,(y0+y1)/2,0.07,0.07,y1-y0,0.05,WOODD,6);};
+  for(const f of [F.front,F.back,F.left,F.right])battens(f,G1,EV);
+  for(const u of [-3.5,0,3.5])K.win(F.right,u,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});for(const u of [-3.5,3.5])K.win(F.left,u,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});
+  K.win(F.front,-2.8,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});fb(F.front,1.6,G1+1.35,0.04,1.3,2.2,0.08,WOODD,6);fb(F.front,1.6,G1+1.35,0.08,1.4,0.1,0.1,WOODL,6);
+  beam(fp(F.front,1.6,EV+0.6,0),fp(F.front,1.6,EV+0.6,1.6),[0,1,0],0.18,0.18,WOODD,6);cyl(fp(F.front,1.6,EV+0.45,1.45),fp(F.front,1.6,G1+2.8,1.45),0.012,0.012,4,[0.6,0.55,0.45],0);
+  K.win(F.back,0,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});
+  // ---- roof: steep shingles, ridge along z; timber gables with fretwork bargeboards and finials, a round window high up
+  const rf=K.roof({c:[(X0+X1)/2,(Z0+Z1)/2],dir:[0,1],halfLen:(Z1-Z0)/2,half:(X1-X0)/2,H:EV,rise:4.6,ov:0.55,gov:0.5,th:0.14,sag:0.12,flare:0.12,nx:30,mossClumps:20,ridgeMoss:0.08,trim:WOODD});
+  for(const e of [-1,1]){const f=e<0?F.front:F.back;const a=fp(f,-(X1-X0)/2,EV,0.002),b=fp(f,(X1-X0)/2,EV,0.002),c=fp(f,0,EV+4.6,0.002);tri(a,b,c,WOOD,6);
+    if(K.lod<2)for(let u=-(X1-X0)/2+0.3;u<(X1-X0)/2;u+=K.lod?0.9:0.45){const top=EV+4.6*(1-Math.abs(u)/((X1-X0)/2))-0.1;if(top>EV+0.1)fb(f,u,(EV+top)/2,0.07,0.07,top-EV,0.05,WOODD,6);}
+    KIT.stationKit(K).barge(rf,e,{spike:1.1});const rc=fp(f,0,EV+2.4,0.06);cyl(rc,fp(f,0,EV+2.4,0.0),0.45,0.45,14,[0.25,0.22,0.2],2,[0.25,0.22,0.2],2);
+    // fretwork: a scalloped board under the bargeboards
+    if(K.lod<1)for(let k=0;k<10;k++){const u=(k+0.5)/10*(X1-X0)-(X1-X0)/2,y=EV+4.6*(1-Math.abs(u)/((X1-X0)/2))-0.55;ico(fp(f,u,y,0.22),0.09,[0.5,0.38,0.27],6,{sy:0.6});}}
+  // louvred ventilator on the ridge, with its own little roof and a finial
+  {const vx=(X0+X1)/2,vz=Z0+3.5,y0=EV+4.2;B(vx,y0+0.7,vz,1.8,1.6,1.6,WOOD,6);if(K.lod<2)for(let k=0;k<5;k++)for(const e of [-1,1]){B(vx+e*0.91,y0+0.25+k*0.28,vz,0.04,0.1,1.4,WOODD,6,0);B(vx,y0+0.25+k*0.28,vz+e*0.81,1.6,0.1,0.04,WOODD,6,0);}
+    const r2=K.roof({c:[vx,vz],dir:[0,1],halfLen:0.8,half:0.9,H:y0+1.5,rise:0.9,ov:0.25,gov:0.2,th:0.08,sag:0,flare:0,nx:6,trim:WOODD});cyl([vx,y0+2.4,vz],[vx,y0+3.3,vz],0.05,0.01,6,IRON,11);}
+  // tall iron engine stack (steam engine for low water) with a cap
+  {const sx=X0+2.6,sz=Z1-2.2;cyl([sx,EV+1.5,sz],[sx,EV+9.5,sz],0.32,0.28,12,IRON,11);cyl([sx,EV+9.5,sz],[sx,EV+9.9,sz],0.42,0.42,12,IRON,11);for(const y of [EV+3.5,EV+6.5])cyl([sx,y,sz],[sx,y+0.12,sz],0.36,0.36,12,IRON,11);}
+  // ---- lean-to log shed on -x: posts, a shingle roof sloping out, the jack ladder brings logs up into it
+  {const x0=-3,x1=X0,z0=-5,z1=3,h0=3.6,h1=2.6;for(const z of [z0,(z0+z1)/2,z1])beam([x0+0.15,0,z],[x0+0.15,h1,z],[1,0,0],0.2,0.2,WOODD,6);
+    B((x0+x1)/2,0.5,(z0+z1)/2,x1-x0,0.1,z1-z0,WOODL,12);B((x0+x1)/2,0.25,(z0+z1)/2,x1-x0,0.5,z1-z0,STONE[0],8);
+    quad([x0-0.4,h1-0.15,z0-0.3],[x0-0.4,h1-0.15,z1+0.3],[x1,h0,z1+0.3],[x1,h0,z0-0.3],null,[0.52,0.4,0.3],4);quad([x1,h0-0.12,z0-0.3],[x1,h0-0.12,z1+0.3],[x0-0.4,h1-0.27,z1+0.3],[x0-0.4,h1-0.27,z0-0.3],null,[0.4,0.29,0.19],12);
+    beam([x0+0.15,h1-0.05,z0],[x0+0.15,h1-0.05,z1],[0,1,0],0.2,0.2,WOODD,6);}
+  // jack ladder: inclined timber slide on trestles from the log deck up to the shed floor, logs on it
+  {const a=[-15,0.25,-1],b=[-2.6,1.4,-1];for(const e of [-0.55,0.55])beam([a[0],a[1],a[2]+e],[b[0],b[1],b[2]+e],[0,1,0],0.16,0.22,WOODD,6);
+    for(let t=0.15;t<1;t+=0.2){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,-1];for(const e of [-0.55,0.55])beam([p[0],0,p[2]+e],[p[0],p[1],p[2]+e],[1,0,0],0.14,0.14,WOODD,6);beam([p[0],p[1]*0.5,-1.55],[p[0],p[1]*0.5,-0.45],[0,1,0],0.1,0.1,WOODD,6);}
+    for(const [t,L] of [[0.18,3.6],[0.5,4.2],[0.8,3.4]]){const p=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t+0.36,-1];cyl([p[0]-L/2*0.995,p[1]-L/2*0.093,p[2]],[p[0]+L/2*0.995,p[1]+L/2*0.093,p[2]],0.3,0.28,10,BARK,15,END,14);}}
+  // ---- the wheel pit by the +x wall (the wheel itself turns: drawn by the game) and the tailrace to the brook
+  const WX=X1+0.85,WZ=-1,WR=3.2;// wheel centre x, z, radius (hub height WR+0.05)
+  // a raised stone wheel pit (water 0.3 m up, the wheel dips into it) and the raised tailrace channel to the brook at x 27
+  B(WX,0.05,WZ,2.3,0.3,2*WR+1.4,STONE[1],8);B(WX,0.32,WZ,1.7,0.04,2*WR+0.9,WATER,0);for(const e of [-1,1])B(WX+e*1.05,0.4,WZ,0.3,0.8,2*WR+1.4,STONE[0],8);for(const e of [-1,1])B(WX,0.4,WZ+e*(WR+0.6),2.3,0.8,0.3,STONE[0],8);
+  {const xa=WX+1.2,xb=27.5,xm=(xa+xb)/2,L=xb-xa;for(const e of [-1,1])B(xm,0.25,WZ+e*0.95,L,0.6,0.3,STONE[2],8);B(xm,0.0,WZ,L,0.1,1.9,STONE[3],8);B(xm,0.22,WZ,L,0.04,1.6,WATER,0);
+    B(WX+1.05,0.22,WZ,0.3,0.04,1.6,WATER,0);}
+  // axle bearing on the wall
+  cyl([X1+0.02,WR,WZ],[X1+0.25,WR,WZ],0.35,0.35,10,STONE[2],8,STONE[2],8);
+  // ---- the flume: a timber trough on trestles from the weir upstream (x 26.5, z 22·dir) to over the wheel; water in it
+  {const yI=6.95,yW=6.7,I=[26.5,yI,22*dir],K1=[WX,yW+0.12,9*dir],Wt=[WX,yW,WZ+0.4*dir],segs=[[I,K1],[K1,Wt]];
+    for(const [a,b] of segs){const L=Math.hypot(b[0]-a[0],b[2]-a[2]),d=[(b[0]-a[0])/L,0,(b[2]-a[2])/L],n=[-d[2],0,d[0]];
+      // trough: floor and two sides, water surface
+      beam(a,b,[0,1,0],0.12,1.1,WOOD,6);for(const e of [-1,1])beam(add(a,[n[0]*0.55*e,0.35,n[2]*0.55*e]),add(b,[n[0]*0.55*e,0.35,n[2]*0.55*e]),n,0.6,0.08,WOOD,6);
+      beam(add(a,[0,0.18,0]),add(b,[0,0.18,0]),[0,1,0],0.02,0.98,WATER,0);
+      // trestle bents every 3 m: two raking legs and a cross tie (legs run on into the ground)
+      for(let t=1.5;t<L;t+=3){const p=[a[0]+d[0]*t,a[1]+(b[1]-a[1])*t/L,a[2]+d[2]*t];if(Math.abs(p[0]-WX)<2&&Math.abs(p[2]-WZ)<WR+1)continue;// none over the wheel
+        for(const e of [-1,1]){beam([p[0]+n[0]*0.5*e,p[1]-0.1,p[2]+n[2]*0.5*e],[p[0]+n[0]*0.5*e,-8,p[2]+n[2]*0.5*e],d,0.16,0.16,WOODD,6);}
+        beam([p[0]-n[0]*0.62,p[1]*0.45,p[2]-n[2]*0.62],[p[0]+n[0]*0.62,p[1]*0.45,p[2]+n[2]*0.62],[0,1,0],0.1,0.12,WOODD,6);
+        if(K.lod<1){beam([p[0]-n[0]*0.5,p[1]*0.75,p[2]-n[2]*0.5],[p[0]+n[0]*0.5,0.5,p[2]+n[2]*0.5],[0,1,0],0.08,0.08,WOODD,6);}}}
+    // the weir across the brook at the intake, with a sluice gate
+    B(I[0]+0.4,0.2,I[2],5,1.0,0.5,STONE[0],8);B(I[0],yI-0.4,I[2],1.3,1.1,0.3,WOODD,6);beam([I[0]-0.7,yI-1,I[2]],[I[0]-0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);beam([I[0]+0.7,yI-1,I[2]],[I[0]+0.7,yI+1.2,I[2]],[1,0,0],0.12,0.12,WOODD,6);
+    beam([I[0],yI-2.5,I[2]],[I[0],yI-0.2,I[2]],[1,0,0],0.5,0.3,WOODD,6);}
+  // ---- yard: dirt and sawdust, log decks on the -x side, stacked sawn timber by ±z, sawhorses with a log, a cart, tools
+  if(K.lod<2){K.patch(2,0,21,14.5,SOIL,10,0.012);K.patch(-5,4,5,3,DUST,10,0.02);K.patch(15,-6,3,2.2,DUST,10,0.02);}
+  const logPile=(x,z,n,L,ry)=>{const c=Math.cos(ry),s=Math.sin(ry);let k=0;for(let row=0;row<3&&k<n;row++)for(let i=0;i<4-row&&k<n;i++,k++){const off=(i-(3-row)/2)*0.62,r=rr(0.26,0.32),y=r+row*0.52;
+      const px=x-s*off,pz=z+c*off;cyl([px-c*L/2,y,pz-s*L/2],[px+c*L/2,y,pz+s*L/2],r,r*0.95,10,BARK,15,END,14);}
+    for(const e of [-1,1])beam([x-c*L*0.35*e-s*1.6,0.12,z-s*L*0.35*e+c*1.6],[x-c*L*0.35*e+s*1.6,0.12,z-s*L*0.35*e-c*1.6],[0,1,0],0.14,0.16,WOODD,6);};
+  logPile(-12,-9,9,5.5,0);logPile(-12,8.5,8,5,0);logPile(-6.5,-11.5,6,4.4,0.05);
+  const lumber=(x,z,ry,len,w,h)=>{const c=Math.cos(ry),s=Math.sin(ry),n=Math.round(h/0.22);for(const e of [-1,1])B(x+c*e*len*0.38,0.08,z+s*e*len*0.38,0.2,0.16,w+0.2,WOODD,6,ry);
+      for(let k=0;k<n;k++){const y=0.16+k*0.22;B(x,y+0.08,z,len,0.14,w,mix(PLANK,[0.72,0.56,0.38],rnd()*0.6),12,ry);if(k<n-1&&K.lod<2)for(const e of [-1,0,1])B(x+c*e*len*0.4,y+0.19,z+s*e*len*0.4,0.06,0.06,w+0.08,WOODD,6,ry);}};
+  lumber(-1,11.2,0,4.8,1.6,1.4);lumber(4.5,11.4,0,4.8,1.6,1.8);lumber(10.5,11.2,0,4.2,1.6,1.1);lumber(2,-11.6,0,4.8,1.6,1.6);lumber(8,-11.4,0,4.2,1.5,1.2);
+  // sawhorses with a log and a bucksaw, a hand cart, crates and a barrel
+  {const sx=-1.5,sz=-8.6;for(const e of [-1,1]){const x=sx+e*1.0;for(const f of [-1,1])beam([x-0.35,0,sz+f*0.3],[x+0.35*0+0.0,0.85,sz],[0,0,1],0.07,0.07,WOODD,6);for(const f of [-1,1])beam([x+0.35,0,sz+f*0.3],[x,0.85,sz],[0,0,1],0.07,0.07,WOODD,6);}
+    cyl([sx-1.8,1.1,sz],[sx+1.8,1.1,sz],0.24,0.23,10,BARK,15,END,14);beam([sx+0.4,1.4,sz-0.35],[sx+0.4,0.8,sz-0.35],[1,0,0],0.04,0.5,[0.55,0.55,0.58],11);}
+  {const cx=9.5,cz=-9.2;B(cx,0.75,cz,2.2,0.08,1.1,WOODL,6,0.3);for(const e of [-1,1])cyl([cx-0.05,0.42,cz+e*0.62],[cx+0.05,0.42,cz+e*0.62],0.42,0.42,12,WOODD,6,WOODD,6);beam([cx+1.0,0.78,cz+0.2],[cx+2.3,0.5,cz+0.6],[0,1,0],0.06,0.06,WOODD,6);
+    for(let k=0;k<4;k++)B(cx+0.1,0.86+k*0.08,cz,2.0,0.07,0.9,PLANK,12,0.3);}
+  K.crate(14.5,0,6.2,0.7,0.2);K.crate(15.1,0,7,0.6,0.5);K.barrel(14.2,7.6,0.32,0.8);K.barrel(-3.8,-6.4,0.32,0.8);
+  // ---- rail fence along the bank (gaps where the tailrace, the flume and the road pass)
+  if(K.lod<2){const fx=21.5;for(let z=-15;z<15;z+=2.5){if(Math.abs(z-WZ)<2.2||Math.abs(z+13*dir)<4||Math.abs(z-9*dir)<1.2)continue;beam([fx,0,z],[fx,1.2,z],[1,0,0],0.12,0.12,WOODD,6);
+      if(z+2.5<15&&!(Math.abs(z+1.25-WZ)<2.2||Math.abs(z+1.25+13*dir)<4))for(const y of [0.55,1.05])beam([fx,y,z],[fx,y,z+2.5],[0,1,0],0.08,0.1,WOOD,6);}}
+  // a few bushes on the bank and a birch
+  if(K.lod<2){for(const [x,z] of [[19,13],[23,-14],[18,-15]])K.bush(x,z,0.8);}
+  if(!opt.game){KIT.sawWheel(K,WX,WR+0.05,WZ,WR);B(28,-0.3,0,4,0.1,80,WATER,0);B(2,-0.2,0,48,0.2,34,[0.36,0.5,0.24],9);}
+  return{target:[6,4,0],dist:46,dir:[0.55,0.42,-0.72],shadowC:[6,4,0],shadowR:32,haze:[60,170]};}
+// the overshot wheel (also used for the game's turning wheel, built around its hub): two rims with spokes, buckets between, a hub
+KIT.sawWheel=function(K,cx,cy,cz,R){const {B,beam,cyl}=K,W2=0.62,sp=8,nb=28;
+  for(const e of [-1,1]){const x=cx+e*W2;for(let k=0;k<nb;k++){const a0=k/nb*6.2832,a1=(k+1)/nb*6.2832;beam([x,cy+Math.sin(a0)*R,cz+Math.cos(a0)*R],[x,cy+Math.sin(a1)*R,cz+Math.cos(a1)*R],[1,0,0],0.08,0.22,WOODD,6);}
+    for(let k=0;k<sp;k++){const a=k/sp*6.2832+0.2;beam([x,cy,cz],[x,cy+Math.sin(a)*R,cz+Math.cos(a)*R],[1,0,0],0.07,0.16,WOOD,6);}}
+  for(let k=0;k<nb;k++){const a=(k+0.5)/nb*6.2832,c=[cx,cy+Math.sin(a)*(R-0.18),cz+Math.cos(a)*(R-0.18)],t=[0,Math.cos(a),-Math.sin(a)];
+    K.box(c,[W2,0,0],K.v.mul(t,0.05),K.v.mul([0,Math.sin(a),Math.cos(a)],0.26),WOODL,6);}
+  cyl([cx-W2-0.3,cy,cz],[cx+W2+0.15,cy,cz],0.28,0.28,10,IRON,11,IRON,11);cyl([cx-W2-1.0,cy,cz],[cx-W2-0.3,cy,cz],0.12,0.12,8,IRON,11,IRON,11);
+  // the inner drum the buckets sit on
+  cyl([cx-W2,cy,cz],[cx+W2,cy,cz],R-0.42,R-0.42,nb,WOODD,6);};
+function mix(a,b,t){return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+KIT.models.sawmillA=function(K,opt){return mill(K,opt,1);};
+KIT.models.sawmillB=function(K,opt){return mill(K,opt,-1);};
+// where the game draws the turning wheel and the flume's water falls (mill frame)
+KIT.SAW={wheel:[12.35,3.25,-1],wheelR:3.2,stack:[4.1,17.5,2.8],flumeEnd:[12.35,6.9,-0.6]};
+Object.assign(KIT.plots,{sawmillA:{x0:-22,x1:30,z0:-17,z1:26},sawmillB:{x0:-22,x1:30,z0:-26,z1:17}});
+})();
+
 /*@@END_BUILDINGS@@*/
 const VS_OBJ=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;
@@ -3035,7 +3164,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -3752,6 +3881,15 @@ function sledMesh(){const M=omesh(),rd=[0.6,0.16,0.1],wd=[0.66,0.42,0.24];for(co
 function sledderMesh(){const M=sledMesh();for(const z of [-0.1,0.1])oLimb(M,[-0.25,0.33,z],[0.35,0.3,z*1.4],0.085,0.075,5,[1,1,1],16);
   oLimb(M,[-0.28,0.3,0],[-0.18,0.86,0],0.22,0.18,6,[1,1,1],15);for(const z of [-0.23,0.23])oLimb(M,[-0.17,0.78,z],[0.22,0.45,z*1.2],0.055,0.05,4,[1,1,1],15);
   oIco(M,-0.15,1.04,0,0.165,[1,1,1],17,{seed:6});oIco(M,-0.16,1.11,0,0.18,[1,1,1],18,{sy:0.62,seed:12});oIco(M,-0.16,1.27,0,0.055,[0.95,0.95,0.95],0,{seed:13});return M;}
+// the sawmill's overshot wheel for the game (kind 11, all parts turn about local x around the hub at the origin); same build as KIT.sawWheel
+function sawWheelMesh(){const M=omesh(),R=3.2,W2=0.62,nb=28,wd=[0.36,0.26,0.18],wl=[0.6,0.46,0.32],w0=[0.47,0.34,0.24],ir=[0.16,0.16,0.17];
+  for(const e of [-1,1]){const x=e*W2;for(let k=0;k<nb;k++){const a0=k/nb*6.2832,a1=(k+1)/nb*6.2832,am=(a0+a1)/2,c=[x,Math.sin(am)*R,Math.cos(am)*R],t=[0,Math.cos(am),-Math.sin(am)],rr=[0,Math.sin(am),Math.cos(am)],hl=R*Math.sin((a1-a0)/2)+0.02;
+      oOBox(M,c,[0.04,0,0],[t[0]*hl,t[1]*hl,t[2]*hl],[0,rr[1]*0.11,rr[2]*0.11],wd,11);}
+    for(let k=0;k<8;k++){const a=k/8*6.2832+0.2,c=[x,Math.sin(a)*R/2,Math.cos(a)*R/2];oOBox(M,c,[0.035,0,0],[0,Math.sin(a)*R/2,Math.cos(a)*R/2],[0,Math.cos(a)*0.08,-Math.sin(a)*0.08],w0,11);}}
+  for(let k=0;k<nb;k++){const a=(k+0.5)/nb*6.2832,r=R-0.18,c=[0,Math.sin(a)*r,Math.cos(a)*r];oOBox(M,c,[W2,0,0],[0,Math.cos(a)*0.03,-Math.sin(a)*0.03],[0,Math.sin(a)*0.26,Math.cos(a)*0.26],wl,11);}
+  oLimbX(M,-W2-0.3,W2+0.15,0.28,ir);oLimbX(M,-W2,W2,R-0.42,wd);return M;}
+function oLimbX(M,x0,x1,r,col){const n=16;for(let k=0;k<n;k++){const a0=k/n*6.2832,a1=(k+1)/n*6.2832,P=(x,a)=>[x,Math.sin(a)*r,Math.cos(a)*r];oQuad(M,P(x0,a0),P(x0,a1),P(x1,a1),P(x1,a0),col,11);
+    oTri(M,[x0,0,0],P(x0,a1),P(x0,a0),col,11);oTri(M,[x1,0,0],P(x1,a0),P(x1,a1),col,11);}}
 // ---- detailed toy people (object kind 22): forward +x, left +z, feet at 0, hip 0.9, shoulders 1.42 (children are the same figure at 0.62
 // with a bigger head). material = palette + 10*part; parts 2 body, 3/4 left/right leg (knee at 0.52), 5/6 left/right arm, tools in the
 // right hand are part 6; palettes 0 tunic/coat 1 trousers/skirt 2 skin 3 hair 4 hat/scarf 5 shoes 6 apron 7 leather 8 own colour (vC).
@@ -4052,6 +4190,8 @@ function stallMesh(){const M=omesh(),wd=[0.5,0.36,0.22];for(const x of [-0.9,0.9
   for(let k=0;k<6;k++){const z0=-1.45+k*0.48;oQuad(M,[-1.05,2.4,z0],[-1.05,2.4,z0+0.48],[1.25,2.05,z0+0.48],[1.25,2.05,z0],k%2?[0.97,0.95,0.9]:[1,1,1],k%2?0:20);}return M;}
 // fallen leaves on a platform (a loose drift about 1.2 m across), a swept pile, and a filled leaf sack tied at the neck
 const LEAF_C=[[0.82,0.42,0.12],[0.74,0.28,0.1],[0.9,0.62,0.18],[0.55,0.32,0.14],[0.68,0.5,0.16],[0.86,0.52,0.2]];
+// a plank on two men's shoulders (centre at the origin, along x)
+function plankCarryMesh(){const M=omesh();oBox(M,0,0,0,3.4,0.06,0.24,[0.8,0.64,0.44],0);oBox(M,0.4,0.07,0,3.0,0.06,0.22,[0.74,0.58,0.4],0);return M;}
 function leafPatchMesh(){const M=omesh(),rng=mulberry32(91);for(let k=0;k<46;k++){const a=rng()*6.283,r=Math.pow(rng(),0.7)*0.7,x=Math.cos(a)*r,z=Math.sin(a)*r,s=0.07+rng()*0.05,t=rng()*3.14,c=Math.cos(t)*s,n=Math.sin(t)*s,y=0.012+rng()*0.012;
     oQuad(M,[x-c,y,z-n],[x-n,y+0.004,z+c],[x+c,y,z+n],[x+n,y+0.004,z-c],LEAF_C[k%LEAF_C.length],0);}return M;}
 function leafPileMesh(){const M=omesh(),rng=mulberry32(93);oIco(M,0,0,0,0.5,[0.66,0.38,0.14],0,{sy:0.42,jit:0.22,seed:5,detail:1});
@@ -5392,7 +5532,11 @@ const Crane={S:new Map(),F:[],hold:new Map(),
     for(const k of [...this.S.keys()])if(!live.has(k))this.S.delete(k);this.F=F;
     // the mill engine's stack smokes in the working day
     const h=P.timeOfDay;if(P.smoke&&h>6.5&&h<19.5&&R.focus)for(const m of Life.sawmills||[]){if(Math.hypot(m.x-R.focus[0],m.z-R.focus[2])>1400)continue;if(Math.random()<dt*3){const c=Math.cos(m.rot),sn=Math.sin(m.rot);
-      Particles.spawn(m.x+c*10-sn*10,(m.y||0)+14.4,m.z+sn*10+c*10,(Math.random()-0.5)*0.6,1.8,(Math.random()-0.5)*0.6,5,0.6,3,0);}}},
+      const S=KIT.SAW.stack;Particles.spawn(m.x+c*S[0]-sn*S[2],(m.y||0)+S[1],m.z+sn*S[0]+c*S[2],(Math.random()-0.5)*0.6,1.8,(Math.random()-0.5)*0.6,5,0.6,3,1);}}
+    // water pouring from the flume onto the wheel and splashing in the pit (near the camera only)
+    if(P.smoke&&R.focus)for(const m of Life.sawmills||[]){if(!Life.indOn('sawmill',m)||Math.hypot(m.x-R.focus[0],m.z-R.focus[2])>300)continue;const c=Math.cos(m.rot),sn=Math.sin(m.rot),F=KIT.SAW.flumeEnd,W=KIT.SAW.wheel,up=m.up||1,P2=(lx,lz)=>[m.x+c*lx-sn*lz,m.z+sn*lx+c*lz];
+      let n=Math.floor(dt*26+Math.random());while(n-->0){const lx=F[0]+(Math.random()-0.5)*1.0,lz=F[2]-up*(0.3+Math.random()*0.8),p=P2(lx,lz);Particles.spawn(p[0],(m.y||0)+F[1]-0.2,p[1],(Math.random()-0.5)*0.3,-1.5-Math.random(),(Math.random()-0.5)*0.3,0.7+Math.random()*0.4,0.18,0.5,3);}
+      if(Math.random()<dt*10){const p=P2(W[0]+(Math.random()-0.5)*1.2,W[2]-up*(1.5+Math.random()*1.5));Particles.spawn(p[0],(m.y||0)+0.5,p[1],(Math.random()-0.5)*0.6,0.6+Math.random()*0.6,(Math.random()-0.5)*0.6,0.9,0.2,0.9,3);}}},
   holds(tr){return this.hold.has(tr.id);},
   what(tr){const m=this.hold.get(tr.id);return m==='unload'?'unloading logs':m==='pour'?'loading ore':'loading logs';},
   // where a train should stop at a station: at a crane station the first timber wagon draws up at the far end of the yard
@@ -6018,19 +6162,19 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       for(let j=Math.floor((spot.z-26)/cs);j<=Math.ceil((spot.z+26)/cs);j++)for(let i=Math.floor((spot.x-26)/cs);i<=Math.ceil((spot.x+26)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;const d=Math.hypot((i+0.5)*cs-spot.x,(j+0.5)*cs-spot.z);if(d<26){const w=clamp((26-d)/6,0,1);flatMask[j*N+i]=Math.max(flatMask[j*N+i],w>0.99?1:0);if(w>0.99)flatH[j*N+i]=base;}}
       clearZones.push([spot.x,spot.z,30]);let best=null,bd=1e9;for(const st of v.streets){const ex=st[2]-st[0],ez=st[3]-st[1],ll=ex*ex+ez*ez||1,t=clamp(((fm.yard[0]-st[0])*ex+(fm.yard[1]-st[1])*ez)/ll,0,1),px=st[0]+ex*t,pz=st[1]+ez*t,d=Math.hypot(px-fm.yard[0],pz-fm.yard[1]);if(d<bd){bd=d;best=[px,pz];}}
       if(best)this.vRoads.push({p:[fm.yard[0],fm.yard[1],best[0],best[1]],w:1.5,farmOf:v});this.vRoads.push({disc:[fm.yard[0],fm.yard[1],7],farmOf:v});}
-    // --- sawmills: a few, where forest meets a village's surroundings
-    this.sawmills=[];{const TG=new Map();for(const arr of veg.trees)for(let k=0;k+3<arr.length;k+=8){const key=Math.floor(arr[k]/32)+','+Math.floor(arr[k+2]/32);TG.set(key,(TG.get(key)||0)+1);}
-      const dens=(x,z)=>{let n=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)n+=TG.get((Math.floor(x/32)+a)+','+(Math.floor(z/32)+b))||0;return n;};const want=Math.max(1,Math.round(this.villages.length/3));
-      for(const v of this.villages.slice().sort(()=>rng()-0.5)){if(this.sawmills.length>=want)break;let best=null;for(let k=0;k<50;k++){const a=rng()*6.283,r=v.R+120+rng()*260,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<50||z<50||x>W-50||z>W-50)continue;
+    // --- sawmills, old placement: still run so the random sequence (and so the workshops and mines placed after it) stays as it was in
+    // saved worlds; the results only serve as the fallback spots (oldSaw). The sawmills themselves are placed after the mines, beside a brook.
+    const oldSaw=[],sawOrder=[];{const TG=new Map();for(const arr of veg.trees)for(let k=0;k+3<arr.length;k+=8){const key=Math.floor(arr[k]/32)+','+Math.floor(arr[k+2]/32);TG.set(key,(TG.get(key)||0)+1);}
+      const dens=(x,z)=>{let n=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)n+=TG.get((Math.floor(x/32)+a)+','+(Math.floor(z/32)+b))||0;return n;};const want=Math.max(1,Math.round(this.villages.length/3));this.sawDens=dens;this.sawWant=want;
+      for(const v of this.villages.slice().sort(()=>rng()-0.5)){sawOrder.push(v);if(oldSaw.length>=want)break;let best=null;for(let k=0;k<50;k++){const a=rng()*6.283,r=v.R+120+rng()*260,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<50||z<50||x>W-50||z>W-50)continue;
           let mn=1e9,mx=-1e9,ok=true;for(let q=0;q<8&&ok;q++){const qa=q*0.785,qx=x+Math.cos(qa)*24,qz=z+Math.sin(qa)*24,h=H(qx,qz);mn=Math.min(mn,h);mx=Math.max(mx,h);if(wet(qx,qz)||onRoad(qx,qz)||onTrack(qx,qz))ok=false;}if(!ok||mx-mn>6)continue;
           if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<40)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+18))continue;const d=dens(x,z);if(!best||d>best.d)best={x,z,d};}
-        if(!best||best.d<8)continue;const rot=Math.atan2(v.z-best.z,v.x-best.x),base=H(best.x,best.z);const yl=this.levelPlot(T,best.x,best.z,rot,20,15,9,flatMask,flatH);this.sawmills.push({x:best.x,z:best.z,rot,v,y:yl});
-        for(let j=Math.floor((best.z-28)/cs);j<=Math.ceil((best.z+28)/cs);j++)for(let i=Math.floor((best.x-28)/cs);i<=Math.ceil((best.x+28)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;if(Math.hypot((i+0.5)*cs-best.x,(j+0.5)*cs-best.z)<26){flatMask[j*N+i]=1;flatH[j*N+i]=base;}}
-        clearZones.push([best.x,best.z,36]);const pts=this.routePath([best.x+Math.cos(rot)*14,best.z+Math.sin(rot)*14],[v.x,v.z],{cs:7,margin:120,bridge:true,wind:0.3,maxG:0.3});if(pts)this.vRoads.push({p:pts.flat(),w:1.4,kind:1,ind:this.sawmills[this.sawmills.length-1]});}}
+        if(!best||best.d<8)continue;oldSaw.push({x:best.x,z:best.z,v});}}
+    this.sawmills=[];
     // --- wood workshops (joinery, cartwright and cooper): where the wood goes
     this.workshops=[];{const TG2=new Map();for(const arr of veg.trees)for(let k=0;k+3<arr.length;k+=8){if(arr[k+3]<=0)continue;const key=Math.floor(arr[k]/32)+','+Math.floor(arr[k+2]/32);TG2.set(key,(TG2.get(key)||0)+1);}
       const dens2=(x,z)=>{let n=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)n+=TG2.get((Math.floor(x/32)+a)+','+(Math.floor(z/32)+b))||0;return n;};const want=Math.max(1,Math.round(this.villages.length/3));
-      for(const v of this.villages.slice().sort((a,b)=>b.R-a.R)){if(this.workshops.length>=want)break;if(this.sawmills.some(m=>Math.hypot(m.x-v.x,m.z-v.z)<v.R+150))continue;let best=null;
+      for(const v of this.villages.slice().sort((a,b)=>b.R-a.R)){if(this.workshops.length>=want)break;if(oldSaw.some(m=>Math.hypot(m.x-v.x,m.z-v.z)<v.R+150))continue;let best=null;
         for(let k=0;k<60;k++){const a=rng()*6.283,r=v.R+50+rng()*170,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<50||z<50||x>W-50||z>W-50)continue;let mn=1e9,mx=-1e9,ok=true;
           for(let q=0;q<8&&ok;q++){const qa=q*0.785,qx=x+Math.cos(qa)*22,qz=z+Math.sin(qa)*22,h=H(qx,qz);mn=Math.min(mn,h);mx=Math.max(mx,h);if(wet(qx,qz)||onRoad(qx,qz)||onTrack(qx,qz))ok=false;}if(!ok||mx-mn>6)continue;
           if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+28)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+18)||(v.farm&&Math.hypot(v.farm.x-x,v.farm.z-z)<55))continue;const sc=-dens2(x,z)-(mx-mn)*2;if(!best||sc>best.sc)best={x,z,sc};}
@@ -6040,10 +6184,14 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     this.mines=[];{const mr=mulberry32((P.seed|0)*7919+13);for(const v of this.villages){if(mr()>0.6)continue;const type=['gold','silver','diamond'][Math.floor(mr()*3)],hv=H(v.x,v.z);let best=null;
       for(let k=0;k<70;k++){const a=mr()*6.283,r=v.R+160+mr()*380,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<60||z<60||x>W-60||z>W-60)continue;let mn=1e9,mx=-1e9,ok=true;
         for(let q=0;q<8&&ok;q++){const qa=q*0.785,qx=x+Math.cos(qa)*21,qz=z+Math.sin(qa)*21,h=H(qx,qz);mn=Math.min(mn,h);mx=Math.max(mx,h);if(wet(qx,qz)||onRoad(qx,qz)||onTrack(qx,qz))ok=false;}if(!ok||mx-mn>9)continue;
-        if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+40)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+20)||[...this.sawmills,...this.workshops,...this.mines].some(m=>Math.hypot(m.x-x,m.z-z)<90)||this.castleList().some(c=>Math.hypot(c.x-x,c.z-z)<130)||(v.farm&&Math.hypot(v.farm.x-x,v.farm.z-z)<60))continue;
+        if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+40)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+20)||[...oldSaw,...this.workshops,...this.mines].some(m=>Math.hypot(m.x-x,m.z-z)<90)||this.castleList().some(c=>Math.hypot(c.x-x,c.z-z)<130)||(v.farm&&Math.hypot(v.farm.x-x,v.farm.z-z)<60))continue;
         const sc=(H(x,z)-hv)*0.6-(mx-mn)*2;if(!best||sc>best.sc)best={x,z,sc};}
       if(!best)continue;const rot=Math.atan2(v.z-best.z,v.x-best.x),yl=this.levelPlot(T,best.x,best.z,rot,17,13,9,flatMask,flatH),m={x:best.x,z:best.z,rot,v,y:yl,type};this.mines.push(m);v.mine=m;clearZones.push([best.x,best.z,40]);
       const pts=this.routePath([best.x+Math.cos(rot)*16,best.z+Math.sin(rot)*16],[v.x,v.z],{cs:7,margin:120,bridge:true,wind:0.3,maxG:0.32});if(pts)this.vRoads.push({p:pts.flat(),w:1.4,kind:1,ind:m});}}
+    // --- sawmills: water-powered, so beside a brook. The brook passes the mill's road side (+x, about 28 m out, along the mill's z axis)
+    // and nothing else of it may cross the plot or the three loading sides (-x, ±z). A run-off rill that fits is made a permanent brook;
+    // where nothing fits, the mill keeps its old spot and gets a brook of its own. See placeSawmills.
+    this.placeSawmills(T,{H,wet,onRoad,onTrack,fields,flatMask,flatH,clearZones,oldSaw,order:[...sawOrder,...this.villages.filter(v=>!sawOrder.includes(v))]});
     // --- sledding slopes: pick open runs near the villages now and keep them free of trees
     const sledKill=new Uint8Array(N*N);this.sledH=this.findHills(true,fieldId);for(const hl of this.sledH)for(const p of hl.pts){const r=8;for(let j=Math.floor((p[1]-r)/cs);j<=Math.floor((p[1]+r)/cs);j++)for(let i=Math.floor((p[0]-r)/cs);i<=Math.floor((p[0]+r)/cs);i++)if(i>=0&&j>=0&&i<N&&j<N)sledKill[j*N+i]=1;}
     // --- clear trees out of villages, plots and fields
@@ -6133,6 +6281,12 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     mine:{p:'mineOwned',name:'Mine',icon:'⛏️',level:1,trans:60,cost:1,growth:50,desc:'a shaft mine; its ore goes by rail in ore hoppers to a town with a bank'},
     bank:{p:'bankOwned',name:'Bank',icon:'🏦',level:2,trans:0,cost:1,growth:40,desc:'a bank by the square that takes gold, silver and diamond ore'},
     docks:{p:'docksOwned',name:'Steamboat dock',icon:'⛴️',level:0,trans:20,cost:1,growth:30,desc:'a dock on the lake; the steamboat sails once two villages on the lake have one'}},
+  // what an upgrade brings and why it is on offer now (shown when the player taps the notification)
+  UPG_WHY:{farm:v=>`${v.name} has grown into a village and enough travellers have come by train, so its people can take up farming. You get fields and pastures around the village, a farmstead and tractors. The farms send grain and produce: carry them by goods wagon to other villages, and ${v.name} grows faster.`,
+    saw:v=>`Enough passengers have travelled from ${v.name} for its woodsmen to open a sawmill in the forest nearby. It is a water-powered mill on a brook: the wheel drives the saws, logs come in from the woods and leave as cut timber. Build a wood-mill station at one of its three marked sides and take the timber by wagon to a wood workshop.`,
+    mine:v=>`${v.name} has grown and its line is busy, so the lode in the hills can be worked. You get a shaft mine with a headframe and an ore bunker. Build a station at a marked side and take the ore in hoppers to a town with a bank.`,
+    bank:v=>`${v.name} is now a town, big enough for a bank by its square. The bank buys gold, silver and diamond ore: bring it by rail from the mines.`,
+    docks:v=>`Travellers from ${v.name} have made the lake worth sailing. You get a steamboat dock on the shore; the steamboat starts sailing once two villages on the lake have one.`},
   upgHas(v,k){if(k==='farm')return!!(this.T&&(this.T.fields||[]).some(f=>f.v===v));if(k==='saw')return(this.sawmills||[]).some(m=>m.v===v);if(k==='mine')return!!v.mine;if(k==='bank')return v.houses.some(h=>h.bank);if(k==='docks')return(this.docks||[]).some(d=>d.v===v);return false;},
   upgState(v,k){const U=this.UPG[k];if(v[U.p])return'owned';if(!this.upgHas(v,k))return'none';return((v.level|0)>=U.level&&(v.trans||0)>=U.trans)?'available':'locked';},
   upgName(v,k){return k==='mine'&&v.mine?ORE[v.mine.type].name+' mine':this.UPG[k].name;},
@@ -6250,6 +6404,9 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   culvertGrid(){const G=new Map(),put=(o,x0,z0,x1,z1)=>{for(let kz=Math.floor(z0/24);kz<=Math.floor(z1/24);kz++)for(let kx=Math.floor(x0/24);kx<=Math.floor(x1/24);kx++){const k=kx+','+kz;if(!G.has(k))G.set(k,[]);G.get(k).push(o);}};
     for(const h of this.houses){if(!this.plotOn(h)||!h.rect)continue;const Q=h.rect,r=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+2;put({Q},h.x-r,h.z-r,h.x+r,h.z+r);}
     for(const v of this.villages){if(v.plaza&&(v.level|0)>=1){const [x,z,r]=v.plaza;put({d:[x,z,r+1.5]},x-r-2,z-r-2,x+r+2,z+r+2);}}
+    // the railway: a brook under open track (not a bridge or a tunnel) goes through a culvert under the ballast
+    if(typeof Track!=='undefined')for(const s of Track.segs){if(s.pend)continue;const n=Math.max(1,Math.ceil(s.L/6));for(let i=0;i<n;i++){const ta=s.L*i/n,tb=s.L*(i+1)/n,sp=spanAt(s,(ta+tb)/2);if(sp)continue;
+        const a=segPoint(s,ta),b=segPoint(s,tb),sg=[a[0],a[1],b[0],b[1]],w=4.4;put({sg,w},Math.min(sg[0],sg[2])-w,Math.min(sg[1],sg[3])-w,Math.max(sg[0],sg[2])+w,Math.max(sg[1],sg[3])+w);}}
     for(const r of this.vRoads){if(!r.p||!r.h||!this.plotOn(r.h))continue;const w=r.w+1.4;for(let i=0;i+3<r.p.length;i+=2){const sg=[r.p[i],r.p[i+1],r.p[i+2],r.p[i+3]];put({sg,w},Math.min(sg[0],sg[2])-w,Math.min(sg[1],sg[3])-w,Math.max(sg[0],sg[2])+w,Math.max(sg[1],sg[3])+w);}}
     this.cgrid=G;},
   culvertAt(x,z){const L=this.cgrid&&this.cgrid.get(Math.floor(x/24)+','+Math.floor(z/24));if(!L)return false;for(const o of L){if(o.Q?VG.inRect(o.Q,x,z,0.8):o.d?Math.hypot(x-o.d[0],z-o.d[1])<o.d[2]:VG.segDist(o.sg,x,z)[0]<o.w)return true;}return false;},
@@ -6669,6 +6826,57 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   // blows the whistle and raises the green flag, then gets back in; the train leaves only when the conductor is aboard
   condOut(tr,si,cs){if(!cs||!cs.length||!tr.poses)return;const ci=cs[cs.length-1],p=tr.poses[ci];if(!p)return;const dp=this.doorPath(p,si,-1),py=si.y+0.85,e=dp[0],sp=[e[0]+si.nx*1.1,e[1]+si.nz*1.1,py];
     tr.cond={state:'out',path:[dp[1],dp[0],sp],x:dp[2][0],z:dp[2][1],y:dp[2][2],rot:0,si,ci,door:dp,t:0,hash:(tr.id*0.377)%1};},
+  // ---- sawmill placement beside a brook (see generate). Mill frame: P2(lx,lz) = mill + rot·(lx,lz); +x the road and brook side.
+  placeSawmills(T,o){const {H,wet,onRoad,onTrack,fields,flatMask,flatH,clearZones}=o,N=T.N,cs=T.cs,W=T.W,rr=mulberry32((P.seed|0)*4243+29),dens=this.sawDens||(()=>10);
+    if(!T.streams0)T.streams0=(T.streams||[]).map(a=>Float32Array.from(a));T.streams=T.streams0.map(a=>Float32Array.from(a));// generation starts from the world's own streams
+    const frame=(x,z,rot)=>{const c=Math.cos(rot),s=Math.sin(rot);return{P2:(lx,lz)=>[x+c*lx-s*lz,z+s*lx+c*lz],L:(px,pz)=>{const dx=px-x,dz=pz-z;return[c*dx+s*dz,-s*dx+c*dz];}};};
+    const others=()=>[...this.sawmills,...(this.workshops||[]),...(this.mines||[])];
+    // the plot, the loading sides and the yard must be dry, off roads and tracks, clear of houses, fields and other industries
+    const siteOK=(x,z,rot)=>{if(x<70||z<70||x>W-70||z>W-70)return null;const F=frame(x,z,rot);let mn=1e9,mx=-1e9;
+      for(const [lx,lz] of [[0,0],[-18,-13],[18,-13],[-18,13],[18,13],[-35,0],[0,30],[0,-30],[-28,-20],[-28,20],[22,0],[22,-12],[22,12]]){const p=F.P2(lx,lz),h=H(p[0],p[1]);if(Math.abs(lx)<=22&&Math.abs(lz)<=15){mn=Math.min(mn,h);mx=Math.max(mx,h);}
+        if(wet(p[0],p[1])||onRoad(p[0],p[1])||onTrack(p[0],p[1]))return null;}
+      if(mx-mn>8)return null;if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+42)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+22))return null;
+      if(others().some(m=>Math.hypot(m.x-x,m.z-z)<110)||this.castleList().some(c=>Math.hypot(c.x-x,c.z-z)<120))return null;return{rough:mx-mn};};
+    // every stream point near the mill: the brook must pass the road side (x 24..34 by the wheel) and keep out of the plot and loading sides
+    const brookOK=(F,skip)=>{let near=false;for(const st of T.streams){for(let i=0;i<st.length;i+=3){const l=F.L(st[i],st[i+1]);if(Math.abs(l[0])>90||Math.abs(l[1])>90)continue;
+        if(l[0]<23&&Math.abs(l[1])<46)return false;if(st===skip&&l[0]>=24&&l[0]<=34&&Math.abs(l[1])<7)near=true;}}return near;};
+    for(const v of o.order){if(this.sawmills.length>=(this.sawWant||1))break;let best=null;
+      // candidates: points on streams (and run-off rills) in a ring around the village
+      for(const st of T.streams){const n=st.length/3;if(n<8)continue;for(let i=4;i<n-4;i+=2){const x=st[i*3],z=st[i*3+1],d=Math.hypot(x-v.x,z-v.z);if(d<v.R+90||d>v.R+440)continue;if(rr()>0.5)continue;
+          const tx=st[i*3+6]-st[i*3-6],tz=st[i*3+7]-st[i*3-5],tl=Math.hypot(tx,tz)||1,nx=-tz/tl,nz=tx/tl;
+          for(const sd of [1,-1]){const ux=nx*sd,uz=nz*sd,cx=x-ux*28,cz=z-uz*28,rot=Math.atan2(uz,ux),ok=siteOK(cx,cz,rot);if(!ok)continue;const F=frame(cx,cz,rot);if(!brookOK(F,st))continue;
+            const iu=Math.max(0,i-5),up=F.L(st[iu*3],st[iu*3+1])[1]>0?1:-1,drop=H(st[iu*3],st[iu*3+1])-H(x,z),sc=dens(cx,cz)+Math.min(Math.max(drop,0),6)*3-ok.rough*1.5+(st[i*3+2]>0?12:0)+rr()*3;
+            if(!best||sc>best.sc)best={x:cx,z:cz,rot,sc,st,up,brook:st[i*3+2]>0?'stream':'rill'};}}}
+      if(best&&best.brook==='rill'){const st=best.st;for(let i=0;i<st.length;i+=3)st[i+2]=Math.max(Math.abs(st[i+2]),0.02);}// the rill becomes a permanent brook
+      if(!best){// no brook fits: the old spot, facing the village, with a brook of its own down past the road side
+        const os=o.oldSaw.find(q=>q.v===v);if(!os)continue;let rot=Math.atan2(v.z-os.z,v.x-os.x),ok=null;for(let k=0;k<8&&!ok;k++){const r2=rot+(k?(k%2?1:-1)*Math.ceil(k/2)*0.4:0);ok=siteOK(os.x,os.z,r2);if(ok)rot=r2;}if(!ok)continue;
+        const st=this.makeBrook(T,os.x,os.z,rot,H,wet);if(!st)continue;const F=frame(os.x,os.z,rot);if(!brookOK(F,st)){T.streams.pop();continue;}
+        best={x:os.x,z:os.z,rot,st,up:F.L(st[0],st[1])[1]>0?1:-1,brook:'made'};}
+      const yl=this.levelPlot(T,best.x,best.z,best.rot,20,15,9,flatMask,flatH),base=H(best.x,best.z),m={x:best.x,z:best.z,rot:best.rot,v,y:yl,up:best.up,brook:best.brook};this.sawmills.push(m);
+      for(let j=Math.floor((best.z-28)/cs);j<=Math.ceil((best.z+28)/cs);j++)for(let i=Math.floor((best.x-28)/cs);i<=Math.ceil((best.x+28)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;const F=frame(best.x,best.z,best.rot),l=F.L((i+0.5)*cs,(j+0.5)*cs);if(l[0]<21&&Math.hypot(l[0],l[1])<26){flatMask[j*N+i]=1;flatH[j*N+i]=yl;}}
+      clearZones.push([best.x,best.z,34]);const F=frame(best.x,best.z,best.rot),r0=F.P2(20,-13*best.up);const pts=this.routePath(r0,[v.x,v.z],{cs:7,margin:120,bridge:true,wind:0.3,maxG:0.3});if(pts)this.vRoads.push({p:pts.flat(),w:1.4,kind:1,ind:m});
+      Log.info(`sawmill for ${v.name}: ${best.brook==='stream'?'beside a brook':best.brook==='rill'?'beside a rill made a brook':'with a brook of its own'} at ${best.x.toFixed(0)},${best.z.toFixed(0)}`);}
+    T.stats.streams=T.streams.length;},
+  // a brook of the mill's own: from higher ground on one side of the road side, past the wheel (x 28), then on downhill by steepest descent
+  // until it reaches water, another stream or 500 m. Points every cell as [x, z, area km²].
+  makeBrook(T,x,z,rot,H,wet){const c=Math.cos(rot),s=Math.sin(rot),P2=(lx,lz)=>[x+c*lx-s*lz,z+s*lx+c*lz],cs=T.cs,a=P2(28,-48),b=P2(28,48),up=H(a[0],a[1])>=H(b[0],b[1])?-1:1,pts=[];
+    for(let lz=48;lz>=-48;lz-=cs*0.75){const p=P2(28,lz*up);pts.push([p[0],p[1]]);}
+    let [px,pz]=pts[pts.length-1];for(let k=0;k<70;k++){if(wet(px,pz))break;let bx=px,bz=pz,bh=H(px,pz);for(let d=0;d<8;d++){const an=d*Math.PI/4,qx=px+Math.cos(an)*cs,qz=pz+Math.sin(an)*cs,h=H(qx,qz);if(h<bh-0.02){bh=h;bx=qx;bz=qz;}}
+      if(bx===px&&bz===pz)break;const dx=bx-x,dz=bz-z;if(c*dx+s*dz<24&&Math.abs(-s*dx+c*dz)<50)break;px=bx;pz=bz;pts.push([px,pz]);}
+    if(pts.length<10)return null;const out=new Float32Array(pts.length*3);pts.forEach((p,i)=>{out[i*3]=p[0];out[i*3+1]=p[1];out[i*3+2]=0.02+0.03*i/pts.length;});T.streams.push(out);return out;},
+  // ---- the sawmill yard by day: a sawyer at the sawhorses, a man with a cant hook at the log deck, one stacking sawn boards, and two
+  // carrying planks on their shoulders from the back door to the stacks and back (the plank is drawn between them). Positions in the
+  // mill frame (see buildings/sawmill.js), turned with the mill.
+  sawWork(m){const h=P.timeOfDay;if(h<7||h>18.5||!this.indOn('sawmill',m))return null;const t=App.time||0,c=Math.cos(m.rot),s=Math.sin(m.rot),y=m.y,W=(lx,lz)=>[m.x+c*lx-s*lz,m.z+s*lx+c*lz],R2=a=>m.rot+a,hs=(m.x*0.013)%1,out=[];
+    const pin=(lx,lz,a,pose,k,kind)=>{const p=W(lx,lz);out.push({x:p[0],z:p[1],y:y-0.03,rot:R2(a),pose,anim:0,hash:(hs+k*0.17)%1,var:kind||'man'});};
+    pin(-1.5,-9.45,Math.PI/2,4,0);pin(-10.5,-6.7,-Math.PI/2,2,1);pin(10.5,9.85,Math.PI/2,8,2);
+    // the plank carriers: a loop from the back door (4.3, 6.2) to the stack (10.2, 9.6) and back, a pause at each end
+    const A=[4.3,6.4],Bp=[8.9,8.9],L=Math.hypot(Bp[0]-A[0],Bp[1]-A[1]),T=L/1.1,cyc=2*T+6,u=((t+hs*40)%cyc);let f,carry,mv=1;
+    if(u<3){f=0;carry=true;mv=0;}else if(u<3+T){f=(u-3)/T;carry=true;}else if(u<6+T){f=1;carry=false;mv=0;}else{f=1-(u-6-T)/T;carry=false;}
+    const dx=(Bp[0]-A[0])/L,dz=(Bp[1]-A[1])/L,head=Math.atan2(dz,dx)+(carry?0:Math.PI),mid=[A[0]+(Bp[0]-A[0])*f,A[1]+(Bp[1]-A[1])*f];
+    for(const e of [-1,1]){const lx=mid[0]+dx*e*1.35,lz=mid[1]+dz*e*1.35,p=W(lx,lz);out.push({x:p[0],z:p[1],y:y-0.03,rot:R2(head),pose:0,anim:mv?6.4:0,hash:(hs+0.5+e*0.11)%1,var:'man'});}
+    let plank=null;if(carry){const p=W(mid[0],mid[1]);plank=[p[0],y+1.58,p[1],1,R2(Math.atan2(dz,dx)),0.5,0.5,0];}
+    return{people:out,plank};},
   // ---- the grand station's porter. In autumn leaves blow onto the platforms and build up; when there are enough the porter comes out of
   // the front door with a broom, sweeps each drift onto a pile (two piles per platform), bags the piles, and carries the sacks inside one
   // by one, crossing the footbridge for the other platforms. Out of autumn there is a short sweep along the building platform each morning.
@@ -6788,6 +6996,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     const KB={};for(const t of KIT_TYPES)for(let l=0;l<3;l++)KB[t+l]=[];
     for(const h of this.houses){const def=R.houseDefs[h.v];if(!def.kit||h.shop||(h.bank&&h.village&&h.village.bankOwned)||!this.houseOn(h))continue;const d=Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]);if(d>2400)continue;KB[def.kit+(d<110?0:d<350?1:2)].push(h);}
     for(const c of this.culverts||[]){const d=Math.hypot(c.x-cp[0],c.y-cp[1],c.z-cp[2]);if(d<1500)KB['culvert'+(d<90?0:d<300?1:2)].push({x:c.x,y:c.y,z:c.z,rot:c.rot,hash:0.5,sc:c.sc});}
+    for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m))continue;const d=Math.hypot(m.x-cp[0],m.y-cp[1],m.z-cp[2]);if(d>2400)continue;KB[((m.up||1)>0?'sawmillA':'sawmillB')+(d<110?0:d<350?1:2)].push({x:m.x,y:m.y,z:m.z,rot:m.rot,hash:0.5});}
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
     for(const si of this.stInfo||[]){if(si.cargo)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=d<110?0:d<350?1:2,town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
       const lod=d=>d<110?0:d<350?1:2,put=(t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<1800)KB[t+lod(dp)].push(o);};
@@ -6819,7 +7028,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
             if(P.timeOfDay>7&&P.timeOfDay<19){const bx=x+Math.cos(a)*1.4,bz=z+Math.sin(a)*1.4;this.marketPeople.push({x:bx,z:bz,y:R.sampleHr(this.T,bx,bz)-0.05,rot:rot,hash:hh,k:'stand'});if(hh>0.4){const fx=x-Math.cos(a)*1.6,fz=z-Math.sin(a)*1.6;this.marketPeople.push({x:fx,z:fz,y:R.sampleHr(this.T,fx,fz)-0.05,rot:a,hash:(hh*3.7)%1,k:'stand'});}}}}
         const mb=B(MS.length);MS.forEach((r,i)=>mb.set(r,i*8));R.inst('stalls',mb,MS.length);}
 
-      {const SW=(this.sawmills||[]).filter(m=>this.indOn('sawmill',m)),sb3=B(SW.length);SW.forEach((m,i)=>sb3.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('sawmills',sb3,SW.length);const WK=this.workshops||[],wb3=B(WK.length);WK.forEach((m,i)=>wb3.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('workshops',wb3,WK.length);
+      {const SW=(this.sawmills||[]).filter(m=>this.indOn('sawmill',m)),sb3=B(SW.length);R.inst('sawmills',sb3,0);const WK=this.workshops||[],wb3=B(WK.length);WK.forEach((m,i)=>wb3.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('workshops',wb3,WK.length);
         for(const k of ['gold','silver','diamond']){const L=(this.mines||[]).filter(m=>m.type===k&&this.indOn('mine',m)),b=B(L.length);L.forEach((m,i)=>b.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('mines_'+k,b,L.length);}}
       for(const [kind,key] of [['neu','castle'],['hoh','castle2']]){const L=this.castleList().filter(c=>(c.kind||'neu')===kind),cb=B(L.length);L.forEach((C,i)=>cb.set([C.x,C.y,C.z,1,C.rot,0.5,0.4,0],i*8));R.inst(key,cb,L.length);}
       {const FM=this.villages.filter(v=>v.farm&&v.farmOwned).map(v=>v.farm),bb=B(FM.length),sb=B(FM.length),ss=B(FM.length);FM.forEach((f,i)=>{const y=R.sampleHr(this.T,f.barn[0],f.barn[1]);bb.set([f.barn[0],y,f.barn[1],1,f.rot,0.5,0.3,0],i*8);sb.set([f.shed[0],R.sampleHr(this.T,f.shed[0],f.shed[1]),f.shed[1],1,f.rot,0.5,0.3,0],i*8);ss.set([f.silo[0],R.sampleHr(this.T,f.silo[0],f.silo[1]),f.silo[1],1,f.rot,0.5,0.3,0],i*8);});R.inst('barns',bb,FM.length);R.inst('sheds',sb,FM.length);R.inst('silos',ss,FM.length);}
@@ -6848,6 +7057,10 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         if(!(Cam.mode==='cab'&&Trains.cur()===tr)){const X=L0.X,rot=Math.atan2(X[2],X[0]);for(const [lz,lx,hs] of [[0.82,-1.45,0.31],[-0.78,-1.7,0.73]]){const pt=locoPoint(tr,lx,1.62,lz);if(pt)put(pt[0],pt[1],pt[2],rot+(lz<0?0.5:-0.2),(tr.id*0.13+hs)%1,'drv',0,0,1);}}
         const c=tr.cond;if(c&&c.state!=='aboard'&&near(c.x,c.z,400))put(c.x,c.y,c.z,c.rot,c.hash,'cond',c.pose||0,c.mv?6.4:0,1);}
       for(const c of this.stClean.values()){const w=c.sw;if(w&&!w.hidden&&near(w.x,w.z,400))put(w.x,w.y,w.z,w.rot,w.hash,'sweep',w.pose,w.mv?6.4:0,1);}
+      {const SWL=[],PKL=[];for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m)||!near(m.x,m.z,1600))continue;const c=Math.cos(m.rot),s=Math.sin(m.rot),S=KIT.SAW.wheel;
+          SWL.push([m.x+c*S[0]-s*S[2],m.y+S[1],m.z+s*S[0]+c*S[2],1,m.rot,0.5,(m.x*0.0071)%1,-0.55*(m.up||1)]);
+          if(near(m.x,m.z,450)){const wk=this.sawWork(m);if(wk){for(const q of wk.people)put(q.x,q.y,q.z,q.rot,q.hash,q.var,q.pose,q.anim,1);if(wk.plank)PKL.push(wk.plank);}}}
+        const b1=B(SWL.length);SWL.forEach((r,i)=>b1.set(r,i*8));R.inst('sawwheels',b1,SWL.length);const b2=B(PKL.length);PKL.forEach((r,i)=>b2.set(r,i*8));R.inst('planks',b2,PKL.length);}
       for(const k in PB){const L=PB[k],b=B(L.length);L.forEach((r,i)=>b.set(r,i*8));R.inst('pp_'+k,b,L.length);}
       const SL=this.sledP.filter(q=>q.st!=='up'&&near(q.x,q.z,700)),sl=B(SL.length);SL.forEach((q,i)=>sl.set([q.x,q.y+0.05,q.z,1.2,q.rot,clamp(0.5+q.pitch/2,0,1),q.hash,0],i*8));R.inst('sledders',sl,SL.length);
       const SU=S,su=B(SU.length);SU.forEach((q,i)=>{const ph=Math.atan2(q.z-q.sz,q.x-q.sx);su.set([q.sx,q.sy+0.03,q.sz,1.2,ph,clamp(0.5+q.pitch/2,0,1),q.hash,0],i*8);});R.inst('sleds',su,SU.length);
@@ -6894,7 +7107,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const a=B(L.length);L.forEach((q,i)=>a.set(q,i*8));R.inst(gull?'birdsL':'birdsD',a,L.length);}
     for(let v=0;v<3;v++){const L=(this.balloons||[]).filter(b=>b.v===v),a=B(L.length);L.forEach((b,i)=>a.set([b.x,b.y,b.z,1.15,b.rot,0.5,0.5,0],i*8));R.inst('balloons'+v,a,L.length);}},
   draw(pass){if(!this.T)return;const I=R.instBufs;
-    for(let v=0;v<R.houseDefs.length;v++)R.drawObj('h'+v,10,I['house'+v],pass);for(let k=0;k<3;k++)R.drawObj('site'+k,10,I['sites'+k],pass);R.drawObj('barn',10,I.barns,pass);R.drawObj('bakery',10,I.bakeries,pass);R.drawObj('restaurant',10,I.restaurants,pass);R.drawObj('stall',10,I.stalls,pass);R.drawObj('leafpatch',10,I.leafp,pass);R.drawObj('leafpile',10,I.leafpl,pass);R.drawObj('leafbag',10,I.leafbg,pass);R.drawObj('stationhall',10,I.stationhalls,pass);R.drawObj('castle',10,I.castle,pass);R.drawObj('castle2',10,I.castle2,pass);for(let v=0;v<3;v++)R.drawObj('balloon'+v,10,I['balloons'+v],pass);R.drawObj('shed',10,I.sheds,pass);R.drawObj('silo',10,I.silos,pass);R.drawObj('millBody',10,I.millBody,pass);R.drawObj('millSails',11,I.sails,pass);R.drawObj('lamp',10,I.lamps,pass);R.drawObj('sawmill',10,I.sawmills,pass);R.drawObj('workshop',10,I.workshops,pass);for(const k of ['gold','silver','diamond'])R.drawObj('mine_'+k,10,I['mines_'+k],pass);R.drawObj('bank',10,I.banks,pass);
+    for(let v=0;v<R.houseDefs.length;v++)R.drawObj('h'+v,10,I['house'+v],pass);for(let k=0;k<3;k++)R.drawObj('site'+k,10,I['sites'+k],pass);R.drawObj('barn',10,I.barns,pass);R.drawObj('bakery',10,I.bakeries,pass);R.drawObj('restaurant',10,I.restaurants,pass);R.drawObj('stall',10,I.stalls,pass);R.drawObj('leafpatch',10,I.leafp,pass);R.drawObj('leafpile',10,I.leafpl,pass);R.drawObj('leafbag',10,I.leafbg,pass);R.drawObj('stationhall',10,I.stationhalls,pass);R.drawObj('castle',10,I.castle,pass);R.drawObj('castle2',10,I.castle2,pass);for(let v=0;v<3;v++)R.drawObj('balloon'+v,10,I['balloons'+v],pass);R.drawObj('shed',10,I.sheds,pass);R.drawObj('silo',10,I.silos,pass);R.drawObj('millBody',10,I.millBody,pass);R.drawObj('millSails',11,I.sails,pass);R.drawObj('sawWheel',11,I.sawwheels,pass);R.drawObj('plankCarry',10,I.planks,pass);R.drawObj('lamp',10,I.lamps,pass);R.drawObj('sawmill',10,I.sawmills,pass);R.drawObj('workshop',10,I.workshops,pass);for(const k of ['gold','silver','diamond'])R.drawObj('mine_'+k,10,I['mines_'+k],pass);R.drawObj('bank',10,I.banks,pass);
     if(pass===1)return;for(const k of PEOPLE)R.drawObj('pp_'+k,22,I['pp_'+k],pass);R.drawObj('pp_far',22,I.pp_far,pass);R.drawObj('skater',15,I.skaters,pass);R.drawObj('speedskater',15,I.speedskaters,pass);R.drawObj('hockeyP',15,I.hockeyP,pass);R.drawObj('hgoal',10,I.hgoals,pass);R.drawObj('puck',10,I.pucks,pass);R.drawObj('sledder',16,I.sledders,pass);R.drawObj('sled',16,I.sleds,pass);R.drawObj('sheep',19,I.sheep,pass);R.drawObj('cow',17,I.cows,pass);R.drawObj('horse',18,I.horses,pass);R.drawObj('tractor',16,I.tractors,pass);R.drawObj('bus',16,I.buses,pass);R.drawObj('lorry',16,I.lorries,pass);R.drawObj('slotmark',10,I.slotmarks,pass);R.drawObj('busstop',10,I.busstops,pass);R.drawObj('harrow',16,I.harrows,pass);R.drawObj('trailer',16,I.trailers,pass);R.drawObj('bale',10,I.bales,pass);R.drawObj('seated',10,I.seated,pass);R.drawObj('dooropen',10,I.doors,pass);R.drawObj('shoveler',13,I.shovelers,pass);R.drawObj('xbuck',10,I.xbucks,pass);R.drawObj('boom',21,I.booms,pass);R.drawObj('combine',16,I.combines,pass);R.drawObj('plough',16,I.ploughs,pass);R.drawObj('drill',16,I.drills,pass);R.drawObj('fence',16,I.fences,pass);
     R.drawObj('duck',14,I.ducks,pass);R.drawObj('swan',14,I.swans,pass);R.drawObj('rowboat',14,I.rowboats,pass);R.drawObj('steamer',14,I.steamers,pass);R.drawObj('sternwheel',21,I.sternwheels,pass);R.drawObj('parasol',10,I.parasols,pass);R.drawObj('towel',10,I.towels,pass);R.drawObj('lier',10,I.liers,pass);R.drawObj('swimmer',14,I.swimmers,pass);R.drawObj('sailboat',14,I.sailboats,pass);
     R.drawObj('birdD',12,I.birdsD,pass);R.drawObj('birdL',12,I.birdsL,pass);}
@@ -7079,7 +7292,7 @@ R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
   R.houseDefs.forEach((d,v)=>{const t=KIT_OF[v];if(!t)return;const p=KIT.plots[t];d.kit=t;d.plot=p;d.gx=KIT_GATE[t];d.chim=KIT_CHIM[t];d.r=Math.max(...[[p.x0,p.z0],[p.x1,p.z0],[p.x1,p.z1],[p.x0,p.z1]].map(q=>Math.hypot(q[0],q[1])));});
   R.buildKitMeshes();
   const wm=windmillMeshes();R.millHub=wm.hub;add('millBody',wm.body);add('millSails',wm.sails);
-  add('lamp',lampMesh());add('leafpatch',leafPatchMesh());add('leafpile',leafPileMesh());add('leafbag',leafBagMesh());for(const k of PEOPLE)add('pp_'+k,peopleMesh(k));add('pp_far',peopleFarMesh());for(let k=0;k<3;k++)add('site'+k,siteMesh(k));add('culvert',culvertMesh());add('bank',bankMesh());add('workshop',workshopMesh());for(const k of ['gold','silver','diamond'])add('mine_'+k,mineMesh(k));add('slotmark',slotMarkMesh());add('lorry',lorryMesh());add('sawmill',sawmillMesh());add('bakery',bakeryMesh());add('restaurant',restaurantMesh());add('stall',stallMesh());add('stationhall',stationHallMesh());add('bus',busMesh());add('busstop',busStopMesh());add('castle',castleMesh());for(let v=0;v<3;v++)add('balloon'+v,balloonMesh(v));add('castle2',hohenzollernMesh());add('barn',barnMesh());add('shed',shedMesh());add('silo',siloMesh());add('harrow',harrowMesh());add('trailer',trailerMesh());add('bale',baleMesh());add('seated',seatedMesh());add('dooropen',doorOpenMesh());add('steamer',steamerMesh());add('sternwheel',sternwheelMesh());add('parasol',parasolMesh());add('towel',towelMesh());add('lier',lierMesh());add('swimmer',swimmerMesh());add('shoveler',shovelerMesh());add('xbuck',xbuckMesh());add('boom',boomMesh());add('tractor',tractorMesh());add('combine',combineMesh());add('plough',ploughMesh());add('drill',drillMesh());add('horse',horseMesh());add('fence',fenceMesh());add('person',personMesh());add('skater',skaterMesh(0));add('hockeyP',skaterMesh(1));add('speedskater',speedSkaterMesh());add('hgoal',goalMesh());add('puck',puckMesh());add('sled',sledMesh());add('sledder',sledderMesh());add('sheep',sheepMesh());add('cow',cowMesh2());add('duck',duckMesh());add('swan',swanMesh());
+  add('lamp',lampMesh());add('sawWheel',sawWheelMesh());add('plankCarry',plankCarryMesh());add('leafpatch',leafPatchMesh());add('leafpile',leafPileMesh());add('leafbag',leafBagMesh());for(const k of PEOPLE)add('pp_'+k,peopleMesh(k));add('pp_far',peopleFarMesh());for(let k=0;k<3;k++)add('site'+k,siteMesh(k));add('culvert',culvertMesh());add('bank',bankMesh());add('workshop',workshopMesh());for(const k of ['gold','silver','diamond'])add('mine_'+k,mineMesh(k));add('slotmark',slotMarkMesh());add('lorry',lorryMesh());add('sawmill',sawmillMesh());add('bakery',bakeryMesh());add('restaurant',restaurantMesh());add('stall',stallMesh());add('stationhall',stationHallMesh());add('bus',busMesh());add('busstop',busStopMesh());add('castle',castleMesh());for(let v=0;v<3;v++)add('balloon'+v,balloonMesh(v));add('castle2',hohenzollernMesh());add('barn',barnMesh());add('shed',shedMesh());add('silo',siloMesh());add('harrow',harrowMesh());add('trailer',trailerMesh());add('bale',baleMesh());add('seated',seatedMesh());add('dooropen',doorOpenMesh());add('steamer',steamerMesh());add('sternwheel',sternwheelMesh());add('parasol',parasolMesh());add('towel',towelMesh());add('lier',lierMesh());add('swimmer',swimmerMesh());add('shoveler',shovelerMesh());add('xbuck',xbuckMesh());add('boom',boomMesh());add('tractor',tractorMesh());add('combine',combineMesh());add('plough',ploughMesh());add('drill',drillMesh());add('horse',horseMesh());add('fence',fenceMesh());add('person',personMesh());add('skater',skaterMesh(0));add('hockeyP',skaterMesh(1));add('speedskater',speedSkaterMesh());add('hgoal',goalMesh());add('puck',puckMesh());add('sled',sledMesh());add('sledder',sledderMesh());add('sheep',sheepMesh());add('cow',cowMesh2());add('duck',duckMesh());add('swan',swanMesh());
   add('rowboat',rowboatMesh());add('sailboat',sailboatMesh());add('birdD',birdMesh(true));add('birdL',birdMesh(false));add('cloud',cloudMesh());
   let total=0;for(const [,M] of list)total+=M.n;const V=new Float32Array(total*10);R.mesh={};let o=0;
   for(const [k,M] of list){V.set(M.v,o*10);R.mesh[k]={first:o,count:M.n};o+=M.n;}
@@ -7378,7 +7591,7 @@ R.clearVegRect=function(T,Q,m){let n=0;const rr=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+
 R.updateTerrain=function(T){R.computeRenderHeights(T);scratch();
   gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
   gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);gl.bindTexture(gl.TEXTURE_2D,R.wTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.FLOAT,R.waterRender(T));
-  R.chunkBounds(T);R.applyVegMask(T);Life.applyTrackMask(T);R.rebuildTrackMesh();};
+  R.chunkBounds(T);R.applyVegMask(T);Life.applyTrackMask(T);R.rebuildTrackMesh();if(Life.T===T)Life.applyCulverts();};
 
 // ---- track meshes (format: pos3 nrm3 uv2 mat1)
 R.trackBuf=function(store,mesh){if(!store.vao){store.vao=gl.createVertexArray();store.vb=gl.createBuffer();store.ib=gl.createBuffer();gl.bindVertexArray(store.vao);
@@ -7746,7 +7959,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   async generate(from){
     if(this.busy){this.pendingFrom=Math.min(this.pendingFrom,from);return;}
     if(from>0&&!this.eroded)from=0;
-    if(from===4&&this.T){this.busy=true;try{const T=this.T;Life.generate(T);R.refreshGround(T);Weather.setWorld(T);}catch(e){Log.err('villages failed: '+(e.stack||e));}this.busy=false;
+    if(from===4&&this.T){this.busy=true;try{const T=this.T;Life.generate(T);R.refreshGround(T);if(R.buildStreams)R.buildStreams(T);Weather.setWorld(T);}catch(e){Log.err('villages failed: '+(e.stack||e));}this.busy=false;
       if(this.pendingFrom<99){const f=this.pendingFrom;this.pendingFrom=99;this.generate(f);}return;}
     this.busy=true;const t0=performance.now(),show=from<=2;const times=[];
     const W={0:[0,0.12],1:[0.12,0.6],2:[0.72,0.16],3:[0.88,0.12]};let st=W[from];
@@ -7826,7 +8039,7 @@ function loop(ts){
   R.ensureTargets(gl.canvas.width,gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
   const cpu=performance.now()-c0,pf=App.perf;pf.fr.push(dt*1000);if(pf.fr.length>240)pf.fr.shift();pf.cpu=(pf.cpu||cpu)*0.95+cpu*0.05;
-  AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();StationUI.tick();BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
+  AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();StationUI.tick();UpgNotes.tick(dtm);BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
     if(P.showStats){const a=pf.fr.slice(-60),avg=a.reduce((x,y)=>x+y,0)/a.length;
       st.textContent=`${(1000/avg).toFixed(0)} fps   ${avg.toFixed(1)} ms   cpu ${pf.cpu.toFixed(1)} ms   draws ${Stats.draws}   tris ${(Stats.tris/1e6).toFixed(2)}M   ${R.tw}×${R.th}`;}
     Sky.clock();}
