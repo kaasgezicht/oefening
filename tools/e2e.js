@@ -12,9 +12,9 @@ module.exports=async(p,out)=>{
    return{trains:Trains.list.length,y};});
  console.log('e2e setup',JSON.stringify(r));
  for(let i=0;i<12;i++){await p.waitForTimeout(2500);}
- await p.screenshot({path:out+'/e2e-1.png'});
+ await p.screenshot({path:out+'/e2e-1.png',timeout:180000});
  const st=await p.evaluate(()=>TREIN.Trains.list.map(t=>`${t.name} v=${t.v.toFixed(1)} ${t.status||''} pax ${t.pax?t.pax.length:0}`).join(' | '));console.log('trains:',st);
  await p.evaluate(()=>{const {Cam,Trains}=TREIN;const t=Trains.list[0];if(t&&t.poses&&t.poses[0]){const c=t.poses[0].c;Cam.target=[c[0],c[1],c[2]];Cam.dist=28;Cam.pitch=0.3;Cam.yaw+=0.6;}});
- await p.waitForTimeout(3000);await p.screenshot({path:out+'/e2e-2.png'});
- await p.evaluate(()=>{TREIN.P.timeOfDay=21.5;});await p.waitForTimeout(3000);await p.screenshot({path:out+'/e2e-night.png'});
+ await p.waitForTimeout(3000);await p.screenshot({path:out+'/e2e-2.png',timeout:180000});
+ await p.evaluate(()=>{TREIN.P.timeOfDay=21.5;});await p.waitForTimeout(3000);await p.screenshot({path:out+'/e2e-night.png',timeout:180000});
 };
