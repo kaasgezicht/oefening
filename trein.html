@@ -238,7 +238,7 @@ window.addEventListener('unhandledrejection',e=>Log.err('unhandled rejection: '+
 // apply: live = read every frame | world = needs Generate | water/veg = auto-rebuild that stage
 //        tex = regenerate ground textures | shadow = rebuild shadow maps | trees = rebuild tree models
 const P={},PDEF={},PORDER=[];
-const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['file','File']];
+const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['file','File']];
 const TAB_HINT={world:'Changes here rebuild the whole landscape when you press Generate.',erosion:'Erosion runs when you press Generate. Turn it off to compare with raw noise.',
   water:'Lake and river shape rebuild automatically (a second or two). Look settings are live.',trees:'Placement sliders replant automatically. Distances are live.',
   track:'Lay track with the Build button. Bed width and slopes reshape existing track straight away.',look:'How the diorama looks. Everything here is live.',
@@ -436,6 +436,12 @@ def('renderScale',{tab:'quality',label:'Render resolution',min:0.3,max:1,step:0.
 def('msaa',{tab:'quality',label:'Smooth edges (MSAA)',kind:'select',options:[[0,'Off'],[2,'2×'],[4,'4×']],def:0,apply:'live',q:1});
 def('frameCap',{tab:'quality',label:'Frame cap',kind:'select',options:[[0,'None'],[30,'30 fps'],[60,'60 fps']],def:0,apply:'live'});
 def('riverQ',{tab:'quality',label:'Rivers, streams and culverts',kind:'select',options:[[0,'Low'],[1,'Medium'],[2,'High']],def:1,apply:'streams',q:1});
+// ---- Experimental: performance switches. The ones that are on give the same picture (checked against screenshots) and can be turned
+// off if something looks wrong; the ones that are off can change the picture a little.
+def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution scale, upscale and sharpen to the full screen (FSR-style; costs a little)',kind:'check',def:0,apply:'live'});
+def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:0,apply:'live'});
+def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can drop (same picture, less memory traffic)',kind:'check',def:1,apply:'live'});
+def('optCull',{tab:'exp',label:'Skip buildings and objects outside the view (same picture)',kind:'check',def:1,apply:'live'});
 def('terrainLod',{tab:'quality',label:'Terrain detail distance',min:60,max:800,step:10,def:260,unit:' m',apply:'live',q:1});
 def('shadowRes',{tab:'quality',label:'Shadows',kind:'select',options:[[0,'Off'],[1024,'1024'],[2048,'2048'],[4096,'4096']],def:2048,apply:'shadow',q:1});
 def('nightLights',{tab:'quality',label:'Light pools at night',min:0,max:32,step:1,def:16,apply:'live',q:1});
@@ -3718,14 +3724,28 @@ void main(){vec3 c=texture(uBSrc,vUV).rgb*.227;c+=(texture(uBSrc,vUV+uDir*1.385)
 const FS_TONEMAP=`#version 300 es
 precision highp float;uniform sampler2D uSrc;uniform sampler2D uBloom;uniform sampler2D uDof;uniform sampler2D uDepth;
 uniform vec4 uFocus;uniform float uExpo;uniform float uSat;uniform float uBloomAmt;uniform vec4 uGrade0;uniform vec4 uGrade1;uniform vec4 uGrade2;uniform vec4 uGrade3;uniform float uVig;
+uniform vec4 uUp;// sharper upscaling: xy source texel size, z sharpening, w on
 in vec2 vUV;out vec4 o;
+// Catmull-Rom bicubic from 9 bilinear taps, clamped to the 4 nearest texels so bright edges (the sun, lit windows) cannot ring
+vec3 bicubic(vec2 uv,vec2 ts){vec2 sp=uv/ts,tc=floor(sp-.5)+.5,f=sp-tc;
+  vec2 w0=f*(-.5+f*(1.-.5*f)),w1=1.+f*f*(-2.5+1.5*f),w2=f*(.5+f*(2.-1.5*f)),w3=f*f*(-.5+.5*f),w12=w1+w2,t0=(tc-1.)*ts,t3=(tc+2.)*ts,t12=(tc+w2/w12)*ts;
+  vec3 r=(texture(uSrc,vec2(t0.x,t0.y)).rgb*w0.x+texture(uSrc,vec2(t12.x,t0.y)).rgb*w12.x+texture(uSrc,vec2(t3.x,t0.y)).rgb*w3.x)*w0.y
+        +(texture(uSrc,vec2(t0.x,t12.y)).rgb*w0.x+texture(uSrc,vec2(t12.x,t12.y)).rgb*w12.x+texture(uSrc,vec2(t3.x,t12.y)).rgb*w3.x)*w12.y
+        +(texture(uSrc,vec2(t0.x,t3.y)).rgb*w0.x+texture(uSrc,vec2(t12.x,t3.y)).rgb*w12.x+texture(uSrc,vec2(t3.x,t3.y)).rgb*w3.x)*w3.y;
+  vec2 b=tc*ts;vec3 a0=texture(uSrc,b).rgb,a1=texture(uSrc,b+vec2(ts.x,0)).rgb,a2=texture(uSrc,b+vec2(0,ts.y)).rgb,a3=texture(uSrc,b+ts).rgb;
+  return clamp(r,min(min(a0,a1),min(a2,a3)),max(max(a0,a1),max(a2,a3)));}
 float lin(float d){float z=d*2.-1.;return 2.*uFocus.x*uFocus.y/(uFocus.y+uFocus.x-z*(uFocus.y-uFocus.x));}
 vec3 aces(vec3 x){return clamp(x*(2.43*x+.03)/(x*(2.43*x+.59)+.14),0.,1.);}
-void main(){vec3 c=texture(uSrc,vUV).rgb;
+void main(){vec3 c=uUp.w>.5?bicubic(vUV,uUp.xy):texture(uSrc,vUV).rgb;vec3 sharp=vec3(0);
+  // contrast-adaptive sharpening (as AMD's CAS/RCAS): the cross of source texels around, in tone-mapped space, sharpened less where
+  // contrast is already high (no halos); the difference is added to the final colour
+  if(uUp.w>.5&&uUp.z>0.){vec3 n=aces(texture(uSrc,vUV+vec2(0,uUp.y)).rgb*uExpo),s2=aces(texture(uSrc,vUV-vec2(0,uUp.y)).rgb*uExpo),e=aces(texture(uSrc,vUV+vec2(uUp.x,0)).rgb*uExpo),w2=aces(texture(uSrc,vUV-vec2(uUp.x,0)).rgb*uExpo),m=aces(c*uExpo);
+    vec3 mn=min(m,min(min(n,s2),min(e,w2))),mx=max(m,max(max(n,s2),max(e,w2)));vec3 amp=sqrt(clamp(min(mn,1.-mx)/max(mx,1e-3),0.,1.));
+    sharp=(m-(n+s2+e+w2)*.25)*amp*uUp.z*2.;}
   if(uFocus.w>0.){float z=lin(texture(uDepth,vUV).r);float coc=clamp(abs(z-uFocus.z)/max(z,1.)*1.25-.18,0.,1.);
     coc=max(coc,smoothstep(.3,.5,abs(vUV.y-.5))*.55);coc*=uFocus.w;c=mix(c,texture(uDof,vUV).rgb,clamp(coc,0.,.8));}
   c+=texture(uBloom,vUV).rgb*uBloomAmt;
-  c*=uExpo;c=aces(c);
+  c*=uExpo;c=aces(c);c=clamp(c+sharp,0.,1.);
   float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,uSat);
   vec3 g=c*uGrade1.rgb*uGrade0.w+uGrade0.rgb;g=pow(max(g,0.),uGrade2.rgb);float gl=dot(g,vec3(.2126,.7152,.0722));g=mix(vec3(gl),g,uGrade1.w);g*=uGrade3.rgb;
   c=mix(c,g,uGrade2.w);
@@ -6571,7 +6591,10 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     for(const t of T2){for(let kz=Math.floor((t.fz-t.ext)/24);kz<=Math.floor((t.fz+t.ext)/24);kz++)for(let kx=Math.floor((t.fx-t.ext)/24);kx<=Math.floor((t.fx+t.ext)/24);kx++){const L=R.stGrid.get(kx+','+kz);if(L)for(const k of L)nk.add(k);}}
     for(const k of new Set([...old,...nk])){let any=false;for(const e of [0,1]){const o=(k*2+e)*8,d=nk.has(k)?Math.max(0,this.trenchDepth(T2,V[o],V[o+2])-0.02):0;if(d>0)any=true;if(Math.abs(V[o+1]-d)>1e-4){V[o+1]=d;ch.add(k);}}if(!any)nk.delete(k);}
     R.stDropK=nk;for(const k of ch){V[(k*2)*8+7]=FL[k];V[(k*2+1)*8+7]=FL[k];}R.uploadStreamPts([...ch]);
-    this.trenches=T2;R.buildPatches(T,T2);R.sinkVeg(T,T2);this.culverts=M;this.uploaded=false;this.kitDirty=true;},
+    // the ditch patches and the trees in them only change with the ditches or the ground (each new house calls this)
+    const sig=(R.terrVer|0)+'|'+(+P.riverQ||0)+'|'+T2.map(t=>t.fx.toFixed(2)+','+t.fz.toFixed(2)+','+t.D.toFixed(3)+','+t.poly.length+','+t.dep.map(d=>d.toFixed(3)).join(',')).join(';');
+    this.trenches=T2;if(sig!==this.trSig||!R.patches){this.trSig=sig;R.buildPatches(T,T2);R.sinkVeg(T,T2);}
+    const cs=M.map(c=>c.x.toFixed(2)+','+c.z.toFixed(2)+','+c.y.toFixed(3)+','+c.sc.toFixed(3)).join(';');if(cs!==this.cvSig){this.cvSig=cs;this.culverts=M;this.uploaded=false;this.kitDirty=true;}},
   // a saved village: lanes and houses again in the order they were built (skipped if the ground has changed under them)
   replayVillage(v,log){for(const e of log||[]){if(e[0]==='w'){const p=[];for(let i=2;i+1<e.length;i+=2)p.push([e[i],e[i+1]]);if(p.length>=2)this.addWay(v,p,e[1],{replay:true});}
       else if(e[0]==='h'){const def=R.houseDefs[e[4]];if(!def||!def.plot)continue;const Q=VG.rectOf(e[1],e[2],e[3],def),base=this.fitsRect(Q,this.nearSegs(e[1],e[2],120),v);if(base===null)continue;this.addHouse(v,{x:e[1],z:e[2],a:e[3],vt:e[4],hash:e[5]},base,{replay:true});}}
@@ -7450,13 +7473,14 @@ R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
   add('lamp',lampMesh());add('sawWheel',sawWheelMesh());add('plankCarry',plankCarryMesh());add('leafpatch',leafPatchMesh());add('leafpile',leafPileMesh());add('leafbag',leafBagMesh());for(const k of PEOPLE)add('pp_'+k,peopleMesh(k));add('pp_far',peopleFarMesh());for(let k=0;k<3;k++)add('site'+k,siteMesh(k));add('culvert',culvertMesh());add('bank',bankMesh());add('workshop',workshopMesh());for(const k of ['gold','silver','diamond'])add('mine_'+k,mineMesh(k));add('slotmark',slotMarkMesh());add('lorry',lorryMesh());add('sawmill',sawmillMesh());add('bakery',bakeryMesh());add('restaurant',restaurantMesh());add('stall',stallMesh());add('stationhall',stationHallMesh());add('bus',busMesh());add('busstop',busStopMesh());add('castle',castleMesh());for(let v=0;v<3;v++)add('balloon'+v,balloonMesh(v));add('castle2',hohenzollernMesh());add('barn',barnMesh());add('shed',shedMesh());add('silo',siloMesh());add('harrow',harrowMesh());add('trailer',trailerMesh());add('bale',baleMesh());add('seated',seatedMesh());add('dooropen',doorOpenMesh());add('steamer',steamerMesh());add('sternwheel',sternwheelMesh());add('parasol',parasolMesh());add('towel',towelMesh());add('lier',lierMesh());add('swimmer',swimmerMesh());add('shoveler',shovelerMesh());add('xbuck',xbuckMesh());add('boom',boomMesh());add('tractor',tractorMesh());add('combine',combineMesh());add('plough',ploughMesh());add('drill',drillMesh());add('horse',horseMesh());add('fence',fenceMesh());add('person',personMesh());add('skater',skaterMesh(0));add('hockeyP',skaterMesh(1));add('speedskater',speedSkaterMesh());add('hgoal',goalMesh());add('puck',puckMesh());add('sled',sledMesh());add('sledder',sledderMesh());add('sheep',sheepMesh());add('cow',cowMesh2());add('duck',duckMesh());add('swan',swanMesh());
   add('rowboat',rowboatMesh());add('sailboat',sailboatMesh());add('birdD',birdMesh(true));add('birdL',birdMesh(false));add('cloud',cloudMesh());
   let total=0;for(const [,M] of list)total+=M.n;const V=new Float32Array(total*10);R.mesh={};let o=0;
-  for(const [k,M] of list){V.set(M.v,o*10);R.mesh[k]={first:o,count:M.n};o+=M.n;}
+  for(const [k,M] of list){V.set(M.v,o*10);let r=0;for(let i=0;i<M.n*10;i+=10)r=Math.max(r,M.v[i]*M.v[i]+M.v[i+1]*M.v[i+1]+M.v[i+2]*M.v[i+2]);R.mesh[k]={first:o,count:M.n,r:Math.sqrt(r)+1.5};o+=M.n;}// r: bounding radius about the origin (+ room for poses and sway)
   R.objVao=gl.createVertexArray();gl.bindVertexArray(R.objVao);R.objVbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,R.objVbo);gl.bufferData(gl.ARRAY_BUFFER,V,gl.STATIC_DRAW);
   [[0,3,0],[1,3,12],[2,3,24],[3,1,36]].forEach(([l,n,off])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,40,off);});
   gl.enableVertexAttribArray(4);gl.enableVertexAttribArray(5);gl.vertexAttribDivisor(4,1);gl.vertexAttribDivisor(5,1);gl.bindVertexArray(null);
   Log.info(`low-poly meshes: ${list.length} models, ${(total/3)|0} triangles (${list.filter(([k])=>k[0]==='t'&&k.endsWith('n')).map(([k,M])=>k+' '+M.n/3).join(', ')})`);};
 R.buildKitMeshes=function(){const t0=performance.now(),parts=[];R.kitMesh={};let total=0;
-  for(const t of KIT_TYPES){R.kitMesh[t]=[];for(let l=0;l<3;l++){KIT.build(t,{game:true,lod:l});const a=new Float32Array(KIT.VB);parts.push(a);R.kitMesh[t].push({first:total,count:a.length/16});total+=a.length/16;}}
+  R.kitBound={};for(const t of KIT_TYPES){R.kitMesh[t]=[];for(let l=0;l<3;l++){KIT.build(t,{game:true,lod:l});const a=new Float32Array(KIT.VB);parts.push(a);R.kitMesh[t].push({first:total,count:a.length/16});total+=a.length/16;
+    if(l===0){let y0=1e9,y1=-1e9;for(let i=0;i<a.length;i+=16){y0=Math.min(y0,a[i+1]);y1=Math.max(y1,a[i+1]);}const ym=(y0+y1)/2;let r=0;for(let i=0;i<a.length;i+=16)r=Math.max(r,a[i]*a[i]+(a[i+1]-ym)*(a[i+1]-ym)+a[i+2]*a[i+2]);R.kitBound[t]=[ym,Math.sqrt(r)+1];}}}// bounding sphere per type (for culling)
   // packed 32-byte vertices: position f32x3 | normal s8x4 | colour u8x3 + material u8 | uv s16x2 | half-size u16x2 (/16 m) | seed, aux u8x2
   KIT.VB.length=0;const V=R.packKit(parts,total);R.kitVao=R.kitVaoOf(V);R.kitVbo=R.kitVao.vbo;
   Log.info(`building kit: ${KIT_TYPES.map(t=>t+' '+R.kitMesh[t].map(m=>(m.count/3/1000).toFixed(1)+'k').join('/')).join(', ')} triangles (LOD 0/1/2), ${(V.byteLength/1048576).toFixed(1)} MB, built in ${(performance.now()-t0).toFixed(0)} ms`);};
@@ -7473,18 +7497,35 @@ R.kitVaoOf=function(V){const vao=gl.createVertexArray();gl.bindVertexArray(vao);
 // detailed buildings: LOD by distance (instances from Life, 'kit_<type>_<lod>'); the shadow pass uses one level coarser
 R.drawKit=function(pass){if(!R.kitVao)return;R.camPlanes=Cam.planes;const p=R.pKit;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.bindVertexArray(R.kitVao);
   for(const t of KIT_TYPES)for(let l=0;l<3;l++){const b=R.instBufs['kit_'+t+'_'+l];if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(2,l+1):l];
-    gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,b.n);Stats.draws++;Stats.tris+=m.count/3*b.n;}
+    let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;if(R.prof&&pass===0)R.pm('k-'+t+l+'x'+b.n);}
   if(R.bridgeKit){const BK=R.bridgeKit,cp=Cam.pos||[0,0,0];gl.bindVertexArray(BK.vao);gl.bindBuffer(gl.ARRAY_BUFFER,BK.ib);
     BK.list.forEach((e,i)=>{const d=Math.hypot(e.x-cp[0],e.z-cp[2]);if(d>1800||(pass!==1&&R.camPlanes&&!boxVisible(R.camPlanes,e.x-e.r,-1e4,e.z-e.r,e.x+e.r,1e4,e.z+e.r)))return;const m=e.lod[d<170&&pass!==1?0:1];
       gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,i*32);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,i*32+16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,1);Stats.draws++;Stats.tris+=m.count/3;});}
   gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),pass);gl.bindVertexArray(R.objVao);};
+// view culling of instances: instances whose bounding sphere (centre ym·scale above the instance, radius r·scale) lies outside the
+// camera's view (camera pass) or outside the shadow map's box (shadow pass: the light's planes) are left out. Nothing outside either
+// can reach the picture, so it is the same picture with less vertex work.
+R.cullInst=function(b,ym,r,pl,pass){const n=b.n,D=b.cpu;if(!D||n<1||!pl)return null;if(pass===1){const par=b;b=par.sh||(par.sh={n:0});b.n=n;b.cpu=D;b.cver=par.cver;}// the shadow pass keeps its own cached subset and buffer
+  // unchanged instances, view and bounds (a still camera): the last result stands
+  const L=b.cl||(b.cl=new Float64Array(27));let same=L[24]===b.cver&&L[25]===r&&L[26]===ym;if(same)for(let j=0;j<6&&same;j++){const p=pl[j];if(L[j*4]!==p[0]||L[j*4+1]!==p[1]||L[j*4+2]!==p[2]||L[j*4+3]!==p[3])same=false;}
+  if(same)return b.clr;for(let j=0;j<6;j++){const p=pl[j];L[j*4]=p[0];L[j*4+1]=p[1];L[j*4+2]=p[2];L[j*4+3]=p[3];}L[24]=b.cver;L[25]=r;L[26]=ym;b.clr=R.cullDo(b,ym,r,pl);return b.clr;};
+R.cullDo=function(b,ym,r,pl){const n=b.n,D=b.cpu;let k=0;const V=b.vcpu&&b.vcpu.length>=n*8?b.vcpu:(b.vcpu=new Float32Array(Math.max(n,16)*8));
+  for(let i=0;i<n;i++){const o=i*8,sc=D[o+3]||1,x=D[o],y=D[o+1]+ym*sc,z=D[o+2],rr=-r*sc;let ok=true;for(let j=0;j<pl.length;j++){const p=pl[j];if(p[0]*x+p[1]*y+p[2]*z+p[3]<rr){ok=false;break;}}
+    if(ok){if(k!==i)V.set(D.subarray(o,o+8),k*8);else if(V!==D)V.set(D.subarray(o,o+8),k*8);k++;}}
+  if(k===n)return null;if(!b.vbuf){b.vbuf=gl.createBuffer();b.vcap=0;}gl.bindBuffer(gl.ARRAY_BUFFER,b.vbuf);if(k){const bytes=k*32;if(bytes>b.vcap){b.vcap=Math.ceil(Math.max(bytes,n*32)*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.vcap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,V.subarray(0,k*8));}
+  return{buf:b.vbuf,n:k};};
+R.drawVehGlass=function(p){if(!R.veh||!R.drawTrainsFn)return;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),0);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform2f(p.u('uOcc'),0,0);
+  gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);R.drawTrainsFn();gl.depthMask(true);gl.disable(gl.BLEND);gl.uniform1i(p.u('uGlass'),0);gl.bindVertexArray(null);};
 // instance buffers (8 floats: x y z scale | rot tint hash anim)
 R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:gl.createBuffer(),cap:0,n:0};}
-  b.n=n;if(!n)return b;gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);const bytes=n*32;
+  b.n=n;b.cpu=data;b.cver=(b.cver|0)+1;if(!n)return b;gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);const bytes=n*32;
   if(bytes>b.cap){b.cap=Math.ceil(bytes*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.cap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,data.subarray(0,n*8));return b;};
-R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;
-  gl.uniform1i(p.u('uKind'),kind);gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
-  gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,b.n);Stats.draws++;Stats.tris+=m.count/3*b.n;Stats.objs+=b.n;};
+R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;let buf=b.buf,n=b.n;
+  // camera pass: leave out instances outside the view (birds fly far from their anchor, they are kept)
+  if(!prog&&kind!==12&&+P.optCull!==0&&m.r){const pl=pass===1?R.shPl:Cam.planes;if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
+  gl.uniform1i(p.u('uKind'),kind);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
+  gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;Stats.objs+=n;};
 
 // ---------------- world upload
 R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr||T.Hr.length!==N*N)T.Hr=new Float32Array(N*N);
@@ -7565,7 +7606,7 @@ R.uploadWorld=function(T){const t0=performance.now();R.world=T;const N=T.N;
   if(!T.Hr)R.computeRenderHeights(T);
   const rep=(unit,old,t)=>{if(old)gl.deleteTexture(old);bindTU(unit,gl.TEXTURE_2D,t);return t;};
   R.hTex=rep(TU.uHeight,R.hTex,tex2D(N,N,gl.R32F,gl.RED,gl.FLOAT,T.Hr,gl.NEAREST));
-  R.aTex=rep(TU.uAux,R.aTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T),gl.LINEAR));R.patchMask=new Uint8Array(N*N);R.pTex=rep(TU.uPatch,R.pTex,tex2D(N,N,gl.R8,gl.RED,gl.UNSIGNED_BYTE,R.patchMask,gl.NEAREST));R.nTex=rep(TU.uNorm,R.nTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeNorm(T),gl.LINEAR));
+  R.aTex=rep(TU.uAux,R.aTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T),gl.LINEAR));R.patchMask=new Uint8Array(N*N);R.patches=null;R.pTex=rep(TU.uPatch,R.pTex,tex2D(N,N,gl.R8,gl.RED,gl.UNSIGNED_BYTE,R.patchMask,gl.NEAREST));R.nTex=rep(TU.uNorm,R.nTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeNorm(T),gl.LINEAR));
   R.dTex=rep(TU.uData,R.dTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,T.data,gl.LINEAR));
   R.wTex=rep(TU.uWaterTex,R.wTex,tex2D(N,N,gl.RGBA32F,gl.RGBA,gl.FLOAT,R.waterRender(T),gl.NEAREST));
   R.uploadFields(T);R.chunkBounds(T);R.buildBoard(T);R.uploadVeg(T);R.rebuildTrackMesh();Life.uploaded=false;
@@ -7739,7 +7780,7 @@ R.updateVegLists=function(cam,force){if(!R.vegB)return;const T=R.world,CN=16,cw=
 R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;for(let t=0;t<6;t++){R.drawObj('t'+t+'n',t,R.instBufs['veg'+t+'_1'],pass);if(t<5)R.drawObj('t'+t+'f',t,R.instBufs['veg'+t+'_2'],pass);}};
 
 // ---- a village plot levelled while playing: upload just that patch of heights and normals, widen the chunk bounds
-R.patchTerrain=function(T,i0,j0,i1,j1){const N=T.N,cs=T.cs,H=T.Hr;i0=Math.max(0,i0-1);j0=Math.max(0,j0-1);i1=Math.min(N-1,i1+1);j1=Math.min(N-1,j1+1);const w=i1-i0+1,h=j1-j0+1;
+R.patchTerrain=function(T,i0,j0,i1,j1){R.terrVer=(R.terrVer|0)+1;const N=T.N,cs=T.cs,H=T.Hr;i0=Math.max(0,i0-1);j0=Math.max(0,j0-1);i1=Math.min(N-1,i1+1);j1=Math.min(N-1,j1+1);const w=i1-i0+1,h=j1-j0+1;
   const Hs=new Float32Array(w*h);for(let j=0;j<h;j++)Hs.set(H.subarray((j0+j)*N+i0,(j0+j)*N+i0+w),j*w);scratch();gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RED,gl.FLOAT,Hs);
   const A=R.normData,Ns=new Uint8Array(w*h*4);for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const l=H[j*N+Math.max(i-1,0)],r=H[j*N+Math.min(i+1,N-1)],d=H[Math.max(j-1,0)*N+i],u=H[Math.min(j+1,N-1)*N+i];
     const nx=(l-r)/(2*cs),nz=(d-u)/(2*cs),L=Math.hypot(nx,1,nz),o=((j-j0)*w+(i-i0))*4,q=[Math.round((nx/L*0.5+0.5)*255),Math.round((0.5/L+0.5)*255),Math.round((nz/L*0.5+0.5)*255),255];Ns.set(q,o);if(A)A.set(q,(j*N+i)*4);}
@@ -7752,7 +7793,7 @@ R.clearVegRect=function(T,Q,m){let n=0;const rr=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+
   for(const arr of [...((T.veg&&T.veg.trees)||[]),(T.veg&&T.veg.rocks)||[]])for(let k=0;k+3<arr.length;k+=8)if(Math.abs(arr[k]-Q.x)<rr&&Math.abs(arr[k+2]-Q.z)<rr&&VG.inRect(Q,arr[k],arr[k+2],m))arr[k+3]=0;
   R.vegKey='';Life.treeGrid=null;return n;};
 // ---- after track edits: new heights, mask, holes, trees and houses on the bed hidden
-R.updateTerrain=function(T){R.computeRenderHeights(T);scratch();
+R.updateTerrain=function(T){R.terrVer=(R.terrVer|0)+1;R.computeRenderHeights(T);scratch();
   gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
   gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);gl.bindTexture(gl.TEXTURE_2D,R.wTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.FLOAT,R.waterRender(T));
   R.chunkBounds(T);R.applyVegMask(T);Life.applyTrackMask(T);R.rebuildTrackMesh();if(Life.T===T)Life.applyCulverts();};
@@ -7821,38 +7862,64 @@ R.ensureTargets=function(w,h){const ms=Math.min(+P.msaa||0,CAPS.maxSamples||0);i
   R.qw=qw;R.qh=qh;Log.info(`render target ${w}×${h}, MSAA ${ms||'off'}`);};
 
 // ---------------- frame
-R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world;
+R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world,S=R.skip;// S: categories left out (cost measurement by ablation, tools/bench.js)
   const tr=Trains.cur();const fp=Cam.mode!=='free'&&tr&&tr.poses&&tr.poses[0]?tr.poses[0].c:Cam.target;R.focus=[fp[0],fp[1],fp[2]];R.focusDist=Math.hypot(fp[0]-cam.pos[0],fp[1]-cam.pos[1],fp[2]-cam.pos[2]);
   const A=R.atmos();A.keyUp=A.key[1]>0.02&&(A.day>0.01||A.moonUp>0.05);R.sun={day:A.day,L:A.st.sun,night:A.night};R.A=A;
   const lightVP=R.lightMatrix(A);R.fillUBO(cam,A,lightVP);if(T)Waves.step();
-  if(T){R.updateVegLists(cam);Life.prepare(cam,A);}
+  if(T){R.updateVegLists(cam);R.pm('vegLists');Life.prepare(cam,A);}R.pm('prepare');
   gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);
   // shadow map
-  if(T&&R.shFb&&A.keyUp){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
+  if(T&&R.shFb&&A.keyUp&&!S.shadow){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1.6,4);
     R.bindSh(R.dummyShadow);
-    R.drawTerrain(cam,1,frustumPlanes(lightVP));R.drawWall(1);R.drawTrack(1);
-    gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),1);gl.bindVertexArray(R.objVao);R.drawVeg(1);Life.draw(1);R.drawKit(1);
-    R.drawVehicles(1);
+    R.shPl=frustumPlanes(lightVP);R.drawTerrain(cam,1,R.shPl);R.drawWall(1);R.drawTrack(1);R.pm('sh-terrain');
+    gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),1);gl.bindVertexArray(R.objVao);R.drawVeg(1);R.pm('sh-veg');Life.draw(1);R.pm('sh-life');R.drawKit(1);R.pm('sh-kit');
+    R.drawVehicles(1);R.pm('sh-veh');
     gl.disable(gl.POLYGON_OFFSET_FILL);R.bindSh(R.shTex);}
   // opaque scene
   gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);gl.viewport(0,0,R.tw,R.th);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
   gl.clearColor(0,0,0,1);gl.clearDepth(1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  if(T){R.drawTerrain(cam,0,cam.planes);R.drawWall(0);R.drawTrack(0);R.drawVehicles(0);
-    gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),0);gl.bindVertexArray(R.objVao);R.drawVeg(0);Life.draw(0);R.drawKit(0);gl.bindVertexArray(null);}
-  gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);
+  R.pm('clear');if(T){
+    // opaque things nearest-first: with the terrain (the costliest shader, most of the screen) drawn last, the ground hidden behind
+    // buildings, trains, trees and people is rejected by the depth test before it is shaded (P.optOrder; the old order otherwise)
+    const ord=+P.optOrder!==0,terr=()=>{if(!S.terrain)R.drawTerrain(cam,0,cam.planes);R.pm('terrain');if(!S.track){R.drawWall(0);R.drawTrack(0);}R.pm('track');};
+    if(!ord)terr();if(!S.vehicles)R.drawVehicles(0,ord?'o':undefined);R.pm('vehicles');
+    gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),0);gl.bindVertexArray(R.objVao);if(!S.kit&&ord)R.drawKit(0);R.pm('kit');if(!S.life)Life.draw(0);R.pm('life');if(!S.veg)R.drawVeg(0);R.pm('veg');if(!S.kit&&!ord)R.drawKit(0);R.pm('kit');gl.bindVertexArray(null);
+    if(ord){terr();if(!S.vehicles)R.drawVehicles(0,'g');gl.useProgram(R.pObj.p);gl.bindVertexArray(null);}}
+  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');
   // depth copy for soft water, clouds, mist and smoke
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.depFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.DEPTH_BUFFER_BIT,gl.NEAREST);
   if(T&&P.waterOn&&+P.reflQuality>0&&R.waterChunks.length){gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.sceneFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);bindTU(TU.uSceneCol,gl.TEXTURE_2D,R.sceneTex);}
-  gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);bindTU(TU.uDepthCopy,gl.TEXTURE_2D,R.depTex);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);bindTU(TU.uDepthCopy,gl.TEXTURE_2D,R.depTex);R.pm('copies');
   if(T){gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
-    if(P.waterOn){gl.depthMask(false);R.drawWater(cam);R.drawStreams(cam);gl.depthMask(true);}
-    R.drawVolClouds(cam);R.drawVolMist(cam);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);if(!(+P.mistQuality>0))R.drawMist();R.drawParticles();R.drawPrecip(cam);R.drawBolt();gl.depthMask(true);gl.disable(gl.BLEND);
+    if(P.waterOn){gl.depthMask(false);if(!S.water)R.drawWater(cam);R.pm('water');if(!S.streams)R.drawStreams(cam);R.pm('streams');gl.depthMask(true);}
+    if(!S.clouds)R.drawVolClouds(cam);R.pm('clouds');if(!S.mist)R.drawVolMist(cam);R.pm('mist');gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);if(!(+P.mistQuality>0))R.drawMist();R.drawParticles();R.drawPrecip(cam);R.drawBolt();gl.depthMask(true);gl.disable(gl.BLEND);R.pm('particles');
     R.drawTrack(0,true);if(Build.active)R.drawMarkers(Build.markers());else if(Drive.active)R.drawMarkers(Drive.markers());}
   bindTU(TU.uDepthCopy,gl.TEXTURE_2D,R.dummyDepth);
   // resolve
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.colFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);
-  R.post(cam,A);};
+  // the scene buffer's colour and depth are not needed after this copy (cleared next frame): a tile-based phone GPU then need not write them back to memory
+  if(+P.optInvalidate!==0)gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER,[gl.COLOR_ATTACHMENT0,gl.DEPTH_ATTACHMENT]);
+  R.pm('resolve');R.post(cam,A);R.pm('post');};
+// ---- benchmark hooks (used by the test harness only): App.hold stops the loop; R.benchFrame renders one frame at a fixed time and,
+// with prof, times every pass (gl.finish between passes, so only for measuring)
+// GPU time per pass with EXT_disjoint_timer_query_webgl2 (gl.finish and 1-pixel reads do not wait for the GPU in Chrome): R.pm(name)
+// closes the running query and opens the next; R.benchFrame renders one frame at a fixed time (the loop is held by App.hold) and
+// R.benchRead() collects the results once the GPU has them (poll it: null until ready). CPU time of the JS work is measured directly.
+R.skip={};R.pm=function(n){if(!R.prof)return;const P2=R.prof,t=performance.now();P2.cpu.push([n,t]);const X=R.tq;if(!X)return;if(P2.q){gl.endQuery(X.TIME_ELAPSED_EXT);P2.gpu.push([n,P2.q]);P2.q=null;}if(n==='end')return;const q=gl.createQuery();gl.beginQuery(X.TIME_ELAPSED_EXT,q);P2.q=q;};// each mark names the work since the previous one
+R.benchFrame=function(t,prof){resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.expo=null;R.lastE=null;R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
+  if(R.tq===undefined)R.tq=gl.getExtension('EXT_disjoint_timer_query_webgl2')||null;
+  R.prof=prof?{cpu:[],gpu:[],q:null}:null;const t0=performance.now();R.pm('start');R.frame(Cam,t);R.pm('end');const ms=performance.now()-t0,pr=R.prof;R.prof=null;
+  const cpu={};if(pr)for(let i=1;i<pr.cpu.length;i++){const k=pr.cpu[i][0];cpu[k]=(cpu[k]||0)+pr.cpu[i][1]-pr.cpu[i-1][1];}R.lastProf=pr;
+  return{ms,draws:Stats.draws,tris:Stats.tris,objs:Stats.objs,chunks:Stats.chunks,cpu};};
+// real GPU frame time: wait for a fence before and after K frames (the GPU signals it when everything before it has run); async, the
+// page keeps its event loop so the fence status can update
+R.benchFence=async function(){const f=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();while(gl.getSyncParameter(f,gl.SYNC_STATUS)!==gl.SIGNALED)await new Promise(r=>setTimeout(r,1));gl.deleteSync(f);};
+R.benchThroughput=async function(t,K){resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
+  R.expo=null;R.frame(Cam,t);await R.benchFence();const t0=performance.now();for(let k=0;k<K;k++){R.expo=null;R.frame(Cam,t);}await R.benchFence();return(performance.now()-t0)/K;};
+R.benchRead=function(){const pr=R.lastProf,X=R.tq;if(!pr||!X)return{};if(gl.getParameter(X.GPU_DISJOINT_EXT))return{disjoint:true};const out={};
+  for(const [n,q] of pr.gpu){if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))return null;}
+  for(const [n,q] of pr.gpu){out[n]=(out[n]||0)+gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6;gl.deleteQuery(q);}pr.gpu=[];return out;};
 R.chunkLod=function(c,cam){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
   const d=Math.hypot(dx,dz,dy);return d<P.terrainLod?0:d<P.terrainLod*2.2?1:d<P.terrainLod*5?2:3;};
 R.drawTerrain=function(cam,pass,pl){const T=R.world;const p=pass===1?R.pTerrainSh:R.pTerrain;gl.useProgram(p.p);if(pass!==1){gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
@@ -7884,18 +7951,19 @@ R.buildPatches=function(T,trenches){const N=T.N,cs=T.cs,M=R.patchMask;if(!M)retu
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);gl.bindVertexArray(null);}
   scratch();gl.bindTexture(gl.TEXTURE_2D,R.pTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RED,gl.UNSIGNED_BYTE,M);};
 R.drawWall=function(pass){if(!R.wallVao)return;const p=pass===1?R.pWallSh:R.pWall;gl.useProgram(p.p);gl.bindVertexArray(R.wallVao);gl.drawElements(gl.TRIANGLES,R.wallCount,gl.UNSIGNED_INT,0);Stats.draws++;gl.bindVertexArray(null);};
-R.drawVehicles=function(pass){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
+R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);// part: 'o' opaque only, 'g' the trains' window glass only (blended, after everything opaque), else bothgl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
+  if(part==='g')return R.drawVehGlass(p);
   if(P.tableOn&&R.tableMesh&&pass===0){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
-  Net.draw(pass);Crane.draw(pass);if(!R.veh)return;gl.useProgram(p.p);gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);
+  R.pm('v-static');Net.draw(pass);Crane.draw(pass);R.pm('v-net+crane');if(!R.veh)return;gl.useProgram(p.p);gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);
   const drawTrains=()=>{for(const tr of Trains.list){if(!tr.poses)continue;gl.uniform1f(p.u('uDist'),tr.dist+(tr.slip?App.time*12*Math.sign(tr.throttle*tr.rev||1):0));
     tr.veh.forEach((v,i)=>{const ps=tr.poses[i];if(!ps)return;const m=R.veh[v.mesh];let M=ps.m;if(tr.shake>0){M=M.slice();M[13]+=Math.sin(App.time*60)*0.05*tr.shake;}
       gl.uniformMatrix4fv(p.u('uModel'),false,M);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;
       if(v.ctype==='wood'&&R.veh[15]){const nr=Crane.rows(v.n);for(let r=0;r<nr;r++){const lm=R.veh[15+r],T=M.slice();const y=CRN.carY+r*CRN.rowDY+CRN.logR;T[12]+=M[4]*y;T[13]+=M[5]*y;T[14]+=M[6]*y;gl.uniformMatrix4fv(p.u('uModel'),false,T);gl.bindVertexArray(lm.vao);gl.drawElements(gl.TRIANGLES,lm.count,gl.UNSIGNED_INT,0);Stats.draws++;}}
       // ore hoppers: the heaped load rises with the fill
       if(ORE[v.ctype]&&R.veh[22]&&(v.n||0)>0.05){const lm=R.veh[22+['gold','silver','diamond'].indexOf(v.ctype)],T=M.slice(),h=0.12+1.6*Math.min(1,v.n/20);T[12]+=M[4]*1.74;T[13]+=M[5]*1.74;T[14]+=M[6]*1.74;T[4]*=h;T[5]*=h;T[6]*=h;gl.uniformMatrix4fv(p.u('uModel'),false,T);gl.bindVertexArray(lm.vao);gl.drawElements(gl.TRIANGLES,lm.count,gl.UNSIGNED_INT,0);Stats.draws++;}});}};
-  gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uGlass'),pass===0?2:0);drawTrains();
-  if(pass===0){gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);drawTrains();gl.depthMask(true);gl.disable(gl.BLEND);}
+  gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uGlass'),pass===0?2:0);drawTrains();R.pm('v-trains');R.drawTrainsFn=drawTrains;
+  if(pass===0&&part!=='o'){gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);drawTrains();gl.depthMask(true);gl.disable(gl.BLEND);R.pm('v-glass');}
   gl.uniform1i(p.u('uGlass'),0);gl.bindVertexArray(null);};
 R.waterU=function(p,cam,near){gl.uniform2f(p.u('uNF'),cam.near,cam.far);
   gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.floodRise,0,0);const fp=R.fallP||(R.fallP=new Float32Array(32));fp.fill(0);const em=R.world&&R.world.emitters;
@@ -7913,6 +7981,7 @@ R.drawWater=function(cam){if(!R.waterChunks.length)return;const T=R.world,q=+P.w
   let p=R.pWater;gl.useProgram(p.p);R.waterU(p,cam,false);
   for(const c of R.waterChunks){if(!boxVisible(cam.planes,c.x,c.y0,c.z,c.x+R.cw,c.y1,c.z+R.cw))continue;const d=Math.hypot(c.x+R.cw/2-cam.pos[0],c.z+R.cw/2-cam.pos[2]);
     const lod=d<500?0:1,n=Math.max(2,R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);gl.uniform1f(p.u('uSpc'),R.cells/n*T.cs);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;}
+  R.pm('w-chunks');
   if(R.lakePatch){const lp=R.lakePatch;p=R.pLake;gl.useProgram(p.p);R.waterU(p,cam,true);gl.uniform2f(p.u('uSpc2'),R.cells/R.gridBase*T.cs,lp[4]);
     const g=R.lakeGrid(lp[3]);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.count/3;}
   gl.bindVertexArray(null);};
@@ -8012,7 +8081,7 @@ R.post=function(cam,A){const qw=R.qw,qh=R.qh;gl.disable(gl.DEPTH_TEST);
   gl.uniform4fv(p.u('uGrade0'),G[0]);gl.uniform4fv(p.u('uGrade1'),G[1]);gl.uniform4fv(p.u('uGrade2'),G[2]);gl.uniform4fv(p.u('uGrade3'),G[3]);
   const lum=c=>0.2126*c[0]+0.7152*c[1]+0.0722*c[2],now=performance.now(),dtE=Math.min(0.5,(now-(R.lastE||now))/1000);R.lastE=now;
   const tgt=P.autoExpo?clamp(1.36/(lum(A.keyC)*Math.max(A.key[1],0)*0.9+lum(A.skyA)+0.02),0.75,1+0.6*P.nightBright):(1+A.night*0.55*P.nightBright);R.expo=R.expo?R.expo+(tgt-R.expo)*Math.min(1,dtE*1.2):tgt;
-  gl.uniform1f(p.u('uExpo'),0.78*Math.pow(2,P.exposure)*R.expo);gl.uniform1f(p.u('uSat'),P.saturation);gl.uniform1f(p.u('uBloomAmt'),P.bloom*0.6);gl.uniform1f(p.u('uVig'),P.vignette*0.6);fsTri();
+  {const up=gl.canvas.width>R.tw+1;gl.uniform4f(p.u('uUp'),1/R.tw,1/R.th,0.35,up?1:0);}gl.uniform1f(p.u('uExpo'),0.78*Math.pow(2,P.exposure)*R.expo);gl.uniform1f(p.u('uSat'),P.saturation);gl.uniform1f(p.u('uBloomAmt'),P.bloom*0.6);gl.uniform1f(p.u('uVig'),P.vignette*0.6);fsTri();
   bindTU(TU.uDepth,gl.TEXTURE_2D,R.dummyDepth);bindTU(TU.uSrc,gl.TEXTURE_2D,R.blackTex);};
 // ===== camera.js
 // ===================================================================
@@ -8211,17 +8280,20 @@ const AutoRes={dyn:1,last:0,warned:false,
   tick(ts,fr){const tgt=+P.autoRes;if(!tgt){this.dyn=1;return;}if(fr.length<40||ts-this.last<3000)return;const a=fr.slice(-45),fps=1000/(a.reduce((x,y)=>x+y,0)/a.length),lo=0.4/clamp(+P.renderScale||1,0.3,1);
     if(fps<tgt*0.9&&this.dyn>lo){this.dyn=Math.max(lo,this.dyn*0.88);this.last=ts;if(this.dyn<0.8&&!this.warned){this.warned=true;UI.toast('Lowering resolution to keep it smooth (the phone may be warm)');}Log.info(`auto resolution ×${this.dyn.toFixed(2)} at ${fps.toFixed(0)} fps`);}
     else if(fps>tgt*1.3&&this.dyn<1){this.dyn=Math.min(1,this.dyn*1.06);this.last=ts+4000;}}};
-function resizeCanvas(){const cv=gl.canvas,d=Math.min(devicePixelRatio||1,3)*clamp(+P.renderScale||1,0.3,1)*AutoRes.dyn,w=Math.max(64,Math.round(innerWidth*d)),h=Math.max(64,Math.round(innerHeight*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}}
+// the 3D image is rendered at the resolution scale (R.rtW × R.rtH); normally the canvas has that size too and the browser stretches it
+// to the screen. With sharper upscaling (P.fxUpscale) the canvas has the screen's full resolution and the last pass upscales and sharpens.
+function resizeCanvas(){const cv=gl.canvas,dpr=Math.min(devicePixelRatio||1,3),sc=clamp(+P.renderScale||1,0.3,1)*AutoRes.dyn,up=+P.fxUpscale===1&&sc<0.999,d=up?dpr:dpr*sc,w=Math.max(64,Math.round(innerWidth*d)),h=Math.max(64,Math.round(innerHeight*d));if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+  R.rtW=up?Math.max(64,Math.round(innerWidth*dpr*sc)):w;R.rtH=up?Math.max(64,Math.round(innerHeight*dpr*sc)):h;}
 let lastT=0,frameAcc=0;
 function loop(ts){
   requestAnimationFrame(loop);
-  if(document.hidden)return;
+  if(document.hidden||App.hold)return;
   const raw=(ts-lastT)/1000;if(P.frameCap>0&&raw<1/P.frameCap-0.003&&lastT)return;
   const dt=lastT?Math.min(raw,0.1):0.016,ff=App.ff||1,sdt=dt*ff;lastT=ts;App.time+=sdt;// ff: fast forward (1, 2, 4 or 8 ×) speeds up the whole simulation
   if(P.timeSpeed>0){const nt=P.timeOfDay+sdt*P.timeSpeed/3600;if(nt>=24)Weather.newDay();P.timeOfDay=nt%24;if((frameAcc+=dt)>0.5){frameAcc=0;UI.refresh('timeOfDay');Sky.refresh();}}
   const c0=performance.now();
   resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}}Weather.update(sdt);if(App.T)Life.update(sdt);if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
-  R.ensureTargets(gl.canvas.width,gl.canvas.height);
+  R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
   const cpu=performance.now()-c0,pf=App.perf;pf.fr.push(dt*1000);if(pf.fr.length>240)pf.fr.shift();pf.cpu=(pf.cpu||cpu)*0.95+cpu*0.05;
   AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();StationUI.tick();UpgNotes.tick(dtm);BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
