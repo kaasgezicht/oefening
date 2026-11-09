@@ -1,4 +1,4 @@
-# Trein handoff 56 (9 Nov 2026): v4.1.0, performance pass: culling, upload hitches, benchmark tools, experimental settings
+# Trein handoff 57 (9 Nov 2026): v4.2.0, plan step 1 done (phone water precision); next: plan step 2 (buildings' cost)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,16 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.1.0, 9 Nov)
+### Latest (4.2.0, 9 Nov) — plan step 1
+User sent phone benchmark tables and screenshots (bands in a lake, stripy shore foam, a square in a lake in rain, streams ending square at a river, station through the market, odd footbridge) and asked for a numbered multi-step plan: `trein-plan.md`. Answers: 1a sharper upscaling on by default yes; 3a a slight visible LOD switch on Low is fine; 5a a station ghost away from track stands free with its own piece of track; 12a the checkerboard autumn ground should be organic. This version is step 1.
+- **1.1 Phone-only water bug**: `compile()` now puts `precision highp sampler2D/3D/2DArray/2DShadow/Cube` after `#version` in every shader (`shaderHead`, `SAMP_HI`). WebGL2 gives sampler2D low precision by default; Mali honours that, so depth, terrain heights and water levels arrived rounded to ~3 digits.
+- **1.2 Low-precision test mode**: open the file with `?lowp=1` (`LOWP_SIM`): every sampler2D read is rounded to a 16-bit float (wrappers `lpTex/lpFetch/lpLod` via #define). It reproduces the phone's lake bands and the screen-row stripes on the test machine; without it the picture is clean. Scratch launcher: env `Q='?lowp=1'`. Use it in every water test from now on.
+- **1.3 Water debug views** (Experimental → Water debug view: Depth, Distance to shore, Foam, Flow; `uDbg` in FS_WATER; never restored from a save).
+- **1.4 Defaults**: near things first and sharper upscaling on (also switched on for saves from before 4.2).
+- **1.5 Measure on this phone**: median of 3 timings per line with ± spread, version in the header, readable part names, buildings split into near/mid/far (`R.skip.kit0/1/2`).
+- Not yet confirmed on the phone: ask for screenshots of the same lake spots. The square in the lake in rain is the near wave mesh (plan 8.4), not this bug.
+
+### Earlier (4.1.0, 9 Nov)
 User asked: optimize without losing visual fidelity; when in doubt make it an experimental setting; fidelity improvements also as experimental settings; check with high-resolution screenshots compared by a script; maybe much is drawn that is not visible. Answers: identical-picture optimizations on by default, the rest under Experimental (off); slowest on the phone: big towns/stations and loading/building; plays on the Medium preset.
 - **Tools** (all in `tools/`): `bench.js` (8 km world, Pixel 9a size 412×915 @2.625, Medium preset, grown town + grand station + two trains with passengers, then `App.hold` and fixed-time frames via `R.benchFrame`; views town/street/platform/overview/wide; frame time = K frames between two GPU fences (`R.benchThroughput`, async); `ABLATE=1` = cost of each category by leaving it out (`R.skip`); `CMP='{...}'` renders every view twice in one session (A with those settings, B with the current) for exact comparison; `DSF=1` for quicker timing runs). `imgdiff.py A B` (mean/max diff, % pixels >6/>24, block SSIM, red heatmap `diff_<view>.png`, warns on nearly one-colour images). `cpuprof.js` (DevTools profile of loading, of timed building actions, and of play; texture/buffer uploads counted by caller).
 - **Measuring lessons**: `gl.finish` and 1-pixel `readPixels` do not wait for the GPU in Chrome; timer queries are unreliable on SwiftShader (work lands in the wrong query); use fences (`R.benchFence`). The FFT lake waves step once per frame, so they are frozen in benchmark frames (`R.benchStill`) or every lake shows as a difference. SwiftShader is fill-bound, so triangle savings show small there but should matter more on a phone GPU.

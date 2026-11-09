@@ -22,6 +22,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 
 ---
 
+## Step 1 — DONE in 4.2.0 (waiting for the user's phone check of the lake spots)
 ## Step 1 — Phone-only water bug, and the proven switches on by default  (effort: medium)
 - 1.1 High precision for every texture read in every shader (`precision highp sampler2D` and the other sampler types).
 - 1.2 A "low precision" test mode in my tools (depth copy and height textures stored at 16 bits) so phone-only rounding shows up on

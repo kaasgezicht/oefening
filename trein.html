@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.1.0 (performance: view and shadow culling, no full texture re-uploads on village and road updates, on-phone benchmark, experimental settings: sharper upscaling, shadows every other frame)';
+const VERSION='4.2.0 (plan step 1: full-precision texture reads on phone GPUs (lake bands, stripy foam), water debug views, sharper upscaling and near-first drawing on by default, steadier phone benchmark)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -438,8 +438,9 @@ def('frameCap',{tab:'quality',label:'Frame cap',kind:'select',options:[[0,'None'
 def('riverQ',{tab:'quality',label:'Rivers, streams and culverts',kind:'select',options:[[0,'Low'],[1,'Medium'],[2,'High']],def:1,apply:'streams',q:1});
 // ---- Experimental: performance switches. The ones that are on give the same picture (checked against screenshots) and can be turned
 // off if something looks wrong; the ones that are off can change the picture a little.
-def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution scale, upscale and sharpen to the full screen (FSR-style; costs a little)',kind:'check',def:0,apply:'live'});
-def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:0,apply:'live'});
+def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution scale, upscale and sharpen to the full screen (FSR-style)',kind:'check',def:1,apply:'live'});
+def('dbgWater',{tab:'exp',label:'Water debug view (for screenshots to the developer)',kind:'select',options:[[0,'Off'],[1,'Depth'],[2,'Distance to shore'],[3,'Foam'],[4,'Flow']],def:0,apply:'live'});
+def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:1,apply:'live'});
 def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can drop (same picture, less memory traffic)',kind:'check',def:1,apply:'live'});
 def('optShadowHalf',{tab:'exp',label:'Update sun shadows every other frame (moving shadows lag one frame)',kind:'check',def:0,apply:'live'});
 def('optCull',{tab:'exp',label:'Skip buildings and objects outside the view (same picture)',kind:'check',def:1,apply:'live'});
@@ -963,7 +964,7 @@ function applySnapshot(s){
   const v1=(s.saveVersion||1)<2,keepTabs=new Set(['world','erosion','water','track','trains','sound']),skipV1=new Set(['maxGrade','buildGrade','gravityScale','locoTE','locoPower','waterGreen','waveStrength','foam']);
   let n=0,unk=0;for(const k in s.params){if(PDEF[k]){const d=PDEF[k];if(v1&&(!keepTabs.has(d.tab)||skipV1.has(k)))continue;let v=s.params[k];
     if(d.kind==='range'){v=+v;if(!isFinite(v))continue;v=Math.min(d.max,Math.max(d.min,v));}P[k]=v;n++;}else unk++;}
-  if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
+  if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
@@ -1473,7 +1474,26 @@ async function probeEnvironment(){
 // Texture unit plan (bound once, shared by every program)
 const TU={uPatch:28,uCloudMap:14,uNoise3:15,uCldTex:16,uMistMap:17,uSceneCol:18,uWDisp:19,uWDeriv:21,uRoad:25,uTrackClear:26,uLampMap:27,uShadowRaw:13,uNorm:12,uHeight:0,uAux:1,uData:2,uWaterTex:3,uShadow:4,uFields:5,uDepthCopy:6,uSrc:7,uBloom:8,uDof:9,uDepth:10,uBSrc:11};
 const PROGS=[];
-function compile(type,src,name){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+// Texture reads at full precision in every shader. WebGL2 gives sampler2D LOW precision unless told otherwise; desktop GPUs ignore that,
+// phone GPUs (Mali) do not: the scene depth, terrain heights and water levels then arrive rounded to about 3 digits (bands in the lakes,
+// stripes in the shore foam, on the phone only). The line is put after #version in every shader.
+const SAMP_HI='precision highp sampler2D;precision highp sampler3D;precision highp sampler2DArray;precision highp sampler2DShadow;precision highp samplerCube;\n';
+// Test mode (open the file with ?lowp=1): shows what a phone GPU does WITHOUT that line, on any machine: every sampler2D read is
+// rounded to a 16-bit float (10 bits of mantissa), as a mediump value is on Mali.
+const LOWP_SIM=/[?&]lowp=1/.test(location.search);
+const LOWP_GLSL=t=>SAMP_HI+`precision highp float;precision highp int;
+float q16(float x){if(x==0.)return 0.;float m=exp2(floor(log2(abs(x)))-10.);return floor(x/m+.5)*m;}
+vec4 q16(vec4 v){return vec4(q16(v.x),q16(v.y),q16(v.z),q16(v.w));}
+vec4 lpTex(sampler2D s,vec2 u){return q16(texture(s,u));}`+(t?`vec4 lpTex(sampler2D s,vec2 u,float b){return q16(texture(s,u,b));}`:``)+`
+vec4 lpTex(sampler3D s,vec3 u){return texture(s,u);}vec4 lpTex(sampler2DArray s,vec3 u){return texture(s,u);}float lpTex(sampler2DShadow s,vec3 u){return texture(s,u);}
+vec4 lpFetch(sampler2D s,ivec2 c,int l){return q16(texelFetch(s,c,l));}vec4 lpFetch(sampler2DArray s,ivec3 c,int l){return texelFetch(s,c,l);}
+vec4 lpLod(sampler2D s,vec2 u,float l){return q16(textureLod(s,u,l));}vec4 lpLod(sampler2DArray s,vec3 u,float l){return textureLod(s,u,l);}vec4 lpLod(sampler3D s,vec3 u,float l){return textureLod(s,u,l);}
+#define texture lpTex
+#define texelFetch lpFetch
+#define textureLod lpLod
+`;
+function shaderHead(type,src){if(src.slice(0,15)!=='#version 300 es')return src;const i=src.indexOf('\n');return src.slice(0,i+1)+(LOWP_SIM?LOWP_GLSL(type===gl.FRAGMENT_SHADER):SAMP_HI)+src.slice(i+1);}
+function compile(type,src,name){src=shaderHead(type,src);const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){const log=gl.getShaderInfoLog(s);const ls=src.split('\n');
     const m=/0:(\d+)/.exec(log);let ctx='';if(m){const ln=+m[1];for(let i=Math.max(1,ln-3);i<=Math.min(ls.length,ln+2);i++)ctx+=`\n${i===ln?'>>':'  '}${i}: ${ls[i-1]}`;}
     Log.err(`shader ${name} (${type===gl.VERTEX_SHADER?'vs':'fs'}) failed: ${log}${ctx}`);throw new Error('shader compile failed: '+name);}
@@ -3524,7 +3544,7 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;uniform vec4 uFlood;uniform vec4 uFallP[8];
 precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform sampler2DArray uWDeriv;uniform sampler2D uSceneCol;uniform sampler2D uDepthCopy;
-uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;`+FS_OUT+`
+uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;`+FS_OUT+`
 float linZ(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 // screen-space reflection: march the reflected ray against the depth copy, take the colour from the pre-water scene copy
 vec4 ssr(vec3 P,vec3 Rd){int n=int(uRefl.x);float st=1.5,t=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584))))*1.5;
@@ -3607,6 +3627,9 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
     float st=vnoise(vec2(u*1.6,W.y*.22+t*3.2))*.6+vnoise(vec2(u*4.2+3.,W.y*.55+t*5.5))*.4;
     vec3 wc=lightD(L(vec3(.90,.94,.96)),normalize(vec3(fdir.x,.6,fdir.y)),W,1.,sh);col=mix(col,wc,cf*(.45+.55*smoothstep(.3,.7,st)));a=max(a,cf*(.7+.25*st));}
   a=mix(a,.97,iceF);a*=smoothstep(0.,.1,depth);
+  // debug views (Settings > Experimental): the values the water is built from, with fine stripes that show any rounding
+  if(uDbg>.5){vec3 dc;if(uDbg<1.5)dc=vec3(clamp(depth/12.,0.,1.),fract(depth*2.),clamp(depth/1.5,0.,1.));else if(uDbg<2.5)dc=vec3(clamp(dsh/20.,0.,1.),fract(dsh),clamp(dsh/3.,0.,1.));
+    else if(uDbg<3.5)dc=vec3(fo);else dc=vec3(.5+.5*fdir.x,.5+.5*fdir.y,clamp(v/3.,0.,1.));o=vec4(dc*dc*.8,1.);return;}
   o=vec4(fogc(col,W)*a,a);}`;
 
 // ---------------- low-poly clouds (soft where they cut through mountains)
@@ -7500,7 +7523,7 @@ R.kitVaoOf=function(V){const vao=gl.createVertexArray();gl.bindVertexArray(vao);
 // detailed buildings: LOD by distance (instances from Life, 'kit_<type>_<lod>'); the shadow pass uses one level coarser
 R.drawKit=function(pass){if(!R.kitVao)return;R.camPlanes=Cam.planes;const p=R.pKit;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.bindVertexArray(R.kitVao);
   for(const t of KIT_TYPES)for(let l=0;l<3;l++){const b=R.instBufs['kit_'+t+'_'+l];if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(2,l+1):l];
-    let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
+    if(pass===0&&R.skip['kit'+l])continue;let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
     gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;if(R.prof&&pass===0)R.pm('k-'+t+l+'x'+b.n);}
   if(R.bridgeKit){const BK=R.bridgeKit,cp=Cam.pos||[0,0,0];gl.bindVertexArray(BK.vao);gl.bindBuffer(gl.ARRAY_BUFFER,BK.ib);
     BK.list.forEach((e,i)=>{const d=Math.hypot(e.x-cp[0],e.z-cp[2]);if(d>1800||(pass!==1&&R.camPlanes&&!boxVisible(R.camPlanes,e.x-e.r,-1e4,e.z-e.r,e.x+e.r,1e4,e.z+e.r)))return;const m=e.lod[d<170&&pass!==1?0:1];
@@ -7933,16 +7956,20 @@ R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;cons
 // ---- on-phone measurement (Settings → Experimental → Measure on this phone): the current view rendered repeatedly with each switch and
 // with each part left out, timed with GPU fences (the GPU's own time, not the browser's), shown as a table to screenshot
 const PhoneBench={busy:false,
-  async run(){if(this.busy||!App.T)return;this.busy=true;const out=$('#benchOut'),say=t=>{if(out)out.textContent=t;};const keep={};const K=10,ids=['optCull','optOrder','optInvalidate','optShadowHalf','fxUpscale'];
+  async run(){if(this.busy||!App.T)return;this.busy=true;const out=$('#benchOut'),say=t=>{if(out)out.textContent=t;};const keep={};const K=8,REP=3,ids=['optCull','optOrder','optInvalidate','optShadowHalf','fxUpscale','dbgWater'];
     for(const k of ids)keep[k]=P[k];App.hold=true;const lines=[];let gpu='';try{const e=gl.getExtension('WEBGL_debug_renderer_info');gpu=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):'';}catch(e){}
     const set=o=>{for(const k of ids)P[k]=0;Object.assign(P,o);resizeCanvas();R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);};
-    const time=async(o,sk)=>{set(o);R.skip=sk||{};R.frame(Cam,App.time);await R.benchFence();const t0=performance.now();let js=0;for(let k=0;k<K;k++){const a=performance.now();R.frame(Cam,App.time);js+=performance.now()-a;}await R.benchFence();R.skip={};return[(performance.now()-t0)/K,js/K];};
-    const runs=[['all switches off',{}],['+ skip outside view',{optCull:1}],['+ near things first',{optCull:1,optOrder:1}],['+ drop buffers',{optCull:1,optOrder:1,optInvalidate:1}],['+ shadows every 2nd frame',{optCull:1,optOrder:1,optInvalidate:1,optShadowHalf:1}],['sharper upscaling (on its own)',{optCull:1,optOrder:1,optInvalidate:1,fxUpscale:1}]];
-    try{say('Measuring…');const base=keep;let b0=null;
-      for(const [nm,o] of runs){const [ms,js]=await time(o);if(b0===null)b0=ms;lines.push(`${nm.padEnd(30)} ${ms.toFixed(1).padStart(6)} ms ${b0?((ms/b0-1)*100).toFixed(0).padStart(4)+'%':''}  (JS ${js.toFixed(1)})`);say(lines.join('\n')+'\n…');}
-      lines.push('cost of each part (left out, with the default switches):');const on={optCull:1,optInvalidate:1};const [ref]=await time(on);
-      for(const c of ['shadow','terrain','track','vehicles','veg','life','kit','sky','water','streams','clouds','mist']){const [ms]=await time(on,{[c]:1});lines.push(`  ${c.padEnd(10)} ${(ref-ms).toFixed(1).padStart(6)} ms`);say(lines.join('\n')+'\n…');}
-      lines.unshift(`${gpu||'GPU'} · ${R.tw}×${R.th} · ${Stats.tris?(Stats.tris/1e6).toFixed(2)+'M tris':''} · ${P.preset}`);}
+    // one timing: K frames between two GPU fences; each line is the median of REP timings, with the spread (highest - lowest) after it
+    const once=async()=>{R.frame(Cam,App.time);await R.benchFence();const t0=performance.now();for(let k=0;k<K;k++)R.frame(Cam,App.time);await R.benchFence();return(performance.now()-t0)/K;};
+    const time=async(o,sk)=>{set(o);R.skip=sk||{};const a=[];for(let r=0;r<REP;r++)a.push(await once());R.skip={};a.sort((x,y)=>x-y);return[a[REP>>1],a[REP-1]-a[0]];};
+    const on={optCull:1,optOrder:1,optInvalidate:1};
+    const runs=[['all switches off',{}],['+ skip outside view',{optCull:1}],['+ near things first',{optCull:1,optOrder:1}],['+ drop buffers (= default)',on],['default + shadows 2nd frame',{...on,optShadowHalf:1}],['default + sharper upscaling',{...on,fxUpscale:1}]];
+    try{say('Measuring… (about a minute)');let b0=null;
+      for(const [nm,o] of runs){const [ms,sp]=await time(o);if(b0===null)b0=ms;lines.push(`${nm.padEnd(28)}${ms.toFixed(1).padStart(6)} ms ${((ms/b0-1)*100).toFixed(0).padStart(4)}%  ±${(sp/2).toFixed(1)}`);say(lines.join('\n')+'\n…');}
+      lines.push('cost of each part (default switches):');const [ref,rsp]=await time(on);
+      for(const [c,nm] of [['shadow','shadows'],['terrain','ground'],['track','track'],['vehicles','trains, bridges'],['veg','trees'],['life','people, objects'],['kit','buildings (all)'],['kit0','  buildings near'],['kit1','  buildings mid'],['kit2','  buildings far'],['sky','sky'],['water','lakes, rivers'],['streams','streams'],['clouds','clouds'],['mist','mist']]){
+        const [ms,sp]=await time(on,{[c]:1});lines.push(`  ${nm.padEnd(18)}${(ref-ms).toFixed(1).padStart(6)} ms  ±${((sp+rsp)/2).toFixed(1)}`);say(lines.join('\n')+'\n…');}
+      set(keep);R.frame(Cam,App.time);lines.unshift(`v${VERSION.split(' ')[0]} · ${gpu||'GPU'} · ${R.tw}×${R.th} · ${(Stats.tris/1e6).toFixed(2)}M tris · ${P.preset}`);}
     catch(e){lines.push('stopped: '+e.message);}finally{set(keep);App.hold=false;this.busy=false;}
     say(lines.join('\n'));Log.info('phone benchmark:\n'+lines.join('\n'));}};
 // ---- benchmark hooks (used by the test harness only): App.hold stops the loop; R.benchFrame renders one frame at a fixed time and,
@@ -8010,7 +8037,7 @@ R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1
   gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uGlass'),pass===0?2:0);drawTrains();R.pm('v-trains');R.drawTrainsFn=drawTrains;
   if(pass===0&&part!=='o'){gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);drawTrains();gl.depthMask(true);gl.disable(gl.BLEND);R.pm('v-glass');}
   gl.uniform1i(p.u('uGlass'),0);gl.bindVertexArray(null);};
-R.waterU=function(p,cam,near){gl.uniform2f(p.u('uNF'),cam.near,cam.far);
+R.waterU=function(p,cam,near){gl.uniform1f(p.u('uDbg'),+P.dbgWater||0);gl.uniform2f(p.u('uNF'),cam.near,cam.far);
   gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.floodRise,0,0);const fp=R.fallP||(R.fallP=new Float32Array(32));fp.fill(0);const em=R.world&&R.world.emitters;
   if(em&&em.length){const c=cam.pos,l=em.map(e=>[Math.hypot(e[0]-c[0],e[2]-c[2]),e]).sort((a,b)=>a[0]-b[0]).slice(0,8);l.forEach(([,e],i)=>fp.set([e[0],e[1],e[2],Math.min(3,0.6+e[3]*1.2)],i*4));}
   gl.uniform4fv(p.u('uFallP'),fp);const W=Waves;gl.uniform4f(p.u('uWaveA'),W.on?1:0,P.lakeChop,P.lakeFoam,W.NC||0);gl.uniform4f(p.u('uWL'),W.L[0],W.L[1],W.L[2],W.N||64);
