@@ -37,8 +37,11 @@ def compare(pa, pb, outp):
         return {'error': f'size {A.shape} vs {B.shape}'}
     d = np.abs(A - B).max(axis=2)
     s, smin = ssim(lum(A), lum(B))
+    flat = [n for n, X in (('A', A), ('B', B)) if float(lum(X).std()) < 6]
     r = {'mean': round(float(d.mean()), 3), 'max': int(d.max()), 'gt6%': round(float((d > 6).mean() * 100), 3),
          'gt24%': round(float((d > 24).mean() * 100), 3), 'ssim': round(s, 5), 'ssim_min_block': round(smin, 4)}
+    if flat:
+        r['WARNING'] = 'nearly one colour (broken render?): ' + ','.join(flat)
     if outp:
         base = (B * 0.35).astype(np.uint8)
         k = np.clip(d * 6, 0, 255).astype(np.uint8)

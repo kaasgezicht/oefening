@@ -7,7 +7,14 @@ const [,,html,out]=process.argv;fs.mkdirSync(out,{recursive:true});const SECS=+(
  const ctx=await b.newContext({viewport:{width:412,height:915},deviceScaleFactor:1,isMobile:true,hasTouch:true});
  await ctx.addInitScript(()=>{try{localStorage.setItem('trein.save.v1',JSON.stringify({app:'Trein',saveVersion:2,params:{worldSize:8192,mapRes:0,seed:4711,preset:'medium',renderScale:0.5,msaa:0,shadowRes:2048,terrainLod:260,treeDist:3200,treeLod:520,bloom:0.45,nightLights:16,riverQ:1,autoRes:0}}));}catch(e){}});
  const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push('pageerror: '+e.message));
- await p.goto('file://'+path.resolve(html));await p.waitForFunction(()=>window.TREIN&&TREIN.App.T&&!TREIN.App.busy,null,{timeout:900000});
+ const top=(profile,n,title)=>{const self=new Map(),byId=new Map(profile.nodes.map(q=>[q.id,q]));const dt=profile.timeDeltas;let total=0;
+   profile.samples.forEach((id,i)=>{const q=byId.get(id),f=q.callFrame,k=(f.functionName||'(anon)')+' '+(f.lineNumber+1);const d=(dt[i]||0)/1000;total+=d;self.set(k,(self.get(k)||0)+d);});
+   console.log(`${title}: ${total.toFixed(0)} ms sampled; top self time:`);for(const [k,v] of [...self.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n))console.log(`  ${(v/total*100).toFixed(1).padStart(5)}%  ${v.toFixed(0).padStart(6)} ms  ${k}`);};
+ // loading: profile from the first line of script until the world is ready
+ const cdp0=await ctx.newCDPSession(p);await cdp0.send('Profiler.enable');await cdp0.send('Profiler.setSamplingInterval',{interval:500});await cdp0.send('Profiler.start');
+ const tl=Date.now();await p.goto('file://'+path.resolve(html));await p.waitForFunction(()=>window.TREIN&&TREIN.App.T&&!TREIN.App.busy,null,{timeout:900000});
+ {const {profile}=await cdp0.send('Profiler.stop');fs.writeFileSync(out+'/load.cpuprofile',JSON.stringify(profile));console.log('load',((Date.now()-tl)/1000).toFixed(1),'s');top(profile,25,'loading');
+  const lg=await p.evaluate(()=>TREIN.Log.text?TREIN.Log.text().split('\n').filter(l=>/ms|built|took| s\b/.test(l)).slice(0,60).join('\n'):'');console.log(lg);}
  // timed actions (each one is what a player triggers; their time is a hitch on the phone, ~3-5x slower than here)
  const acts=await p.evaluate(()=>{const {Track,Net,App,Life,Build,P,Trains}=TREIN;const T={},tm=(k,f)=>{const t=performance.now();f();T[k]=+(performance.now()-t).toFixed(1);};
    P.timeOfDay=10.2;P.weather='clear';P.people=3;
@@ -30,10 +37,6 @@ const [,,html,out]=process.argv;fs.mkdirSync(out,{recursive:true});const SECS=+(
  const cdp=await ctx.newCDPSession(p);await cdp.send('Profiler.enable');await cdp.send('Profiler.setSamplingInterval',{interval:200});await cdp.send('Profiler.start');
  await p.waitForTimeout(SECS*1000);
  const {profile}=await cdp.send('Profiler.stop');fs.writeFileSync(out+'/town.cpuprofile',JSON.stringify(profile));
- // self time per function
- const self=new Map(),byId=new Map(profile.nodes.map(n=>[n.id,n]));const dt=profile.timeDeltas;let total=0;
- profile.samples.forEach((id,i)=>{const n=byId.get(id),f=n.callFrame,k=(f.functionName||'(anon)')+' '+(f.lineNumber+1);const d=(dt[i]||0)/1000;total+=d;self.set(k,(self.get(k)||0)+d);});
- const top=[...self.entries()].sort((a,b)=>b[1]-a[1]).slice(0,30);
- console.log(`profile ${total.toFixed(0)} ms; top self time:`);for(const [k,v] of top)console.log(`  ${(v/total*100).toFixed(1).padStart(5)}%  ${v.toFixed(0).padStart(6)} ms  ${k}`);
+ top(profile,30,'town, playing');
  const fr=await p.evaluate(()=>{const a=window.__fr.slice(30).sort((x,y)=>x-y);return{n:a.length,med:a[a.length>>1],p95:a[Math.floor(a.length*0.95)],max:a[a.length-1],perf:TREIN.App.perf.cpu};});
  console.log('frames',JSON.stringify(fr));console.log(errs.length?'ERRORS:\n'+errs.join('\n'):'no errors');await b.close();})().catch(e=>{console.error('FAILED',e);process.exit(1);});

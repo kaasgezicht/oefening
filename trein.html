@@ -7951,7 +7951,8 @@ R.buildPatches=function(T,trenches){const N=T.N,cs=T.cs,M=R.patchMask;if(!M)retu
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);gl.bindVertexArray(null);}
   scratch();gl.bindTexture(gl.TEXTURE_2D,R.pTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RED,gl.UNSIGNED_BYTE,M);};
 R.drawWall=function(pass){if(!R.wallVao)return;const p=pass===1?R.pWallSh:R.pWall;gl.useProgram(p.p);gl.bindVertexArray(R.wallVao);gl.drawElements(gl.TRIANGLES,R.wallCount,gl.UNSIGNED_INT,0);Stats.draws++;gl.bindVertexArray(null);};
-R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);// part: 'o' opaque only, 'g' the trains' window glass only (blended, after everything opaque), else bothgl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
+// part: 'o' opaque only, 'g' the trains' window glass only (blended, after everything opaque), else both
+R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
   if(part==='g')return R.drawVehGlass(p);
   if(P.tableOn&&R.tableMesh&&pass===0){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
