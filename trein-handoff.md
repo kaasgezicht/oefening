@@ -11,6 +11,7 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   Claude-Session: https://claude.ai/code/session_01XEFkHm1jcQJ6MRroWR8zg2
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
+- **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
 ### Latest (4.1.0, 9 Nov)
 User asked: optimize without losing visual fidelity; when in doubt make it an experimental setting; fidelity improvements also as experimental settings; check with high-resolution screenshots compared by a script; maybe much is drawn that is not visible. Answers: identical-picture optimizations on by default, the rest under Experimental (off); slowest on the phone: big towns/stations and loading/building; plays on the Medium preset.
