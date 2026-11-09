@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.0.0 (water-powered sawmill by a brook, upgrade notifications, culverts in dug ditches, road building like track building, river quality setting)';
+const VERSION='4.1.0 (performance: view and shadow culling, no full texture re-uploads on village and road updates, on-phone benchmark, experimental settings: sharper upscaling, shadows every other frame)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -441,6 +441,7 @@ def('riverQ',{tab:'quality',label:'Rivers, streams and culverts',kind:'select',o
 def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution scale, upscale and sharpen to the full screen (FSR-style; costs a little)',kind:'check',def:0,apply:'live'});
 def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:0,apply:'live'});
 def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can drop (same picture, less memory traffic)',kind:'check',def:1,apply:'live'});
+def('optShadowHalf',{tab:'exp',label:'Update sun shadows every other frame (moving shadows lag one frame)',kind:'check',def:0,apply:'live'});
 def('optCull',{tab:'exp',label:'Skip buildings and objects outside the view (same picture)',kind:'check',def:1,apply:'live'});
 def('terrainLod',{tab:'quality',label:'Terrain detail distance',min:60,max:800,step:10,def:260,unit:' m',apply:'live',q:1});
 def('shadowRes',{tab:'quality',label:'Shadows',kind:'select',options:[[0,'Off'],[1024,'1024'],[2048,'2048'],[4096,'4096']],def:2048,apply:'shadow',q:1});
@@ -587,6 +588,8 @@ const UI=(()=>{
     const f=secs.querySelector('.sec[data-tab="file"]');
     f.insertBefore(actions([['Save',()=>App.save()],['Load save',()=>App.load()],['Export JSON',()=>App.exportJSON()],['Import JSON',()=>$('#file').click()],['Export debug log',()=>App.exportLog()],['Export touch log',()=>TouchLog.export()],['Reset everything',()=>App.resetAll()]]),f.firstChild);
     const info=document.createElement('p');info.className='hint';info.id='worldinfo';f.appendChild(info);
+    {const ex=secs.querySelector('.sec[data-tab="exp"]');if(ex){ex.insertBefore(actions([['Measure on this phone',()=>PhoneBench.run()]]),ex.firstChild);const pre=document.createElement('pre');pre.id='benchOut';pre.className='hint';pre.style.whiteSpace='pre-wrap';pre.style.fontSize='11px';
+      pre.textContent='Measures the GPU time of the current view with each switch, about 30 s. Take a screenshot of the result for the developer.';ex.insertBefore(pre,ex.children[1]);}}
     $('#file').onchange=e=>{const fl=e.target.files[0];if(fl)App.importJSON(fl);e.target.value='';};
     refreshAll();show('world');
   }
@@ -7461,7 +7464,7 @@ R.makeDepthTex=function(w,h,cmp){scratch();const t=gl.createTexture();gl.bindTex
   return t;};
 R.setupShadows=function(){if(R.shTex){gl.deleteTexture(R.shTex);gl.deleteFramebuffer(R.shFb);R.shTex=null;}
   const res=Math.min(+P.shadowRes,CAPS.maxTex);R.shRes=res;if(!res){R.bindSh(R.dummyShadow);Log.info('shadows off');return;}
-  R.shTex=R.makeDepthTex(res,res,true);R.shFb=fbo([],{isTex:true,t:R.shTex});R.bindSh(R.shTex);Log.info(`shadow map ${res}×${res}`);};
+  R.shVP=null;R.shTex=R.makeDepthTex(res,res,true);R.shFb=fbo([],{isTex:true,t:R.shTex});R.bindSh(R.shTex);Log.info(`shadow map ${res}×${res}`);};
 
 // ---------------- static object meshes in one buffer (non-indexed flat triangles)
 R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
@@ -7511,8 +7514,10 @@ R.cullInst=function(b,ym,r,pl,pass){const n=b.n,D=b.cpu;if(!D||n<1||!pl)return n
   const L=b.cl||(b.cl=new Float64Array(27));let same=L[24]===b.cver&&L[25]===r&&L[26]===ym;if(same)for(let j=0;j<6&&same;j++){const p=pl[j];if(L[j*4]!==p[0]||L[j*4+1]!==p[1]||L[j*4+2]!==p[2]||L[j*4+3]!==p[3])same=false;}
   if(same)return b.clr;for(let j=0;j<6;j++){const p=pl[j];L[j*4]=p[0];L[j*4+1]=p[1];L[j*4+2]=p[2];L[j*4+3]=p[3];}L[24]=b.cver;L[25]=r;L[26]=ym;b.clr=R.cullDo(b,ym,r,pl);return b.clr;};
 R.cullDo=function(b,ym,r,pl){const n=b.n,D=b.cpu;let k=0;const V=b.vcpu&&b.vcpu.length>=n*8?b.vcpu:(b.vcpu=new Float32Array(Math.max(n,16)*8));
-  for(let i=0;i<n;i++){const o=i*8,sc=D[o+3]||1,x=D[o],y=D[o+1]+ym*sc,z=D[o+2],rr=-r*sc;let ok=true;for(let j=0;j<pl.length;j++){const p=pl[j];if(p[0]*x+p[1]*y+p[2]*z+p[3]<rr){ok=false;break;}}
-    if(ok){if(k!==i)V.set(D.subarray(o,o+8),k*8);else if(V!==D)V.set(D.subarray(o,o+8),k*8);k++;}}
+  const a0=pl[0],a1=pl[1],a2=pl[2],a3=pl[3],a4=pl[4],a5=pl[5];/* the six planes unrolled, the 8 floats copied one by one (no per-instance objects) */
+  for(let i=0;i<n;i++){const o=i*8,sc=D[o+3]||1,x=D[o],y=D[o+1]+ym*sc,z=D[o+2],rr=-r*sc;
+    if(a0[0]*x+a0[1]*y+a0[2]*z+a0[3]<rr||a1[0]*x+a1[1]*y+a1[2]*z+a1[3]<rr||a2[0]*x+a2[1]*y+a2[2]*z+a2[3]<rr||a3[0]*x+a3[1]*y+a3[2]*z+a3[3]<rr||a4[0]*x+a4[1]*y+a4[2]*z+a4[3]<rr||a5[0]*x+a5[1]*y+a5[2]*z+a5[3]<rr)continue;
+    const q=k*8;V[q]=D[o];V[q+1]=D[o+1];V[q+2]=D[o+2];V[q+3]=D[o+3];V[q+4]=D[o+4];V[q+5]=D[o+5];V[q+6]=D[o+6];V[q+7]=D[o+7];k++;}
   if(k===n)return null;if(!b.vbuf){b.vbuf=gl.createBuffer();b.vcap=0;}gl.bindBuffer(gl.ARRAY_BUFFER,b.vbuf);if(k){const bytes=k*32;if(bytes>b.vcap){b.vcap=Math.ceil(Math.max(bytes,n*32)*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.vcap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,V.subarray(0,k*8));}
   return{buf:b.vbuf,n:k};};
 R.drawVehGlass=function(p){if(!R.veh||!R.drawTrainsFn)return;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),0);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform2f(p.u('uOcc'),0,0);
@@ -7523,7 +7528,7 @@ R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:
   if(bytes>b.cap){b.cap=Math.ceil(bytes*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.cap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,data.subarray(0,n*8));return b;};
 R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;let buf=b.buf,n=b.n;
   // camera pass: leave out instances outside the view (birds fly far from their anchor, they are kept)
-  if(!prog&&kind!==12&&+P.optCull!==0&&m.r){const pl=pass===1?R.shPl:Cam.planes;if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
+  if(!prog&&kind!==12&&+P.optCull!==0&&m.r&&m.count>=360){const pl=pass===1?R.shPl:Cam.planes;/* light meshes (far trees) cost less to draw than to sort out */if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
   gl.uniform1i(p.u('uKind'),kind);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
   gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;Stats.objs+=n;};
 
@@ -7608,7 +7613,7 @@ R.uploadWorld=function(T){const t0=performance.now();R.world=T;const N=T.N;
   R.hTex=rep(TU.uHeight,R.hTex,tex2D(N,N,gl.R32F,gl.RED,gl.FLOAT,T.Hr,gl.NEAREST));
   R.aTex=rep(TU.uAux,R.aTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T),gl.LINEAR));R.patchMask=new Uint8Array(N*N);R.patches=null;R.pTex=rep(TU.uPatch,R.pTex,tex2D(N,N,gl.R8,gl.RED,gl.UNSIGNED_BYTE,R.patchMask,gl.NEAREST));R.nTex=rep(TU.uNorm,R.nTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeNorm(T),gl.LINEAR));
   R.dTex=rep(TU.uData,R.dTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,T.data,gl.LINEAR));
-  R.wTex=rep(TU.uWaterTex,R.wTex,tex2D(N,N,gl.RGBA32F,gl.RGBA,gl.FLOAT,R.waterRender(T),gl.NEAREST));
+  {const wd=R.waterRender(T);R._wLast=wd;R.wTex=rep(TU.uWaterTex,R.wTex,tex2D(N,N,gl.RGBA32F,gl.RGBA,gl.FLOAT,wd,gl.NEAREST));}
   R.uploadFields(T);R.chunkBounds(T);R.buildBoard(T);R.uploadVeg(T);R.rebuildTrackMesh();Life.uploaded=false;
   Log.info(`world uploaded in ${(performance.now()-t0).toFixed(0)} ms: ${R.chunks.length} chunks (${R.waterChunks.length} with water), board ${R.yb.toFixed(0)} m`);};
 R.setFieldWork=function(k,f){const w=(f.base||f.tgt)?f.base*1000+f.tgt*100+clamp(f.p,0,1)*99:0;scratch();gl.bindTexture(gl.TEXTURE_2D,R.fieldTex);gl.texSubImage2D(gl.TEXTURE_2D,0,k+1,1,1,1,gl.RGBA,gl.FLOAT,new Float32Array([f.a,f.crop,f.seed,w]));};
@@ -7667,17 +7672,21 @@ R.buildRoads=function(T){const RS=T.W>4096?3072:2048,W=T.W,px=W/RS,same=R.roadD&
     const ex=x1-x0,ez=z1-z0,ll=ex*ex+ez*ez||1e-6;for(let j=j0;j<=j1;j++){const z=(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=(i+0.5)*px,t=clamp(((x-x0)*ex+(z-z0)*ez)/ll,0,1),d=Math.hypot(x-x0-ex*t,z-z0-ez*t)-w,k=j*RS+i;if(d<D[k]){D[k]=d;KD[k]=kind;}}}};
   for(const r of RL){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p;for(let i=0;i+3<p.length;i+=2)seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}
   for(let k=0;k<D.length;k++){if(D[k]<0.5){const x=((k%RS)+0.5)*px,z=(((k/RS)|0)+0.5)*px,w=sampleWater(T,x,z);if(w[1]>0&&w[0]>R.sampleHr(T,x,z)-0.2)D[k]=4;}}
-  const H16=R.roadH16&&R.roadH16.length===RS*RS*2?R.roadH16:(R.roadH16=new Float32Array(RS*RS*2));for(let k=0;k<D.length;k++){H16[k*2]=D[k];H16[k*2+1]=KD[k];}
+  // the upload buffer still holds what the texture has: note the rectangle that changed, and upload only that
+  const fresh=!(R.roadH16&&R.roadH16.length===RS*RS*2),H16=fresh?(R.roadH16=new Float32Array(RS*RS*2)):R.roadH16;let ci0=RS,ci1=-1,cj0=RS,cj1=-1;
+  for(let j=0;j<RS;j++){let rowCh=false;for(let i=0;i<RS;i++){const k=j*RS+i;if(H16[k*2]!==D[k]||H16[k*2+1]!==KD[k]){H16[k*2]=D[k];H16[k*2+1]=KD[k];if(i<ci0)ci0=i;if(i>ci1)ci1=i;rowCh=true;}}if(rowCh){if(j<cj0)cj0=j;cj1=j;}}
   // reuse the texture while its size is unchanged (it used to be re-created on every road rebuild: .w was never set, so each rebuild leaked 16 MB of GPU memory)
-  const tu=performance.now();if(!R.roadTex||R.roadTex.w!==RS){if(R.roadTex)gl.deleteTexture(R.roadTex);R.roadTex=tex2D(RS,RS,gl.RG16F,gl.RG,gl.FLOAT,H16,gl.LINEAR);R.roadTex.w=RS;}else{scratch();gl.bindTexture(gl.TEXTURE_2D,R.roadTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,RS,RS,gl.RG,gl.FLOAT,H16);}
+  const tu=performance.now();if(!R.roadTex||R.roadTex.w!==RS||fresh){if(R.roadTex)gl.deleteTexture(R.roadTex);R.roadTex=tex2D(RS,RS,gl.RG16F,gl.RG,gl.FLOAT,H16,gl.LINEAR);R.roadTex.w=RS;}
+  else if(ci1>=0){scratch();gl.bindTexture(gl.TEXTURE_2D,R.roadTex);const w=ci1-ci0+1,h=cj1-cj0+1;if(w===RS)gl.texSubImage2D(gl.TEXTURE_2D,0,0,cj0,RS,h,gl.RG,gl.FLOAT,H16.subarray(cj0*RS*2,(cj1+1)*RS*2));
+    else{const S2=new Float32Array(w*h*2);for(let j=0;j<h;j++)S2.set(H16.subarray(((cj0+j)*RS+ci0)*2,((cj0+j)*RS+ci1+1)*2),j*w*2);gl.texSubImage2D(gl.TEXTURE_2D,0,ci0,cj0,w,h,gl.RG,gl.FLOAT,S2);}}
   bindTU(TU.uRoad,gl.TEXTURE_2D,R.roadTex);Log.info(`roads: ${RL.length} pieces in a ${RS}² distance field (${px.toFixed(2)} m/texel), upload ${(performance.now()-tu).toFixed(0)} ms`);};
 // a few new road pieces (garden paths) stamped into the kept distance field; only the touched patch is uploaded
-R.addRoadPieces=function(T,pieces){if(!R.roadD||!R.roadTex||R.roadRS!==(T.W>4096?3072:2048))return false;const RS=R.roadRS,px=T.W/RS,D=R.roadD,KD=R.roadK;let bi0=RS,bi1=-1,bj0=RS,bj1=-1;
+R.addRoadPieces=function(T,pieces){if(!R.roadD||!R.roadTex||R.roadRS!==(T.W>4096?3072:2048))return false;const RS=R.roadRS,px=T.W/RS,D=R.roadD,KD=R.roadK,H16=R.roadH16&&R.roadH16.length===RS*RS*2?R.roadH16:null;/* the full-upload buffer is kept in step with the texture */let bi0=RS,bi1=-1,bj0=RS,bj1=-1;
   const seg=(x0,z0,x1,z1,w,kind)=>{const m=w+4,i0=Math.max(0,Math.floor((Math.min(x0,x1)-m)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(x0,x1)+m)/px)),j0=Math.max(0,Math.floor((Math.min(z0,z1)-m)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(z0,z1)+m)/px));
     bi0=Math.min(bi0,i0);bi1=Math.max(bi1,i1);bj0=Math.min(bj0,j0);bj1=Math.max(bj1,j1);const ex=x1-x0,ez=z1-z0,ll=ex*ex+ez*ez||1e-6;
     for(let j=j0;j<=j1;j++){const z=(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=(i+0.5)*px,t=clamp(((x-x0)*ex+(z-z0)*ez)/ll,0,1),d=Math.hypot(x-x0-ex*t,z-z0-ez*t)-w,k=j*RS+i;if(d<D[k]){const wt=sampleWater(T,x,z);if(d<0.5&&wt[1]>0&&wt[0]>R.sampleHr(T,x,z)-0.2)continue;D[k]=d;KD[k]=kind;}}}};
   for(const r of pieces){const p=r.p;for(let i=0;i+3<p.length;i+=2)seg(p[i],p[i+1],p[i+2],p[i+3],r.w,r.kind|0);}
-  if(bi1<bi0)return true;const w=bi1-bi0+1,h=bj1-bj0+1,S=new Float32Array(w*h*2);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=(bj0+j)*RS+bi0+i,o=(j*w+i)*2;S[o]=D[k];S[o+1]=KD[k];}
+  if(bi1<bi0)return true;const w=bi1-bi0+1,h=bj1-bj0+1,S=new Float32Array(w*h*2);for(let j=0;j<h;j++)for(let i=0;i<w;i++){const k=(bj0+j)*RS+bi0+i,o=(j*w+i)*2;S[o]=D[k];S[o+1]=KD[k];if(H16){H16[k*2]=D[k];H16[k*2+1]=KD[k];}}
   scratch();gl.bindTexture(gl.TEXTURE_2D,R.roadTex);gl.texSubImage2D(gl.TEXTURE_2D,0,bi0,bj0,w,h,gl.RG,gl.FLOAT,S);bindTU(TU.uRoad,gl.TEXTURE_2D,R.roadTex);return true;};
 // medieval stone bridges from the building kit (buildings/bridge.js), one instance each, two levels of detail (close: LOD 0, else LOD 2)
 // medieval stone bridges from the building kit (buildings/bridge.js), one instance each, two levels of detail (close: LOD 0, else LOD 2).
@@ -7718,10 +7727,21 @@ R.buildDocks=function(DL){if(R.dockMesh){gl.deleteVertexArray(R.dockMesh.vao);R.
     const dc=at(-5.1,-1.5);obox([dc[0],hy+0.95,dc[1]],f,0.03,0.45,0.95,dk);const sg=at(-1.5,1.8);obox([sg[0],hy+1.1,sg[1]],f,0.05,0.05,1.1,dk);obox([sg[0],hy+2.1,sg[1]],f,0.04,0.6,0.25,wh);}
   R.dockMesh=R.uploadVeh(M);Log.info(`docks: ${DL.length}`);};
 // lamp light map: every street lantern's pool of light, rasterised once into a world texture (sampled by pools())
-R.buildLampMap=function(T,LM){const RS=1024,px=T.W/RS,D=R._lmD||(R._lmD=new Float32Array(RS*RS*4));D.fill(0);const r=18,col=[1.6,1.05,0.55];
-  for(const l of LM){const i0=Math.max(0,Math.floor((l.x-r)/px)),i1=Math.min(RS-1,Math.ceil((l.x+r)/px)),j0=Math.max(0,Math.floor((l.z-r)/px)),j1=Math.min(RS-1,Math.ceil((l.z+r)/px));
-    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot((i+0.5)*px-l.x,(j+0.5)*px-l.z);if(d>=r)continue;let a=1-d/r;a*=a;const k=(j*RS+i)*4;D[k]+=col[0]*a;D[k+1]+=col[1]*a;D[k+2]+=col[2]*a;}}
-  if(!R.lampTex)R.lampTex=tex2D(RS,RS,gl.RGBA16F,gl.RGBA,gl.FLOAT,D,gl.LINEAR);else{scratch();gl.bindTexture(gl.TEXTURE_2D,R.lampTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,RS,RS,gl.RGBA,gl.FLOAT,D);}bindTU(TU.uLampMap,gl.TEXTURE_2D,R.lampTex);};
+// the night glow of street lamps on the ground (1024² RGBA16F). Rebuilt only where lamps came or went: a full upload converts 4 million
+// floats to half precision on the CPU (seconds on some drivers), and the village code asks for the map on every village update
+R.buildLampMap=function(T,LM){const RS=1024,px=T.W/RS,r=18,col=[1.6,1.05,0.55];const keyOf=l=>Math.round(l.x*10)+','+Math.round(l.z*10);
+  const now=new Map();for(const l of LM)now.set(keyOf(l),l);const prev=R._lmSet;let bb=null;
+  if(R.lampTex&&prev&&R._lmW===T.W){const grow=l=>{const a=[l.x-r,l.z-r,l.x+r,l.z+r];bb=bb?[Math.min(bb[0],a[0]),Math.min(bb[1],a[1]),Math.max(bb[2],a[2]),Math.max(bb[3],a[3])]:a;};
+    for(const [k,l] of now)if(!prev.has(k))grow(l);for(const [k,l] of prev)if(!now.has(k))grow(l);if(!bb){R._lmSet=now;return;}}
+  R._lmSet=now;R._lmW=T.W;const D=R._lmD||(R._lmD=new Float32Array(RS*RS*4));
+  const i0=bb?Math.max(0,Math.floor(bb[0]/px)-1):0,i1=bb?Math.min(RS-1,Math.ceil(bb[2]/px)+1):RS-1,j0=bb?Math.max(0,Math.floor(bb[1]/px)-1):0,j1=bb?Math.min(RS-1,Math.ceil(bb[3]/px)+1):RS-1;
+  for(let j=j0;j<=j1;j++)D.fill(0,(j*RS+i0)*4,(j*RS+i1+1)*4);
+  for(const l of LM){if(l.x+r<i0*px||l.x-r>(i1+1)*px||l.z+r<j0*px||l.z-r>(j1+1)*px)continue;const a0=Math.max(i0,Math.floor((l.x-r)/px)),a1=Math.min(i1,Math.ceil((l.x+r)/px)),b0=Math.max(j0,Math.floor((l.z-r)/px)),b1=Math.min(j1,Math.ceil((l.z+r)/px));
+    for(let j=b0;j<=b1;j++)for(let i=a0;i<=a1;i++){const d=Math.hypot((i+0.5)*px-l.x,(j+0.5)*px-l.z);if(d>=r)continue;let a=1-d/r;a*=a;const k=(j*RS+i)*4;D[k]+=col[0]*a;D[k+1]+=col[1]*a;D[k+2]+=col[2]*a;}}
+  if(!R.lampTex)R.lampTex=tex2D(RS,RS,gl.RGBA16F,gl.RGBA,gl.FLOAT,D,gl.LINEAR);
+  else{scratch();gl.bindTexture(gl.TEXTURE_2D,R.lampTex);const w=i1-i0+1,h=j1-j0+1;if(w===RS)gl.texSubImage2D(gl.TEXTURE_2D,0,0,j0,RS,h,gl.RGBA,gl.FLOAT,D.subarray(j0*RS*4,(j1+1)*RS*4));
+    else{const S2=new Float32Array(w*h*4);for(let j=0;j<h;j++)S2.set(D.subarray(((j0+j)*RS+i0)*4,((j0+j)*RS+i1+1)*4),j*w*4);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.FLOAT,S2);}}
+  bindTU(TU.uLampMap,gl.TEXTURE_2D,R.lampTex);};
 R.drawStreams=function(cam){if(!R.stCount)return;const p=R.pStream;gl.useProgram(p.p);gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.runoff,+P.riverQ||0,0);
   const CL=R.stCL||(R.stCL=new Float32Array(256));R.chunks.forEach((c,k)=>{CL[k]=R.chunkLod(c,cam);});gl.uniform4fv(p.u('uCL'),CL);gl.uniform1f(p.u('uGB'),R.gridBase);
   gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-4);gl.bindVertexArray(R.stVao);
@@ -7793,9 +7813,16 @@ R.clearVegRect=function(T,Q,m){let n=0;const rr=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+
   for(const arr of [...((T.veg&&T.veg.trees)||[]),(T.veg&&T.veg.rocks)||[]])for(let k=0;k+3<arr.length;k+=8)if(Math.abs(arr[k]-Q.x)<rr&&Math.abs(arr[k+2]-Q.z)<rr&&VG.inRect(Q,arr[k],arr[k+2],m))arr[k+3]=0;
   R.vegKey='';Life.treeGrid=null;return n;};
 // ---- after track edits: new heights, mask, holes, trees and houses on the bed hidden
+// upload only the rectangle of a float texture that changed since the last upload (kept as R[key]): a track or station changes a small
+// part of the 8 km map, the full 16 MB water texture took seconds to send on every edit
+R.subRect=function(tex,N,ch,data,key){const tS=performance.now(),old=R[key];R[key]=data;scratch();gl.bindTexture(gl.TEXTURE_2D,tex);
+  if(!old||old.length!==data.length){gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RGBA,gl.FLOAT,data);return;}
+  let i0=N,i1=-1,j0=N,j1=-1;for(let j=0;j<N;j++){const r=j*N*ch;let a=-1,b=-1;for(let k=0;k<N*ch;k++)if(old[r+k]!==data[r+k]){if(a<0)a=k;b=k;}if(a>=0){if(j<j0)j0=j;j1=j;i0=Math.min(i0,(a/ch)|0);i1=Math.max(i1,(b/ch)|0);}}
+  if(i1<0)return;const w=i1-i0+1,h=j1-j0+1;Log.info(`texture update ${key}: ${w}×${h} of ${N}² (diff found in ${(performance.now()-tS).toFixed(0)} ms)`);if(w===N){gl.texSubImage2D(gl.TEXTURE_2D,0,0,j0,N,h,gl.RGBA,gl.FLOAT,data.subarray(j0*N*ch,(j1+1)*N*ch));return;}
+  const S2=new Float32Array(w*h*ch);for(let j=0;j<h;j++)S2.set(data.subarray(((j0+j)*N+i0)*ch,((j0+j)*N+i1+1)*ch),j*w*ch);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.FLOAT,S2);};
 R.updateTerrain=function(T){R.terrVer=(R.terrVer|0)+1;R.computeRenderHeights(T);scratch();
   gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
-  gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);gl.bindTexture(gl.TEXTURE_2D,R.wTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.FLOAT,R.waterRender(T));
+  gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);R.subRect(R.wTex,T.N,4,R.waterRender(T),'_wLast');
   R.chunkBounds(T);R.applyVegMask(T);Life.applyTrackMask(T);R.rebuildTrackMesh();if(Life.T===T)Life.applyCulverts();};
 
 // ---- track meshes (format: pos3 nrm3 uv2 mat1)
@@ -7865,11 +7892,13 @@ R.ensureTargets=function(w,h){const ms=Math.min(+P.msaa||0,CAPS.maxSamples||0);i
 R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world,S=R.skip;// S: categories left out (cost measurement by ablation, tools/bench.js)
   const tr=Trains.cur();const fp=Cam.mode!=='free'&&tr&&tr.poses&&tr.poses[0]?tr.poses[0].c:Cam.target;R.focus=[fp[0],fp[1],fp[2]];R.focusDist=Math.hypot(fp[0]-cam.pos[0],fp[1]-cam.pos[1],fp[2]-cam.pos[2]);
   const A=R.atmos();A.keyUp=A.key[1]>0.02&&(A.day>0.01||A.moonUp>0.05);R.sun={day:A.day,L:A.st.sun,night:A.night};R.A=A;
-  const lightVP=R.lightMatrix(A);R.fillUBO(cam,A,lightVP);if(T)Waves.step();
+  // shadows every other frame (experimental): in between, the last shadow map is sampled with the light matrix it was drawn with
+  let lightVP=R.lightMatrix(A);R.frameNo=(R.frameNo|0)+1;const shReuse=+P.optShadowHalf===1&&!!R.shVP&&(R.frameNo&1)===1&&R.shKeyUp;if(shReuse)lightVP=R.shVP;else R.shVP=lightVP;
+  R.fillUBO(cam,A,lightVP);if(T&&!R.benchStill)Waves.step();// (benchmark frames keep the waves still, so two renders compare exactly)
   if(T){R.updateVegLists(cam);R.pm('vegLists');Life.prepare(cam,A);}R.pm('prepare');
   gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);
   // shadow map
-  if(T&&R.shFb&&A.keyUp&&!S.shadow){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
+  R.shKeyUp=A.keyUp;if(T&&R.shFb&&A.keyUp&&!S.shadow&&!shReuse){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1.6,4);
     R.bindSh(R.dummyShadow);
     R.shPl=frustumPlanes(lightVP);R.drawTerrain(cam,1,R.shPl);R.drawWall(1);R.drawTrack(1);R.pm('sh-terrain');
@@ -7901,13 +7930,28 @@ R.frame=function(cam,time){Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;cons
   // the scene buffer's colour and depth are not needed after this copy (cleared next frame): a tile-based phone GPU then need not write them back to memory
   if(+P.optInvalidate!==0)gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER,[gl.COLOR_ATTACHMENT0,gl.DEPTH_ATTACHMENT]);
   R.pm('resolve');R.post(cam,A);R.pm('post');};
+// ---- on-phone measurement (Settings → Experimental → Measure on this phone): the current view rendered repeatedly with each switch and
+// with each part left out, timed with GPU fences (the GPU's own time, not the browser's), shown as a table to screenshot
+const PhoneBench={busy:false,
+  async run(){if(this.busy||!App.T)return;this.busy=true;const out=$('#benchOut'),say=t=>{if(out)out.textContent=t;};const keep={};const K=10,ids=['optCull','optOrder','optInvalidate','optShadowHalf','fxUpscale'];
+    for(const k of ids)keep[k]=P[k];App.hold=true;const lines=[];let gpu='';try{const e=gl.getExtension('WEBGL_debug_renderer_info');gpu=e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):'';}catch(e){}
+    const set=o=>{for(const k of ids)P[k]=0;Object.assign(P,o);resizeCanvas();R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);};
+    const time=async(o,sk)=>{set(o);R.skip=sk||{};R.frame(Cam,App.time);await R.benchFence();const t0=performance.now();let js=0;for(let k=0;k<K;k++){const a=performance.now();R.frame(Cam,App.time);js+=performance.now()-a;}await R.benchFence();R.skip={};return[(performance.now()-t0)/K,js/K];};
+    const runs=[['all switches off',{}],['+ skip outside view',{optCull:1}],['+ near things first',{optCull:1,optOrder:1}],['+ drop buffers',{optCull:1,optOrder:1,optInvalidate:1}],['+ shadows every 2nd frame',{optCull:1,optOrder:1,optInvalidate:1,optShadowHalf:1}],['sharper upscaling (on its own)',{optCull:1,optOrder:1,optInvalidate:1,fxUpscale:1}]];
+    try{say('Measuring…');const base=keep;let b0=null;
+      for(const [nm,o] of runs){const [ms,js]=await time(o);if(b0===null)b0=ms;lines.push(`${nm.padEnd(30)} ${ms.toFixed(1).padStart(6)} ms ${b0?((ms/b0-1)*100).toFixed(0).padStart(4)+'%':''}  (JS ${js.toFixed(1)})`);say(lines.join('\n')+'\n…');}
+      lines.push('cost of each part (left out, with the default switches):');const on={optCull:1,optInvalidate:1};const [ref]=await time(on);
+      for(const c of ['shadow','terrain','track','vehicles','veg','life','kit','sky','water','streams','clouds','mist']){const [ms]=await time(on,{[c]:1});lines.push(`  ${c.padEnd(10)} ${(ref-ms).toFixed(1).padStart(6)} ms`);say(lines.join('\n')+'\n…');}
+      lines.unshift(`${gpu||'GPU'} · ${R.tw}×${R.th} · ${Stats.tris?(Stats.tris/1e6).toFixed(2)+'M tris':''} · ${P.preset}`);}
+    catch(e){lines.push('stopped: '+e.message);}finally{set(keep);App.hold=false;this.busy=false;}
+    say(lines.join('\n'));Log.info('phone benchmark:\n'+lines.join('\n'));}};
 // ---- benchmark hooks (used by the test harness only): App.hold stops the loop; R.benchFrame renders one frame at a fixed time and,
 // with prof, times every pass (gl.finish between passes, so only for measuring)
 // GPU time per pass with EXT_disjoint_timer_query_webgl2 (gl.finish and 1-pixel reads do not wait for the GPU in Chrome): R.pm(name)
 // closes the running query and opens the next; R.benchFrame renders one frame at a fixed time (the loop is held by App.hold) and
 // R.benchRead() collects the results once the GPU has them (poll it: null until ready). CPU time of the JS work is measured directly.
 R.skip={};R.pm=function(n){if(!R.prof)return;const P2=R.prof,t=performance.now();P2.cpu.push([n,t]);const X=R.tq;if(!X)return;if(P2.q){gl.endQuery(X.TIME_ELAPSED_EXT);P2.gpu.push([n,P2.q]);P2.q=null;}if(n==='end')return;const q=gl.createQuery();gl.beginQuery(X.TIME_ELAPSED_EXT,q);P2.q=q;};// each mark names the work since the previous one
-R.benchFrame=function(t,prof){resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.expo=null;R.lastE=null;R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
+R.benchFrame=function(t,prof){R.benchStill=true;resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.expo=null;R.lastE=null;R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   if(R.tq===undefined)R.tq=gl.getExtension('EXT_disjoint_timer_query_webgl2')||null;
   R.prof=prof?{cpu:[],gpu:[],q:null}:null;const t0=performance.now();R.pm('start');R.frame(Cam,t);R.pm('end');const ms=performance.now()-t0,pr=R.prof;R.prof=null;
   const cpu={};if(pr)for(let i=1;i<pr.cpu.length;i++){const k=pr.cpu[i][0];cpu[k]=(cpu[k]||0)+pr.cpu[i][1]-pr.cpu[i-1][1];}R.lastProf=pr;
@@ -7915,7 +7959,7 @@ R.benchFrame=function(t,prof){resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25
 // real GPU frame time: wait for a fence before and after K frames (the GPU signals it when everything before it has run); async, the
 // page keeps its event loop so the fence status can update
 R.benchFence=async function(){const f=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();while(gl.getSyncParameter(f,gl.SYNC_STATUS)!==gl.SIGNALED)await new Promise(r=>setTimeout(r,1));gl.deleteSync(f);};
-R.benchThroughput=async function(t,K){resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
+R.benchThroughput=async function(t,K){R.benchStill=true;resizeCanvas();for(let k=0;k<6;k++)Cam.update(0.25);R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   R.expo=null;R.frame(Cam,t);await R.benchFence();const t0=performance.now();for(let k=0;k<K;k++){R.expo=null;R.frame(Cam,t);}await R.benchFence();return(performance.now()-t0)/K;};
 R.benchRead=function(){const pr=R.lastProf,X=R.tq;if(!pr||!X)return{};if(gl.getParameter(X.GPU_DISJOINT_EXT))return{disjoint:true};const out={};
   for(const [n,q] of pr.gpu){if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))return null;}
