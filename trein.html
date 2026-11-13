@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.2.0 (plan step 1: full-precision texture reads on phone GPUs (lake bands, stripy foam), water debug views, sharper upscaling and near-first drawing on by default, steadier phone benchmark)';
+const VERSION='4.3.0 (plan step 2: far sides of building blocks skipped, trains without discard, buildings near to far, depth-first option, Building detail distance, benchmark tests)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -3238,14 +3238,15 @@ const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
 const VS_KIT=GLSL_HEAD+GLSL_BASE+`
-layout(location=0) in vec3 aPos;layout(location=1) in vec4 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;layout(location=4) in vec4 iA;layout(location=5) in vec4 iB;layout(location=6) in vec2 aUV;layout(location=8) in vec2 aHSq;layout(location=7) in vec2 aS;
+layout(location=0) in vec3 aPos;layout(location=1) in vec4 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;layout(location=4) in vec4 iA;layout(location=5) in vec4 iB;layout(location=6) in vec2 aUV;layout(location=8) in vec2 aHSq;layout(location=7) in vec2 aS;layout(location=9) in float aPd;
 invariant gl_Position;uniform int uPass;uniform float uBackSkip;out vec3 vW;out vec3 vN;out vec2 vUV;flat out vec2 vHS;flat out vec3 vC;flat out int vM;flat out float vSeed;flat out float vAux;flat out float vHash;out float vY;
 void main(){float bare=0.;if(int(aMat+.5)==1&&aS.y>.8)bare=clamp(uSeason.w*1.3-.15+(fract(aS.x*7.)-.5)*.2,0.,1.);else if(int(aMat+.5)==1&&aS.y>.5)bare=clamp(uSeason.w*1.5+uSeason.z*.35-.1,0.,1.);
   vec3 p=aPos*mix(1.,.001,bare)*iA.w;float c=cos(iB.x),s=sin(iB.x);p=vec3(c*p.x-s*p.z,p.y,s*p.x+c*p.z);vN=vec3(c*aNrm.x-s*aNrm.z,aNrm.y,s*aNrm.x+c*aNrm.z);
   vW=iA.xyz+p;vUV=aUV;vHS=aHSq*16.;vC=aCol;vM=int(aMat+.5);vSeed=aS.x;vAux=aS.y;vHash=iB.z;vY=aPos.y;gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(vW,1.);
   // the far sides of closed blocks (flag in aNrm.w) are never seen: their triangles are moved out of view before any pixel work.
-  // All three corners of a flat face agree (same normal, same plane), so a face goes or stays as a whole.
-  if(uPass!=1&&uBackSkip>.5&&aNrm.w>.5&&dot(vN,uCamPos.xyz-vW)<0.)gl_Position=vec4(2.,2.,2.,1.);}`;
+  // The test uses only values that are the same for every corner of the face (its normal and plane constant aPd, the instance, the
+  // camera), so a face goes or stays as a whole; it must be 10 cm behind the face's plane, which covers the rounding of the stored values.
+  if(uPass!=1&&uBackSkip>.5&&aNrm.w>.5&&dot(vN,uCamPos.xyz-iA.xyz)-aPd*iA.w/256.<-.1*iA.w)gl_Position=vec4(2.,2.,2.,1.);}`;
 const FS_KIT=()=>GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in vec3 vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int vM;flat in float vSeed;flat in float vAux;flat in float vHash;in float vY;uniform int uPass;uniform float uFlat;`+FS_OUT+`
 #define uL uSunDir.xyz
@@ -7529,10 +7530,14 @@ R.packKit=function(parts,total){const AB=new ArrayBuffer(total*32),f32=new Float
   for(const a of parts){const v0=v;for(let k=0;k<a.length;k+=16,v++){f32[v*8]=a[k];f32[v*8+1]=a[k+1];f32[v*8+2]=a[k+2];const b=v*32;i8[b+12]=q8(a[k+3]);i8[b+13]=q8(a[k+4]);i8[b+14]=q8(a[k+5]);
     u8[b+16]=u8c(a[k+6]);u8[b+17]=u8c(a[k+7]);u8[b+18]=u8c(a[k+8]);u8[b+19]=a[k+9];i16[v*16+10]=Math.round(Math.max(-1,Math.min(1,a[k+10]))*32767);i16[v*16+11]=Math.round(Math.max(-1,Math.min(1,a[k+11]))*32767);
     u16[v*16+12]=Math.min(65535,Math.round(a[k+12]/16*65535));u16[v*16+13]=Math.min(65535,Math.round(a[k+13]/16*65535));u8[b+28]=u8c(a[k+14]);u8[b+29]=u8c(a[k+15]);}
-    /* closed boxes: flag in the normal's spare byte */const cl=a.cl||[];for(let c=0;c<cl.length;c+=2)for(let q=v0+cl[c]/16,e=v0+cl[c+1]/16;q<e;q++)i8[q*32+15]=127;}
+    /* closed boxes: a flag in the normal's spare byte and the face's plane constant (n·p, 1/256 m) in the two spare bytes at 30. Every
+       corner of a face gets the same constant, so the shader's far-side test gives the same answer for all of them. Not for foliage
+       (it shrinks in winter) or faces more than 120 m from the model's origin. */
+    const cl=a.cl||[];for(let c=0;c<cl.length;c+=2)for(let q=v0+cl[c]/16,e=v0+cl[c+1]/16;q<e;q+=6){if(u8[q*32+19]===1)continue;const b=q*32,d=(i8[b+12]*f32[q*8]+i8[b+13]*f32[q*8+1]+i8[b+14]*f32[q*8+2])/127;if(Math.abs(d)>120)continue;
+      const dq=Math.round(d*256);for(let j=0;j<6;j++){i8[(q+j)*32+15]=127;i16[(q+j)*16+15]=dq;}}}
   return AB;};
 R.kitVaoOf=function(V){const vao=gl.createVertexArray();gl.bindVertexArray(vao);const vbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,V,gl.STATIC_DRAW);vao.vbo=vbo;
-  [[0,3,gl.FLOAT,false,0],[1,4,gl.BYTE,true,12],[2,3,gl.UNSIGNED_BYTE,true,16],[3,1,gl.UNSIGNED_BYTE,false,19],[6,2,gl.SHORT,true,20],[8,2,gl.UNSIGNED_SHORT,true,24],[7,2,gl.UNSIGNED_BYTE,true,28]].forEach(([l,n,ty,nm,off])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,ty,nm,32,off);});
+  [[0,3,gl.FLOAT,false,0],[1,4,gl.BYTE,true,12],[2,3,gl.UNSIGNED_BYTE,true,16],[3,1,gl.UNSIGNED_BYTE,false,19],[6,2,gl.SHORT,true,20],[8,2,gl.UNSIGNED_SHORT,true,24],[7,2,gl.UNSIGNED_BYTE,true,28],[9,1,gl.SHORT,false,30]].forEach(([l,n,ty,nm,off])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,ty,nm,32,off);});
   gl.enableVertexAttribArray(4);gl.enableVertexAttribArray(5);gl.vertexAttribDivisor(4,1);gl.vertexAttribDivisor(5,1);gl.bindVertexArray(null);return vao;};
 // detailed buildings: LOD by distance (instances from Life, 'kit_<type>_<lod>'); the shadow pass uses one level coarser
 R.drawKit=function(pass){if(!R.kitVao)return;R.camPlanes=Cam.planes;const p=R.pKit;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.bindVertexArray(R.kitVao);
@@ -7570,7 +7575,7 @@ R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:
   if(bytes>b.cap){b.cap=Math.ceil(bytes*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.cap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,data.subarray(0,n*8));return b;};
 R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;let buf=b.buf,n=b.n;
   // camera pass: leave out instances outside the view (birds fly far from their anchor, they are kept)
-  if(!prog&&kind!==12&&+P.optCull!==0&&m.r&&m.count>=360){const pl=pass===1?R.shPl:Cam.planes;/* light meshes (far trees) cost less to draw than to sort out */if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
+  if(!prog&&kind!==12&&+P.optCull!==0&&m.r&&m.count*b.n>=45000){const pl=pass===1?R.shPl:Cam.planes;/* only buffers of 15 000 triangles or more: below that, drawing costs less than sorting out */if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
   gl.uniform1i(p.u('uKind'),kind);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
   gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;Stats.objs+=n;};
 

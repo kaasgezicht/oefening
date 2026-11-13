@@ -1,4 +1,4 @@
-# Trein handoff 57 (9 Nov 2026): v4.2.0, plan step 1 done (phone water precision); next: plan step 2 (buildings' cost)
+# Trein handoff 58 (13 Nov 2026): v4.3.0, plan step 2 done (buildings' cost); next: plan step 3 (building LOD), needs the user's phone benchmark table
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,17 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.2.0, 9 Nov) — plan step 1
+### Latest (4.3.0, 13 Nov) — plan step 2 (buildings' cost)
+Findings first: the building shader (FS_KIT) has **no** `discard` (the plan's 2.1 guess was wrong; the trains' shader had it). The building shader is heavy per pixel (procedural materials, 3 height lookups for bump, shadow, cloud shadow), and buildings are dense: a cottage is 100k triangles up to 110 m away, the grand station 331k. 40–87 % of every building's triangles belong to closed boxes.
+- **2.2 Far sides of closed blocks skipped** (`optBackface`, on): `K.box` records the vertex range of every complete box in `K.CL`; `R.packKit` flags those vertices (normal's 4th byte = 127) and stores the face's plane constant n·p (1/256 m, int16 at byte 30, attribute 9 `aPd`); VS_KIT moves a flagged face out of view when the camera is more than 10 cm behind its plane. The test uses only per-face-constant inputs, so all corners agree (a first version tested per vertex and dragged single corners of edge-on faces away: thin dotted lines). Not for foliage material 1 (shrinks in winter) or faces > 120 m from the model origin. Not in the shadow pass.
+- **2.1 Trains**: glass/solid selection moved to VS_VEH (triangles of the other kind leave the view), FS_VEH has no `discard` any more. Train close-ups day/night compared between builds: identical on the train (differences only in random clouds/birds/stars).
+- **2.3 Order**: building instances sorted near to far in every buffer, near detail levels drawn first across types. `optPrepass` (off): buildings' depth first with a trivial fragment path (uPass 2, `invariant gl_Position`), then colour with LEQUAL.
+- **Quality → Building detail distance** (`P.kitLod`, 0.3–2 ×, scales the 110/350 m switches; plan 3.2 done early because the benchmark needs it).
+- **2.5 Measure on this phone**: lines for far sides skipped (= default), buildings depth-first, and three tests: plain building shader (`R.skip.kitFlat` → `uFlat`), building detail at 1/2 and 1/4 distance. These three tell step 3 whether the buildings' cost is pixel shading or triangle density.
+- Object culling gate changed: buffers of ≥ 15 000 triangles are culled (was: meshes of ≥ 120 triangles, which left ~0.9 M off-screen far-tree triangles per frame).
+- 2.4 (shadow casters) dropped: the shadow-box culling of 4.1.0 already does it.
+
+### Earlier (4.2.0, 9 Nov) — plan step 1
 User sent phone benchmark tables and screenshots (bands in a lake, stripy shore foam, a square in a lake in rain, streams ending square at a river, station through the market, odd footbridge) and asked for a numbered multi-step plan: `trein-plan.md`. Answers: 1a sharper upscaling on by default yes; 3a a slight visible LOD switch on Low is fine; 5a a station ghost away from track stands free with its own piece of track; 12a the checkerboard autumn ground should be organic. This version is step 1.
 - **1.1 Phone-only water bug**: `compile()` now puts `precision highp sampler2D/3D/2DArray/2DShadow/Cube` after `#version` in every shader (`shaderHead`, `SAMP_HI`). WebGL2 gives sampler2D low precision by default; Mali honours that, so depth, terrain heights and water levels arrived rounded to ~3 digits.
 - **1.2 Low-precision test mode**: open the file with `?lowp=1` (`LOWP_SIM`): every sampler2D read is rounded to a 16-bit float (wrappers `lpTex/lpFetch/lpLod` via #define). It reproduces the phone's lake bands and the screen-row stripes on the test machine; without it the picture is clean. Scratch launcher: env `Q='?lowp=1'`. Use it in every water test from now on.

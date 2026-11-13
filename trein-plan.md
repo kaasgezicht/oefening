@@ -34,6 +34,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 - Check on the phone: the three lake/river spots from the screenshots (bands, stripes, dotted edges).
 - Question 1a: sharper upscaling on by default?
 
+## Step 2 — DONE in 4.3.0 (see the handoff: the building shader had no discard; far sides of closed blocks are skipped instead; 3.2 done early)
 ## Step 2 — Buildings: half the frame on the phone  (effort: high)
 - 2.1 Split the building shader: the solid version without `discard` (with it, the phone GPU cannot throw away hidden pixels early);
       glass stays a separate blended pass.
