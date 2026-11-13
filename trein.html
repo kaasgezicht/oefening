@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.8.0 (plan step 6: stations and villages never overlap)';
+const VERSION='4.8.1 (no camera jumps on Build/Trains, destination list shows reachable stations)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -4815,6 +4815,9 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
         if(bi>=0&&(n.sw|0)!==bi&&!Trains.list.some(o=>o.poses&&o.poses.some(p=>p&&Math.hypot(p.c[0]-n.x,p.c[2]-n.z)<14)))n.sw=bi;}
       const nx=this.next(s,node,tr,false);if(!nx)break;dir=nx.a===node?1:-1;t=dir>0?0:nx.L;s=nx;}},
   linked(nid){return Track.segs.filter(s=>!s.pend&&(s.a===nid||s.b===nid));},
+  /* ids of every track piece joined (through any number of pieces) to piece sid: what a train standing there could ever drive to */
+  reachSegs(sid){const seen=new Set(),s0=segById(sid);if(!s0)return seen;const by=new Map();for(const s of Track.segs){if(s.pend)continue;for(const n of [s.a,s.b]){let l=by.get(n);if(!l)by.set(n,l=[]);l.push(s);}}
+    const Q=[s0];seen.add(s0.id);while(Q.length){const s=Q.pop();for(const n of [s.a,s.b])for(const o of by.get(n)||[])if(!seen.has(o.id)){seen.add(o.id);Q.push(o);}}return seen;},
   leaveDir(s,nid){return s.a===nid?s.h0:wrapPi(segPoint(s,s.L)[2]+Math.PI);},
   // a junction: the two legs leaving in about the same direction are the branches, the third is the trunk
   junction(nid){if(this.jc.has(nid))return this.jc.get(nid);const ss=this.linked(nid);let J=null;
@@ -5084,7 +5087,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     let pieces=[this.pieceGeom()],snap=null;const e=segPoint(pieces[0],pieces[0].L);
     if(this.road()){const j=this.roadJoin(st,e,Math.max(10,this.pc.len*0.45));if(j){pieces=j.pieces;snap=j.snap;}this.plan=this.roadPlan_(st,pieces,snap);}
     else{const j=this.joinNear(st,e);if(j){pieces=j.pieces;snap=j.node;}this.plan=this.plan_(st,pieces,snap,snap?'follow':this.slopeG());}this.preview(this.plan.pieces,this.plan.ok,this.plan.warn);
-    const lp=this.plan.end;this.camGoal={x:(st.x+lp[0])/2,z:(st.z+lp[1])/2,y:st.y};
+    const lp=this.plan.end;/* the camera only comes along when the piece being built is in view: opening Build never drags it to a far track end */{const sc=Cam.toScreen(st.x,st.y,st.z);if(sc&&sc[0]>-40&&sc[1]>-40&&sc[0]<innerWidth+40&&sc[1]<innerHeight+40&&Math.hypot(st.x-Cam.target[0],st.z-Cam.target[2])<Math.max(120,Cam.dist*1.6))this.camGoal={x:(st.x+lp[0])/2,z:(st.z+lp[1])/2,y:st.y};else this.camGoal=null;}
     this.info((snap?'':'Next piece: ')+this.plan.msg+(this.plan.ok?'':''));this.ui();},
   setDir(d){this.pc.dir=d;this.refresh();},setSlope(s){this.pc.slope=s;this.refresh();},
   addLen(d){this.pc.len=clamp(this.pc.len+d,10,120);this.refresh();},
@@ -5983,8 +5986,8 @@ const Drive={placing:false,ghost:null,listOpen:false,
       const dst=t.auto?Net.destOf(t):null;r.innerHTML=`<div><b>${esc(t.name)}</b><span>${Math.abs(t.v*3.6).toFixed(0)} km/h, ${esc(t.status||'Standing')}${dst?' → '+esc(dst.name):''}</span></div>`;
       const go=document.createElement('button');go.className='ic';go.innerHTML=svgIcon('goTo')+'<span class="cap"></span><span class="v" hidden></span>';setCap(go,'Go to '+t.name);go.onclick=()=>{Trains.sel=i;if(Cam.mode==='free')Cam.setMode('follow');this.listOpen=false;this.refresh();};
       const au=document.createElement('button');au.className='ic'+(t.auto?' on':'');au.innerHTML=svgIcon('auto')+'<span class="cap"></span><span class="v" hidden></span>';setCap(au,t.auto?'Autopilot on':'Autopilot off');au.setAttribute('aria-pressed',t.auto?'true':'false');au.onclick=()=>{t.auto=!t.auto;if(t.auto&&!t.rev)t.rev=1;this.list();};
-      const ds=document.createElement('select');ds.className='dsel';ds.title='Destination';ds.innerHTML='<option value="">Next station in turn</option>'+Track.stations.map(q=>`<option value="${+q.id}">${esc(q.name)}</option>`).join('');ds.value=t.destId!=null?String(t.destId):'';
-      ds.onchange=()=>{t.destId=ds.value?+ds.value:null;t.lastStation=null;ds.blur();this.list();};if(Track.stations.length>1)r.append(go,au,ds);else r.append(go,au);el.appendChild(r);
+      const ds=document.createElement('select');ds.className='dsel';ds.title='Destination';const rch=Net.reachSegs(t.head.sid),stR=Track.stations.filter(q=>rch.has(q.sid));if(t.destId!=null&&!stR.some(q=>q.id===t.destId))t.destId=null;ds.innerHTML='<option value="">Next station in turn</option>'+stR.map(q=>`<option value="${+q.id}">${esc(q.name)}</option>`).join('');ds.value=t.destId!=null?String(t.destId):'';
+      ds.onchange=()=>{t.destId=ds.value?+ds.value:null;t.lastStation=null;ds.blur();this.list();};if(stR.length>1)r.append(go,au,ds);else r.append(go,au);el.appendChild(r);
       if(i===Trains.sel){// wagon editor: add a wagon of a kind at the rear, or take the last one off
         const ed=document.createElement('div');ed.className='wed';const IC={coach:'🚃',wood:'🪵',grain:'🌾',produce:'🥕',mail:'✉️'};for(const k in ORE)IC[k]=ORE[k].icon;
         const kinds=[['coach','Add a passenger coach'],['wood','Add a timber wagon'],['grain','Add a grain hopper'],['produce','Add a covered van (produce)'],['mail','Add a mail van'],...Object.keys(ORE).map(k=>[k,`Add an ore hopper (${ORE[k].name.toLowerCase()} ore)`])];
@@ -5995,7 +5998,7 @@ const Drive={placing:false,ghost:null,listOpen:false,
     if(!Trains.list.length)el.innerHTML='<p class="hint">No trains yet. Tap the add-locomotive button and drag it onto the track, then add wagons here.</p>';},
   active:false,
   enter(){this.active=true;if(!Trains.list.length)this.startPlace();$('#bar').classList.add('hide');$('#driveBar').hidden=false;
-    if(!Sfx.on)Sfx.start();Sfx.syncBtn();if(Cam.mode==='free'&&Trains.list.length)Cam.setMode('follow');this.refresh();},
+    if(!Sfx.on)Sfx.start();Sfx.syncBtn();this.refresh();},
   exit(){this.active=false;this.cinema(false);$('#driveBar').hidden=true;$('#bar').classList.remove('hide');const t=Trains.cur();if(t){t.whistle=false;Sfx.whistle(t,false);}Cam.setMode('free');},
   refresh(){if(!this.active)return;$('#trainList').hidden=!this.listOpen;$('#dList').classList.toggle('on',this.listOpen);if(this.listOpen)this.list();$('#dAdd').classList.toggle('on',this.placing);
     const t=Trains.cur();$('#driveCtl').hidden=!t;if(!t)return;
