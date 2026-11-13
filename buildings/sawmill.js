@@ -22,7 +22,7 @@ function mill(K,opt,dir){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick}=K,{ad
   ST.door(F.front,0,FL,1.8,2.6);ST.arch(F.back,-2.5,FL+0.7,0.9,2.0,{nv:7});ST.door(F.back,2.2,FL,1.4,2.3);
   // ---- timber upper floor: boards with battens, small-paned windows, a loft door with a hoist beam in the front gable
   B((X0+X1)/2,(G1+EV)/2,(Z0+Z1)/2,X1-X0+0.12,EV-G1,Z1-Z0+0.12,WOOD,6);
-  const battens=(f,y0,y1)=>{if(K.lod>=2)return;for(let u=-f.half+0.25;u<f.half;u+=K.lod?0.9:0.45)fb(f,u,(y0+y1)/2,0.07,0.07,y1-y0,0.05,WOODD,6);};
+  const battens=(f,y0,y1)=>{if(K.lod>=2)return;for(let u=-f.half+0.25;u<f.half;u+=K.lod>=1?0.9:0.45)fb(f,u,(y0+y1)/2,0.07,0.07,y1-y0,0.05,WOODD,6);};
   for(const f of [F.front,F.back,F.left,F.right])battens(f,G1,EV);
   for(const u of [-3.5,0,3.5])K.win(F.right,u,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});for(const u of [-3.5,3.5])K.win(F.left,u,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});
   K.win(F.front,-2.8,G1+0.8,0.9,1.4,{cols:2,rows:3,frame:[0.86,0.82,0.7]});fb(F.front,1.6,G1+1.35,0.04,1.3,2.2,0.08,WOODD,6);fb(F.front,1.6,G1+1.35,0.08,1.4,0.1,0.1,WOODL,6);
@@ -31,7 +31,7 @@ function mill(K,opt,dir){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick}=K,{ad
   // ---- roof: steep shingles, ridge along z; timber gables with fretwork bargeboards and finials, a round window high up
   const rf=K.roof({c:[(X0+X1)/2,(Z0+Z1)/2],dir:[0,1],halfLen:(Z1-Z0)/2,half:(X1-X0)/2,H:EV,rise:4.6,ov:0.55,gov:0.5,th:0.14,sag:0.12,flare:0.12,nx:30,mossClumps:20,ridgeMoss:0.08,trim:WOODD});
   for(const e of [-1,1]){const f=e<0?F.front:F.back;const a=fp(f,-(X1-X0)/2,EV,0.002),b=fp(f,(X1-X0)/2,EV,0.002),c=fp(f,0,EV+4.6,0.002);tri(a,b,c,WOOD,6);
-    if(K.lod<2)for(let u=-(X1-X0)/2+0.3;u<(X1-X0)/2;u+=K.lod?0.9:0.45){const top=EV+4.6*(1-Math.abs(u)/((X1-X0)/2))-0.1;if(top>EV+0.1)fb(f,u,(EV+top)/2,0.07,0.07,top-EV,0.05,WOODD,6);}
+    if(K.lod<2)for(let u=-(X1-X0)/2+0.3;u<(X1-X0)/2;u+=K.lod>=1?0.9:0.45){const top=EV+4.6*(1-Math.abs(u)/((X1-X0)/2))-0.1;if(top>EV+0.1)fb(f,u,(EV+top)/2,0.07,0.07,top-EV,0.05,WOODD,6);}
     KIT.stationKit(K).barge(rf,e,{spike:1.1});const rc=fp(f,0,EV+2.4,0.06);cyl(rc,fp(f,0,EV+2.4,0.0),0.45,0.45,14,[0.25,0.22,0.2],2,[0.25,0.22,0.2],2);
     // fretwork: a scalloped board under the bargeboards
     if(K.lod<1)for(let k=0;k<10;k++){const u=(k+0.5)/10*(X1-X0)-(X1-X0)/2,y=EV+4.6*(1-Math.abs(u)/((X1-X0)/2))-0.55;ico(fp(f,u,y,0.22),0.09,[0.5,0.38,0.27],6,{sy:0.6});}}

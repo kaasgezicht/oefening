@@ -48,6 +48,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 
 > Inserted before step 3 (the user's request, done in 4.4.0): the **benchmark world** (Experimental → Enter benchmark world): a fixed, repeatable, playable world with notes and fixed-view measurement. From now on, every step is checked in it: `Measure all places` before and after.
 
+## Step 3 — DONE in 4.5.0 (middle level, size-on-screen switching, thinner roof tiles; see the handoff)
 ## Step 3 — Building detail levels (LOD)  (effort: high)
 - 3.1 Audit table of every building and piece: triangles per level, switch distances. Old non-kit models (castles 13k, sawmill shed,
       workshop, mines, barns, windmills, bakery, restaurant, stalls, bus stops) get proper lower levels where they lack them.

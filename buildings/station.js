@@ -67,7 +67,7 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
   P.gable=(f,half,yb,ya,col)=>{const a=fp(f,-half,yb,0.002),b=fp(f,half,yb,0.002),c=fp(f,0,ya,0.002);tri(a,b,c,col||BRICK,24);const a2=fp(f,-half,yb,-0.3),b2=fp(f,half,yb,-0.3),c2=fp(f,0,ya,-0.3);tri(b2,a2,c2,col||BRICK,24);};
   // decorative bargeboard: cream board under the verge with a drop finial and a spike at the apex
   P.barge=(rf,end,o)=>{o=o||{};const u=end*(rf.hx+0.04),Sf=rf.slope(-1),Sb=rf.slope(1);
-    for(const Sl of [Sf,Sb]){const n=K.lod?3:8;for(let j=0;j<n;j++){const p0=rf.rp(Sl,u,Sl.L*j/n,-0.14),p1=rf.rp(Sl,u,Sl.L*(j+1)/n,-0.14);beam(p0,add(p1,[0,0,0]),[0,1,0],0.06,0.32,CREAM,0);
+    for(const Sl of [Sf,Sb]){const n=K.lod>=1?3:8;for(let j=0;j<n;j++){const p0=rf.rp(Sl,u,Sl.L*j/n,-0.14),p1=rf.rp(Sl,u,Sl.L*(j+1)/n,-0.14);beam(p0,add(p1,[0,0,0]),[0,1,0],0.06,0.32,CREAM,0);
         if(K.lod<1){const m=mul(add(p0,p1),0.5);ico([m[0],m[1]-0.24,m[2]],0.07,CREAM,0);}}}
     const top=rf.rp(Sf,u,Sf.L,0.1);cyl(add(top,[0,-0.6,0]),add(top,[0,0.15,0]),0.07,0.06,6,CREAM,0);cyl(add(top,[0,0.1,0]),add(top,[0,o.spike||1.3,0]),0.06,0.012,6,IRON,11);
     ico(add(top,[0,0.35,0]),0.09,IRON,11);};
@@ -87,7 +87,7 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
       cyl([x,PY,cz],[x,PY+0.35,cz],0.14,0.11,8,IRON,11);cyl([x,PY+0.35,cz],[x,H-0.25,cz],0.075,0.065,8,IRON,11);cyl([x,H-0.4,cz],[x,H-0.18,cz],0.08,0.16,8,IRON,11);
       beam([x,H-0.12,cz],[x,H-0.12,zb+0.02],[0,1,0],0.12,0.1,IRON,11);
       // spandrel brackets: quarter arcs from the column to the eave beam both ways along the track, and toward the wall
-      if(K.lod<2)for(const [dx,dz] of [[1,0],[-1,0],[0,1]]){const R=0.85,N=K.lod?3:6;for(let j=0;j<N;j++){const a0=Math.PI/2*j/N,a1=Math.PI/2*(j+1)/N,P0=[x+dx*(R-R*Math.cos(a0)),H-0.15-R+R*Math.sin(a0)*1,cz+dz*(R-R*Math.cos(a0))],P1=[x+dx*(R-R*Math.cos(a1)),H-0.15-R+R*Math.sin(a1),cz+dz*(R-R*Math.cos(a1))];
+      if(K.lod<2)for(const [dx,dz] of [[1,0],[-1,0],[0,1]]){const R=0.85,N=K.lod>=1?3:6;for(let j=0;j<N;j++){const a0=Math.PI/2*j/N,a1=Math.PI/2*(j+1)/N,P0=[x+dx*(R-R*Math.cos(a0)),H-0.15-R+R*Math.sin(a0)*1,cz+dz*(R-R*Math.cos(a0))],P1=[x+dx*(R-R*Math.cos(a1)),H-0.15-R+R*Math.sin(a1),cz+dz*(R-R*Math.cos(a1))];
           beam(P0,P1,[dz,0,-dx],0.045,0.045,IRON,11);}if(K.lod<1)ico([x+dx*0.28,H-0.45,cz+dz*0.28],0.07,IRON,11);}}
     beam([x0,H-0.12,cz],[x1,H-0.12,cz],[0,1,0],0.16,0.12,IRON,11);
     // valance: cream boards with pointed drops along the front and both ends
@@ -108,7 +108,7 @@ function kitOf(K){const {box,B,beam,cyl,ico,quad,tri,flower,fp,fb,rnd,rr,pick}=K
     if(K.lod<1){let x=-w/2+0.25;const lh=h*0.42;let k=0;while(x<w/2-0.3){const lw=k===0?0.14:rr(0.07,0.12);fb(f,u+x,y,0.065,0.025,lh*(k===0?1.15:1),0.01,GOLD,0);if(rnd()<0.7)fb(f,u+x+lw/2,y+(rnd()<0.5?lh/2:-lh/2+0.01)*(k===0?1.1:1),0.065,lw,0.025,0.01,GOLD,0);if(rnd()<0.5)fb(f,u+x+lw,y,0.065,0.025,lh*rr(0.5,1),0.01,GOLD,0);x+=lw+0.11;k++;}}};
   // lattice girder side between two points (top chord at +hgt): chords and X lattice
   P.lattice=(a,b,hgt,o)=>{o=o||{};const L=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]),d=norm(sub(b,a)),side=norm([-d[2],0,d[0]]);beam(a,b,side,0.07,0.09,IRON,11);beam(add(a,[0,hgt,0]),add(b,[0,hgt,0]),side,0.09,0.07,IRON,11);
-    if(K.lod>=2)return;const st=K.lod?0.9:0.42,n=Math.max(2,Math.round(L/st));for(let k=0;k<n;k++){const p0=add(a,mul(sub(b,a),k/n)),p1=add(a,mul(sub(b,a),(k+1)/n));beam(p0,add(p1,[0,hgt,0]),side,0.035,0.02,IRON,11);beam(add(p0,[0,hgt,0]),p1,side,0.035,0.02,IRON,11);
+    if(K.lod>=2)return;const st=K.lod>=1?0.9:0.42,n=Math.max(2,Math.round(L/st));for(let k=0;k<n;k++){const p0=add(a,mul(sub(b,a),k/n)),p1=add(a,mul(sub(b,a),(k+1)/n));beam(p0,add(p1,[0,hgt,0]),side,0.035,0.02,IRON,11);beam(add(p0,[0,hgt,0]),p1,side,0.035,0.02,IRON,11);
       if(k%4===0)beam(p0,add(p0,[0,hgt,0]),side,0.05,0.05,IRON,11);}};
   // footbridge over the line at x xa..xb (deck at yd), from the platform (z zp) to a landing beyond the far side (z zf); stairs run toward -x
   P.footbridge=(xa,xb,zp,zf,yd,stairL,farY)=>{farY=farY===undefined?-0.2:farY;const w=xb-xa,xm=(xa+xb)/2,hh=1.15;
@@ -226,7 +226,7 @@ function build(K,opt,town){const {B,beam,cyl,ico,quad,tri,fp,fb,rnd,rr,pick,tuft
       // spire: a steep square slate pyramid with lucarnes, a finial and a cross
       const sh=9.5,top=[T0,y1+sh,(z0+z1)/2],c4=[[T0-TW-0.15,z0-0.15],[T0+TW+0.15,z0-0.15],[T0+TW+0.15,z1+0.15],[T0-TW-0.15,z1+0.15]];
       B(T0,y1+0.12,(z0+z1)/2,2*TW+0.5,0.24,2*TW+0.5,STONE,8);
-      for(let k=0;k<4;k++){const a=c4[k],b=c4[(k+1)%4];const A=[a[0],y1+0.24,a[1]],Bp=[b[0],y1+0.24,b[1]];const N=K.lod?2:6;
+      for(let k=0;k<4;k++){const a=c4[k],b=c4[(k+1)%4];const A=[a[0],y1+0.24,a[1]],Bp=[b[0],y1+0.24,b[1]];const N=K.lod>=1?2:6;
         for(let j=0;j<N;j++){const t0=j/N,t1=(j+1)/N,l=(p,t)=>[p[0]+(top[0]-p[0])*t,p[1]+(top[1]-p[1])*t,p[2]+(top[2]-p[2])*t];quad(l(A,t0),l(Bp,t0),l(Bp,t1),l(A,t1),null,j%2?[0.28,0.3,0.35]:[0.31,0.33,0.38],18);}
         // lucarne: a little gabled window half way up each face
         const mid=[(a[0]+b[0])/2,y1+0.24,(a[1]+b[1])/2],out=K.v.norm([mid[0]-T0,0,mid[2]-(z0+z1)/2]),lp=[mid[0]-out[0]*0.9,y1+2.4,mid[2]-out[2]*0.9];

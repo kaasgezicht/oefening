@@ -20,7 +20,7 @@ K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],gl
 const VB=[];let PID=1;K.aux=0;K.VB=VB;K.CL=[];
 function pv(p,n,c,m,uv,hs,sd){VB.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2],m,uv[0],uv[1],hs[0],hs[1],sd,K.aux);}
 const nextSeed=()=>(PID++)*0.6180339%1;
-// game mode: K.plot (local rect) keeps only what stands on the house's plot; K.lod 0/1/2 drops detail (1: no shingles, stones, grass; 2: big parts only)
+// game mode: K.plot (local rect) keeps only what stands on the house's plot; K.lod 0/0.5/1/2 drops detail (0.5: no single roof tiles, leaf blobs one step coarser; 1: no shingles, stones, grass; 2: big parts only)
 K.plot=null;K.lod=0;const outP=(x,z)=>K.plot!==null&&(x<K.plot.x0||x>K.plot.x1||z<K.plot.z0||z>K.plot.z1);K.outP=outP;
 function quad(a,b,c,d,n,col,m,sd,hs,ns){if(K.plot&&outP((a[0]+c[0])/2,(a[2]+c[2])/2))return;n=n||norm(cross(sub(b,a),sub(d,a)));hs=hs||[len(sub(b,a))/2,len(sub(d,a))/2];const N=ns||[n,n,n,n];sd=sd===undefined?nextSeed():sd;
   pv(a,N[0],col,m,[-1,-1],hs,sd);pv(b,N[1],col,m,[1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(a,N[0],col,m,[-1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(d,N[3],col,m,[-1,1],hs,sd);}
@@ -46,7 +46,7 @@ const ICO=(()=>{const t=(1+Math.sqrt(5))/2;let V=[[-1,t,0],[1,t,0],[-1,-t,0],[1,
   const out=[[V,F]];for(let d=0;d<2;d++){const V2=V.slice(),cache={},mid=(a,b)=>{const k=a<b?a+'_'+b:b+'_'+a;if(cache[k]!==undefined)return cache[k];V2.push(norm(mul(add(V[a],V[b]),0.5)));return cache[k]=V2.length-1;};
     const F2=[];for(const [a,b,c] of F){const ab=mid(a,b),bc=mid(b,c),ca=mid(c,a);F2.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);}V=V2;F=F2;out.push([V,F]);}return out;})();
 // icosphere blob (flat faces): foliage, moss, cabbages, pebbles
-function ico(c,r,col,m,o){o=o||{};if(K.plot&&outP(c[0],c[2]))return;if((K.lod>=1&&r<0.12)||(K.lod>=2&&r<0.7))return;const [V,F]=ICO[Math.max(0,(o.detail||0)-K.lod)],sy=o.sy||1,jit=o.jit||0,sd=o.seed||rnd()*100,J=V.map((v,i)=>1+(Math.sin(i*12.9898+sd*78.233)*43758.5453%1)*jit);
+function ico(c,r,col,m,o){o=o||{};if(K.plot&&outP(c[0],c[2]))return;if((K.lod>=1&&r<0.12)||(K.lod>=2&&r<0.7))return;const [V,F]=ICO[Math.max(0,(o.detail||0)-Math.ceil(K.lod))],sy=o.sy||1,jit=o.jit||0,sd=o.seed||rnd()*100,J=V.map((v,i)=>1+(Math.sin(i*12.9898+sd*78.233)*43758.5453%1)*jit);
   const P=i=>[c[0]+V[i][0]*r*J[i],c[1]+V[i][1]*r*sy*J[i],c[2]+V[i][2]*r*J[i]];for(const [a,b,d] of F)tri(P(a),P(b),P(d),col,m,(sd*0.37)%1);}
 function blade(x,z,h,col,lean,ang,y0){if(K.lod>=1||(K.plot&&outP(x,z)))return;y0=y0||0.02;const w=rr(0.012,0.022),d=[Math.cos(ang),0,Math.sin(ang)],p=[-d[2],0,d[0]];const b0=[x+p[0]*w,y0,z+p[2]*w],b1=[x-p[0]*w,y0,z-p[2]*w],tp=[x+d[0]*lean,y0+h,z+d[2]*lean];
   pv(b0,[0,1,0],col,13,[-1,-1],[w,h/2],0);pv(b1,[0,1,0],col,13,[1,-1],[w,h/2],0);pv(tp,[0,1,0],col,13,[0,1],[w,h/2],0);}
@@ -71,13 +71,17 @@ K.stones=function(f,u0,u1,y0,y1,o){o=o||{};if(K.lod>=2&&(u1-u0)<1.2)return;if(K.
         const pc=pick(pal),v=rr(0.9,1.08);K.aux=o.soot?clamp((yc-o.soot[0])/(o.soot[1]-o.soot[0]),0,1):0;box(c,X,Y,Z,[pc[0]*v,pc[1]*v,pc[2]*v],o.mat||8);K.aux=0;}
       u+=l;}y+=rh;}};
 // overlapping, staggered rows of shingles or clay tiles on any surface S(u,t,o) (u along the ridge, t up the slope, o along the normal)
-K.shingles=function(S,u0,u1,L,skip,o){o=o||{};if(K.lod>=1)return;const ex=o.exp||0.2,ln=o.len||0.38,th=o.th||0.024,wr=o.w||[0.16,0.3],pal=o.pal||K.C.shingle,mat=o.mat||4,ph=o.phi||[0.07,0.11],yaw=o.yaw===undefined?0.05:o.yaw;
+K.shingles=function(S,u0,u1,L,skip,o){o=o||{};if(K.lod>=0.5)return;/* level 0.5 (middle distance): the roof keeps its shape and texture, the single tiles (a third of a building's triangles, 2-4 pixels each from here) go */const ex=o.exp||0.2,ln=o.len||0.38,th=o.th||0.024,wr=o.w||[0.16,0.3],pal=o.pal||K.C.shingle,mat=o.mat||4,ph=o.phi||[0.07,0.11],yaw=o.yaw===undefined?0.05:o.yaw;
   for(let tb=-0.05;tb<L-0.12;tb+=ex){let u=u0-rnd()*0.25;while(u<u1){let w=rnd()<(o.wideP===undefined?0.12:o.wideP)?rr(wr[1],wr[1]*1.4):rr(wr[0],wr[1]);if(u+w>u1)w=u1-u;if(w<0.07)break;
       const uc=u+w/2,tc=Math.min(tb+ln/2,L-0.02);u+=w+(o.gap===undefined?0.014:o.gap);const P=S(uc,tc,0);if(skip&&skip(P))continue;if(rnd()<(o.missing===undefined?0.012:o.missing))continue;
       let Tu=norm(sub(S(uc+0.03,tc,0),S(uc-0.03,tc,0))),Tt=norm(sub(S(uc,tc+0.03,0),S(uc,tc-0.03,0))),N=norm(cross(Tt,Tu));if(N[1]<0)N=neg(N);
       const phi=rr(ph[0],ph[1]);let Tt2=norm(sub(mul(Tt,Math.cos(phi)),mul(N,Math.sin(phi))));let N2=norm(cross(Tt2,Tu));if(N2[1]<0)N2=neg(N2);
       const psi=rr(-yaw,yaw),Tu2=rot(Tu,N2,psi);Tt2=rot(Tt2,N2,psi);const age=rnd(),base=age<0.07?(o.fresh||[0.78,0.6,0.4]):age>(o.agedP||0.88)?(o.aged||[0.5,0.48,0.44]):pick(pal),v=rr(0.88,1.1);
-      box(add(P,mul(N,0.03+th/2+rr(0,0.006))),mul(Tu2,w/2),mul(N2,th/2),mul(Tt2,ln/2),[base[0]*v,base[1]*v,base[2]*v],mat);}}};
+      tile(add(P,mul(N,0.03+th/2+rr(0,0.006))),mul(Tu2,w/2),mul(N2,th/2),mul(Tt2,ln/2),[base[0]*v,base[1]*v,base[2]*v],mat);}}};
+// a roof tile: only the two faces that can be seen from outside (the top and the lower edge). It was a closed 12-triangle box 2.4 cm thick; the
+// sides sit inside the 1.4 cm gaps between tiles, the underside and the upper edge are covered by the next course
+function tile(c,X,Y,Z,col,m){const sd=nextSeed();if(K.plot&&(outP(c[0],c[2])))return;const lx=len(X),ly=len(Y),lz=len(Z),nz=norm(Z),ny=norm(Y),P=(i,j,k)=>add(add(add(c,mul(X,i)),mul(Y,j)),mul(Z,k));
+  quad(P(-1,1,-1),P(1,1,-1),P(1,1,1),P(-1,1,1),ny,col,m,sd,[lx,lz]);quad(P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),neg(nz),col,m,sd,[lx,ly]);}
 // window: reveal, frame, cols x rows panes over warm curtained glass, sill, optional flower box with trailing plants
 K.win=function(f,u,y0,w,h,o){o=o||{};const yc=y0+h/2,fw=0.08,tc=o.frame||K.C.timber,rv=[0.3,0.21,0.14],cols=o.cols||3,rows=o.rows||2;fb(f,u,yc,0.004,w-0.04,h-0.04,0.008,K.C.glow,2);
   for(const e of [-1,1]){fb(f,u+e*(w/2-0.02),yc,0.04,0.04,h,0.09,rv,6);fb(f,u,yc+e*(h/2-0.02),0.04,w,0.04,0.09,rv,6);}
@@ -98,8 +102,8 @@ K.roof=function(s){const c=s.c||[0,0],R=norm([s.dir[0],0,s.dir[1]]),A=[-R[2],0,R
   const rp=(Sl,x,t,o)=>{const p=rpl(Sl,x,t,o);return W2(p[0],p[1],p[2]);};
   const under=(x,w)=>{const Sl=slope(w<0?-1:1),t=(w-Sl.A0[1])/Sl.a[1];return rpl(Sl,x,clamp(t,0,Sl.L),-TH)[1];};
   const nW=Sl=>add(mul([0,1,0],Sl.n[0]),mul(A,Sl.n[1]));
-  for(const sg of s.slopes||[-1,1]){const Sl=slope(sg),NX=K.lod>=2?4:K.lod?Math.ceil((s.nx||24)/3):(s.nx||24),NT=K.lod>=2?2:K.lod?4:12,xs=i=>-hx+2*hx*i/NX,ts=j=>Sl.L*j/NT+(j===NT?0.08:0);
-    for(let i=0;i<NX;i++)for(let j=0;j<NT;j++){quad(rp(Sl,xs(i),ts(j),K.lod?0.03:0),rp(Sl,xs(i+1),ts(j),K.lod?0.03:0),rp(Sl,xs(i+1),ts(j+1),K.lod?0.03:0),rp(Sl,xs(i),ts(j+1),K.lod?0.03:0),null,K.lod?(clay?mix3((cover.pal||K.C.clay)[0],(cover.pal||K.C.clay)[2],0.5):mix3((cover.pal||K.C.shingle)[0],(cover.pal||K.C.shingle)[2],0.5)):(s.deck||[0.24,0.18,0.13]),K.lod?20:12,0.5);
+  for(const sg of s.slopes||[-1,1]){const Sl=slope(sg),NX=K.lod>=2?4:K.lod>=1?Math.ceil((s.nx||24)/3):(s.nx||24),NT=K.lod>=2?2:K.lod>=1?4:12,xs=i=>-hx+2*hx*i/NX,ts=j=>Sl.L*j/NT+(j===NT?0.08:0);
+    for(let i=0;i<NX;i++)for(let j=0;j<NT;j++){quad(rp(Sl,xs(i),ts(j),K.lod>=1?0.03:0),rp(Sl,xs(i+1),ts(j),K.lod>=1?0.03:0),rp(Sl,xs(i+1),ts(j+1),K.lod>=1?0.03:0),rp(Sl,xs(i),ts(j+1),K.lod>=1?0.03:0),null,K.lod>=1?(clay?mix3((cover.pal||K.C.clay)[0],(cover.pal||K.C.clay)[2],0.5):mix3((cover.pal||K.C.shingle)[0],(cover.pal||K.C.shingle)[2],0.5)):(s.deck||[0.24,0.18,0.13]),K.lod>=1?20:12,0.5);
       quad(rp(Sl,xs(i),ts(j),-TH),rp(Sl,xs(i),ts(j+1),-TH),rp(Sl,xs(i+1),ts(j+1),-TH),rp(Sl,xs(i+1),ts(j),-TH),null,s.soffit||[0.4,0.29,0.19],12,0.7);}
     if(K.lod<2)for(let i=0;i<NX;i++)beam(rp(Sl,xs(i),-0.02,-TH/2),rp(Sl,xs(i+1),-0.02,-TH/2),[0,1,0],0.2,0.05,timber,6,0.2+i*0.01);
     for(const e of s.ends||[-1,1])for(let j=0;j<NT;j++){const x=e*(hx+0.03);beam(rp(Sl,x,ts(j),-0.02),rp(Sl,x,ts(j+1)+0.02,-0.02),nW(Sl),0.24,0.06,timber,6,0.3+j*0.01);}
