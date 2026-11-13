@@ -8464,7 +8464,7 @@ const Bench={sync:false,on:false,n:0,acc:0,backup:null,places:[],notes:[],labels
     for(const c of Life.culverts||[])add('culvert',c.x,c.y+0.6,c.z);for(const m of Life.sawmills||[])add('sawmill',m.x,m.y+4,m.z);
     out.sort((a,b)=>a.d-b.d);return out.slice(0,4);},
   startPick(){this.pickMode=true;this.sec='menu';this.showPanel(false);$('#bnPick').hidden=false;this.ui();},
-  onPick(sx,sy,skip){$('#bnPick').hidden=true;const h=skip?null:Cam.pick(sx,sy),ctr=Cam.pick(innerWidth/2,innerHeight/2),g=h||ctr||Cam.target,near=skip?[]:this.near(sx,sy);
+  onPick(sx,sy,skip){$('#bnPick').hidden=true;$('#bnPickBar').hidden=true;const h=skip?null:Cam.pick(sx,sy),ctr=Cam.pick(innerWidth/2,innerHeight/2),g=h||ctr||Cam.target,near=skip?[]:this.near(sx,sy);
     let pl=null,pd=1e9;for(const p of this.places){const d=Math.hypot(p.t[0]-g[0],p.t[2]-g[2]);if(d<pd){pd=d;pl=p;}}
     this.draft={n:this.notes.length+1,tap:skip?null:[Math.round(sx),Math.round(sy)],ground:[+g[0].toFixed(1),+g[1].toFixed(1),+g[2].toFixed(1)],near,place:pl?{n:pl.n,name:pl.name,dist:Math.round(pd)}:null};
     const d=this.draft,box=$('#bnNote');box.hidden=false;$('#bnNoteInfo').innerHTML=`<b>Note ${d.n}</b> · step ${this.n}<br>${d.near.length?d.near.map(q=>q.label+' <small>('+q.camDist+' m away)</small>').join('<br>'):(skip?'whole screen':'ground')}${d.place?'<br><small>nearest place: '+d.place.n+' '+d.place.name+' ('+d.place.dist+' m)</small>':''}`;
