@@ -1,4 +1,4 @@
-# Trein handoff 62 (14 Nov 2026): v4.7.0, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
+# Trein handoff 63 (14 Nov 2026): v4.7.1, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,10 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.7.0, 14 Nov) — plan step 5 (station ghost)
+### Latest (4.7.1, 14 Nov) — station ghost collision checks
+`Build.stCheck` now samples the real footprint (platform along its length plus the building zone, every 3 m) and turns the ghost red with a reason for: a house or its plot ("A house is in the way"), another station's footprint ("Another station is in the way", replaces the old 70 m rule), windmill, sawmill, workshop, mine, castle, farm yard, and other track beside the building. Tested: scan along a track (blocked beside the existing station and a farm, free elsewhere), a synthetic house on both sides, ui_checks and step2_checks pass. Not tested on the phone. Next: plan step 6.
+
+### Earlier (4.7.0, 14 Nov) — plan step 5 (station ghost)
 User asked (first message of the plan round): when a station is placed make it a green ghost that can be dragged over the ground; a checkmark places it for good. Answer 5a: away from a track it stands free with its own piece of track.
 - **Station tool** (Build → Stations → station): tapping anywhere puts the ghost there (`Build.stgMove(h)`); tapping again moves it; dragging (start on the ghost: its ✥ handle or its outline) moves it freely. Within 16 m of a track (32 m once snapped: hysteresis) it snaps onto the track and follows it (`fitPlat` as before); farther it stands **free** (`stg.free`, x/z/h/y) and brings 70 m of its own track, laid with the station when ✓ is pressed (`makeSiding` + `placeStation`). Nothing in the world changes before ✓ (no levelling, no track, no money).
 - **3D ghost**: `R.drawGhost` draws the real station model (`station` or `stationTown`, detail level 0.5) see-through green, red when it cannot stand, after the sky: depth-only pass first so only its nearest surface shows, then colour with blending via `uGhost` in FS_KIT. Placement and turn are exactly what the finished station gets (`rot = atan2(±dir)+π`, side flips the direction). Platform and building outlines (and the 70 m track strip for a free ghost) are drawn on the 2D overlay in green/red (`StationUI.drawGhost`, `bandFree`). A label shows the reason when red.

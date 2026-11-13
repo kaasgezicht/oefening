@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.7.0 (plan step 5: station placement with a see-through 3D ghost you drag over the ground, checkmark places it; red with a reason when it cannot stand)';
+const VERSION='4.7.1 (station ghost also checks houses, buildings and other stations)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -5004,8 +5004,19 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
       const gy=sampleH(T,x,z),w=sampleWater(T,x,z);if(w[1]>0&&w[0]>gy-0.2)return{ok:false,msg:'The water is in the way'};lo=Math.min(lo,gy);hi=Math.max(hi,gy);
       for(const v of Life.villages){if(v.plaza&&Math.hypot(x-v.plaza[0],z-v.plaza[1])<v.plaza[2]+14)return{ok:false,msg:'Too close to the village square: it will grow'};}}
     if(hi-lo>8)return{ok:false,msg:'Too steep here ('+(hi-lo).toFixed(0)+' m difference)'};
-    for(const q of Life.stInfo||[])if(!q.cargo&&q.st!==G.st&&Math.hypot(q.x-p.x,q.z-p.z)<70)return{ok:false,msg:'Another station is right here'};
+    /* collisions: points over the real footprint (platform along its length, and the building along its own length, every 3 m) against houses (their plots), other
+       stations (their footprints), mills, sawmills, workshops, mines, castles, farm yards, and other track beside the building */
+    const town=G.free?(()=>{const v=Life.nearestVillage(p.x,p.z,420);return !!(v&&(v.level|0)>=Life.LEVELS.length-1);})():this.isTownAt(G),bx=town?[-22,19.5]:[-14,5.5],bb=side>0?[-bx[1],-bx[0]]:bx,pts=[];
+    for(let a=-hl-3;a<=hl+3.01;a+=3)for(const b of [-1,2.5,5])pts.push([a,b,0]);for(let a=bb[0];a<=bb[1]+0.01;a+=3)for(const b of (town?[7,10.5,14,17.5]:[7,10,13]))pts.push([a,b,1]);
+    const W=pts.map(q=>[p.x+c*q[0]+nx*q[1],p.z+sn*q[0]+nz*q[1],q[1],q[2]]);
+    for(const h of Life.houses||[]){if(!h.rect||!Life.plotOn(h)||Math.hypot(h.x-p.x,h.z-p.z)>hl+80)continue;for(const w of W)if(VG.inRect(h.rect,w[0],w[1],1.3))return{ok:false,msg:'A house is in the way'};}
+    for(const q of Life.stInfo||[]){if(q.cargo||q.st===G.st)continue;for(const w of W){const dx=w[0]-q.x,dz=w[1]-q.z,a=dx*q.dx+dz*q.dz,b=dx*q.nx+dz*q.nz;if(Math.abs(a)<q.half+5&&b>-5&&b<(Life.stTown(q)?20:16))return{ok:false,msg:'Another station is in the way'};}}
+    const circ=[];for(const m of Life.mills||[])circ.push([m.x,m.z,12,'A windmill is in the way']);for(const m of Life.sawmills||[])circ.push([m.x,m.z,28,'The sawmill is in the way']);for(const m of Life.workshops||[])circ.push([m.x,m.z,18,'The workshop is in the way']);
+    for(const m of Life.mines||[])circ.push([m.x,m.z,22,'The mine is in the way']);for(const m of Life.castleList())circ.push([m.x,m.z,(m.r||60)+8,'The castle is in the way']);for(const v of Life.villages)if(v.farm&&v.farm.yard)circ.push([v.farm.yard[0],v.farm.yard[1],14,'A farm is in the way']);
+    for(const e of circ)for(const w of W)if(Math.hypot(w[0]-e[0],w[1]-e[1])<e[2])return{ok:false,msg:e[3]};
+    for(const w of W)if(w[3]&&w[2]>=6){const n=Net.nearestOnTrack(w[0],w[1],3);if(n&&!(G.sid&&n.seg.id===G.sid))return{ok:false,msg:'Other track is in the way'};}
     return{ok:true,msg:''};},
+  isTownAt(G){const q=segById(G.sid);if(!q)return false;const pt=segPoint(q,G.t),v=Life.nearestVillage(pt[0],pt[1],420);return !!(v&&(v.level|0)>=Life.LEVELS.length-1);},
   stSync(){const G=this.stg;if(!G)return;G.chk=this.stCheck(G);const ok=$('#btnStOK');if(ok)ok.disabled=!G.chk.ok;for(const id of ['btnStRotL','btnStRotR']){const e=$(id==='btnStRotL'?'#btnStRotL':'#btnStRotR');if(e)e.hidden=!G.free;}this.info(G.chk.ok?(G.free?'This is where the station will be. It brings its own piece of track. Drag it, ⟲ ⟳ turn it, ⇅ other side. Press ✓ when it is right.':'This is where the station will be. Drag it, ⇅ other side. Press ✓ when it is right.'):G.chk.msg+'. Drag it somewhere else.');},
   flipGhost(){if(!this.stg)return;const s=this.stg.free?null:segById(this.stg.sid),cs=s?this.curveSide(s):0;if(cs&&-(this.stg.side||1)!==cs){UI.toast('The curve is too tight here for the building on the inside: it stays on the outside');return;}this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();this.stSync();},
   placeStation(g){const n=Track.stations.length+1,s=segById(g.sid);if(!s)return;const q=segPoint(s,g.t),v=Life.nearestVillage(q[0],q[1],420);const names=['Halte Heide','Halte Bos','Halte Meer','Kruispunt','Halte Berg','Halte Veld'];
