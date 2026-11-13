@@ -40,7 +40,7 @@ K.bridgeGeo=function(s){const {box,B,beam,quad,ico,tuft,rr,pick}=K,{clamp,mix3}=
     for(let k=0;k<14;k++){const e=k%2?1:-1,u=rr(-L/2+0.3,L/2-0.3);ico([u,deck(u)+PH+0.15,e*(hw+0.21)+rr(-0.2,0.2)],rr(0.05,0.1),mix3([0.24,0.38,0.12],[0.42,0.52,0.18],rr(0,1)),1,{sy:0.45,jit:0.3,detail:1});}
     for(const sd of [-1,1])for(const e of [-1,1])for(let k=0;k<8;k++){const u=sd*(L/2+rr(-0.2,0.5)),z=e*(ext+rr(0,0.5));tuft(u,z,6,rr(0.18,0.4),gnd(u)-0.02);}}
   return A;};
-K.bridge=function(s,lod){K.VB.length=0;K.plot=null;K.lod=lod||0;K.aux=0;K.seed(s.seed||11);K.bridgeGeo(s);return Float32Array.from(K.VB);};
+K.bridge=function(s,lod){K.VB.length=0;K.CL.length=0;K.plot=null;K.lod=lod||0;K.aux=0;K.seed(s.seed||11);K.bridgeGeo(s);return Float32Array.from(K.VB);};
 // preview for tools/render_building.js: a 9 m stream bridge and a three-arch river bridge on a ground plane
 K.models.bridge=function(K2,opt){const g=u=>-0.4+0.0*u,mkS=(L,sw,water,dy)=>{const deck=[],ground=[];for(let u=-L/2;u<=L/2+1e-6;u+=0.5){const t=(u+L/2)/L;deck.push([u,2.0+dy*t+0.35*Math.sin(Math.PI*t)]);ground.push([u,Math.abs(u)<sw*0.8+0.6?0:1.6]);}return{L,w:1.9,deck,ground,water,sw};};
   K.bridgeGeo(mkS(9,2.2,null,0.2));K.B(0,-0.5,0,160,1.0,160,[0.42,0.56,0.27],9,0,0);return{target:[0,1.6,0],dist:17,dir:[-0.55,0.32,-0.78],shadowC:[0,1,0],shadowR:10,haze:[40,120]};};

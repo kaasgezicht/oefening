@@ -17,7 +17,7 @@ K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],gl
   shingle:[[0.66,0.47,0.3],[0.6,0.42,0.27],[0.72,0.53,0.34],[0.55,0.4,0.28],[0.62,0.5,0.38]],
   clay:[[0.70,0.30,0.20],[0.63,0.26,0.18],[0.76,0.36,0.22],[0.58,0.27,0.2],[0.68,0.33,0.23],[0.72,0.40,0.27]],
   flowers:[[0.92,0.2,0.24],[0.98,0.6,0.75],[0.99,0.85,0.3],[0.6,0.4,0.85],[0.98,0.97,0.94],[0.99,0.5,0.2]]};
-const VB=[];let PID=1;K.aux=0;K.VB=VB;
+const VB=[];let PID=1;K.aux=0;K.VB=VB;K.CL=[];
 function pv(p,n,c,m,uv,hs,sd){VB.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2],m,uv[0],uv[1],hs[0],hs[1],sd,K.aux);}
 const nextSeed=()=>(PID++)*0.6180339%1;
 // game mode: K.plot (local rect) keeps only what stands on the house's plot; K.lod 0/1/2 drops detail (1: no shingles, stones, grass; 2: big parts only)
@@ -26,10 +26,12 @@ function quad(a,b,c,d,n,col,m,sd,hs,ns){if(K.plot&&outP((a[0]+c[0])/2,(a[2]+c[2]
   pv(a,N[0],col,m,[-1,-1],hs,sd);pv(b,N[1],col,m,[1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(a,N[0],col,m,[-1,-1],hs,sd);pv(c,N[2],col,m,[1,1],hs,sd);pv(d,N[3],col,m,[-1,1],hs,sd);}
 function tri(a,b,c,col,m,sd,uvs,hs){if(K.plot&&outP((a[0]+b[0]+c[0])/3,(a[2]+b[2]+c[2])/3))return;const n=norm(cross(sub(b,a),sub(c,a)));uvs=uvs||[[-1,-1],[1,-1],[0,1]];hs=hs||[1,1];sd=sd===undefined?nextSeed():sd;pv(a,n,col,m,uvs[0],hs,sd);pv(b,n,col,m,uvs[1],hs,sd);pv(c,n,col,m,uvs[2],hs,sd);}
 // oriented box: centre c, half-axis vectors X Y Z (keep them orthogonal)
-function box(c,X,Y,Z,col,m,sd){sd=sd===undefined?nextSeed():sd;const lx=len(X),ly=len(Y),lz=len(Z),mx=Math.max(lx,ly,lz);if(K.plot&&(outP(c[0],c[2])||mx>20))return;if((K.lod>=1&&mx<0.12)||(K.lod>=2&&mx<0.9))return;const nx=norm(X),ny=norm(Y),nz=norm(Z),P=(i,j,k)=>add(add(add(c,mul(X,i)),mul(Y,j)),mul(Z,k));
+function box(c,X,Y,Z,col,m,sd){sd=sd===undefined?nextSeed():sd;const lx=len(X),ly=len(Y),lz=len(Z),mx=Math.max(lx,ly,lz);if(K.plot&&(outP(c[0],c[2])||mx>20))return;if((K.lod>=1&&mx<0.12)||(K.lod>=2&&mx<0.9))return;const nx=norm(X),ny=norm(Y),nz=norm(Z),P=(i,j,k)=>add(add(add(c,mul(X,i)),mul(Y,j)),mul(Z,k)),v0=VB.length;
   quad(P(1,-1,-1),P(1,-1,1),P(1,1,1),P(1,1,-1),nx,col,m,sd,[lz,ly]);quad(P(-1,-1,1),P(-1,-1,-1),P(-1,1,-1),P(-1,1,1),neg(nx),col,m,sd,[lz,ly]);
   quad(P(-1,1,-1),P(1,1,-1),P(1,1,1),P(-1,1,1),ny,col,m,sd,[lx,lz]);quad(P(-1,-1,1),P(1,-1,1),P(1,-1,-1),P(-1,-1,-1),neg(ny),col,m,sd,[lx,lz]);
-  quad(P(1,-1,1),P(-1,-1,1),P(-1,1,1),P(1,1,1),nz,col,m,sd,[lx,ly]);quad(P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),neg(nz),col,m,sd,[lx,ly]);}
+  quad(P(1,-1,1),P(-1,-1,1),P(-1,1,1),P(1,1,1),nz,col,m,sd,[lx,ly]);quad(P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),neg(nz),col,m,sd,[lx,ly]);
+  // a whole box (no face lost to the plot's edge) is a closed solid with outward normals: its far sides can never be seen, the game skips them (K.CL: [first float, end float] ranges in VB)
+  if(VB.length-v0===576&&lx>1e-4&&ly>1e-4&&lz>1e-4)K.CL.push(v0,VB.length);}
 // axis-aligned-ish box by centre and sizes, turned ry about y
 const B=(x,y,z,sx,sy,sz,col,m,ry,sd)=>{const c=Math.cos(ry||0),s=Math.sin(ry||0);box([x,y,z],[c*sx/2,0,s*sx/2],[0,sy/2,0],[-s*sz/2,0,c*sz/2],col,m,sd);};
 // beam between two points; w across along 'side' (made perpendicular), d the remaining depth
@@ -152,7 +154,7 @@ K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};if(K.plot&&outP(x,z))return;cons
   for(let k=0;k<N;k++){const a=k/N*6.283,r=R(a);pts.push([Math.cos(a)*rx*r,Math.sin(a)*rz*r]);}const sd=rnd();
   for(let k=0;k<N;k++){const p=pts[k],q=pts[(k+1)%N];pv([x,y0,z],[0,1,0],col,mat,[0,0],[rx,rz],sd);pv([x+q[0],y0,z+q[1]],[0,1,0],col,mat,[q[0]/rx,q[1]/rz],[rx,rz],sd);pv([x+p[0],y0,z+p[1]],[0,1,0],col,mat,[p[0]/rx,p[1]/rz],[rx,rz],sd);}};
 K.plots={church:{x0:-12.6,x1:12.6,z0:-14.5,z1:12.6},cottage:{x0:-7.75,x1:7.75,z0:-9.45,z1:7.8},tavern:{x0:-8.9,x1:8.8,z0:-13.1,z1:6.2},farmhouse:{x0:-12.9,x1:10.9,z0:-13.2,z1:6.6},shop:{x0:-6.6,x1:9.3,z0:-10.0,z1:6.0}};
-K.build=function(name,opt){VB.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
+K.build=function(name,opt){VB.length=0;K.CL.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
 
 // ================= GL =================
 let G=null;function sh(t,s){const g=G;const x=g.createShader(t);g.shaderSource(x,s);g.compileShader(x);if(!g.getShaderParameter(x,g.COMPILE_STATUS))throw new Error(g.getShaderInfoLog(x));return x;}
