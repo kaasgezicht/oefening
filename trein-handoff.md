@@ -1,4 +1,4 @@
-# Trein handoff 65 (14 Nov 2026): v4.9.0, new farm with grain tower and loading arm; next: plan step 7 (footbridge)
+# Trein handoff 66 (14 Nov 2026): v4.10.0, DB 01 118 locomotive (second choice) and the HEA-style grain hopper; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,15 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.9.0, 14 Nov) — farm from the user's picture, grain station, small fixes
+### Latest (4.10.0, 14 Nov) — DB class 01 and the grain hopper (user's photos)
+- **Loco choice**: `LOCOS` table (`std` = the green loco, `'01'`) with per-kind mesh, chimney/drain/whistle/eye/crew positions, driving wheel radius `R` (exhaust beats) and pull factor `te`; `locoSpec(tr)` reads `tr.veh[0].lt`. `Trains.locoPair(lt)`, `Trains.setLoco(t,lt)`, `consist(n,livery,lt)`; saves store `lt`. Train list: "🚂 Green / 🚂 01" buttons above the wagon editor; `Drive.locoKind` = the kind new locos get.
+- **01 118** (`loco01Mesh`, mesh 34; `VEH.loco01` 14.6 m, 108 t): real size, 2'C1' wheels (bogie 1.0 m, drivers 2.0 m with counterweights, trailing 1.25 m), bar frames, Wagner smoke deflectors, smokebox door with handwheel and "01 118" plate (7-segment figures, `vplate`), chimney, three domes, safety valves, whistle, air and feed pumps, three headlamps, cab with glazed windows, backhead and firedoor glow. ~19k triangles.
+- **Valve gear**: vertex anim types 4-10 in VS_VEH with uniforms uG1-uG3 from `G01` (crank -1.3/1.0, r 0.33, main rod 3.3, return crank 0.2 at -90°, link pivot 0.25/1.78, foot 0.42, die 0.26, lever 0.72..1.98): main rod, crosshead/piston rod/union link, eccentric rod, expansion link, radius rod, combination lever (shear) and valve spindle; the die flips with the running direction (`tr._gs`). Checked frame by frame at four quarter turns.
+- **T32 tender** (`tender01Mesh`, mesh 35, 8.6 m, two bogies).
+- **Hopper** (`hopperMesh` replaces wagonMesh(0), mesh 6): HEA-style open box on two chutes, weathered rust paint (FS material 9), oleo buffers, W-irons, leaf springs, round axlebox covers, ladder, brake lever, placards. **Grain**: `grainHeapMesh` (mesh 36, smooth normals, material 8 = kernels) drawn like the ore heaps, rising in the box with `v.n`, heaped above the rim when full.
+- Tested: renders from all sides, valve gear in 4 positions, cab view, loco switch/save/load, a run forward and back, farm loading still fills all hoppers; ui_checks and step2_checks. Not tested: phone speed with several 01 trains, the green loco's look unchanged (same code path), night lamps.
+
+### Earlier (4.9.0, 14 Nov) — farm from the user's picture, grain station, small fixes
 - **4.8.1**: opening Build no longer drags the camera to a far track end (piece preview only moves the camera when the selected end is in view and near); opening Trains no longer switches to follow; the train list's destination menu only offers stations reachable from the train's track (`Net.reachSegs`).
 - **buildings/farm.js** (embedded; `tools/embed_buildings.py` lists it): kit models `farmstead` (brick farmhouse with veranda, outbuilding, open tractor shed with a static red tractor, yard, fences; built mirrored in x, see `mirror()`), `grainTower`, `grainArm`, and `farmAll` (render only: `node tools/render_building.js farmAll out.jpg`). `KIT.GRAIN={pivot,reach,tipY,track,swing}`.
 - **Game**: `v.farm` keeps its old spot; `fm.rot` is now the model's rotation (long side across the village-fields line when free), `fm.park` (tractor parking), `fm.gate` (tractors enter and leave by the front: `farmRoute` in updateFarm), `fm.unload`. Old barn/shed/silo meshes are no longer instanced. `Life.farmAt(x,z,m)` (plot test: houses and station ghosts keep out), `Life.farmFolk()` (four standing people by day).
