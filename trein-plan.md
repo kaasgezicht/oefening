@@ -82,6 +82,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 - Question 5a: away from a track, should it stand free with its own piece of track (as tapping the ground does now), or only ever
   sit on existing track?
 
+## Step 6 — DONE in 4.8.0 (see the handoff)
 ## Step 6 — Stations and villages never run into each other  (effort: high)
 - 6.1 A station (with its future grand size, second track, forecourt and road) cannot be placed inside the village core at its full
       size: market square, green, church, the innermost streets.

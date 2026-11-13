@@ -1,4 +1,4 @@
-# Trein handoff 63 (14 Nov 2026): v4.7.1, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
+# Trein handoff 64 (14 Nov 2026): v4.8.0, plan step 6 done, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,13 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.7.1, 14 Nov) — station ghost collision checks
+### Latest (4.8.0, 14 Nov) — plan step 6 (stations and villages never overlap)
+- `Life.stReserve(x,z,m)`: a station's future grand footprint (building zone, second track side, forecourt). `fitsRect` (house placement) rejects plots touching it; market stalls (and their people) inside it are skipped.
+- Existing overlaps: `applyTrackMask` (also called from `updateStations`) now also hides houses touching the station's real footprint ("N houses make way for a station"); reversible like track.
+- Station ghost also turns red on the village square and green ("The village square is here" / "The village green is here").
+- Tested in the 4711 world: grown village then station (allowed spots listed, forced station hides 1 house), station then growth (0 houses in the reserved area), twin track. ui_checks, step2_checks pass. No pictures, not tested on the phone.
+
+### Earlier (4.7.1, 14 Nov) — station ghost collision checks
 `Build.stCheck` now samples the real footprint (platform along its length plus the building zone, every 3 m) and turns the ghost red with a reason for: a house or its plot ("A house is in the way"), another station's footprint ("Another station is in the way", replaces the old 70 m rule), windmill, sawmill, workshop, mine, castle, farm yard, and other track beside the building. Tested: scan along a track (blocked beside the existing station and a farm, free elsewhere), a synthetic house on both sides, ui_checks and step2_checks pass. Not tested on the phone. Next: plan step 6.
 
 ### Earlier (4.7.0, 14 Nov) — plan step 5 (station ghost)

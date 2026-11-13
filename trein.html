@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.7.1 (station ghost also checks houses, buildings and other stations)';
+const VERSION='4.8.0 (plan step 6: stations and villages never overlap)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -5009,6 +5009,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     const town=G.free?(()=>{const v=Life.nearestVillage(p.x,p.z,420);return !!(v&&(v.level|0)>=Life.LEVELS.length-1);})():this.isTownAt(G),bx=town?[-22,19.5]:[-14,5.5],bb=side>0?[-bx[1],-bx[0]]:bx,pts=[];
     for(let a=-hl-3;a<=hl+3.01;a+=3)for(const b of [-1,2.5,5])pts.push([a,b,0]);for(let a=bb[0];a<=bb[1]+0.01;a+=3)for(const b of (town?[7,10.5,14,17.5]:[7,10,13]))pts.push([a,b,1]);
     const W=pts.map(q=>[p.x+c*q[0]+nx*q[1],p.z+sn*q[0]+nz*q[1],q[1],q[2]]);
+    for(const v of Life.villages){const gr=v.green,pl=v.plaza;if(!gr&&!pl)continue;for(const w of W){if(pl&&Math.hypot(w[0]-pl[0],w[1]-pl[1])<pl[2]+4)return{ok:false,msg:'The village square is here'};if(gr){const dx=w[0]-gr[0],dz=w[1]-gr[1],u=dx*Math.cos(gr[2])+dz*Math.sin(gr[2]),t=-dx*Math.sin(gr[2])+dz*Math.cos(gr[2]);if(Math.abs(u)<gr[3]+5&&Math.abs(t)<gr[4]+5)return{ok:false,msg:'The village green is here'};}}}
     for(const h of Life.houses||[]){if(!h.rect||!Life.plotOn(h)||Math.hypot(h.x-p.x,h.z-p.z)>hl+80)continue;for(const w of W)if(VG.inRect(h.rect,w[0],w[1],1.3))return{ok:false,msg:'A house is in the way'};}
     for(const q of Life.stInfo||[]){if(q.cargo||q.st===G.st)continue;for(const w of W){const dx=w[0]-q.x,dz=w[1]-q.z,a=dx*q.dx+dz*q.dz,b=dx*q.nx+dz*q.nz;if(Math.abs(a)<q.half+5&&b>-5&&b<(Life.stTown(q)?20:16))return{ok:false,msg:'Another station is in the way'};}}
     const circ=[];for(const m of Life.mills||[])circ.push([m.x,m.z,12,'A windmill is in the way']);for(const m of Life.sawmills||[])circ.push([m.x,m.z,28,'The sawmill is in the way']);for(const m of Life.workshops||[])circ.push([m.x,m.z,18,'The workshop is in the way']);
@@ -6501,7 +6502,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   isLake(x,z){const T=this.T,N=T.N,i=clamp((x/T.cs)|0,0,N-1),j=clamp((z/T.cs)|0,0,N-1),n=j*N+i;return T.water[n*4+3]>0&&T.shore[n]>=0.99&&T.water[n*4]-T.H[n]>0.5;},
   // houses and lamps that end up under new track disappear (and come back when it goes)
   applyTrackMask(T){const M=T.trackMask;if(!M)return;const N=T.N,cs=T.cs;const hit=(x,z,r)=>{for(let j=Math.floor((z-r)/cs);j<=Math.ceil((z+r)/cs);j++)for(let i=Math.floor((x-r)/cs);i<=Math.ceil((x+r)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;if(M[j*N+i]>60)return true;}return false;};
-    let n=0;for(const h of this.houses){h.gone=hit(h.x,h.z,h.r*0.8);if(h.gone)n++;}for(const l of this.lamps)l.gone=hit(l.x,l.z,1);for(const m of this.mills)m.gone=hit(m.x,m.z,5);this.uploaded=false;if(n)Log.info(`${n} houses make way for the railway`);},
+    let n=0;for(const h of this.houses){h.gone=hit(h.x,h.z,h.r*0.8);if(h.gone)n++;}for(const l of this.lamps)l.gone=hit(l.x,l.z,1);for(const m of this.mills)m.gone=hit(m.x,m.z,5);{let ns=0;for(const h of this.houses)if(!h.gone&&this.stInfo&&this.stInfo.length&&this.stRectHit(h.rect||VG.rectOf(h.x,h.z,h.rot,{r:h.r}),(x,z,m)=>this.stFoot(x,z,m),1.5)){h.gone=true;ns++;}if(ns)Log.info(`${ns} houses make way for a station`);}this.uploaded=false;if(n)Log.info(`${n} houses make way for the railway`);},
   FARM:{level:1,trans:40,cost:1,growth:60},
   // village upgrades: each unlocks at a village size and after some transport (a badge on the label), then is bought (€1 for now)
   UPG:{farm:{p:'farmOwned',name:'Farming',icon:'🌾',level:1,trans:40,cost:1,growth:60,desc:'fields, pastures, a farmstead and tractors'},
@@ -6555,6 +6556,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     for(let i=0;i<=5;i++)for(let j=0;j<=5;j++){const u=Q.x0+(Q.x1-Q.x0)*i/5,w=Q.z0+(Q.z1-Q.z0)*j/5,xx=Q.x+c*u-s*w,zz=Q.z+s*u+c*w,hh=R.sampleHr(T,xx,zz);mn=Math.min(mn,hh);mx=Math.max(mx,hh);if(this.wetAt(xx,zz)||this.trackAt(xx,zz))return null;}
     if(mx-mn>(v&&v.plan==='hill'?6.5:5))return null;
     for(const st of streets||[]){if(VG.segDist(st,Q.x,Q.z)[0]>40)continue;const L=Math.hypot(st[2]-st[0],st[3]-st[1]),n=Math.ceil(L/1.5);for(let k=0;k<=n;k++)if(VG.inRect(Q,st[0]+(st[2]-st[0])*k/n,st[1]+(st[3]-st[1])*k/n,1.0))return null;}
+    if(this.stInfo&&this.stInfo.length&&this.stRectHit(Q,(x,z,m)=>this.stReserve(x,z,m),2))return null;
     for(const u of this.villages)if(u.plaza&&(VG.inRect(Q,u.plaza[0],u.plaza[1],u.plaza[2])||cq.some(p=>Math.hypot(p[0]-u.plaza[0],p[1]-u.plaza[1])<u.plaza[2]+1)))return null;
     return(mn+mx)/2;},
   // street and road segments near a point: village lanes (tagged with their village), country, station, industry and player roads
@@ -7039,6 +7041,10 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const lo=si.parent?1.2:this.stTown(si)?(si.twin?-(KIT.TWIN_G+6):-6):1.2;if(Math.abs(mx)<L+m&&mz>lo-m&&mz<6+m)return true;if(!si.parent){const town=this.stTown(si),bx=town?[-22,19.5]:[-14,5.5];if(mx>bx[0]-m&&mx<bx[1]+m&&mz>5.5-m&&mz<this.stBack(si)+1.4+m)return true;}}return false;},
   // ---- the station building's frame: model x along the building, z out from the track toward it (see buildings/station.js)
   stW(si,mx,mz){return[si.x-si.dx*mx+si.nx*mz,si.z-si.dz*mx+si.nz*mz];},
+  /* the footprint a passenger station will have when its village is a town (grand building, second track, forecourt): houses never get planned in it */
+  stReserve(x,z,m){m=m||0;for(const si of this.stInfo||[]){if(si.cargo||si.parent)continue;const rx=x-si.x,rz=z-si.z;if(Math.abs(rx)>70||Math.abs(rz)>70)continue;const mx=-(rx*si.dx+rz*si.dz),mz=rx*si.nx+rz*si.nz,L=Math.max((si.st.len||44)/2+4,26);
+      if(mx>-22-m&&mx<19.5+m&&mz>-(KIT.TWIN_G+7)-m&&mz<19+m)return true;if(Math.abs(mx)<L+m&&mz>-(KIT.TWIN_G+7)-m&&mz<6+m)return true;}return false;},
+  stRectHit(Q,fn,m){const c=VG.corners(Q);if(fn((c[0][0]+c[2][0])/2,(c[0][1]+c[2][1])/2,m))return true;for(let i=0;i<4;i++){const a=c[i],b=c[(i+1)%4];if(fn(a[0],a[1],m)||fn((a[0]+b[0])/2,(a[1]+b[1])/2,m))return true;}return false;},
   stTown(si){return!!(si&&si.v&&(si.v.level|0)>=this.LEVELS.length-1);},
   stDoorX(si){return this.stTown(si)?-6.8:0;},stBack(si){return this.stTown(si)?13.4:12.4;},
   // the way in: from the forecourt up the steps to the rear door, through the booking hall (out of sight a few seconds), out of the front
@@ -7064,6 +7070,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       for(const w of this.walkers){if(!(w.state==='stroll'||w.state==='home')||!w.v)continue;if(this.stFoot(w.tx,w.tz,1)){const t=this.safeSpot(w.v,w);w.tx=t[0];w.tz=t[1];}if(w.wp&&w.wp.some(p=>this.stFoot(p[0],p[1],1.8))){const pth=this.vpath(w.v,[w.x,w.z],[w.tx,w.tz]);w.wp=pth&&pth.length>1?pth:null;}}}}
     for(const si of this.stInfo)if(si.st.twinOf){const p=this.stInfo.find(q=>q.st.id===si.st.twinOf);if(p){si.parent=p;p.twin=si;si.v=p.v;}}
     {const live=new Set(this.stInfo.map(q=>q.rkey).filter(Boolean));for(const k in this.stRoads)if(!live.has(k)){delete this.stRoads[k];this.roadsDirty=true;}}
+    if(App.T&&App.T.trackMask&&this.houses&&this.houses.length)this.applyTrackMask(App.T);
     for(const tr of Trains.list){if(!tr.pax)tr.pax=[];if(!tr.poses||!tr.poses.length)continue;const mid=tr.poses[Math.floor(tr.poses.length/2)];if(!mid)continue;
       let at=null;if(Math.abs(tr.v)<0.4)for(const si of this.stInfo){const cr=si.cargo;if((Math.hypot(mid.c[0]-si.x,mid.c[2]-si.z)<28&&Math.abs((mid.c[0]-si.x)*si.nx+(mid.c[2]-si.z)*si.nz)<2.4)||(!cr&&tr.poses.some(p=>p&&Math.abs((p.c[0]-si.x)*si.dx+(p.c[2]-si.z)*si.dz)<si.half-2&&Math.abs((p.c[0]-si.x)*si.nx+(p.c[2]-si.z)*si.nz)<2.4))||(cr&&tr.poses.some(p=>p&&Math.hypot(p.c[0]-si.x,p.c[2]-si.z)<22))){at=si;break;}}
       if(tr.plat&&tr.plat.moving)continue;// pulling up along a short platform: still at this station
@@ -7298,7 +7305,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       {const SH={bakery:[],restaurant:[]};for(const h of this.houses)if(h.shop&&this.houseOn(h))SH[h.shop].push(h);for(const k in SH){const L=SH[k],b=B(L.length);L.forEach((h,i)=>b.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst(k==='bakery'?'bakeries':'restaurants',b,L.length);}
         {const BK=this.houses.filter(h=>h.bank&&h.village&&h.village.bankOwned&&this.houseOn(h)),bb=B(BK.length);BK.forEach((h,i)=>bb.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('banks',bb,BK.length);}
         const MS=[];this.marketPeople=[];for(const v of this.villages){const lv=v.level|0;if(lv<1||!v.plaza)continue;const pr=v.plaza[2]-3.2,base=v.dir||0,angs=lv>=2?[0.32,0.6,0.95,1.23]:[0.78];
-          for(let q=0;q<4;q++)for(const a0 of angs){const a=base+q*Math.PI/2+a0,x=v.x+Math.cos(a)*pr,z=v.z+Math.sin(a)*pr,y=R.sampleHr(this.T,x,z),rot=a+Math.PI,hh=((q*7+a0*13)%1+1)%1;MS.push([x,y,z,1,rot,0.5,hh,0]);
+          for(let q=0;q<4;q++)for(const a0 of angs){const a=base+q*Math.PI/2+a0,x=v.x+Math.cos(a)*pr,z=v.z+Math.sin(a)*pr,y=R.sampleHr(this.T,x,z),rot=a+Math.PI,hh=((q*7+a0*13)%1+1)%1;if(this.stReserve(x,z,3))continue;MS.push([x,y,z,1,rot,0.5,hh,0]);
             if(P.timeOfDay>7&&P.timeOfDay<19){const bx=x+Math.cos(a)*1.4,bz=z+Math.sin(a)*1.4;this.marketPeople.push({x:bx,z:bz,y:R.sampleHr(this.T,bx,bz)-0.05,rot:rot,hash:hh,k:'stand'});if(hh>0.4){const fx=x-Math.cos(a)*1.6,fz=z-Math.sin(a)*1.6;this.marketPeople.push({x:fx,z:fz,y:R.sampleHr(this.T,fx,fz)-0.05,rot:a,hash:(hh*3.7)%1,k:'stand'});}}}}
         const mb=B(MS.length);MS.forEach((r,i)=>mb.set(r,i*8));R.inst('stalls',mb,MS.length);}
 
