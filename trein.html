@@ -188,7 +188,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
   <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic" data-ic="roadBend">Scenic (hug the land)</button><button data-prefer="direct" data-ic="direct">Direct</button></span><button id="rClear" class="tog" data-ic="restart">Start the route over</button></div></div>
   <div class="chips" id="bTrackOpts"><span class="seg" id="bProfile"><button data-v="follow" data-ic="follow">Follow ground</button><button data-v="grade" data-ic="grade">Even grade</button></span><button id="bBridges" class="tog" data-ic="bridge">Bridges</button><button id="bBridgeType">Stone arch</button><button id="bTunnels" class="tog" data-ic="tunnel">Tunnels</button></div>
   <div class="tools" id="bIdle"><button id="btnUndo" data-ic="undo">Undo</button><button id="btnRemove" data-ic="eraser">Remove track</button><button id="btnClearAll" data-ic="trash">Clear all</button><button id="btnDone" data-ic="done">Done</button></div>
-  <div class="tools" id="bPending" hidden><button id="btnDiscard" data-ic="close">Discard plan</button><button id="btnStFlip" hidden>⇅ Other side</button><button id="btnBuildOK" class="go big keepcap" data-ic="hammerCheck">Build it</button></div>
+  <div class="tools" id="bPending" hidden><button id="btnDiscard" data-ic="close">Discard plan</button><button id="btnStRotL" hidden>⟲</button><button id="btnStRotR" hidden>⟳</button><button id="btnStFlip" hidden>⇅ Other side</button><button id="btnStOK" class="go big keepcap" hidden>✓ Place station</button><button id="btnBuildOK" class="go big keepcap" data-ic="hammerCheck">Build it</button></div>
 </div>
 <div id="driveBar" hidden>
   <div id="trainList" hidden></div>
@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.6.1 (fix: dark roofs at the middle building detail level; People detail distance setting)';
+const VERSION='4.7.0 (plan step 5: station placement with a see-through 3D ghost you drag over the ground, checkmark places it; red with a reason when it cannot stand)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -879,20 +879,29 @@ const StationUI={ghostHandle:null,ghostPoly:null,drawn:false,els:new Map(),STEP:
   band(sid,t,side,len,l0,l1,step,d0,d1){const out=[[],[]];if(d0===undefined){d0=-len/2;d1=len/2;}for(let d=d0;d<=d1+1e-6;d+=step){const a=advance({sid,t,dir:1},d),i=posInfo(a.pos);if(!i)continue;const h=a.pos.dir>0?i.h:i.h+Math.PI;// heading of the centre's direction
       const nx=Math.sin(h)*side,nz=-Math.cos(h)*side;out[0].push([i.x+nx*l0,i.y+1,i.z+nz*l0]);out[1].push([i.x+nx*l1,i.y+1,i.z+nz*l1]);}return out;},
   poly(b){const P=[];for(const p of b[0]){const q=Cam.toScreen(p[0],p[1],p[2]);if(!q)return null;P.push(q);}for(const p of b[1].slice().reverse()){const q=Cam.toScreen(p[0],p[1],p[2]);if(!q)return null;P.push(q);}return P;},
-  inGhost(x,y){const P=this.ghostPoly;if(!P)return false;let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;},
+  inGhost(x,y){for(const P of [this.ghostPoly,this.ghostPoly2]){if(!P)continue;let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}if(c)return true;}return false;},
+  /* the platform's and the building's outline on the ground, for a free ghost (no track yet): same bands as along a track */
+  bandFree(G,l0,l1,step,d0,d1){const out=[[],[]],c=Math.cos(G.h),sn=Math.sin(G.h),side=G.side||1,nx=sn*side,nz=-c*side,T=R.world;for(let d=d0;d<=d1+1e-6;d+=step){const x=G.x+c*d,z=G.z+sn*d;
+      out[0].push([x+nx*l0,sampleH(T,x+nx*l0,z+nz*l0)+0.4,z+nz*l0]);out[1].push([x+nx*l1,sampleH(T,x+nx*l1,z+nz*l1)+0.4,z+nz*l1]);}return out;},
   drawGhost(){const c=$('#ovl');if(!c)return;const g=c.getContext('2d'),G=Build.stg,on=Build.active&&Build.mode==='signals'&&G;
-    if(!on){this.ghostHandle=null;this.ghostPoly=null;if(this.drawn){g.clearRect(0,0,c.width,c.height);this.drawn=false;}return;}
+    if(!on){this.ghostHandle=null;this.ghostPoly=null;this.ghostPoly2=null;R.ghost=null;if(this.drawn){g.clearRect(0,0,c.width,c.height);this.drawn=false;}return;}
+    if(!G.chk)G.chk=Build.stCheck(G);const ok=G.chk.ok;
     if(c.width!==innerWidth*devicePixelRatio){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;}g.clearRect(0,0,c.width,c.height);this.drawn=true;
-    const side=G.side||1,town=this.isTown(G.sid,G.t),bx=town?[-22,19.5]:[-14,5.5],bd=side>0?[-bx[1],-bx[0]]:bx;// model x runs against the track when side > 0
-    const plat=this.poly(this.band(G.sid,G.t,side,G.len,1.5,5.7,4)),bld=this.poly(this.band(G.sid,G.t,side,0,5.8,town?13.4:12.4,(bd[1]-bd[0])/5,bd[0],bd[1]));this.ghostPoly=plat;
-    g.save();g.scale(devicePixelRatio,devicePixelRatio);const t=performance.now()/1000,pulse=0.5+0.5*Math.sin(t*4);
-    const fill=(P,col,dash)=>{if(!P)return;g.beginPath();P.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle=col;g.fill();g.setLineDash(dash);g.lineDashOffset=-t*20;g.lineWidth=2.5;g.strokeStyle='#fff8e0';g.stroke();};
-    fill(bld,`rgba(201,161,74,${0.42+0.14*pulse})`,[8,6]);fill(plat,`rgba(243,217,138,${0.5+0.16*pulse})`,[6,5]);g.setLineDash([]);
-    const s=segById(G.sid),ci=s?posInfo({sid:G.sid,t:G.t,dir:1}):null;this.ghostHandle=null;
+    const side=G.side||1,pp=Build.stPos(G),town=G.free?!!(Life.nearestVillage(G.x,G.z,420)&&(Life.nearestVillage(G.x,G.z,420).level|0)>=Life.LEVELS.length-1):this.isTown(G.sid,G.t),bx=town?[-22,19.5]:[-14,5.5],bd=side>0?[-bx[1],-bx[0]]:bx;// model x runs against the track when side > 0
+    /* the 3D ghost: the real building, at the same place and turn the finished station gets */
+    if(pp){const c0=Math.cos(pp.h),s0=Math.sin(pp.h),cc=side<0?-c0:c0,ss=side<0?-s0:s0;R.ghost={type:town?'stationTown':'station',x:pp.x,y:pp.y,z:pp.z,rot:Math.atan2(ss,cc)+Math.PI,ok};}
+    let plat,bld;if(G.free){plat=this.poly(this.bandFree(G,1.5,5.7,4,-G.len/2,G.len/2));bld=this.poly(this.bandFree(G,5.8,town?13.4:12.4,(bd[1]-bd[0])/5,bd[0],bd[1]));}
+    else{plat=this.poly(this.band(G.sid,G.t,side,G.len,1.5,5.7,4));bld=this.poly(this.band(G.sid,G.t,side,0,5.8,town?13.4:12.4,(bd[1]-bd[0])/5,bd[0],bd[1]));}
+    this.ghostPoly=plat;this.ghostPoly2=bld;
+    g.save();g.scale(devicePixelRatio,devicePixelRatio);const t=performance.now()/1000,pulse=0.5+0.5*Math.sin(t*4),rgb=ok?'70,220,100':'240,70,50';
+    const fill=(P,col,dash)=>{if(!P)return;g.beginPath();P.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle=col;g.fill();g.setLineDash(dash);g.lineDashOffset=-t*20;g.lineWidth=2.5;g.strokeStyle=ok?'#e6ffe6':'#ffe0dc';g.stroke();};
+    if(G.free){/* its own piece of track: 70 m, laid with the station */const tr=this.poly(this.bandFree(G,-0.9,0.9,6,-35,35));if(tr){g.beginPath();tr.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fillStyle='rgba(235,235,235,0.55)';g.fill();}}
+    fill(plat,`rgba(${rgb},${0.34+0.12*pulse})`,[6,5]);g.setLineDash([]);
+    const ci=pp?{x:pp.x,y:pp.y,z:pp.z,h:pp.h}:null;this.ghostHandle=null;
     if(ci){const nx=Math.sin(ci.h)*side,nz=-Math.cos(ci.h)*side,hp=Cam.toScreen(ci.x+nx*3.6,ci.y+1.2,ci.z+nz*3.6);
-      if(hp){this.ghostHandle=hp;g.beginPath();g.arc(hp[0],hp[1],22,0,6.283);g.fillStyle='#15191ae6';g.fill();g.lineWidth=3;g.strokeStyle='#f3d98a';g.stroke();
-        g.fillStyle='#f3d98a';g.font='700 20px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('⇆',hp[0],hp[1]+1);
-        const lp=Cam.toScreen(ci.x+nx*9,ci.y+(town?16:11),ci.z+nz*9);if(lp){g.font='600 13px system-ui';const tx=`New station · ${G.len} m platform`;const w=g.measureText(tx).width+16;g.fillStyle='#15191ad9';g.fillRect(lp[0]-w/2,lp[1]-12,w,24);g.fillStyle='#f3e9cf';g.fillText(tx,lp[0],lp[1]+1);}}}
+      if(hp){this.ghostHandle=hp;g.beginPath();g.arc(hp[0],hp[1],22,0,6.283);g.fillStyle='#15191ae6';g.fill();g.lineWidth=3;g.strokeStyle=ok?'#9ff0a8':'#ff9a8a';g.stroke();
+        g.fillStyle=ok?'#9ff0a8':'#ff9a8a';g.font='700 20px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('✥',hp[0],hp[1]+1);
+        const lp=Cam.toScreen(ci.x+nx*9,ci.y+(town?16:11),ci.z+nz*9);if(lp){g.font='600 13px system-ui';const tx=ok?`New station · ${G.len} m platform`:G.chk.msg;const w=g.measureText(tx).width+16;g.fillStyle=ok?'#15191ad9':'#4a1410e6';g.fillRect(lp[0]-w/2,lp[1]-12,w,24);g.fillStyle='#f3e9cf';g.fillText(tx,lp[0],lp[1]+1);}}}
     g.restore();},
   isTown(sid,t){const s=segById(sid);if(!s)return false;const q=segPoint(s,t),v=Life.nearestVillage(q[0],q[1],420);return !!(v&&(v.level|0)>=Life.LEVELS.length-1);},
   // the end of a platform: e = +1 front (direction of the piece), -1 back
@@ -3260,7 +3269,7 @@ void main(){float bare=0.;if(int(aMat+.5)==1&&aS.y>.8)bare=clamp(uSeason.w*1.3-.
   // camera), so a face goes or stays as a whole; it must be 10 cm behind the face's plane, which covers the rounding of the stored values.
   if(uPass!=1&&uBackSkip>.5&&aNrm.w>.5&&dot(vN,uCamPos.xyz-iA.xyz)-aPd*iA.w/256.<-.1*iA.w)gl_Position=vec4(2.,2.,2.,1.);}`;
 const FS_KIT=()=>GLSL_HEAD+GLSL_COMMON+`
-in vec3 vW;in vec3 vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int vM;flat in float vSeed;flat in float vAux;flat in float vHash;in float vY;uniform int uPass;uniform float uFlat;`+FS_OUT+`
+in vec3 vW;in vec3 vN;in vec2 vUV;flat in vec2 vHS;flat in vec3 vC;flat in int vM;flat in float vSeed;flat in float vAux;flat in float vHash;in float vY;uniform int uPass;uniform float uFlat;uniform vec4 uGhost;`+FS_OUT+`
 #define uL uSunDir.xyz
 const float uMoss=1.;
 `+KIT.GLSL.NOISE+KIT.GLSL.MATS.replace('float y=vW.y;','float y=vY;')+`
@@ -3285,6 +3294,7 @@ void main(){if(uPass>=1){o=vec4(0);return;}
   else if(m==22){vec3 sg=L(stainedC(q)),Rf=reflect(-V,Ng);col=sg*(uSunCol.rgb*.1*max(dot(Ng,uL),0.)+ambient(Ng)*.4+.04+2.6*uMisc.x)+L(mix(uSkyH.rgb,uSkyZ.rgb,clamp(Rf.y*1.5,0.,1.)))*.12*(1.-uMisc.x);}
   else{float nl=dot(Nd,uL),ramp=smoothstep(-.03,.16,nl)*.6+smoothstep(.38,.6,nl)*.4,lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,dot(Ng,uL));
     float cav=(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19)?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;col=A*(uSunCol.rgb*lit+ambient(Nd)*cav);}
+  if(uGhost.a>0.){/* station ghost: the lit building tinted green (red when it cannot stand), see-through, brighter at the rim */float rim=pow(1.-max(dot(Ng,V),0.),2.);vec3 gc=mix(col*.6,uGhost.rgb,.5)+uGhost.rgb*.22*rim;o=vec4(gc*uGhost.a,uGhost.a);return;}
   o=vec4(fogc(col,vW),1.);}`;
 const FS_OBJ=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;flat in float vHash;flat in float vTint;uniform int uPass;uniform int uKind;`+FS_OUT+`
@@ -4963,7 +4973,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     if(this.remove){this.info('Tap a piece of track to remove it. Tap Remove again when done.');return;}
     if(m==='pieces')this.info(this.pc.cur?'':this.pc.newLine?'Tap the ground where the new line should start.':Track.segs.length?'Tap a gold ring (a track end) to build from it, or the pin with + for a new line.':'Tap the pin with + (new line), then tap the ground to start your railway.');
     else if(m==='draw')this.info(Track.segs.length?'Draw with one finger on the map, starting on a gold ring to extend the track. End on another ring to join up.':'Draw your railway with one finger on the map. Two fingers move the camera.');
-    else if(m==='signals')this.info(this.sigTool==='signal'?'Tap the track to put up a signal. Signals split the line into blocks; trains on Auto only enter an empty block.':this.sigTool==='station'?'Tap the track to build a station. Trains on Auto stop at every station.':this.sigTool==='longer'?'Tap a station to make its platform 16 m (about one coach) longer, so long trains fit.':this.sigTool==='shorter'?'Tap a station to make its platform 16 m shorter.':'Tap a signal or station to remove it.');
+    else if(m==='signals')this.info(this.sigTool==='signal'?'Tap the track to put up a signal. Signals split the line into blocks; trains on Auto only enter an empty block.':this.sigTool==='station'?'Tap where the station should stand, on a track or on open ground. A green ghost shows it: drag it, then press ✓. Trains on Auto stop at every station.':this.sigTool==='longer'?'Tap a station to make its platform 16 m (about one coach) longer, so long trains fit.':this.sigTool==='shorter'?'Tap a station to make its platform 16 m shorter.':'Tap a signal or station to remove it.');
     else this.info(!this.rt.a?'Tap where the line should start: a gold ring, or open ground.':!this.rt.b?'Now tap the destination: another ring to join up, or open ground.':'');},
   setSig(t){this.sigTool=t;if(t!=='station')this.stg=null;this.ui();this.hint();},
   // ---- station ghost: where the station will stand; drag it along the track, flip it to the other side, then Build it (the ground is
@@ -4977,8 +4987,27 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   fitPlat(g){for(let k=0;k<2;k++){const c={sid:g.sid,t:g.t,dir:1},f=this.reach(c,g.len/2),b=this.reach({...c,dir:-1},g.len/2),sh=(g.len/2-f)-(g.len/2-b);
       if(Math.abs(sh)<0.05)break;const a=advance(c,-sh);if(a.blocked)break;const p=a.pos;g.t=p.t;g.sid=p.sid;if(p.dir<0){/* crossed onto a reversed piece: keep the same physical side */g.side=-(g.side||1);}}},
   ghostAt(near){const g={sid:near.seg.id,t:near.t,len:44};g.side=this.stSide(g.sid,g.t);this.stg=g;this.fitPlat(g);this.ui();
-    this.info('This is where the station will be. Drag it along the track, ⇅ puts the building on the other side. Build it when it is right.');},
-  flipGhost(){if(!this.stg)return;const s=segById(this.stg.sid),cs=s?this.curveSide(s):0;if(cs&&-(this.stg.side||1)!==cs){UI.toast('The curve is too tight here for the building on the inside: it stays on the outside');return;}this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();},
+    this.info('This is where the station will be. Drag it, ⇅ puts the building on the other side. Press ✓ when it is right.');},
+  /* ---- the station ghost can stand on a track or free on the ground (then it brings its own 70 m of track, laid when you press ✓) ---- */
+  stPos(G){if(G.free)return{x:G.x,y:G.y,z:G.z,h:G.h};const i=posInfo({sid:G.sid,t:G.t,dir:1});return i?{x:i.x,y:i.y,z:i.z,h:i.h}:null;},
+  stgMove(h){const G=this.stg,keep=G&&G.sideSet,snap=G&&!G.free?Math.max(32,Cam.dist*0.1):Math.max(16,Cam.dist*0.04),on=Net.nearestOnTrack(h[0],h[2],snap);
+    if(on){let g=G&&!G.free?G:{sid:0,t:0,len:G?G.len:44};g.sid=on.seg.id;g.t=on.t;delete g.free;if(!(keep))g.side=this.stSide(g.sid,g.t);else g.side=G.side;g.sideSet=!!keep;this.stg=g;this.fitPlat(g);}
+    else{let hd=0;if(G){const p=this.stPos(G);hd=p?p.h:0;}else{const cp=Cam.pos||[h[0],0,h[2]+1];hd=Math.atan2(h[2]-cp[2],h[0]-cp[0])+Math.PI/2;const nt=Net.nearestOnTrack(h[0],h[2],200);if(nt){hd=segPoint(nt.seg,nt.t)[2];}}
+      let side=G?G.side||1:1;if(!G){const v=Life.nearestVillage(h[0],h[2],420);if(v)side=Math.sin(hd)*(v.x-h[0])-Math.cos(hd)*(v.z-h[2])>=0?1:-1;}
+      this.stg={free:true,x:h[0],z:h[2],h:hd,y:ground0(h[0],h[2])+FORMATION_DROP,len:G?G.len:44,side,sideSet:keep};}
+    if(!G||!!G.free!==!!this.stg.free)this.ui();/* buttons for a new ghost, or when it goes between a track and free ground */this.stSync();if(!G)this.info('This is where the station will be. Drag it anywhere (it brings its own piece of track), ⟲ ⟳ turn it, ⇅ other side. Press ✓ when it is right.');},
+  rotGhost(d){const G=this.stg;if(!G)return;if(!G.free){UI.toast('On a track the station follows the line. Drag it off the track to turn it.');return;}G.h=wrapPi(G.h+d);this.stSync();},
+  /* can it stand here? the footprint (platform and building, 5 x 4 points) must be on land, inside the world, not too steep, clear of the village square and of other stations */
+  stCheck(G){const p=this.stPos(G);if(!p)return{ok:false,msg:'No track here'};const T=R.world,c=Math.cos(p.h),sn=Math.sin(p.h),side=G.side||1,nx=sn*side,nz=-c*side,hl=(G.len||44)/2;let lo=1e9,hi=-1e9;
+    for(const a of [-hl,-hl/2,0,hl/2,hl])for(const b of [0,4,10,15]){const x=p.x+c*a+nx*b,z=p.z+sn*a+nz*b;
+      if(x<30||z<30||x>T.W-30||z>T.W-30)return{ok:false,msg:'Too close to the edge of the world'};
+      const gy=sampleH(T,x,z),w=sampleWater(T,x,z);if(w[1]>0&&w[0]>gy-0.2)return{ok:false,msg:'The water is in the way'};lo=Math.min(lo,gy);hi=Math.max(hi,gy);
+      for(const v of Life.villages){if(v.plaza&&Math.hypot(x-v.plaza[0],z-v.plaza[1])<v.plaza[2]+14)return{ok:false,msg:'Too close to the village square: it will grow'};}}
+    if(hi-lo>8)return{ok:false,msg:'Too steep here ('+(hi-lo).toFixed(0)+' m difference)'};
+    for(const q of Life.stInfo||[])if(!q.cargo&&q.st!==G.st&&Math.hypot(q.x-p.x,q.z-p.z)<70)return{ok:false,msg:'Another station is right here'};
+    return{ok:true,msg:''};},
+  stSync(){const G=this.stg;if(!G)return;G.chk=this.stCheck(G);const ok=$('#btnStOK');if(ok)ok.disabled=!G.chk.ok;for(const id of ['btnStRotL','btnStRotR']){const e=$(id==='btnStRotL'?'#btnStRotL':'#btnStRotR');if(e)e.hidden=!G.free;}this.info(G.chk.ok?(G.free?'This is where the station will be. It brings its own piece of track. Drag it, ⟲ ⟳ turn it, ⇅ other side. Press ✓ when it is right.':'This is where the station will be. Drag it, ⇅ other side. Press ✓ when it is right.'):G.chk.msg+'. Drag it somewhere else.');},
+  flipGhost(){if(!this.stg)return;const s=this.stg.free?null:segById(this.stg.sid),cs=s?this.curveSide(s):0;if(cs&&-(this.stg.side||1)!==cs){UI.toast('The curve is too tight here for the building on the inside: it stays on the outside');return;}this.stg.side=-(this.stg.side||1);this.stg.sideSet=true;this.ui();this.stSync();},
   placeStation(g){const n=Track.stations.length+1,s=segById(g.sid);if(!s)return;const q=segPoint(s,g.t),v=Life.nearestVillage(q[0],q[1],420);const names=['Halte Heide','Halte Bos','Halte Meer','Kruispunt','Halte Berg','Halte Veld'];
     let name=v?v.name:names[(n-1)%names.length];if(Track.stations.some(s=>s.name===name))name+=' '+(Track.stations.filter(s=>s.name.startsWith(name)).length+1);
     const st={id:Track.nextId++,sid:g.sid,t:g.t,name,side:g.side||1};if(g.len&&g.len!==44)st.len=g.len;Track.stations.push(st);Life.attachSawmill(st);Net.levelStation(st);
@@ -4993,7 +5022,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     $('#mSignals').hidden=m!=='signals';for(const b of document.querySelectorAll('#buildBar [data-sig]'))b.classList.toggle('on',b.dataset.sig===this.sigTool);
     const rd=this.road()&&m!=='signals',rb=rd&&Roads.tool!=='build';$('#mTrackHow').hidden=tab==='stations'||this.remove||rb;$('#bTrackOpts').hidden=tab!=='track'||this.remove;$('#btnClearAll').hidden=tab!=='track';$('#pSlope').hidden=rd;$('#pNew').textContent=rd?'New road':'New line';
     $('#mPieces').hidden=m!=='pieces'||this.remove||rb;$('#mRoute').hidden=m!=='route'||this.remove||rb;$('#bProfile').hidden=m==='pieces';$('#mRoads').hidden=tab!=='roads';for(const b of document.querySelectorAll('#buildBar [data-rtool]'))b.classList.toggle('on',b.dataset.rtool===Roads.tool);
-    $('#bPending').hidden=!pend;$('#bIdle').hidden=pend;$('#btnBuildOK').disabled=!gh&&!(this.plan&&this.plan.ok);$('#btnStFlip').hidden=!gh;$('#btnDiscard').textContent=gh?'Discard':'Discard plan';
+    $('#bPending').hidden=!pend;$('#bIdle').hidden=pend;$('#btnBuildOK').disabled=!gh&&!(this.plan&&this.plan.ok);$('#btnStFlip').hidden=!gh;$('#btnStOK').hidden=!gh;$('#btnBuildOK').hidden=gh;$('#btnStRotL').hidden=!(gh&&this.stg.free);$('#btnStRotR').hidden=!(gh&&this.stg.free);if(gh)$('#btnStOK').disabled=!(this.stg.chk&&this.stg.chk.ok);$('#btnDiscard').textContent=gh?'Discard':'Discard plan';
     for(const b of document.querySelectorAll('#buildBar [data-v]'))b.classList.toggle('on',b.dataset.v===P.trackProfile);
     for(const b of document.querySelectorAll('#buildBar [data-dir]'))b.classList.toggle('on',+b.dataset.dir===this.pc.dir);
     for(const b of document.querySelectorAll('#buildBar [data-slope]'))b.classList.toggle('on',b.dataset.slope===this.pc.slope);
@@ -5248,7 +5277,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     this.discard(true);const n=this.endNear(e.clientX,e.clientY);
     this.stroke=n?{node:n.id,trail:[[n.x,n.z]]}:{node:0,ax:h[0],az:h[2],trail:[[h[0],h[2]]]};if(n)this.buzz();this.ui();return true;},
   move(e){this.lastXY=[e.clientX,e.clientY];
-    if(this.stDrag&&this.stg){const h=Cam.pick(e.clientX,e.clientY);if(!h)return;const n=Net.nearestOnTrack(h[0],h[2],Math.max(40,Cam.dist*0.2));if(n){const g=this.stg;g.sid=n.seg.id;g.t=n.t;if(!g.sideSet)g.side=this.stSide(g.sid,g.t);this.fitPlat(g);}return;}
+    if(this.stDrag&&this.stg){const h=Cam.pick(e.clientX,e.clientY);if(!h)return;this.stgMove(h);return;}
     if(!this.stroke)return;const h=Cam.pick(e.clientX,e.clientY);if(!h)return;
     const tr=this.stroke.trail,l=tr[tr.length-1];if(Math.hypot(h[0]-l[0],h[2]-l[1])<2.5)return;tr.push([h[0],h[2]]);
     const snap=this.endNear(e.clientX,e.clientY,this.stroke.node);if((snap?snap.id:0)!==(this.stroke.snap||0)){this.stroke.snap=snap?snap.id:0;if(snap)this.buzz();}
@@ -5268,9 +5297,8 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
         const lt=Trains.list.reduce((m,t)=>Math.max(m,Trains.length(t.veh)),0);this.info(`${best.name}: platform ${L1} m.`+(lt?` Your longest train is ${Math.round(lt)} m${lt<=L1-4?' and fits.':', still longer.'}`:''));
         Net.changed();App.trackChanged();Sfx.clunk();return;}
       let near=null;if(this.sigTool==='station'){const sw=Life.nearSawSlot(h[0],h[2],38);if(sw&&!Track.stations.some(q=>q[sw.kind]&&q[sw.kind].mi===sw.mi&&q[sw.kind].k===sw.k)){const sl=sw.slot;near=Net.nearestOnTrack(sl.p[0],sl.p[1],9)||this.makeSiding(sl.p[0],sl.p[1],sl.t);}}
-      if(!near&&this.sigTool==='station'){const on=Net.nearestOnTrack(h[0],h[2],Math.max(14,Cam.dist*0.04));if(on){this.ghostAt(on);return;}if(this.stg){this.info('Tap the track to move the station there, or drag it.');return;}}
+      if(!near&&this.sigTool==='station'){this.stgMove(h);return;}
       if(!near)near=Net.nearestOnTrack(h[0],h[2],Math.max(8,Cam.dist*0.02));
-      if(!near&&this.sigTool==='station'){const cp=Cam.pos||[h[0],0,h[2]+1];let t=Math.atan2(h[2]-cp[2],h[0]-cp[0])+Math.PI/2;const nt=Net.nearestOnTrack(h[0],h[2],200);if(nt){const q=segPoint(nt.seg,nt.t);t=q[2];}near=this.makeSiding(h[0],h[2],t);}
       if(!near){this.info('Tap closer to the track.');return;}
       if(this.sigTool==='signal'){Track.sigs.push({id:Track.nextId++,sid:near.seg.id,t:near.t});this.info(`Signal placed. ${Track.sigs.length} signal${Track.sigs.length>1?'s':''} on the network.`);}
       else{const n=Track.stations.length+1,q=segPoint(near.seg,near.t),v=Life.nearestVillage(q[0],q[1],420);const names=['Halte Heide','Halte Bos','Halte Meer','Kruispunt','Halte Berg','Halte Veld'];
@@ -5303,7 +5331,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     if(p.junc){const seg=segById(p.junc.sid);if(seg){const J=Net.split(seg,p.junc.t);J.h=p.junc.h;p={...p,snap:J};}}
     let start=p.start.node?{node:Track.node(p.start.node.id)}:p.start;if(p.start.sj){const seg=segById(p.start.sj.sid);if(seg){const J=Net.split(seg,p.start.sj.t);start={node:J};}}addPieces(start,p,false);
     Log.info(`track built (${this.mode}): ${p.msg}; total ${Track.segs.length} pieces ${Track.length().toFixed(0)} m`);App.trackChanged();Sfx.clunk();},
-  confirm(){if(this.stg&&this.mode==='signals'){const g=this.stg;this.stg=null;this.ui();Busy.run('Building the station and levelling the ground…',()=>this.placeStation(g));return;}
+  confirm(){if(this.stg&&this.mode==='signals'){const g=this.stg;if(!(g.chk||this.stCheck(g)).ok){UI.toast(this.stCheck(g).msg);return;}if(!Money.canBuild()){UI.toast('Out of money');return;}this.stg=null;this.ui();Busy.run('Building the station and levelling the ground…',()=>{if(g.free){const near=this.makeSiding(g.x,g.z,g.h);g.sid=near.seg.id;g.t=near.t;}this.placeStation(g);});return;}
     const p=this.plan;if(!p||!p.ok||!p.pieces||this.mode==='pieces')return;if(this.road()){if(!Money.canBuild()){UI.toast('Out of money');return;}Roads.commitPlan(p);}else this.commit(p);this.plan=null;this.preview(null);
     if(this.mode==='route'){this.rt.a=this.rt.b=null;}this.ui();this.drawTrail();this.info(p.snap?'Joined up!':this.mode==='draw'?'Built. Draw on from the gold ring at its end.':'Built. Tap a new start for the next route.');},
   discard(quiet){if(this.stg){this.stg=null;this.stDrag=false;if(!quiet)this.info('Discarded.');}if(this.plan||this.stroke){this.plan=null;this.stroke=null;this.preview(null);if(this.mode==='route'){this.rt.b=null;}if(!quiet)this.info('Discarded.');}if(document.querySelector('#ovl'))this.drawTrail();this.ui();},
@@ -7586,6 +7614,15 @@ R.cullDo=function(b,ym,r,pl){const n=b.n,D=b.cpu;let k=0;const V=b.vcpu&&b.vcpu.
   return{buf:b.vbuf,n:k};};
 R.drawVehGlass=function(p){if(!R.veh||!R.drawTrainsFn)return;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),0);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform2f(p.u('uOcc'),0,0);
   gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);R.drawTrainsFn();gl.depthMask(true);gl.disable(gl.BLEND);gl.uniform1i(p.u('uGlass'),0);gl.bindVertexArray(null);};
+// the station ghost: the real building model, see-through green (red when it cannot stand). Depth first so only its nearest surface shows
+R.drawGhost=function(){const g=R.ghost;if(!g||!R.kitVao||!R.kitMesh[g.type])return;const p=R.pKit,m=R.kitMesh[g.type][1];if(!R.ghostBuf)R.ghostBuf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,R.ghostBuf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([g.x,g.y,g.z,1,g.rot,0.5,0.5,0]),gl.DYNAMIC_DRAW);
+  gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),2);gl.uniform1f(p.u('uBackSkip'),0);gl.uniform1f(p.u('uFlat'),0);gl.bindVertexArray(R.kitVao);gl.bindBuffer(gl.ARRAY_BUFFER,R.ghostBuf);
+  gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
+  gl.colorMask(false,false,false,false);gl.depthMask(true);gl.depthFunc(gl.LESS);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,1);
+  gl.colorMask(true,true,true,true);gl.depthMask(false);gl.depthFunc(gl.LEQUAL);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+  gl.uniform1i(p.u('uPass'),0);gl.uniform4f(p.u('uGhost'),g.ok?0.25:0.95,g.ok?0.95:0.2,g.ok?0.35:0.15,0.62);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,1);
+  gl.uniform4f(p.u('uGhost'),0,0,0,0);gl.disable(gl.BLEND);gl.depthMask(true);gl.depthFunc(gl.LESS);gl.bindVertexArray(null);};
 // instance buffers (8 floats: x y z scale | rot tint hash anim)
 R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:gl.createBuffer(),cap:0,n:0};}
   b.n=n;b.cpu=data;b.cver=(b.cver|0)+1;if(!n)return b;gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);const bytes=n*32;
@@ -7979,7 +8016,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
     if(!ord)terr();if(!S.vehicles)R.drawVehicles(0,ord?'o':undefined);R.pm('vehicles');
     gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),0);gl.bindVertexArray(R.objVao);if(!S.kit&&ord)R.drawKit(0);R.pm('kit');if(!S.life)Life.draw(0);R.pm('life');if(!S.veg)R.drawVeg(0);R.pm('veg');if(!S.kit&&!ord)R.drawKit(0);R.pm('kit');gl.bindVertexArray(null);
     if(ord){terr();if(!S.vehicles)R.drawVehicles(0,'g');gl.useProgram(R.pObj.p);gl.bindVertexArray(null);}}
-  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');
+  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');if(T&&R.ghost)R.drawGhost();
   // depth copy for soft water, clouds, mist and smoke
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.depFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.DEPTH_BUFFER_BIT,gl.NEAREST);
   if(T&&P.waterOn&&+P.reflQuality>0&&R.waterChunks.length){gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.sceneFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);bindTU(TU.uSceneCol,gl.TEXTURE_2D,R.sceneTex);}
@@ -8569,7 +8606,7 @@ async function boot(){
   on('#buildBar [data-sig]',b=>Build.setSig(b.dataset.sig));$('#btnClearAll').onclick=()=>Build.clearAll();
   $('#cA').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'fix':'cross');$('#cB').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'asis':'junc');$('#cC').onclick=()=>Build.choose(Build.choice&&Build.choice.kind==='join'?'none':'cancel');
   $('#bBridges').onclick=()=>Build.toggle('trackBridges');{const nm=['Stone arch','Brick arch','Steel truss','Plate girder','Concrete','Timber trestle'],up=()=>{$('#bBridgeType').textContent=nm[+P.bridgeType|0];};up();$('#bBridgeType').onclick=()=>{P.bridgeType=((+P.bridgeType|0)+1)%6;UI.refresh('bridgeType');up();};}$('#bTunnels').onclick=()=>Build.toggle('trackTunnels');
-  $('#btnRemove').onclick=()=>Build.toggleRemove();$('#btnBuildOK').onclick=()=>Build.confirm();$('#btnStFlip').onclick=()=>Build.flipGhost();$('#btnDiscard').onclick=()=>Build.discard();
+  $('#btnRemove').onclick=()=>Build.toggleRemove();$('#btnBuildOK').onclick=()=>Build.confirm();$('#btnStFlip').onclick=()=>Build.flipGhost();$('#btnStOK').onclick=()=>Build.confirm();$('#btnStRotL').onclick=()=>Build.rotGhost(-Math.PI/12);$('#btnStRotR').onclick=()=>Build.rotGhost(Math.PI/12);$('#btnDiscard').onclick=()=>Build.discard();
   $('#btnDrive').onclick=()=>Drive.enter();$('#btnSound').onclick=()=>Sfx.toggle();App.setFF=f=>{App.ff=f;const b=$('#btnFF');b.innerHTML=svgIcon('fast')+'<span>'+f+'×</span>';b.classList.toggle('on',f>1);b.title=f>1?`Fast forward ${f}× (tap for ${f>=8?1:f*2}×)`:'Fast forward';};
   $('#btnFF').onclick=()=>App.setFF((App.ff||1)>=8?1:(App.ff||1)*2);App.setFF(1);Drive.bind();Sky.bind();Sfx.syncBtn();
   // sound and music pause while the tab is in the background (they used to keep playing with the screen off)

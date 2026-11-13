@@ -1,4 +1,4 @@
-# Trein handoff 61 (13 Nov 2026): v4.6.0, plan step 4 done (people detail setting); next: plan step 5 (station ghost) unless the user wants water first
+# Trein handoff 62 (14 Nov 2026): v4.7.0, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,16 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.6.1, 14 Nov) — roof glitch fix from the user's screenshot
+### Latest (4.7.0, 14 Nov) — plan step 5 (station ghost)
+User asked (first message of the plan round): when a station is placed make it a green ghost that can be dragged over the ground; a checkmark places it for good. Answer 5a: away from a track it stands free with its own piece of track.
+- **Station tool** (Build → Stations → station): tapping anywhere puts the ghost there (`Build.stgMove(h)`); tapping again moves it; dragging (start on the ghost: its ✥ handle or its outline) moves it freely. Within 16 m of a track (32 m once snapped: hysteresis) it snaps onto the track and follows it (`fitPlat` as before); farther it stands **free** (`stg.free`, x/z/h/y) and brings 70 m of its own track, laid with the station when ✓ is pressed (`makeSiding` + `placeStation`). Nothing in the world changes before ✓ (no levelling, no track, no money).
+- **3D ghost**: `R.drawGhost` draws the real station model (`station` or `stationTown`, detail level 0.5) see-through green, red when it cannot stand, after the sky: depth-only pass first so only its nearest surface shows, then colour with blending via `uGhost` in FS_KIT. Placement and turn are exactly what the finished station gets (`rot = atan2(±dir)+π`, side flips the direction). Platform and building outlines (and the 70 m track strip for a free ghost) are drawn on the 2D overlay in green/red (`StationUI.drawGhost`, `bandFree`). A label shows the reason when red.
+- **Buttons** (bottom bar while a ghost exists): Discard · ⟲ ⟳ (free ghost only, 15° steps) · ⇅ Other side · **✓ Place station** (disabled while red); `btnBuildOK` is hidden then.
+- **Validity** (`Build.stCheck`, 5×4 footprint points): inside the world (30 m from the edge), no water, height difference ≤ 8 m, not within 14 m of a village square (`v.plaza`: "it will grow"), no other station within 70 m. Red also blocks ✓ (`confirm` re-checks and checks money).
+- Tests (benchmark world, scratch `ghost5.js`): free ghost on clear ground ok; at the village square red with the reason; rotate + flip; ✓ gives station #3 and a new 70 m segment and removes the ghost; snapped ghost beside track ok. Check pictures: `check-station-ghost.png`.
+- Not done (step 6): reserving the station's future footprint inside villages (houses and stalls are not checked yet, only the square), moving market stalls out of an existing station.
+
+### Earlier (4.6.1, 14 Nov) — roof glitch fix from the user's screenshot
 User screenshot (Pixel 9a): a cottage roof drawn nearly black with vertical streaks at one distance. Cause: my level 0.5 (4.5.0) removed the roof tiles but left the dark roof DECK (0.24/0.18/0.13, material 12) that normally lies under them. Fix: `K.shingles` at level 0.5 lays the finished roof (colour of the far levels, material 20) in a coarse grid over the same area (so porch, dormer and awning roofs in cottage/farmhouse/tavern are covered too, respecting `skip`), and `K.farRoof` darkens the plain roof colour (×0.84/0.89/0.93) because the tiled roof is darker than the plain one (measured on renders: tavern 1.00 of the tiled roof, cottage 1.09 after the fix; it was 1.14–1.27). Same darkening for level 1. Check picture: `check-roof-levels.png` (cottage and tavern at 0 / 0.5 / 1 with `tools/render_building.js <name> out.png '{"lod":0.5,"game":true}'`). Remaining known step: the tiled roof has moss and grey tiles the plain roof lacks (a gentle change at the switch, not a glitch).
 
 ### Earlier (4.6.0, 13 Nov) — plan step 4 (people LOD), kept small on purpose

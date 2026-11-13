@@ -71,6 +71,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 - 4.4 Buses, lorries, tractors, boats, and far trains: a low level each.
 - 4.5 A crowd budget on Low (the farthest people are left out first).
 
+## Step 5 — DONE in 4.7.0 (see the handoff)
 ## Step 5 — Station placement with a 3D ghost  (effort: high)
 - 5.1 The real station model, translucent green (red where it cannot stand), instead of the outline.
 - 5.2 Drag it over the ground. Near a track it snaps onto the track; away from track it stands free with its own piece of track
