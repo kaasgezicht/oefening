@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.5.0 (plan step 3: buildings with a middle detail level, switching by size on screen, thinner roof tiles; about a third fewer triangles per building)';
+const VERSION='4.6.0 (plan step 4: People detail distance setting, lower on the Low preset)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -446,6 +446,7 @@ def('optShadowHalf',{tab:'exp',label:'Update sun shadows every other frame (movi
 def('optBackface',{tab:'exp',label:'Skip the far sides of building blocks (same picture)',kind:'check',def:1,apply:'live'});
 def('optPrepass',{tab:'exp',label:'Buildings depth-first (same picture; may help or hurt, measure)',kind:'check',def:0,apply:'live'});
 def('optCull',{tab:'exp',label:'Skip buildings and objects outside the view (same picture)',kind:'check',def:1,apply:'live'});
+def('peopleLod',{tab:'quality',label:'People detail distance',min:0.3,max:2,step:0.05,def:1,unit:' ×',apply:'live',q:1});
 def('kitLod',{tab:'quality',label:'Building detail distance',min:0.3,max:2,step:0.05,def:1,unit:' ×',apply:'live',q:1});
 def('terrainLod',{tab:'quality',label:'Terrain detail distance',min:60,max:800,step:10,def:260,unit:' m',apply:'live',q:1});
 def('shadowRes',{tab:'quality',label:'Shadows',kind:'select',options:[[0,'Off'],[1024,'1024'],[2048,'2048'],[4096,'4096']],def:2048,apply:'shadow',q:1});
@@ -456,9 +457,9 @@ def('craneSpeed',{tab:'trains',label:'Timber crane speed',min:0.5,max:6,step:0.5
 def('btnCaps',{tab:'file',label:'Words under the button icons',kind:'check',def:0,apply:'live'});
 
 const PRESETS={
-  low:{renderScale:0.5,msaa:0,shadowRes:1024,terrainLod:140,treeDist:1800,treeLod:300,bloom:0.3,nightLights:8,riverQ:0},
-  medium:{renderScale:0.7,msaa:0,shadowRes:2048,terrainLod:260,treeDist:3200,treeLod:520,bloom:0.45,nightLights:16,riverQ:1},
-  high:{renderScale:0.9,msaa:4,shadowRes:4096,terrainLod:420,treeDist:5000,treeLod:900,bloom:0.45,nightLights:24,riverQ:2}
+  low:{renderScale:0.5,msaa:0,shadowRes:1024,peopleLod:0.6,terrainLod:140,treeDist:1800,treeLod:300,bloom:0.3,nightLights:8,riverQ:0},
+  medium:{renderScale:0.7,msaa:0,shadowRes:2048,peopleLod:1,terrainLod:260,treeDist:3200,treeLod:520,bloom:0.45,nightLights:16,riverQ:1},
+  high:{renderScale:0.9,msaa:4,shadowRes:4096,peopleLod:1.4,terrainLod:420,treeDist:5000,treeLod:900,bloom:0.45,nightLights:24,riverQ:2}
 };
 function applyPreset(name,silent){const pr=PRESETS[name];if(!pr)return;for(const k in pr){const old=P[k];P[k]=pr[k];if(old!==P[k]&&!silent)paramChanged(k,true);}P.preset=name;UI.refreshAll();}
 
@@ -7274,7 +7275,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const LP=[],PL=[],BG=[];for(const c of this.stClean.values()){for(const q of c.leaves)if(near(q.x,q.z,500))LP.push([q.x,q.y,q.z,0.45+0.75*q.a,q.r,0.5,q.h,0]);for(const q of c.piles)if(q.a>0.05&&near(q.x,q.z,500))PL.push([q.x,q.y,q.z,0.55+0.65*Math.min(1.6,q.a)/1.6,q.r,0.5,0.5,0]);
           for(const q of c.bags)if(near(q.x,q.z,500))BG.push([q.x,q.y,q.z,1,q.r,0.5,0.5,0]);const w=c.sw;if(w&&w.bag&&!w.hidden){const r=w.rot;BG.push([w.x-Math.sin(r)*0.34+Math.cos(r)*0.12,w.y+0.32,w.z+Math.cos(r)*0.34+Math.sin(r)*0.12,0.9,r,0.5,0.5,0]);}}
         const l1=B(LP.length);LP.forEach((r,i)=>l1.set(r,i*8));R.inst('leafp',l1,LP.length);const l2=B(PL.length);PL.forEach((r,i)=>l2.set(r,i*8));R.inst('leafpl',l2,PL.length);const l3=B(BG.length);BG.forEach((r,i)=>l3.set(r,i*8));R.inst('leafbg',l3,BG.length);}
-    {const PB={far:[]};for(const k of PEOPLE)PB[k]=[];const put=(x,y,z,rot,hash,vr,pose,anim,sc)=>{const d=Math.hypot(x-cam.pos[0],y-cam.pos[1],z-cam.pos[2]);(d<80?PB[vr]||PB.man:PB.far).push([x,y,z,sc||1,rot,(pose||0)/10+0.02,hash,anim||0]);};
+    {const PD=80*clamp(+P.peopleLod||1,0.2,3);/* metres to the simple far figure: Quality > People detail distance */const PB={far:[]};for(const k of PEOPLE)PB[k]=[];const put=(x,y,z,rot,hash,vr,pose,anim,sc)=>{const d=Math.hypot(x-cam.pos[0],y-cam.pos[1],z-cam.pos[2]);(d<PD?PB[vr]||PB.man:PB.far).push([x,y,z,sc||1,rot,(pose||0)/10+0.02,hash,anim||0]);};
       const W=this.walkers.filter(w=>near(w.x,w.z,900)&&!w.hidden),S=this.sledP.filter(q=>q.st==='up'&&near(q.x,q.z,700)).concat((this.beachStand||[]).concat(this.busWait||[],this.marketPeople||[],this.sitePeople||[]).map(q=>({...q,sx:q.x,sz:q.z,sy:-999,pitch:0}))),a=null;W.forEach((w,i)=>{let y=Math.max(Hr(w.x,w.z)-0.05,this.deckY(w.x,w.z));const si=w.st;if(w.y!=null)y=w.y;else if(si){const rx=w.x-si.x,rz=w.z-si.z,al=rx*si.dx+rz*si.dz,la=rx*si.nx+rz*si.nz;if(Math.abs(al)<(si.half||22)+0.5&&la>1.2&&la<5.9)y=Math.max(y,si.y+0.85);}
         if(!w.hidden)put(w.x,y,w.z,w.rot,w.hash,w.var||this.pvar(w.hash),0,w.mv?(w.state==='board'||w.state==='leave'?7.5:6.4):0,w.sc);});
       S.forEach(q=>put(q.x,q.y,q.z,q.rot,q.hash,q.var||this.pvar(q.hash),q.pose!=null?q.pose:q.k==='stand'?5:0,q.st==='up'?5:0,q.sc));
@@ -8401,7 +8402,7 @@ function resizeCanvas(){const cv=gl.canvas,dpr=Math.min(devicePixelRatio||1,3),s
 const BENCH={seed:4711,size:4096,step:1/30,settle:600,id:'B1'};
 const Bench={sync:false,on:false,n:0,acc:0,backup:null,places:[],notes:[],labels:true,paused:false,busy:false,pickMode:false,sig:'',rngOrig:Math.random,simR:null,rndR:null,sec:'menu',measureText:'',
   device(id){const d=PDEF[id];if(!d)return true;if(['quality','exp','sound','file'].includes(d.tab))return true;for(const k in PRESETS)if(id in PRESETS[k])return true;
-    return['preset','autoRes','frameCap','showStats','msaa','renderScale','kitLod','volume'].includes(id);},
+    return['preset','autoRes','frameCap','showStats','msaa','renderScale','kitLod','peopleLod','volume'].includes(id);},
   async enter(){if(this.busy||App.busy||this.on)return;
     if(!confirm('Open the benchmark world? Your game is kept aside and comes back when you press Exit in the benchmark world. Saving is switched off there. Loading takes a moment.'))return;
     this.busy=true;try{this.backup=snapshot();try{localStorage.setItem('trein.bench.backup',JSON.stringify(this.backup));}catch(e){}

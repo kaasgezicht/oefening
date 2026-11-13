@@ -1,4 +1,4 @@
-# Trein handoff 60 (13 Nov 2026): v4.5.0, plan step 3 done (building LOD); next: plan step 4 (people LOD) — and water cost looks as important as buildings on the phone
+# Trein handoff 61 (13 Nov 2026): v4.6.0, plan step 4 done (people detail setting); next: plan step 5 (station ghost) unless the user wants water first
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,12 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.5.0, 13 Nov) — plan step 3 (building LOD)
+### Latest (4.6.0, 13 Nov) — plan step 4 (people LOD), kept small on purpose
+Measured first (benchmark world, 4 places): people are 19k–59k of 0.9–1.1M triangles (≈190 figures, ~650 each; the full figure is 640–690 triangles, the far one 112) = 2–6 %; cow 176, sheep 116, horse 198, bus 528, lorry 396, tractor 1312, steamer 1578 are smaller still. A new middle mesh would save under 3 %, so it was not built.
+- **Quality → People detail distance** (`P.peopleLod`, 0.3–2×, scales the old fixed 80 m to the simple far figure; `PD` in `Life.prepare`): Low 0.6, Medium 1, High 1.4 in the presets. Test: at the platform view 0.5× draws 21 full figures, 1× 44, 2× 59.
+- Not done (plan 4.1 middle level, 4.3 far level without limb maths, 4.4 vehicle levels, 4.5 crowd budget): too little to gain per the numbers above; the water and the first-frame costs matter more.
+
+### Earlier (4.5.0, 13 Nov) — plan step 3 (building LOD)
 User sent the benchmark-world "Measure all places" table from the Pixel 9a (Mali-G715, 1079×2124, preset custom): grand station 29.1 ms (1.60M tris), platform 26.2 (1.47M), village street 29.6 (2.23M), village from above 33.6 (1.05M), second village 40.6 (2.42M), lake shore 18.6 (0.48M), **lake from above 41.6 (0.57M tris)**, **river 31.3 (0.34M tris)**, stream mouth 25.2 (0.45M), culvert 28.4 (1.90M), sawmill 23.3. Reading: about 7 ms per million triangles (shore vs culvert), AND water is the biggest outlier (+12 to +20 ms with almost no triangles) → plan steps 8–10 matter for speed as much as the buildings. They did not send the "Measure on this phone" table with the building test lines yet.
 - **Audit** (triangles L0 / L0.5 / L1 / L2, before this step L0 was): cottage 100k / 61k / 13k / 2k, tavern 157k, church 132k, farmhouse 115k, station 177k, stationTown 331k, sawmill 74k, culvert 1.2k. Of a cottage's 100k, 42k are garden leaf blobs (material 1); of a tavern/station 75 % are slate tiles (material 18, boxes 0.12–0.2 m).
 - **Thin roof tiles** (`tile()` in kit.js, used by `K.shingles`): each tile was a closed 12-triangle box 2.4 cm thick; now only its top and its lower edge (4 triangles). Picture compared old vs new at 4× zoom at 12–50 m in the benchmark world: same slate relief. L0 now: cottage 85k, tavern 108k, church 81k, farmhouse 82k, station 94k, stationTown 174k (−14 % to −48 %).

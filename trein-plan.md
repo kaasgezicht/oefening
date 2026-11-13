@@ -62,6 +62,7 @@ The square in the lake is a different thing: the edge of the finer wave mesh nea
 - 3.6 A picture sheet of every building at each level at its switch distance, side by side.
 - Question 3a: is a slight visible switch acceptable on Low, as long as Medium and High show none?
 
+## Step 4 — DONE in 4.6.0, reduced: people are only 2–6 % of the triangles, so just the distance setting (see the handoff)
 ## Step 4 — People, animals and vehicles LOD  (effort: medium)
 - 4.1 Three levels for people: near (full figure, moving limbs), middle (about 40 % of the triangles, same walk), far (the existing
       simple figure). Same for horses, cows, sheep.
