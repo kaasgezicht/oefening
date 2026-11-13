@@ -1,4 +1,4 @@
-# Trein handoff 64 (14 Nov 2026): v4.8.0, plan step 6 done, plan step 5 done (station ghost); next: plan step 6 (stations and villages never overlap) — or water first
+# Trein handoff 65 (14 Nov 2026): v4.9.0, new farm with grain tower and loading arm; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,15 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.8.0, 14 Nov) — plan step 6 (stations and villages never overlap)
+### Latest (4.9.0, 14 Nov) — farm from the user's picture, grain station, small fixes
+- **4.8.1**: opening Build no longer drags the camera to a far track end (piece preview only moves the camera when the selected end is in view and near); opening Trains no longer switches to follow; the train list's destination menu only offers stations reachable from the train's track (`Net.reachSegs`).
+- **buildings/farm.js** (embedded; `tools/embed_buildings.py` lists it): kit models `farmstead` (brick farmhouse with veranda, outbuilding, open tractor shed with a static red tractor, yard, fences; built mirrored in x, see `mirror()`), `grainTower`, `grainArm`, and `farmAll` (render only: `node tools/render_building.js farmAll out.jpg`). `KIT.GRAIN={pivot,reach,tipY,track,swing}`.
+- **Game**: `v.farm` keeps its old spot; `fm.rot` is now the model's rotation (long side across the village-fields line when free), `fm.park` (tractor parking), `fm.gate` (tractors enter and leave by the front: `farmRoute` in updateFarm), `fm.unload`. Old barn/shed/silo meshes are no longer instanced. `Life.farmAt(x,z,m)` (plot test: houses and station ghosts keep out), `Life.farmFolk()` (four standing people by day).
+- **Grain station**: farms are a fourth slot kind (`Life.slotInds()`, `sawSlots(fm)` gives 4 sides, `st.farm={mi:villageIndex,k}`, name "<village> Farm"). `Life.farmTower(fm)` puts the tower at the station (11.7 m from the track, facing it) or at the farm's front when there is none. The station is cargo (`si.cargo`), drawn as kit platform pieces. Grain now accrues only at farm stations (`Goods.src` no longer gives grain near farms).
+- **Arm** (`Crane` kind 'farm', `runGrain`, `grainWork`): `Crane.stopAt` stops the train with the first two unfilled grain hoppers either side of the arm; the arm (`s.ax` = spout position along the track; `Life.armInst` writes its instance every frame: turn + stretch) fills the nearer, then the other; then sets `tr.grainMove` and the train draws up (train loop, "Drawing up at"), two wagons at a time; `tr.grainStuck` when the track ends.
+- Tested (seed 4711, 4 km): all four sides stop/pour/draw up correctly (front side through all 5 hoppers); ui_checks and step2_checks. Not tested: phone, saved games with an old farm layout, tractors' new routes over a long time, lorry interplay.
+
+### Earlier (4.8.0, 14 Nov) — plan step 6 (stations and villages never overlap)
 - `Life.stReserve(x,z,m)`: a station's future grand footprint (building zone, second track side, forecourt). `fitsRect` (house placement) rejects plots touching it; market stalls (and their people) inside it are skipped.
 - Existing overlaps: `applyTrackMask` (also called from `updateStations`) now also hides houses touching the station's real footprint ("N houses make way for a station"); reversible like track.
 - Station ghost also turns red on the village square and green ("The village square is here" / "The village green is here").

@@ -219,7 +219,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.8.1 (no camera jumps on Build/Trains, destination list shows reachable stations)';
+const VERSION='4.9.0 (new farmstead with a grain tower: its arm fills grain hoppers at the farm station)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -658,15 +658,15 @@ const Goods={T:{grain:{icon:'🌾',rate:60},produce:{icon:'🥕',rate:80},mail:{
   get(k){let s=this.stock.get(k);if(!s){s={grain:0,produce:0,mail:0,wood:0,gold:0,silver:0,diamond:0};this.stock.set(k,s);}return s;},
   accepts(v,t){if(!v)return false;if(ORE[t])return !!v.bankOwned;const lv=v.level|0;return t==='mail'||((t==='grain'||t==='produce')&&lv>=1);},
   woodSink(k,x,z){const id=+k.slice(3);if(k[0]==='s'){const st=Track.stations.find(q=>q.id===id);if(st&&st.workshop)return true;}else{const bs=Buses.stops.find(q=>q.id===id);if(bs&&bs.workshop)return true;}return (Life.workshops||[]).some(m=>Math.hypot(m.x-x,m.z-z)<250);},
-  src(x,z){const r={grain:0,produce:0,mail:0,wood:0,gold:0,silver:0,diamond:0};for(const v of Life.villages||[]){if(v.farmOwned){const f=v.farm||v;if(Math.hypot(f.x-x,f.z-z)<650){r.grain+=0.05;r.produce+=0.035;}}if(Math.hypot(v.x-x,v.z-z)<500)r.mail+=0.02*((v.level|0)+1);}
+  src(x,z){const r={grain:0,produce:0,mail:0,wood:0,gold:0,silver:0,diamond:0};for(const v of Life.villages||[]){if(v.farmOwned){const f=v.farm||v;if(Math.hypot(f.x-x,f.z-z)<650){r.produce+=0.035;}}/* grain only at the farm's own grain station */if(Math.hypot(v.x-x,v.z-z)<500)r.mail+=0.02*((v.level|0)+1);}
     for(const m of Life.sawmills||[])if(Life.indOn('sawmill',m)&&Math.hypot(m.x-x,m.z-z)<650)r.wood+=0.06;return r;},
   tick(dt){this.acc+=dt;if(this.acc<1)return;const a=this.acc*P.goodsRate;this.acc=0;const pts=[];for(const si of Life.stInfo||[])pts.push(['st:'+si.st.id,si.x,si.z,si.st]);for(const s of Buses.stops)pts.push(['bs:'+s.id,s.x,s.z,s]);
-    for(const [k,x,z,o] of pts){const S=this.get(k),r=this.src(x,z);if(o.sawmill){const m=Crane.ind('sawmill',o.sawmill);if(m&&Life.indOn('sawmill',m))r.wood+=0.18;}if(o.mine){const m=Crane.ind('mine',o.mine);if(m&&Life.indOn('mine',m))r[m.type]+=0.16;}for(const t in r)S[t]=Math.min(60,S[t]+r[t]*a);}},
+    for(const [k,x,z,o] of pts){const S=this.get(k),r=this.src(x,z);if(o.sawmill){const m=Crane.ind('sawmill',o.sawmill);if(m&&Life.indOn('sawmill',m))r.wood+=0.18;}if(o.mine){const m=Crane.ind('mine',o.mine);if(m&&Life.indOn('mine',m))r[m.type]+=0.16;}if(o.farm){const fm=Life.farmOf(o);if(fm&&fm.v.farmOwned)r.grain+=0.22;}for(const t in r)S[t]=Math.min(60,S[t]+r[t]*a);}},
   deliver(k,x,z,v,hold,where,label){let pay=0,units=0;const parts=[];for(const t in hold){const c=hold[t];if(!c||c.n<1||c.from===k||!(t==='wood'?this.woodSink(k,x,z):this.accepts(v,t)))continue;const km=(Math.abs(x-c.fx)+Math.abs(z-c.fz))/1000;pay+=c.n*km*this.T[t].rate*P.fareRate;units+=c.n;parts.push(`${Math.floor(c.n)} ${this.T[t].icon}`);c.n=0;}
     if(units){if(Money.on()&&pay>0)Money.earn(Math.round(pay),`${label} → ${where}`,x,R.sampleHr(R.world,x,z),z);if(v)Life.addGrowth(v,units*0.6);Icons.add(x,R.sampleHr(R.world,x,z)+4,z,'−'+parts.join(' '));}return units;},
   load(k,x,z,hold,caps){const S=this.get(k),parts=[];for(const t in caps){const c=hold[t]||(hold[t]={n:0,fx:x,fz:z,from:k});const take=Math.min(caps[t]-c.n,Math.floor(S[t]));if(take<1)continue;if(c.n<1){c.fx=x;c.fz=z;c.from=k;}c.n+=take;S[t]-=take;parts.push(`${take} ${this.T[t].icon}`);}
     if(parts.length)Icons.add(x,R.sampleHr(R.world,x,z)+5,z,'+'+parts.join(' '));},
-  trainStop(tr,si){const k='st:'+si.st.id,crane=!!(si.st.sawmill||si.st.workshop),mn=si.st.mine?Crane.ind('mine',si.st.mine):null,skip=w=>(crane&&w.ctype==='wood')||(mn&&w.ctype===mn.type),hold={},caps={};for(const w of tr.veh)if(w.k==='wagon'&&!skip(w)){hold[w.ctype]=hold[w.ctype]||{n:0,fx:si.x,fz:si.z,from:null};}
+  trainStop(tr,si){const k='st:'+si.st.id,crane=!!(si.st.sawmill||si.st.workshop),mn=si.st.mine?Crane.ind('mine',si.st.mine):null,skip=w=>(crane&&w.ctype==='wood')||(mn&&w.ctype===mn.type)||(si.st.farm&&w.ctype==='grain'),hold={},caps={};for(const w of tr.veh)if(w.k==='wagon'&&!skip(w)){hold[w.ctype]=hold[w.ctype]||{n:0,fx:si.x,fz:si.z,from:null};}
     const W=tr.veh.filter(w=>w.k==='wagon'&&!skip(w));for(const t in hold){const ws=W.filter(w=>w.ctype===t);const n=ws.reduce((a,w)=>a+(w.n||0),0);if(n>0){hold[t]={n,fx:ws[0].fx,fz:ws[0].fz,from:ws[0].from};}caps[t]=ws.length*20;}
     this.deliver(k,si.x,si.z,si.v,hold,si.st.name,tr.name);this.load(k,si.x,si.z,hold,caps);
     for(const t in hold){let left=hold[t].n;for(const w of W.filter(w=>w.ctype===t)){w.n=Math.min(20,left);left-=w.n;w.fx=hold[t].fx;w.fz=hold[t].fz;w.from=hold[t].from;}}},
@@ -700,7 +700,7 @@ const Roads={list:[],tool:'build',a:null,undoL:[],nid:0,ver:0,
   nearestRoad(x,z,maxd){let best=null,bd=maxd;const LR=Life.roads||[];for(const r of LR.concat(this.list.filter(q=>!LR.includes(q)))){if(r.disc)continue;const p=r.p;for(let i=0;i+3<p.length;i+=2){const ax=p[i],az=p[i+1],ex=p[i+2]-ax,ez=p[i+3]-az,ll=ex*ex+ez*ez;if(ll<1e-6)continue;const t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1),qx=ax+ex*t,qz=az+ez*t,d=Math.hypot(x-qx,z-qz);
       if(d<bd){bd=d;const l=Math.sqrt(ll);best={x:qx,z:qz,dx:ex/l,dz:ez/l,w:r.w,road:r};}}}return best;},
   tap(h){if(!h)return;const T=R.world;
-    if(this.tool==='stop'){const sw=Life.nearSawSlot(h[0],h[2],32);if(sw&&sw.kind==='mine'){UI.toast('Ore goes by rail: build a station at the mine');return;}if(sw&&!Buses.stops.some(q=>q[sw.kind]&&q[sw.kind].mi===sw.mi&&q[sw.kind].k===sw.k)){const sl=sw.slot,dx=Math.cos(sl.t),dz=Math.sin(sl.t);
+    if(this.tool==='stop'){const sw=Life.nearSawSlot(h[0],h[2],32);if(sw&&sw.kind==='mine'){UI.toast('Ore goes by rail: build a station at the mine');return;}if(sw&&sw.kind==='farm'){UI.toast('Grain goes by rail: build a station at the farm');return;}if(sw&&!Buses.stops.some(q=>q[sw.kind]&&q[sw.kind].mi===sw.mi&&q[sw.kind].k===sw.k)){const sl=sw.slot,dx=Math.cos(sl.t),dz=Math.sin(sl.t);
         const nr=this.nearestRoad(sl.p[0],sl.p[1],400);if(nr&&Math.hypot(nr.x-sl.p[0],nr.z-sl.p[1])>4){const pts=Life.routePath([sl.p[0],sl.p[1]],[nr.x,nr.z],{cs:5,margin:60,bridge:true,wind:0.1,road:0.6,maxG:0.32});if(pts){this.list.push({p:pts.flat(),w:1.4,kind:1,player:true});}}
         this.list.push({p:[sl.p[0]-dx*10,sl.p[1]-dz*10,sl.p[0]+dx*10,sl.p[1]+dz*10],w:2.2,kind:1,player:true});Life.roadsDirty=true;
         Buses.stops.push({id:Buses.nextId++,x:sl.p[0],z:sl.p[1],rx:sl.p[0],rz:sl.p[1],rot:sl.t,v:sw.m.v,name:Life.indName(sw),waiting:0,[sw.kind]:{mi:sw.mi,k:sw.k}});Buses.stopAdded(Buses.stops[Buses.stops.length-1]);if(Money.on())Money.spend(12000,'loading bay');Build.info(`Lorry loading bay at the ${sw.kind==='sawmill'?'sawmill':'wood workshop'} placed.`);return;}
@@ -3217,6 +3217,169 @@ KIT.SAW={wheel:[12.35,3.25,-1],wheelR:3.2,stack:[4.1,17.5,2.8],flumeEnd:[12.35,6
 Object.assign(KIT.plots,{sawmillA:{x0:-22,x1:30,z0:-17,z1:26},sawmillB:{x0:-22,x1:30,z0:-26,z1:17}});
 })();
 
+// ===== buildings/farm.js — the farmstead with a grain tower (user's reference picture, Nov 2026).
+// farmstead: a red-brick Victorian farmhouse (slate roofs, white bargeboards, green shutters, three chimneys, a wrap-round veranda),
+//   a brick outbuilding with green doors, an open timber tractor shed with an old red tractor, crates and ladders, a cobbled and
+//   trodden yard, picket and rail fences, flower beds, a bird bath, trees.
+// grainTower: the grain elevator: brick base with green doors and lamps, a braced timber stage, a railed gallery, a cabin under a
+//   slate pyramid roof with a cupola and weathervane, a brick lean-to, a steel silo on a trestle, the arm's machine house.
+// grainArm: the loading arm alone (the game turns it): a lattice boom from the machine house down to a hopper head and spout.
+// Frames: farmstead: plot centre at the origin, front = -z. grainTower: tower centre at the origin, the track lies along x at
+// z = -KIT.GRAIN.track. grainArm: the pivot's foot at the origin, the boom points to -z, the spout hangs KIT.GRAIN.reach out.
+(function(){
+const BRICK=[0.6,0.3,0.2],BRICKD=[0.5,0.25,0.17],SLATE={pal:[[0.27,0.27,0.31],[0.23,0.23,0.27],[0.31,0.3,0.34],[0.25,0.25,0.28],[0.29,0.27,0.3]],fresh:[0.32,0.32,0.36],aged:[0.21,0.21,0.24],missing:0,w:[0.3,0.44],exp:0.27,len:0.5,wideP:0},SLC=[0.27,0.27,0.31],
+  WHITE=[0.9,0.88,0.82],GREEN=[0.23,0.36,0.24],WOOD=[0.55,0.4,0.26],WOODD=[0.38,0.27,0.18],WOODL=[0.68,0.52,0.34],IRON=[0.2,0.2,0.22],STEEL=[0.56,0.57,0.6],
+  STONE=[0.62,0.6,0.55],STONED=[0.5,0.48,0.45],RED=[0.62,0.14,0.11],TYRE=[0.13,0.13,0.14],DIRT=[0.58,0.47,0.34],COB=[0.55,0.5,0.44];
+KIT.GRAIN={pivot:[0,9.1,-3.7],reach:8,tipY:4.55,track:11.7,swing:6.6};
+Object.assign(KIT.plots,{farmstead:{x0:-27,x1:27,z0:-18.5,z1:19},grainTower:{x0:-9,x1:9,z0:-9,z1:7},grainArm:{x0:-4,x1:4,z0:-12,z1:3},farmAll:null});
+// move everything built since vertex float v0 to (ox,oz), turned ry about y
+function place(K,v0,ox,oz,ry){const V=K.VB,c=Math.cos(ry||0),s=Math.sin(ry||0);for(let i=v0;i<V.length;i+=16){const x=V[i],z=V[i+2],nx=V[i+3],nz=V[i+5];V[i]=ox+c*x-s*z;V[i+2]=oz+s*x+c*z;V[i+3]=c*nx-s*nz;V[i+5]=s*nx+c*nz;}}
+// mirror everything built since vertex float v0 in x (triangles re-wound so they still face out)
+function mirror(K,v0){const V=K.VB;for(let i=v0;i<V.length;i+=16){V[i]=-V[i];V[i+3]=-V[i+3];}for(let i=v0;i+48<=V.length;i+=48)for(let k=0;k<16;k++){const t=V[i+16+k];V[i+16+k]=V[i+32+k];V[i+32+k]=t;}}
+function pyramid(K,cx,cz,half,y0,rise,col,m){const {tri}=K,t=[cx,y0+rise,cz],a=[cx-half,y0,cz-half],b=[cx+half,y0,cz-half],c=[cx+half,y0,cz+half],d=[cx-half,y0,cz+half];tri(b,a,t,col,m);tri(c,b,t,col,m);tri(d,c,t,col,m);tri(a,d,t,col,m);
+  K.quad(a,b,c,d,null,WOODD,12);}
+function railFence(K,pts,h,col){const {B,beam}=K;for(let i=0;i<pts.length;i++){const p=pts[i];B(p[0],h/2,p[1],0.14,h,0.14,col,6);if(i+1<pts.length){const q=pts[i+1];for(const y of [h*0.45,h*0.85])beam([p[0],y,p[1]],[q[0],y,q[1]],[0,1,0],0.09,0.05,col,6);}}}
+function picket(K,a,b,h){const {B,beam}=K,L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(2,Math.round(L/0.28)),ry=-Math.atan2(b[1]-a[1],b[0]-a[0]);for(const y of [h*0.3,h*0.75])beam([a[0],y,a[1]],[b[0],y,b[1]],[0,1,0],0.06,0.04,WHITE,0);
+  if(K.lod<2)for(let k=0;k<=n;k++){const t=k/n;B(a[0]+(b[0]-a[0])*t,h/2,a[1]+(b[1]-a[1])*t,0.09,h,0.03,WHITE,0,ry);}for(const p of [a,b])B(p[0],h*0.55,p[1],0.13,h*1.1,0.13,WHITE,0);}
+// ---------------- the farmhouse (front = -z), centre of the main block at the origin
+function house(K){const {B,beam,cyl,quad,tri,fp,fb}=K;const X0=-7,X1=7,Z0=-3.5,Z1=3.5,FL=0.55,EV=6.0,RISE=3.3,F=K.walls(X0,X1,Z0,Z1);
+  B(0,EV/2,0,14,EV,7,BRICK,24);B(0,FL/2,0,14.16,FL,7.16,STONE,8);for(const f of [F.front,F.back,F.left,F.right])fb(f,0,3.1,0.03,f.half*2+0.08,0.16,0.08,WHITE,0);
+  const win=(f,u,y,w,h,sh)=>{K.win(f,u,y,w,h,{cols:2,rows:3,frame:WHITE});if(sh!==false&&K.lod<2)for(const e of [-1,1])fb(f,u+e*(w/2+0.24),y+h/2,0.04,0.42,h,0.05,GREEN,0);fb(f,u,y+h+0.12,0.03,w+0.3,0.2,0.06,WHITE,0);};
+  const door=(f,u,w,h)=>{fb(f,u,FL+h/2,0.03,w,h,0.08,GREEN,0);fb(f,u,FL+h+0.1,0.05,w+0.3,0.2,0.1,WHITE,0);for(const e of [-1,1])fb(f,u+e*(w/2+0.08),FL+h/2,0.05,0.14,h,0.1,WHITE,0);};
+  // the wing to the front on the left, with the big gable
+  const WX0=-6,WX1=-1,WZ0=-6,W=K.walls(WX0,WX1,WZ0,Z0),wc=(WX0+WX1)/2;B(wc,EV/2,(WZ0+Z0)/2,5,EV,Z0-WZ0,BRICK,24);B(wc,FL/2,(WZ0+Z0)/2,5.16,FL,Z0-WZ0+0.16,STONE,8);
+  win(W.front,0,FL+0.9,1.1,1.7);win(W.front,0,3.7,1.0,1.5);win(W.left,0,FL+0.9,0.9,1.6);win(W.right,0,3.7,0.8,1.4,false);
+  // main block: door and windows under the veranda, a row above; sides and back
+  door(F.front,1.2,1.1,2.2);for(const u of [3.4,5.6])win(F.front,u,FL+0.9,1.0,1.7);for(const u of [1.2,5.6])win(F.front,u,3.7,0.95,1.5);
+  for(const u of [-4.5,-1.5,1.5,4.5]){win(F.back,u,FL+0.9,1.0,1.7);win(F.back,u,3.7,0.95,1.5);}
+  for(const f of [F.left,F.right])for(const u of [-1.6,1.6]){win(f,u,FL+0.9,0.95,1.7);win(f,u,3.7,0.9,1.5);}
+  // roofs: main ridge along x, the wing's and the front dormer gable's ridges along z; slate, white bargeboards
+  K.roof({c:[0,0],dir:[1,0],halfLen:7,half:3.5,H:EV,rise:RISE,ov:0.5,gov:0.45,th:0.14,sag:0.05,flare:0.04,wob:0.01,nx:26,ridgeMoss:0,cover:SLATE,trim:WHITE});
+  tri([X0,EV,Z0],[X0,EV,Z1],[X0,EV+RISE,0],BRICK,24);tri([X1,EV,Z1],[X1,EV,Z0],[X1,EV+RISE,0],BRICK,24);
+  for(const [x,z] of [[X0-0.01,0],[X1+0.01,0]])cyl([x-0.02,EV+1.7,z],[x+0.02,EV+1.7,z],0.4,0.4,10,[0.2,0.2,0.22],2,[0.2,0.2,0.22],2);
+  K.roof({c:[wc,(WZ0+0)/2],dir:[0,1],halfLen:(0-WZ0)/2,half:2.5,H:EV,rise:2.7,ov:0.45,gov:0.45,th:0.13,sag:0.03,flare:0.03,wob:0.01,nx:14,ends:[-1],ridgeMoss:0,cover:SLATE,trim:WHITE});
+  tri([WX1,EV,WZ0],[WX0,EV,WZ0],[wc,EV+2.7,WZ0],BRICK,24);K.win(W.front,0,EV+0.5,0.7,1.0,{cols:2,rows:2,frame:WHITE});
+  if(K.lod<1)for(let k=0;k<9;k++){const u=(k+0.5)/9*5-2.5,y=EV+2.7*(1-Math.abs(u)/2.5)-0.42;K.ico(fp(W.front,u,y,0.5),0.08,WHITE,0,{sy:0.6});}
+  {const dx=3.4;B(dx,EV+0.55,Z0+0.25,2.6,1.1,0.5,BRICK,24);K.roof({c:[dx,Z0+1.6],dir:[0,1],halfLen:1.7,half:1.5,H:EV+0.2,rise:1.9,ov:0.25,gov:0.12,th:0.1,sag:0,flare:0,wob:0,nx:6,ends:[-1],ridgeMoss:0,cover:SLATE,trim:WHITE});
+    tri([dx+1.3,EV+0.2,Z0-0.01],[dx-1.3,EV+0.2,Z0-0.01],[dx,EV+1.85,Z0-0.01],BRICK,24);K.win(F.front,dx,EV-0.35,0.8,1.2,{cols:2,rows:2,frame:WHITE});}
+  // three brick chimneys with stone caps and pots
+  for(const [x,z] of [[-5.3,0.2],[0.6,0.4],[5.4,-0.2]]){B(x,EV+RISE+0.1,z,0.95,2.4,0.75,BRICKD,24);B(x,EV+RISE+1.36,z,1.15,0.14,0.95,STONE,8);for(const e of [-0.24,0.24])cyl([x+e,EV+RISE+1.42,z],[x+e,EV+RISE+1.85,z],0.14,0.12,8,[0.62,0.34,0.24],18);}
+  // the veranda: along the front beside the wing and round the right-hand side; slate lean-to roof on white posts, railings, steps
+  const PX0=WX1,PX1=8.7,PZ0=-6.2,PZs=1.2,RY0=3.75,RY1=3.0;
+  B((PX0+PX1)/2,FL/2-0.03,(PZ0+Z0)/2,PX1-PX0,FL-0.06,Z0-PZ0,WOODL,12);B((X1+PX1)/2,FL/2-0.03,(Z0+PZs)/2,PX1-X1,FL-0.06,PZs-Z0,WOODL,12);
+  const posts=[];for(const x of [PX0+0.15,1.5,3.9,6.3,PX1-0.15])posts.push([x,PZ0+0.15]);for(const z of [-3.8,-1.4,PZs-0.15])posts.push([PX1-0.15,z]);
+  for(const [x,z] of posts){B(x,(FL+RY1)/2,z,0.15,RY1-FL,0.15,WHITE,0);if(K.lod<2)for(const e of [-1,1]){beam([x,RY1-0.12,z],[x+(z<PZ0+0.3?e*0.42:0),RY1-0.55,z+(z<PZ0+0.3?0:e*0.42)],[0,1,0],0.05,0.05,WHITE,0);}}
+  quad([PX0-0.2,RY1,PZ0-0.3],[PX0-0.2,RY0,Z0],[PX1+0.3,RY0,Z0],[PX1+0.3,RY1,PZ0-0.3],null,SLC,20);quad([PX0-0.2,RY1-0.1,PZ0-0.3],[PX1+0.3,RY1-0.1,PZ0-0.3],[PX1+0.3,RY0-0.1,Z0],[PX0-0.2,RY0-0.1,Z0],null,WHITE,0);
+  quad([X1,RY0,Z0],[X1,RY0,PZs+0.3],[PX1+0.3,RY1,PZs+0.3],[PX1+0.3,RY1,Z0],null,SLC,20);quad([X1,RY0-0.1,Z0],[PX1+0.3,RY1-0.1,Z0],[PX1+0.3,RY1-0.1,PZs+0.3],[X1,RY0-0.1,PZs+0.3],null,WHITE,0);
+  beam([PX0,RY1-0.08,PZ0+0.15],[PX1,RY1-0.08,PZ0+0.15],[0,1,0],0.22,0.12,WHITE,0);beam([PX1-0.15,RY1-0.08,PZ0],[PX1-0.15,RY1-0.08,PZs],[0,1,0],0.22,0.12,WHITE,0);
+  const rail=(a,b)=>{beam([a[0],FL+0.9,a[1]],[b[0],FL+0.9,b[1]],[0,1,0],0.08,0.06,WHITE,0);beam([a[0],FL+0.15,a[1]],[b[0],FL+0.15,b[1]],[0,1,0],0.06,0.05,WHITE,0);if(K.lod<1){const L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.round(L/0.2);for(let k=1;k<n;k++)B(a[0]+(b[0]-a[0])*k/n,FL+0.52,a[1]+(b[1]-a[1])*k/n,0.035,0.72,0.035,WHITE,0);}};
+  rail(posts[0],posts[1]);rail(posts[2],posts[3]);rail(posts[3],posts[4]);rail(posts[4],posts[5]);rail(posts[5],posts[6]);rail(posts[6],posts[7]);
+  for(let k=0;k<3;k++)B(2.7,FL-0.09-k*0.18,PZ0-0.2-k*0.32,2.2,0.18,0.34,STONE,8);
+  // on the veranda: a bench, tubs of flowers
+  B(4.9,FL+0.42,Z0-0.4,1.6,0.08,0.45,WOODD,6);B(4.9,FL+0.75,Z0-0.2,1.6,0.5,0.06,WOODD,6);for(const e of [-0.7,0.7])B(4.9+e,FL+0.2,Z0-0.4,0.08,0.4,0.4,WOODD,6);
+  for(const [x,z] of [[-0.4,PZ0+0.5],[7.9,-5.6],[7.9,0.4]]){cyl([x,FL,z],[x,FL+0.4,z],0.26,0.3,10,[0.6,0.36,0.25],18);K.bush(x,z,0.34,[0.3,0.5,0.22],[[0.85,0.3,0.35],[0.95,0.8,0.4],[0.9,0.6,0.75]]);}}
+// ---------------- the brick outbuilding (front = -z)
+function outb(K){const {B,fb,tri}=K,X0=-4.5,X1=4.5,Z0=-3,Z1=3,EV=3.3,RISE=2.3,F=K.walls(X0,X1,Z0,Z1);B(0,EV/2,0,9,EV,6,BRICK,24);B(0,0.2,0,9.14,0.4,6.14,STONE,8);
+  for(const u of [-0.75,0.75]){fb(F.front,u+0.6,1.3,0.03,1.4,2.5,0.08,GREEN,0);if(K.lod<2){fb(F.front,u+0.6,0.6,0.07,1.3,0.1,0.04,[0.17,0.27,0.18],0);fb(F.front,u+0.6,2.0,0.07,1.3,0.1,0.04,[0.17,0.27,0.18],0);}}
+  fb(F.front,0.6,2.65,0.05,3.2,0.2,0.1,WHITE,0);K.win(F.front,-3.1,1.3,0.9,1.1,{cols:2,rows:2,frame:WHITE});K.win(F.right,0,1.3,0.9,1.1,{cols:2,rows:2,frame:WHITE});K.win(F.back,-2,1.3,0.9,1.1,{cols:2,rows:2,frame:WHITE});K.win(F.back,2,1.3,0.9,1.1,{cols:2,rows:2,frame:WHITE});
+  fb(F.front,3.6,2.6,0.25,0.16,0.3,0.16,IRON,11);fb(F.front,3.6,2.4,0.25,0.22,0.22,0.22,K.C.glow,3);
+  K.roof({c:[0,0],dir:[1,0],halfLen:4.5,half:3,H:EV,rise:RISE,ov:0.45,gov:0.4,th:0.13,sag:0.05,flare:0.04,wob:0.01,nx:18,ridgeMoss:0,cover:SLATE,trim:WOODD});
+  tri([X0,EV,Z0],[X0,EV,Z1],[X0,EV+RISE,0],BRICK,24);tri([X1,EV,Z1],[X1,EV,Z0],[X1,EV+RISE,0],BRICK,24);
+  K.barrel(-2.2,-3.7,0.38,0.95);K.barrel(-1.4,-3.9,0.38,0.95);K.barrel(-1.9,-4.5,0.36,0.9);K.crate(3.2,0,-3.8,0.8,0.2);K.crate(4.0,0,-3.6,0.7,-0.3);K.crate(3.5,0.8,-3.7,0.6,0.5);}
+// ---------------- the old red tractor (nose to +x), its rear axle at the origin
+function tractor(K){const {B,cyl,beam}=K;for(const e of [-1,1]){cyl([0,0.78,e*0.72],[0,0.78,e*1.06],0.78,0.78,16,TYRE,0,TYRE,0);cyl([0,0.78,e*1.06],[0,0.78,e*1.1],0.4,0.4,12,RED,0,RED,0);
+    cyl([2.1,0.42,e*0.6],[2.1,0.42,e*0.82],0.42,0.42,12,TYRE,0,TYRE,0);cyl([2.1,0.42,e*0.82],[2.1,0.42,e*0.85],0.2,0.2,10,RED,0,RED,0);
+    B(0,1.62,e*0.9,1.5,0.06,0.42,RED,0);B(-0.72,1.25,e*0.9,0.06,0.75,0.42,RED,0);}
+  B(0.45,0.95,0,1.5,0.5,0.62,RED,0);B(1.65,1.18,0,1.5,0.62,0.6,RED,0);B(2.42,1.15,0,0.06,0.55,0.5,[0.25,0.25,0.26],11);B(2.1,0.5,0,0.2,0.2,1.3,IRON,11);B(0,0.78,0,0.25,0.25,1.5,IRON,11);
+  cyl([1.5,1.5,0.2],[1.5,2.25,0.2],0.05,0.05,6,IRON,11);B(-0.25,1.42,0,0.5,0.1,0.5,[0.2,0.2,0.2],0);B(-0.5,1.7,0,0.08,0.5,0.46,[0.2,0.2,0.2],0);
+  beam([0.5,1.25,0],[0.2,1.8,0],[0,0,1],0.04,0.04,IRON,11);cyl([0.2,1.8,-0.02],[0.16,1.84,0.02],0.22,0.22,10,IRON,11);for(const e of [-1,1])cyl([2.44,1.3,e*0.2],[2.47,1.3,e*0.2],0.08,0.08,8,[1,0.9,0.6],3,[1,0.9,0.6],3);}
+// ---------------- the open tractor shed: ridge along x, the +x gable open with its truss showing
+function shed(K){const {B,beam,quad,tri}=K,X0=-6.5,X1=6.5,Z0=-4.5,Z1=4.5,EV=3.5,RISE=2.6;
+  for(const x of [X0+0.15,-2.2,2.2,X1-0.15])for(const z of [Z0+0.15,Z1-0.15]){B(x,EV/2,z,0.28,EV,0.28,WOODD,6);B(x,0.15,z,0.45,0.3,0.45,STONE,8);if(K.lod<2)for(const e of [-1,1])if(x+e>X0&&x+e<X1)beam([x,EV-0.9,z],[x+e*0.9,EV-0.05,z],[0,0,1],0.12,0.12,WOODD,6);}
+  for(const z of [Z0+0.15,Z1-0.15])beam([X0,EV-0.1,z],[X1,EV-0.1,z],[0,1,0],0.24,0.22,WOODD,6);
+  for(const x of [X0+0.15,-2.2,2.2,X1-0.15]){beam([x,EV-0.1,Z0],[x,EV-0.1,Z1],[0,1,0],0.2,0.2,WOODD,6);beam([x,EV,0],[x,EV+RISE-0.2,0],[1,0,0],0.16,0.16,WOODD,6);for(const e of [-1,1])beam([x,EV,e*2.4],[x,EV+RISE-0.9,0],[1,0,0],0.12,0.12,WOODD,6);}
+  K.roof({c:[0,0],dir:[1,0],halfLen:6.5,half:4.5,H:EV,rise:RISE,ov:0.6,gov:0.5,th:0.13,sag:0.07,flare:0.05,wob:0.015,nx:24,ridgeMoss:0,cover:SLATE,trim:WOODD,rafters:1.1});
+  // boarded back gable (-x) and a half-height plank wall along the back (+z)
+  tri([X0,EV,Z0],[X0,EV,Z1],[X0,EV+RISE,0],WOOD,6);tri([X0,EV,Z1],[X0,EV,Z0],[X0,EV+RISE,0],WOOD,6);B(X0+0.05,EV/2,0,0.08,EV,Z1-Z0-0.3,WOOD,6);B(0,1.0,Z1-0.1,X1-X0-0.3,2.0,0.08,WOOD,6);
+  if(K.lod<2){for(let z=Z0+0.5;z<Z1;z+=0.5)B(X0+0.0,EV/2,z,0.04,EV,0.06,WOODD,6);for(let x=X0+0.6;x<X1;x+=0.6)B(x,1.0,Z1-0.05,0.06,2.0,0.04,WOODD,6);}
+  // inside: the tractor, crates, barrels, sacks, ladders against the posts
+  {const v0=K.VB.length;tractor(K);place(K,v0,0.6,-0.6,-0.12);}
+  K.crate(-5.4,0,2.9,0.9,0.1);K.crate(-4.4,0,3.2,0.8,-0.2);K.crate(-5.0,0.9,3.0,0.7,0.4);K.crate(-3.4,0,3.3,0.7,0.2);K.crate(-5.5,0,1.6,0.8,0);K.barrel(-5.4,-2.8,0.4,1.0);K.barrel(-4.5,-3.3,0.4,1.0);K.barrel(-5.5,-1.7,0.36,0.9);
+  for(const [x,z] of [[-2.6,3.0],[-1.6,3.2],[-2.0,2.4]])K.ico([x,0.28,z],0.42,[0.78,0.68,0.5],0,{sy:0.65,detail:1,jit:0.1});
+  for(const lx of [4.6,5.5]){for(const e of [-0.22,0.22])beam([lx+e,0,Z1-1.3],[lx+e,3.3,Z1-0.3],[1,0,0],0.06,0.06,WOODL,6);if(K.lod<2)for(let k=1;k<10;k++)beam([lx-0.22,k*0.33,Z1-1.3+k*0.1],[lx+0.22,k*0.33,Z1-1.3+k*0.1],[0,1,0],0.04,0.04,WOODL,6);}}
+KIT.models.farmstead=function(K,opt){const {B,cyl}=K;let v0;const m0=K.VB.length;
+  v0=K.VB.length;house(K);place(K,v0,-10,9.5,0);
+  v0=K.VB.length;outb(K);place(K,v0,8,12,0);
+  v0=K.VB.length;shed(K);place(K,v0,-12,-10.5,0);
+  // the yard: trodden earth with a cobbled middle, a path to the veranda steps
+  K.patch(2,-1,11,8,DIRT,10,0.012);K.patch(3,-2,6,4.5,COB,19,0.02);K.patch(-11,-10.5,7.5,5.2,DIRT,10,0.014);K.patch(-7.3,1.5,1.6,2.6,COB,19,0.018);K.patch(8,7,4,2.6,DIRT,10,0.016);K.dirt(6,-6,2.2);K.dirt(-2,-4,1.8);
+  // white picket fence round the front garden, flower beds along the house, a bird bath
+  picket(K,[-19.5,2.2],[-9.2,2.2],1.0);picket(K,[-5.4,2.2],[-0.6,2.2],1.0);picket(K,[-19.5,2.2],[-19.5,13.5],1.0);picket(K,[-0.6,2.2],[1.6,5.8],1.0);
+  const FL=[[0.85,0.3,0.35],[0.95,0.8,0.4],[0.9,0.6,0.75],[0.75,0.5,0.85]];for(const [x,z,r] of [[-17.6,4.6,0.55],[-18.2,7.4,0.6],[-17.9,10.3,0.5],[-8.6,3.3,0.45],[-3.6,3.0,0.5],[-1.6,3.4,0.42],[-11.6,3.0,0.4]])K.bush(x,z,r,[0.28,0.48,0.22],FL);
+  cyl([-14.5,0,3.6],[-14.5,0.75,3.6],0.14,0.1,8,STONE,8);cyl([-14.5,0.75,3.6],[-14.5,0.9,3.6],0.2,0.5,12,STONE,8,STONED,8);
+  // climbing roses on the house corner
+  if(K.lod<2)for(let k=0;k<9;k++)K.ico([-3.05,0.9+k*0.5,5.9+((k*37)%5)*0.12-0.3],0.34,k%3?[0.26,0.46,0.2]:[0.85,0.35,0.45],1,{detail:1,jit:0.25});
+  // rail fences round the yard, a field gate at the front
+  railFence(K,[[-4.6,-15.2],[-0.8,-15.2],[3,-15.2]],1.15,WOODD);railFence(K,[[-20.4,-15.4],[-20.4,-10.5]],1.15,WOODD);
+  K.barrel(5.5,-9.6,0.4,1.0);K.barrel(6.4,-9.9,0.4,1.0);K.crate(4.2,0,-10,0.9,0.15);K.crate(3.2,0,-10.2,0.8,-0.1);K.crate(3.8,0.9,-10.1,0.7,0.3);
+  // a hand cart by the fence
+  {const cx=0.5,cz=9.8;B(cx,0.75,cz,1.7,0.1,1.0,WOOD,6);for(const e of [-1,1]){B(cx,0.95,cz+e*0.5,1.7,0.35,0.05,WOOD,6);cyl([cx-0.1,0.5,cz+e*0.56],[cx-0.1,0.5,cz+e*0.62],0.5,0.5,12,WOODD,6,WOODD,6);}}
+  K.tree(-23,13.5,1.9);K.tree(-1.5,16.2,2.0);K.tree(-12,17,1.7);
+  mirror(K,m0);/* as in the picture: seen from the track, the house and the shed stand on the left, the yard opens to the right */
+  if(!opt.game)B(0,-0.2,0,19.9*2,0.36,19.9*2,[0.42,0.5,0.28],9);
+  return{target:[2,3,0],dist:62,dir:[0.55,0.62,-0.62]};};
+// ---------------- the grain tower (the track side = -z)
+function tower(K){const m0=K.VB.length;towerR(K);mirror(K,m0);}
+function towerR(K){const {B,beam,cyl,quad,fb,fp}=K,HB=6.2,HT=10.4,HC=13.2,W0=3.25,W1=3.45,F=K.walls(-W0,W0,-W0,W0),T=K.walls(-W1,W1,-W1,W1);
+  // brick base on a stone plinth, a stone band, green double doors under a lamp each side, small arched windows
+  B(0,HB/2,0,2*W0,HB,2*W0,BRICK,24);B(0,0.35,0,2*W0+0.2,0.7,2*W0+0.2,STONE,8);for(const f of [F.front,F.back,F.left,F.right])fb(f,0,HB-0.1,0.04,2*W0+0.1,0.2,0.1,STONE,8);
+  for(const e of [-1,1]){fb(F.front,e*0.62,2.05,0.03,1.2,2.7,0.08,GREEN,0);if(K.lod<2){beam(fp(F.front,e*0.62-0.5,0.8,0.08),fp(F.front,e*0.62+0.5,3.3,0.08),F.front.n,0.1,0.03,[0.17,0.27,0.18],0);fb(F.front,e*0.62,0.8,0.07,1.1,0.1,0.03,[0.17,0.27,0.18],0);fb(F.front,e*0.62,3.3,0.07,1.1,0.1,0.03,[0.17,0.27,0.18],0);}
+    fb(F.front,e*2.2,3.3,0.22,0.14,0.3,0.14,IRON,11);fb(F.front,e*2.2,3.05,0.22,0.24,0.26,0.24,K.C.glow,3);}
+  fb(F.front,0,3.5,0.05,2.8,0.2,0.1,STONE,8);K.win(F.front,0,4.4,0.8,1.1,{cols:2,rows:2,frame:WHITE});for(const f of [F.left,F.right,F.back]){K.win(f,0,1.6,0.8,1.2,{cols:2,rows:2,frame:WHITE});K.win(f,0,4.3,0.8,1.1,{cols:2,rows:2,frame:WHITE});}
+  // the timber stage: boards, a heavy frame with crossed braces on every face
+  B(0,(HB+HT)/2,0,2*W1,HT-HB,2*W1,WOOD,6);
+  for(const f of [T.front,T.back,T.left,T.right]){for(const u of [-W1+0.12,0,W1-0.12])fb(f,u,(HB+HT)/2,0.05,0.24,HT-HB,0.1,WOODD,6);for(const y of [HB+0.12,(HB+HT)/2,HT-0.12])fb(f,0,y,0.05,2*W1,0.22,0.1,WOODD,6);
+    if(K.lod<2)for(const e of [-1,1])for(const [ya,yb] of [[HB+0.2,(HB+HT)/2-0.1],[(HB+HT)/2+0.1,HT-0.2]]){const u0=e*0.15,u1=e*(W1-0.25);beam(fp(f,u0,ya,0.07),fp(f,u1,yb,0.07),f.n,0.12,0.05,WOODD,6);beam(fp(f,u1,ya,0.07),fp(f,u0,yb,0.07),f.n,0.12,0.05,WOODD,6);}
+    if(K.lod<1)for(let u=-W1+0.4;u<W1;u+=0.4)fb(f,u,(HB+HT)/2,0.015,0.03,HT-HB,0.03,WOODD,6);}
+  // the gallery: a deck on brackets with a railing all round
+  const G=4.35;B(0,HT+0.08,0,2*G,0.16,2*G,WOODL,12);for(const f of [T.front,T.back,T.left,T.right])for(const u of [-2.6,0,2.6])beam(fp(f,u,HT-0.9,0.02),fp(f,u,HT,G-W1-0.1),f.t,0.12,0.12,WOODD,6);
+  {const c=[[-G,-G],[G,-G],[G,G],[-G,G]];for(let i=0;i<4;i++){const a=c[i],b=c[(i+1)%4];for(let k=0;k<4;k++){const t=k/4;B(a[0]+(b[0]-a[0])*t,HT+0.7,a[1]+(b[1]-a[1])*t,0.1,1.1,0.1,WOODD,6);}
+      for(const y of [HT+0.65,HT+1.2])beam([a[0],y,a[1]],[b[0],y,b[1]],[0,1,0],0.08,0.07,WOODD,6);}}
+  // the cabin with windows, the slate pyramid roof, the cupola and the weathervane
+  const WC=2.7,C=K.walls(-WC,WC,-WC,WC);B(0,(HT+HC)/2,0,2*WC,HC-HT,2*WC,WOODL,6);for(const f of [C.front,C.back,C.left,C.right]){for(const u of [-1.2,1.2])K.win(f,u,HT+1.0,0.8,1.2,{cols:2,rows:2,frame:WHITE});for(const u of [-WC+0.1,WC-0.1])fb(f,u,(HT+HC)/2,0.04,0.2,HC-HT,0.08,WOODD,6);fb(f,0,HC-0.1,0.04,2*WC,0.2,0.08,WOODD,6);}
+  pyramid(K,0,0,3.7,HC,2.9,SLC,20);if(K.lod<2)for(let k=1;k<6;k++){const h=3.7*(1-k/6)+0.02,y=HC+2.9*k/6;for(const [dx,dz] of [[0,1],[0,-1],[1,0],[-1,0]])B(dx*h,y,dz*h,dx?0.05:2*h,0.05,dz?0.05:2*h,[0.22,0.22,0.26],20);}
+  const CY=HC+2.3;B(0,CY+0.55,0,1.35,1.1,1.35,WOODL,6);if(K.lod<2)for(let k=0;k<4;k++)for(const [dx,dz] of [[0,1],[0,-1],[1,0],[-1,0]])B(dx*0.69,CY+0.25+k*0.22,dz*0.69,dx?0.04:1.0,0.08,dz?0.04:1.0,WOODD,6);
+  pyramid(K,0,0,1.0,CY+1.1,0.8,SLC,20);cyl([0,CY+1.8,0],[0,CY+3.1,0],0.035,0.02,6,IRON,11);beam([-0.55,CY+2.75,0],[0.55,CY+2.75,0],[0,1,0],0.05,0.02,IRON,11);B(0.55,CY+2.75,0,0.22,0.2,0.02,IRON,11);B(-0.1,CY+3.02,0,0.34,0.24,0.02,IRON,11);
+  // brick lean-to on the left, the steel silo on a trestle on the right with its pipe into the tower
+  {const x0=-W0-3.6,x1=-W0,z0=-1.2,z1=3.0,h0=3.4,h1=2.5;B((x0+x1)/2,h1/2,(z0+z1)/2,x1-x0,h1,z1-z0,BRICK,24);quad([x0-0.3,h1-0.05,z0-0.3],[x0-0.3,h1-0.05,z1+0.3],[x1,h0,z1+0.3],[x1,h0,z0-0.3],null,SLC,20);
+const L=K.face([(x0+x1)/2,0,z0],[0,0,-1],[1,0,0],(x1-x0)/2);fb(L,0,1.1,0.03,1.1,2.2,0.08,GREEN,0);}
+  {const sx=W0+2.6,sz=1.0,r=1.55,y0=3.2,y1=7.6;for(const [dx,dz] of [[-1,-1],[1,-1],[1,1],[-1,1]]){B(sx+dx*1.2,y0/2,sz+dz*1.2,0.2,y0,0.2,WOODD,6);}
+    if(K.lod<2)for(const e of [-1,1]){beam([sx-1.2,0.3,sz+e*1.2],[sx+1.2,y0-0.3,sz+e*1.2],[0,0,1],0.1,0.1,WOODD,6);beam([sx+e*1.2,0.3,sz+1.2],[sx+e*1.2,y0-0.3,sz-1.2],[1,0,0],0.1,0.1,WOODD,6);}
+    B(sx,y0+0.08,sz,2.9,0.16,2.9,WOODL,12);cyl([sx,y0+0.16,sz],[sx,y1,sz],r,r,18,STEEL,11,STEEL,11,undefined,true);for(const y of [y0+0.5,(y0+y1)/2,y1-0.3])cyl([sx,y,sz],[sx,y+0.1,sz],r+0.04,r+0.04,18,[0.42,0.43,0.46],11);
+    cyl([sx,y1,sz],[sx,y1+0.9,sz],r+0.05,0.25,18,[0.48,0.49,0.52],11,undefined,undefined,undefined,true);cyl([sx-r+0.2,y1-0.6,sz],[W1-0.1,HB+2.2,sz],0.16,0.16,8,STEEL,11);}
+  // the arm's machine house on the track side with its big sheave
+  const Pv=KIT.GRAIN.pivot;B(0,Pv[1]-0.15,-W1-0.45,1.7,1.7,0.9,WOODD,6);cyl([-0.95,Pv[1],-W1-0.45],[-1.15,Pv[1],-W1-0.45],0.85,0.85,16,IRON,11,[0.3,0.3,0.32],11);cyl([-0.5,Pv[1],-W1-0.45],[-0.95,Pv[1],-W1-0.45],0.12,0.12,6,IRON,11);
+  // the loading dock in front of the doors, crates and barrels
+  B(0,0.25,-W0-1.6,5.2,0.5,3.0,STONED,8);K.barrel(-2.0,-W0-1.2,0.4,1.0,{y:0.5});K.barrel(-1.2,-W0-1.9,0.4,1.0,{y:0.5});K.crate(1.9,0.5,-W0-1.2,0.85,0.2);K.crate(1.3,0.5,-W0-2.2,0.7,-0.3);}
+function arm(K){const {B,beam,cyl}=K,G=KIT.GRAIN,py=G.pivot[1],R0=G.reach,ty=G.tipY+1.25,N=7,A=(t,top,e)=>[e*0.38*(1-0.35*t),py+(ty-py)*t+(top?0.75-0.3*t:0),-R0*t];
+  cyl([0,py-1.1,0],[0,py+1.2,0],0.2,0.2,8,IRON,11);
+  for(const e of [-1,1]){beam(A(0,1,e),A(1,1,e),[0,1,0],0.09,0.09,STEEL,11);beam(A(0,0,e),A(1,0,e),[0,1,0],0.09,0.09,STEEL,11);
+    for(let k=0;k<=N;k++){beam(A(k/N,0,e),A(k/N,1,e),[1,0,0],0.06,0.06,STEEL,11);if(k<N&&K.lod<2)beam(A(k/N,k%2?1:0,e),A((k+1)/N,k%2?0:1,e),[1,0,0],0.05,0.05,STEEL,11);}}
+  for(let k=0;k<=N;k++)for(const top of [0,1])beam(A(k/N,top,-1),A(k/N,top,1),[0,1,0],0.05,0.05,STEEL,11);
+  // the grain pipe inside the boom, the hopper head and the spout
+  cyl([0,py+0.3,0],[0,ty+0.35,-R0],0.2,0.2,8,[0.45,0.46,0.5],11,undefined,undefined,undefined,true);
+  B(0,ty+0.2,-R0,0.95,0.9,0.95,[0.47,0.48,0.52],11);cyl([0,ty-0.25,-R0],[0,ty-0.95,-R0],0.48,0.2,10,[0.42,0.43,0.47],11,undefined,undefined,undefined,true);cyl([0,ty-0.95,-R0],[0,G.tipY,-R0],0.2,0.17,8,IRON,11);
+  // stay cables from the mast
+  for(const e of [-1,1])cyl([0,py+1.2,0],A(0.72,1,e),0.025,0.025,4,IRON,11);}
+KIT.models.grainTower=function(K,opt){tower(K);if(!opt.game){const v0=K.VB.length;arm(K);place(K,v0,KIT.GRAIN.pivot[0],KIT.GRAIN.pivot[2],0);K.B(0,-0.2,-3,24,0.36,24,[0.42,0.5,0.28],9);}return{target:[0,8,-2],dist:42,dir:[0.6,0.45,-0.66]};};
+KIT.models.grainArm=function(K,opt){arm(K);return{target:[0,7,-4],dist:22,dir:[0.8,0.3,-0.5]};};
+// the whole farm as in the picture (for looking at it only): the farmstead, the tower at its front right, a stretch of track bed
+KIT.models.farmAll=function(K,opt){const cam=KIT.models.farmstead(K,{game:true}),{B}=K;let v0=K.VB.length;tower(K);place(K,v0,-14.5,-10.6,0);v0=K.VB.length;arm(K);place(K,v0,-14.5,-10.6+KIT.GRAIN.pivot[2],-0.5);
+  const tz=-10.6-KIT.GRAIN.track;B(0,-0.2,-2,48,0.36,46,[0.42,0.5,0.28],9);B(0,0.1,tz,48,0.24,3.4,[0.5,0.47,0.43],10);for(const e of [-0.72,0.72])B(0,0.3,tz+e,48,0.14,0.08,IRON,11);for(let x=-23.5;x<24;x+=0.7)B(x,0.2,tz,0.24,0.1,2.4,WOODD,6);
+  B(2,0.45,tz+3.6,34,0.9,3.6,[0.55,0.33,0.25],24);B(2,0.92,tz+3.6,34.2,0.08,3.8,STONE,8);
+  return{target:[0,3,-6],dist:88,dir:[0.35,0.6,-0.72]};};
+})();
+
 /*@@END_BUILDINGS@@*/
 const VS_OBJ=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;
@@ -3254,7 +3417,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmstead','grainTower','grainArm'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -4616,7 +4779,7 @@ function carveTrack(T){
       continue;}
     const i0=clamp(Math.floor((c[0]-R2)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+R2)/cs),0,N-1),j0=clamp(Math.floor((c[1]-R2)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+R2)/cs),0,N-1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,[t,d]=segNearest(s,x,z),k=j*N+i;if(d<=hw)continue;const along=Math.abs(t-st.t);
-      const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
+      const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:st.farm?20:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
 }
 
 // ---- meshes: ballast, sleepers, rails, stone viaducts, tunnel tubes and portals
@@ -4805,9 +4968,9 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
     const ds=segById(st.sid);if(ds){const H=[],push=(q,d,v)=>{const k=K(q,d);if(v<(dist.has(k)?dist.get(k):1e18)){dist.set(k,v);H.push([v,q,d]);}};push(ds,1,st.t);push(ds,-1,ds.L-st.t);
       while(H.length){let bi=0;for(let i=1;i<H.length;i++)if(H[i][0]<H[bi][0])bi=i;const [v,q,d]=H[bi];H[bi]=H[H.length-1];H.pop();if(v>dist.get(K(q,d)))continue;for(const [pq,pd,ex] of pred.get(K(q,d))||[])push(pq,pd,v+pq.L+ex);}}
     this.dms.set(key,dist);return dist;},
-  destOf(tr){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine)):S0;if(!S.length)return null;if(tr.destId!=null){const st=S.find(q=>q.id===tr.destId);if(st)return st;tr.destId=null;}
+  destOf(tr){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm)):S0;if(!S.length)return null;if(tr.destId!=null){const st=S.find(q=>q.id===tr.destId);if(st)return st;tr.destId=null;}
     if(tr.autoDest==null||!S.some(q=>q.id===tr.autoDest))tr.autoDest=S[(Trains.list.indexOf(tr)+1)%S.length].id;return S.find(q=>q.id===tr.autoDest);},
-  arrived(tr,sid){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine)):S0;if(tr.destId===sid)tr.destId=null;if(tr.autoDest===sid&&S.length){const i=S.findIndex(q=>q.id===sid);tr.autoDest=S[(i+1)%S.length].id;}},
+  arrived(tr,sid){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm)):S0;if(tr.destId===sid)tr.destId=null;if(tr.autoDest===sid&&S.length){const i=S.findIndex(q=>q.id===sid);tr.autoDest=S[(i+1)%S.length].id;}},
   // look ahead and throw facing points toward the branch with the shortest way to the destination
   autoRoute(tr){const st=this.destOf(tr);if(!st)return;const D=this.distMap(st),back=tr.rev<0;let pos=back?advance(tr.head,-Trains.length(tr.veh)+COUPLE).pos:tr.head;if(back)pos={...pos,dir:-pos.dir};
     let s=segById(pos.sid),dir=pos.dir,t=pos.t,d=0,g=0;while(s&&d<300&&g++<40){if(s.id===st.sid)break;d+=dir>0?s.L-t:t;const node=dir>0?s.b:s.a,J=this.junction(node),n=Track.node(node);
@@ -4900,7 +5063,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
     for(const e of ev){
       if(e.type==='end'){if(e.d-6<stop){stop=e.d-6;why='end';}break;}
       if(e.type==='signal'){const b=this.blockAt(e.sid,e.t+e.dir*0.2);if(this.redFor(b,tr.id)){if(e.d-8<stop){stop=e.d-8;why='signal';}break;}}
-      if(e.type==='station'&&P.stopStations&&tr.lastStation!==e.o.id&&!((e.o.sawmill||e.o.workshop||e.o.mine)&&!tr.veh.some(v=>v.k==='wagon'))&&(P.stopAll||!this.destOf(tr)||this.destOf(tr).id===e.o.id)){const sd=e.d+Crane.stopAt(tr,e.o,L);if(sd<stop){stop=sd;why='station';tr.nextStation=e.o;tr.stopTgt={id:e.o.id,o:e.o,rem:sd};}break;}}
+      if(e.type==='station'&&P.stopStations&&tr.lastStation!==e.o.id&&!((e.o.sawmill||e.o.workshop||e.o.mine||e.o.farm)&&!tr.veh.some(v=>v.k==='wagon'))&&(P.stopAll||!this.destOf(tr)||this.destOf(tr).id===e.o.id)){const sd=e.d+Crane.stopAt(tr,e.o,L);if(sd<stop){stop=sd;why='station';tr.nextStation=e.o;tr.stopTgt={id:e.o.id,o:e.o,rem:sd};}break;}}
     // the stop point lies beyond the platform marker: keep braking for it after the head has passed the marker
     if(why!=='station'&&tr.stopTgt&&tr.lastStation!==tr.stopTgt.id){tr.stopTgt.rem-=v*dt;if(tr.stopTgt.rem<stop){stop=tr.stopTgt.rem;why='station';tr.nextStation=tr.stopTgt.o;}if(tr.stopTgt.rem<-20)tr.stopTgt=null;}
     const vmax=P.autoSpeed/3.6,vt=Math.min(vmax,Math.sqrt(2*0.6*Math.max(0,stop-1.5)),tr.plat&&tr.plat.moving?2.2:1e9);tr.wait=why;
@@ -4910,6 +5073,8 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
         // pulled up along a short platform: work the coaches that now stand at it
         if(pl&&pl.moving){pl.moving=false;tr.dwell=0;const cs=Life.platCoaches(tr,pl.si);Life.stopPhase(tr,pl.si,cs);Life.condOut(tr,pl.si,cs);}
         tr.dwell=(tr.dwell||0)+dt;const now=P.timeOfDay*60;
+        /* at a farm's grain station: the arm has filled the hoppers in its reach, draw up so the next ones stand at it */
+        if(tr.grainMove){const D=tr.grainMove,endAt=ev.find(e=>e.type==='end');tr.grainMove=0;if(!(endAt&&endAt.d<D+8)){tr.dwell=0;tr.stopTgt={id:tr.nextStation.id,o:tr.nextStation,rem:D+1.5};tr.status=`Drawing up at ${tr.nextStation.name}`;return;}tr.grainStuck=true;}
         // a train longer than the platform: once the coaches at it are done, pull up so the next ones stand at the platform
         if(pl&&pl.short&&pl.served.size<pl.all.length&&tr.dwell>Math.max(8,P.dwell*0.45)&&!Life.walkers.some(w=>w.state==='board'&&w.train===tr)&&(Life.condReady(tr)||(Life.condGo(tr,true),false))){
           const D=Life.moveUpBy(tr),endAt=ev.find(e=>e.type==='end');
@@ -4932,7 +5097,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
       gl.uniform3f(p.u('uLamp'),red?1.6:0.05,red?0.08:1.3,red?0.04:0.2);gl.uniformMatrix4fv(p.u('uModel'),false,mat(s,g.t,-2.7));gl.bindVertexArray(R.signalMesh.vao);gl.drawElements(gl.TRIANGLES,R.signalMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
     gl.uniform3f(p.u('uLamp'),1,1,1);
     const matF=(s,t,f)=>{const q=segPoint(s,t),y=segY(s,t),c=Math.cos(q[2])*f,sn=Math.sin(q[2])*f;return new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],y,q[1],1]);};
-    for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;if(!(st.mine||st.sawmill||st.workshop)&&R.kitVao)continue;// passenger stations are kit buildings (Life.kitInst)
+    for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;if(!(st.mine||st.sawmill||st.workshop)&&R.kitVao)continue;if(st.farm)continue;// passenger stations are kit buildings (Life.kitInst)
       const m=st.mine&&R.veh&&R.veh[31]?R.veh[31]:(st.sawmill||st.workshop)&&R.veh&&R.veh[10]?R.veh[10]:R.stationMesh;gl.uniformMatrix4fv(p.u('uModel'),false,matF(s,st.t,st._f||1));gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;
       if((st.len||44)>44&&R.platMesh&&R.platMesh[1]){const n=Math.round(((st.len||44)-44)/8),f=st._f||1;for(const e of [-1,1])for(let k=0;k<n;k++){const a=advance({sid:st.sid,t:st.t,dir:1},e*(24+4*k));if(a.blocked)break;const ps=a.pos,s2=segById(ps.sid);if(!s2)break;
           const q=segPoint(s2,ps.t),h=q[2]+(ps.dir<0?Math.PI:0),c=Math.cos(h)*f,sn=Math.sin(h)*f,pm=R.platMesh[k%3===1?1:0];gl.uniformMatrix4fv(p.u('uModel'),false,new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],segY(s2,ps.t),q[1],1]));gl.bindVertexArray(pm.vao);gl.drawElements(gl.TRIANGLES,pm.count,gl.UNSIGNED_INT,0);Stats.draws++;}}}
@@ -5016,7 +5181,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     for(const h of Life.houses||[]){if(!h.rect||!Life.plotOn(h)||Math.hypot(h.x-p.x,h.z-p.z)>hl+80)continue;for(const w of W)if(VG.inRect(h.rect,w[0],w[1],1.3))return{ok:false,msg:'A house is in the way'};}
     for(const q of Life.stInfo||[]){if(q.cargo||q.st===G.st)continue;for(const w of W){const dx=w[0]-q.x,dz=w[1]-q.z,a=dx*q.dx+dz*q.dz,b=dx*q.nx+dz*q.nz;if(Math.abs(a)<q.half+5&&b>-5&&b<(Life.stTown(q)?20:16))return{ok:false,msg:'Another station is in the way'};}}
     const circ=[];for(const m of Life.mills||[])circ.push([m.x,m.z,12,'A windmill is in the way']);for(const m of Life.sawmills||[])circ.push([m.x,m.z,28,'The sawmill is in the way']);for(const m of Life.workshops||[])circ.push([m.x,m.z,18,'The workshop is in the way']);
-    for(const m of Life.mines||[])circ.push([m.x,m.z,22,'The mine is in the way']);for(const m of Life.castleList())circ.push([m.x,m.z,(m.r||60)+8,'The castle is in the way']);for(const v of Life.villages)if(v.farm&&v.farm.yard)circ.push([v.farm.yard[0],v.farm.yard[1],14,'A farm is in the way']);
+    for(const m of Life.mines||[])circ.push([m.x,m.z,22,'The mine is in the way']);for(const m of Life.castleList())circ.push([m.x,m.z,(m.r||60)+8,'The castle is in the way']);for(const w of W)if(Life.farmAt(w[0],w[1]))return{ok:false,msg:'A farm is in the way'};
     for(const e of circ)for(const w of W)if(Math.hypot(w[0]-e[0],w[1]-e[1])<e[2])return{ok:false,msg:e[3]};
     for(const w of W)if(w[3]&&w[2]>=6){const n=Net.nearestOnTrack(w[0],w[1],3);if(n&&!(G.sid&&n.seg.id===G.sid))return{ok:false,msg:'Other track is in the way'};}
     return{ok:true,msg:''};},
@@ -5693,8 +5858,9 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   rows(n){return Math.min(3,Math.floor((n||0)/CRN.unit+1e-6));},
   ind(kind,q){return((kind==='sawmill'?Life.sawmills:kind==='mine'?Life.mines:Life.workshops)||[])[q.mi]||null;},
   // loading points with their frame: origin o, along-track X and across Z (the yard lies on -Z)
-  frames(){const out=[];for(const si of Life.stInfo||[]){const st=si.st,kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null;if(!kind)continue;const m=this.ind(kind,st[kind]);if(!Life.indOn(kind,m))continue;
+  frames(){const out=[];for(const si of Life.stInfo||[]){const st=si.st,kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null;if(!kind||st.farm)continue;const m=this.ind(kind,st[kind]);if(!Life.indOn(kind,m))continue;
       out.push({key:'st:'+st.id,kind,st,si,v:si.v,name:st.name,ore:kind==='mine'?m.type:null,o:[si.x,si.y,si.z],X:[si.dx,si.dz],Z:[-si.dz,si.dx]});}
+    for(const si of Life.stInfo||[]){const st=si.st,fm=st.farm?Life.farmOf(st):null;if(!fm||!fm.v.farmOwned)continue;out.push({key:'st:'+st.id,kind:'farm',want:'grain',st,si,v:fm.v,name:st.name,ore:null,tw:Life.farmTower(fm),o:[si.x,si.y,si.z],X:[si.dx,si.dz],Z:[-si.dz,si.dx]});}
     for(const b of Buses.stops){const kind=b.sawmill?'sawmill':b.workshop?'workshop':null;if(!kind)continue;const m=this.ind(kind,b[kind]);if(!m||!R.world||!Life.indOn(kind,m))continue;
       let c=Math.cos(b.rot),s=Math.sin(b.rot);if(s*(m.x-b.x)-c*(m.z-b.z)<0){c=-c;s=-s;}
       out.push({key:'bs:'+b.id,kind,bs:b,v:b.v,name:b.name,o:[b.x,R.sampleHr(R.world,b.x,b.z)+0.18,b.z],X:[c,s],Z:[-s,c]});}
@@ -5703,12 +5869,12 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   toL(f,x,z){const dx=x-f.o[0],dz=z-f.o[2];return[dx*f.X[0]+dz*f.X[1],dx*f.Z[0]+dz*f.Z[1]];},
   toW(f,lx,ly,lz){return[f.o[0]+f.X[0]*lx+f.Z[0]*lz,f.o[1]+ly,f.o[2]+f.X[1]*lx+f.Z[1]*lz];},
   // the stacks follow the stock (sawmill) or what has been unloaded and not yet used (workshop)
-  sync(f,s,dt){if(f.kind==='mine')return;let want;if(f.kind==='sawmill')want=Math.min(15,Math.floor(Goods.get(f.key).wood/CRN.unit+1e-6));else{s.eat+=dt;if(s.eat>45){s.eat=0;if(s.yard>0)s.yard--;}want=s.yard;}
+  sync(f,s,dt){if(f.kind==='mine'||f.kind==='farm')return;let want;if(f.kind==='sawmill')want=Math.min(15,Math.floor(Goods.get(f.key).wood/CRN.unit+1e-6));else{s.eat+=dt;if(s.eat>45){s.eat=0;if(s.yard>0)s.yard--;}want=s.yard;}
     if(s.task)return;let n=s.stacks.reduce((a,b)=>a+b,0);while(n<want){const i=s.stacks.findIndex(r=>r<3);if(i<0)break;s.stacks[i]++;n++;}
     while(n>want){let i=-1;for(let j=4;j>=0;j--)if(s.stacks[j]>0){i=j;break;}if(i<0)break;s.stacks[i]--;n--;}},
   // timber wagons of the train standing at this station, in the yard frame (|along| within reach, on this track)
   cars(f){if(!f.st)return null;const tr=Trains.list.find(t=>t.atSt===f.st.id&&Math.abs(t.v||0)<0.15&&t.poses);if(!tr)return null;const cars=[];
-    const want=f.ore||'wood';tr.veh.forEach((w,i)=>{if(w.k!=='wagon'||w.ctype!==want)return;const ps=tr.poses[i];if(!ps)return;const m=ps.m,[ax,az]=this.toL(f,m[12],m[14]);if(Math.abs(az)>1.6||Math.abs(ax)>CRN.xMax)return;cars.push({w,ax,az,ay:m[13]-f.o[1]});});
+    const want=f.want||f.ore||'wood';tr.veh.forEach((w,i)=>{if(w.k!=='wagon'||w.ctype!==want)return;const ps=tr.poses[i];if(!ps)return;const m=ps.m,[ax,az]=this.toL(f,m[12],m[14]);if(Math.abs(az)>1.6||Math.abs(ax)>(f.kind==='farm'?600:CRN.xMax))return;cars.push({w,ax,az,ay:m[13]-f.o[1]});});
     return{tr,cars};},
   lorry(f){const b=f.bs;return Buses.list.find(q=>q.goods&&q.st==='dwell'&&Buses.cur(q)===b)||null;},
   near(list,x){let best=-1,bd=1e9;for(const i of list){const d=Math.abs(CRN.stackX[i]-x);if(d<bd){bd=d;best=i;}}return best;},
@@ -5739,7 +5905,23 @@ const Crane={S:new Map(),F:[],hold:new Map(),
       if(P.smoke&&Math.random()<dt*2){const p=this.toW(f,t.cx,t.car.ay+3.3,t.car.az);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.8,0.4,(Math.random()-0.5)*0.8,1.4,0.35,1.3,1);}
       if(w.n>=19.95||S[f.ore]<0.02){w.n=Math.min(20,w.n);s.ph='close';s.t=0.6;s.pour=false;if(t.got>=1)this.icon(f,t,`+${Math.round(t.got)} ${ORE[f.ore].icon}`);}return;}
     if((s.t-=dt)<=0){s.task=null;s.ph='idle';}},
-  run(f,s,dt){if(f.kind==='mine')return this.runOre(f,s,dt);const g=1.6*dt,tv=1.2*dt,hv=0.9*dt,mv=(k,to,step)=>{const d=to-s[k];if(Math.abs(d)<=step){s[k]=to;return true;}s[k]+=Math.sign(d)*step;return false;};
+  /* the farm's grain arm: it swings to the nearer of the (at most two) hoppers within its reach and fills it, then the other; when both are full and more
+     stand further back, the train draws up (two wagons at a time) and the arm goes on. s.ax: where along the track the spout is now */
+  grainWork(f,c){const a0=f.tw&&f.tw.si?f.tw.a:0,ps=c.tr.poses,ld=(c.tr.rev||1)<0?ps[ps.length-1]:ps[0],tl=(c.tr.rev||1)<0?ps[0]:ps[ps.length-1],sg=ps.length>1?Math.sign(this.toL(f,ld.c[0],ld.c[2])[0]-this.toL(f,tl.c[0],tl.c[2])[0])||1:1;
+    const open=c.cars.filter(q=>(q.w.n||0)<19.9),by=(p,q)=>Math.abs(p.ax-a0)-Math.abs(q.ax-a0);return{a0,sg,reach:open.filter(q=>Math.abs(q.ax-a0)<KIT.GRAIN.swing).sort(by),rest:open.filter(q=>Math.abs(q.ax-a0)>=KIT.GRAIN.swing&&(q.ax-a0)*sg<0).sort(by)};},
+  runGrain(f,s,dt){const S=Goods.get(f.key),a0=f.tw&&f.tw.si?f.tw.a:0,mv=(to,sp)=>{if(s.ax===undefined)s.ax=a0;const d=to-s.ax;if(Math.abs(d)<=sp){s.ax=to;return true;}s.ax+=Math.sign(d)*sp;return false;};
+    if(s.ph==='idle'){s.pour=false;const c=this.cars(f);if(!c)s.stuck=null;let t=null;if(c&&c.tr.grainStuck){s.stuck=c.tr.id;c.tr.grainStuck=false;}
+      if(c&&S.grain>=1){const w=this.grainWork(f,c);if(w.reach.length)t={mode:'grain',tr:c.tr,car:w.reach[0]};
+        else if(w.rest.length&&s.stuck!==c.tr.id&&mv(a0,1.6*dt)&&!c.tr.grainMove&&c.tr.stopTgt&&c.tr.stopTgt.rem<3){const q=w.rest[0],q2=w.rest[1],tg=q2&&Math.abs(q2.ax-q.ax)<VEH.wagon.len+COUPLE+1.5?(q.ax+q2.ax)/2:q.ax;c.tr.grainMove=Math.abs(tg-a0);return;}}
+      if(!t){if(!c||!this.grainWork(f,c).rest.length)mv(a0,1.2*dt);return;}s.task=t;s.ph='swing';}
+    const t=s.task;if(!this.still(f,t)){s.task=null;s.ph='idle';s.pour=false;return;}const w=t.car.w;
+    if(s.ph==='swing'){s.pour=false;if(mv(t.car.ax,1.6*dt)){s.ph='pour';t.got=0;}return;}
+    if(s.ph==='pour'){s.pour=true;if(!(w.n>=0.5)){w.fx=f.o[0];w.fz=f.o[2];w.from=f.key;w.n=w.n||0;}const a=Math.min(1.1*dt,S.grain,20-w.n);w.n+=a;S.grain-=a;t.got+=a;
+      if(P.smoke){const G=KIT.GRAIN,y0=f.o[1]-0.2+G.pivot[1]-(G.pivot[1]-G.tipY)*Math.hypot(s.ax-a0,G.reach)/G.reach;let n=Math.floor(dt*40+Math.random());while(n-->0){const p=this.toW(f,s.ax+(Math.random()-0.5)*0.25,0,(Math.random()-0.5)*0.25);Particles.spawn(p[0],y0,p[2],(Math.random()-0.5)*0.3,-2.6-Math.random(),(Math.random()-0.5)*0.3,0.45,0.16,0.3,2);}
+        if(Math.random()<dt*3){const p=this.toW(f,s.ax,t.car.ay+3.0,0);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.8,0.5,(Math.random()-0.5)*0.8,1.6,0.4,1.5,2);}}
+      if(w.n>=19.95||S.grain<0.02){w.n=Math.min(20,w.n);s.ph='close';s.t=0.5;s.pour=false;if(t.got>=1)this.icon(f,t,`+${Math.round(t.got)} 🌾`);}return;}
+    if((s.t-=dt)<=0){s.task=null;s.ph='idle';}},
+  run(f,s,dt){if(f.kind==='farm')return this.runGrain(f,s,dt);if(f.kind==='mine')return this.runOre(f,s,dt);const g=1.6*dt,tv=1.2*dt,hv=0.9*dt,mv=(k,to,step)=>{const d=to-s[k];if(Math.abs(d)<=step){s[k]=to;return true;}s[k]+=Math.sign(d)*step;return false;};
     if(s.ph==='idle'){s.task=this.plan(f,s);if(!s.task){mv('hy',CRN.rest,hv);mv('tz',CRN.zPile,tv);return;}s.ph='lift';}
     const t=s.task;
     if(!this.still(f,t)){if(s.load>=0&&t.mode==='load')this.back(f,s,t);else if(s.load>=0)this.drop(f,s,t);s.load=-1;s.task=null;s.ph='idle';return;}
@@ -5758,9 +5940,9 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   update(dt){if(!App.T||!R.world){this.F=[];return;}const sp=+P.craneSpeed||2.5,F=this.frames(),live=new Set();this.hold.clear();
     for(const f of F){live.add(f.key);const s=this.st(f.key);f.s=s;this.sync(f,s,dt);this.run(f,s,Math.min(dt,0.1)*sp);
       // a train waits while a bundle is on its way or while there is work for it here
-      if(f.st){const t=s.task;if(t&&t.tr)this.hold.set(t.tr.id,t.mode);else{const c=this.cars(f);if(c&&(f.kind==='mine'?c.cars.some(q=>(q.w.n||0)<19.9)&&Goods.get(f.key)[f.ore]>=1:f.kind==='sawmill'?c.cars.some(q=>this.rows(q.w.n)<3)&&s.stacks.some(r=>r>0):c.cars.some(q=>this.rows(q.w.n)>0&&q.w.from!==f.key)))this.hold.set(c.tr.id,f.kind==='mine'?'pour':f.kind==='sawmill'?'load':'unload');}}
+      if(f.st){const t=s.task;if(t&&t.tr)this.hold.set(t.tr.id,t.mode);else{const c=this.cars(f);if(c&&(f.kind==='farm'?(Goods.get(f.key).grain>=1&&(()=>{const w=this.grainWork(f,c);return w.reach.length>0||(w.rest.length>0&&s.stuck!==c.tr.id);})()):f.kind==='mine'?c.cars.some(q=>(q.w.n||0)<19.9)&&Goods.get(f.key)[f.ore]>=1:f.kind==='sawmill'?c.cars.some(q=>this.rows(q.w.n)<3)&&s.stacks.some(r=>r>0):c.cars.some(q=>this.rows(q.w.n)>0&&q.w.from!==f.key)))this.hold.set(c.tr.id,f.kind==='farm'?'grain':f.kind==='mine'?'pour':f.kind==='sawmill'?'load':'unload');}}
       // the steam winch smokes while the crane works
-      if(s.task&&f.kind!=='mine'&&P.smoke&&(s.puff-=dt)<=0){s.puff=0.45;const p=this.toW(f,s.gx+0.8,7.4,CRN.zB-0.85);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.4,1.4,(Math.random()-0.5)*0.4,2.6,0.25,1.1,0);}}
+      if(s.task&&f.kind!=='mine'&&f.kind!=='farm'&&P.smoke&&(s.puff-=dt)<=0){s.puff=0.45;const p=this.toW(f,s.gx+0.8,7.4,CRN.zB-0.85);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.4,1.4,(Math.random()-0.5)*0.4,2.6,0.25,1.1,0);}}
     for(const k of [...this.S.keys()])if(!live.has(k))this.S.delete(k);this.F=F;
     // the mill engine's stack smokes in the working day
     const h=P.timeOfDay;if(P.smoke&&h>6.5&&h<19.5&&R.focus)for(const m of Life.sawmills||[]){if(Math.hypot(m.x-R.focus[0],m.z-R.focus[2])>1400)continue;if(Math.random()<dt*3){const c=Math.cos(m.rot),sn=Math.sin(m.rot);
@@ -5770,13 +5952,17 @@ const Crane={S:new Map(),F:[],hold:new Map(),
       let n=Math.floor(dt*26+Math.random());while(n-->0){const lx=F[0]+(Math.random()-0.5)*1.0,lz=F[2]-up*(0.3+Math.random()*0.8),p=P2(lx,lz);Particles.spawn(p[0],(m.y||0)+F[1]-0.2,p[1],(Math.random()-0.5)*0.3,-1.5-Math.random(),(Math.random()-0.5)*0.3,0.7+Math.random()*0.4,0.18,0.5,3);}
       if(Math.random()<dt*10){const p=P2(W[0]+(Math.random()-0.5)*1.2,W[2]-up*(1.5+Math.random()*1.5));Particles.spawn(p[0],(m.y||0)+0.5,p[1],(Math.random()-0.5)*0.6,0.6+Math.random()*0.6,(Math.random()-0.5)*0.6,0.9,0.2,0.9,3);}}},
   holds(tr){return this.hold.has(tr.id);},
-  what(tr){const m=this.hold.get(tr.id);return m==='unload'?'unloading logs':m==='pour'?'loading ore':'loading logs';},
+  what(tr){const m=this.hold.get(tr.id);return m==='grain'?'loading grain':m==='unload'?'unloading logs':m==='pour'?'loading ore':'loading logs';},
   // where a train should stop at a station: at a crane station the first timber wagon draws up at the far end of the yard
-  stopAt(tr,st,L){const base=Math.min((st.len||44)/2-3,L/2);if(!(st.sawmill||st.workshop||st.mine))return base;const want=st.mine?(this.ind('mine',st.mine)||{}).type:'wood';let front=0;for(const v of tr.veh){if(v.k==='wagon'&&v.ctype===want)return Math.max(base,Math.min(front+20.5,L-1));front+=v.len+COUPLE;}return base;},
+  stopAt(tr,st,L){const base=Math.min((st.len||44)/2-3,L/2);
+    if(st.farm){/* the first two grain hoppers still to fill come to stand either side of the arm */const si=(Life.stInfo||[]).find(q=>q.st===st),fm=Life.farmOf(st),tw=si&&fm?Life.farmTower(fm):null,a0=tw&&tw.si?tw.a:0,ps=tr.poses||[],back=(tr.rev||1)<0;let sg=1;
+      if(si&&ps.length>1){const ld=back?ps[ps.length-1]:ps[0],tl=back?ps[0]:ps[ps.length-1];sg=Math.sign((ld.c[0]-tl.c[0])*si.dx+(ld.c[2]-tl.c[2])*si.dz)||1;}
+      let front=0,n=0,f0=-1;for(const v of back?tr.veh.slice().reverse():tr.veh){if(v.k==='wagon'&&v.ctype==='grain'&&(v.n||0)<19.9){if(f0<0)f0=front;if(front-f0<VEH.wagon.len+COUPLE+1)n++;}front+=v.len+COUPLE;}
+      return f0<0?base:Math.max(3,a0*sg+f0+(n>1?VEH.wagon.len+COUPLE/2:VEH.wagon.len/2)+1.5);}if(!(st.sawmill||st.workshop||st.mine))return base;const want=st.mine?(this.ind('mine',st.mine)||{}).type:'wood';let front=0;for(const v of tr.veh){if(v.k==='wagon'&&v.ctype===want)return Math.max(base,Math.min(front+20.5,L-1));front+=v.len+COUPLE;}return base;},
   mat(f,x,y,z,sy){const X=f.X,Z=f.Z,o=f.o;return new Float32Array([X[0],0,X[1],0,0,sy||1,0,0,Z[0],0,Z[1],0,o[0]+X[0]*x+Z[0]*z,o[1]+y,o[2]+X[1]*x+Z[1]*z,1]);},
   draw(pass){if(!this.F.length||!R.veh||!R.veh[18])return;const p=R.pVeh,c=Cam.pos||R.focus||[0,0,0];gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);gl.uniform2f(p.u('uOcc'),0,0);
     const dm=(mi,M)=>{const m=R.veh[mi];gl.uniformMatrix4fv(p.u('uModel'),false,M);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
-    for(const f of this.F){const s=f.s;if(!s||Math.hypot(f.o[0]-c[0],f.o[2]-c[2])>1600)continue;
+    for(const f of this.F){const s=f.s;if(!s||f.kind==='farm'||Math.hypot(f.o[0]-c[0],f.o[2]-c[2])>1600)continue;
       if(f.kind==='mine'){const i=['gold','silver','diamond'].indexOf(f.ore),S=Goods.get(f.key)[f.ore];dm(28+i,this.mat(f,-8,-0.18,-14,0.35+2.4*Math.min(1,S/60)));
         if(s.pour&&s.task){const t=s.task,top=4.55,bot=t.car.ay+1.74+0.12+1.6*Math.min(1,(t.car.w.n||0)/20);dm(25+i,this.mat(f,t.cx,top,t.car.az,Math.max(0.1,top-bot)));}continue;}
       if(f.bs)dm(10,this.mat(f,0,0,0));dm(11,this.mat(f,s.gx,0,0));dm(12,this.mat(f,s.gx,0,s.tz));dm(13,this.mat(f,s.gx,CRN.drumY,s.tz,CRN.drumY-s.hy));dm(14,this.mat(f,s.gx,s.hy,s.tz));
@@ -6389,8 +6575,13 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       for(let k=0;k<40&&!spot;k++){const a=a0+(k%2?1:-1)*Math.ceil((k%20)/2)*0.32,r=v.R*0.85+26+(k>=20?30:0),x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<40||z<40||x>W-40||z>W-40)continue;
         let ok=true,mn=1e9,mx=-1e9;for(let q=0;q<16&&ok;q++){const qa=q*0.3927,qx=x+Math.cos(qa)*18,qz=z+Math.sin(qa)*18;const h=H(qx,qz);mn=Math.min(mn,h);mx=Math.max(mx,h);if(wet(qx,qz)||onRoad(qx,qz)||onTrack(qx,qz))ok=false;}
         if(!ok||mx-mn>8)continue;if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+20))continue;if(fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+12))continue;spot={x,z,a};}
-      if(!spot)continue;const rot=Math.atan2(v.z-spot.z,v.x-spot.x),c=Math.cos(rot),sn=Math.sin(rot),P2=(u,w)=>[spot.x+c*u-sn*w,spot.z+sn*u+c*w],base=H(spot.x,spot.z);
-      const fm={x:spot.x,z:spot.z,rot,barn:P2(-4,0),shed:P2(-2,-17),silo:P2(-3,15),yard:P2(9,-4),unload:P2(4,12),y:base};v.farm=fm;
+      if(!spot)continue;const rot0=Math.atan2(v.z-spot.z,v.x-spot.x),base=H(spot.x,spot.z);
+      /* the farmstead (buildings/farm.js: 54 x 38 m, front = model -z): long side across the line village-fields where that is free, else another quarter turn */
+      let rot=rot0+Math.PI/2;{const ok=a=>{const c=Math.cos(a),s=Math.sin(a);for(let u=-27;u<=27;u+=6)for(let w=-18;w<=18;w+=6){const x=spot.x+c*u-s*w,z=spot.z+s*u+c*w;if(x<30||z<30||x>W-30||z>W-30||wet(x,z)||onTrack(x,z))return false;if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+3))return false;}return true;};for(const a of [rot0+Math.PI/2,rot0-Math.PI/2,rot0,rot0+Math.PI])if(ok(a)){rot=a;break;}}
+      const c=Math.cos(rot),sn=Math.sin(rot),P2=(u,w)=>[spot.x+c*u-sn*w,spot.z+sn*u+c*w];
+      const fm={x:spot.x,z:spot.z,rot,v,barn:P2(-8,12),shed:P2(12,-10.5),silo:P2(-14.5,-10.6),yard:P2(-2,-1),gate:P2(-2,-21),unload:P2(-5.5,-9.5),park:[P2(-5,2),P2(-1,2.5),P2(3,2)],y:base};v.farm=fm;
+      for(let u=-31;u<=31;u+=cs*0.5)for(let w=-21;w<=21;w+=cs*0.5){const q=P2(u,w),i=Math.floor(q[0]/cs),j=Math.floor(q[1]/cs);if(i<0||j<0||i>=N||j>=N)continue;flatMask[j*N+i]=1;flatH[j*N+i]=base;}
+      for(const u of [-17,17])clearZones.push([...P2(u,0),24]);
       for(let j=Math.floor((spot.z-26)/cs);j<=Math.ceil((spot.z+26)/cs);j++)for(let i=Math.floor((spot.x-26)/cs);i<=Math.ceil((spot.x+26)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;const d=Math.hypot((i+0.5)*cs-spot.x,(j+0.5)*cs-spot.z);if(d<26){const w=clamp((26-d)/6,0,1);flatMask[j*N+i]=Math.max(flatMask[j*N+i],w>0.99?1:0);if(w>0.99)flatH[j*N+i]=base;}}
       clearZones.push([spot.x,spot.z,30]);let best=null,bd=1e9;for(const st of v.streets){const ex=st[2]-st[0],ez=st[3]-st[1],ll=ex*ex+ez*ez||1,t=clamp(((fm.yard[0]-st[0])*ex+(fm.yard[1]-st[1])*ez)/ll,0,1),px=st[0]+ex*t,pz=st[1]+ez*t,d=Math.hypot(px-fm.yard[0],pz-fm.yard[1]);if(d<bd){bd=d;best=[px,pz];}}
       if(best)this.vRoads.push({p:[fm.yard[0],fm.yard[1],best[0],best[1]],w:1.5,farmOf:v});this.vRoads.push({disc:[fm.yard[0],fm.yard[1],7],farmOf:v});}
@@ -6514,7 +6705,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     bank:{p:'bankOwned',name:'Bank',icon:'🏦',level:2,trans:0,cost:1,growth:40,desc:'a bank by the square that takes gold, silver and diamond ore'},
     docks:{p:'docksOwned',name:'Steamboat dock',icon:'⛴️',level:0,trans:20,cost:1,growth:30,desc:'a dock on the lake; the steamboat sails once two villages on the lake have one'}},
   // what an upgrade brings and why it is on offer now (shown when the player taps the notification)
-  UPG_WHY:{farm:v=>`${v.name} has grown into a village and enough travellers have come by train, so its people can take up farming. You get fields and pastures around the village, a farmstead and tractors. The farms send grain and produce: carry them by goods wagon to other villages, and ${v.name} grows faster.`,
+  UPG_WHY:{farm:v=>`${v.name} has grown into a village and enough travellers have come by train, so its people can take up farming. You get fields and pastures around the village, a farmstead and tractors. Build a station at one of the farm's four marked sides: the grain tower then stands beside that track and its arm fills your grain hoppers. The farms send grain and produce: carry them by goods wagon to other villages, and ${v.name} grows faster.`,
     saw:v=>`Enough passengers have travelled from ${v.name} for its woodsmen to open a sawmill in the forest nearby. It is a water-powered mill on a brook: the wheel drives the saws, logs come in from the woods and leave as cut timber. Build a wood-mill station at one of its three marked sides and take the timber by wagon to a wood workshop.`,
     mine:v=>`${v.name} has grown and its line is busy, so the lode in the hills can be worked. You get a shaft mine with a headframe and an ore bunker. Build a station at a marked side and take the ore in hoppers to a town with a bank.`,
     bank:v=>`${v.name} is now a town, big enough for a bank by its square. The bank buys gold, silver and diamond ore: bring it by rail from the mines.`,
@@ -6532,10 +6723,21 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   farmOn(f){return !!(f&&(!f.v||f.v.farmOwned));},
   inds(){return[['sawmill',this.sawmills||[]],['workshop',this.workshops||[]],['mine',this.mines||[]]];},
   // sawmills and mines are village upgrades (a sawmill without a village stays on); workshops always work
-  indOn(kind,m){if(!m)return false;if(kind==='sawmill')return!m.v||!!m.v.sawOwned;if(kind==='mine')return!!(m.v&&m.v.mineOwned);return true;},
-  sawSlots(m){const c=Math.cos(m.rot),sn=Math.sin(m.rot),P2=(lx,lz)=>[m.x+c*lx-sn*lz,m.z+sn*lx+c*lz];if(m.type)return[{k:0,p:P2(-38,0),t:m.rot+Math.PI/2,in:P2(-26,0)},{k:1,p:P2(0,34),t:m.rot,in:P2(0,21)},{k:2,p:P2(0,-34),t:m.rot,in:P2(0,-21)}];return[{k:0,p:P2(-35,0),t:m.rot+Math.PI/2,in:P2(-26,0)},{k:1,p:P2(0,30),t:m.rot,in:P2(0,21)},{k:2,p:P2(0,-30),t:m.rot,in:P2(0,-21)}];},
-  nearSawSlot(x,z,r){let best=null,bd=r;for(const [kind,L] of this.inds())L.forEach((m,mi)=>{if(!this.indOn(kind,m))return;for(const s of this.sawSlots(m)){const d=Math.hypot(s.p[0]-x,s.p[1]-z);if(d<bd){bd=d;best={kind,mi,k:s.k,slot:s,m};}}});return best;},
-  indName(q){return `${q.m.v?q.m.v.name+' ':''}${q.kind==='sawmill'?'Sawmill':q.kind==='mine'?ORE[q.m.type].name+' Mine':'Wood Workshop'}`;},
+  indOn(kind,m){if(!m)return false;if(kind==='farm')return!!(m.v&&m.v.farmOwned);if(kind==='sawmill')return!m.v||!!m.v.sawOwned;if(kind==='mine')return!!(m.v&&m.v.mineOwned);return true;},
+  /* ---- farms: one per farming village (index = the village's). A station at one of a farm's four marked sides is its grain station: the grain tower
+     stands beside that station's track (else at the farm's front) and its arm fills the grain hoppers (Crane, kind 'farm') */
+  farms(){return this.villages.map(v=>v.farm||null);},
+  farmOf(st){const v=st&&st.farm?this.villages[st.farm.mi]:null;return v&&v.farm||null;},
+  farmAt(x,z,m){for(const v of this.villages){const fm=v.farm;if(!fm||Math.abs(x-fm.x)>45||Math.abs(z-fm.z)>45)continue;const c=Math.cos(fm.rot),s=Math.sin(fm.rot),dx=x-fm.x,dz=z-fm.z,u=dx*c+dz*s,w=-dx*s+dz*c;if(Math.abs(u)<28+(m||0)&&Math.abs(w)<19.5+(m||0))return fm;}return null;},
+  farmTower(fm){const G=KIT.GRAIN,c=Math.cos(fm.rot),sn=Math.sin(fm.rot),P2=(lx,lz)=>[fm.x+c*lx-sn*lz,fm.z+sn*lx+c*lz],mi=this.villages.indexOf(fm.v),st=Track.stations.find(q=>q.farm&&q.farm.mi===mi),si=st&&(this.stInfo||[]).find(q=>q.st===st);
+    if(si){const sl=this.sawSlots(fm)[st.farm.k],h=(st.len||44)/2-4,a=sl?clamp((sl.in[0]-si.x)*si.dx+(sl.in[1]-si.z)*si.dz,-h,h):0,x=si.x+si.dx*a+si.nx*G.track,z=si.z+si.dz*a+si.nz*G.track;return{x,z,y:si.y-0.2,rot:Math.atan2(-si.nx,si.nz),si,st,a};}
+    const p=P2(-14.5,-10.6);return{x:p[0],z:p[1],y:this.T?R.sampleHr(this.T,p[0],p[1]):fm.y,rot:fm.rot,a:0};},
+  farmFolk(){const out=[],h=P.timeOfDay;if(!(h>7&&h<19)||!this.T)return out;for(const v of this.villages){const fm=v.farm;if(!fm||!v.farmOwned)continue;const c=Math.cos(fm.rot),sn=Math.sin(fm.rot);
+      for(const [lx,lz,r,hh] of [[-4.5,-3.5,0.6,0.13],[-3.4,-2.9,3.6,0.57],[7.5,-4.6,2.2,0.81],[8.6,3.2,-1.2,0.35]]){const x=fm.x+c*lx-sn*lz,z=fm.z+sn*lx+c*lz;out.push({x,z,y:R.sampleHr(this.T,x,z)-0.05,rot:fm.rot+r,hash:hh,k:'stand'});}}return out;},
+  slotInds(){return[...this.inds(),['farm',this.farms()]];},
+  sawSlots(m){const c=Math.cos(m.rot),sn=Math.sin(m.rot),P2=(lx,lz)=>[m.x+c*lx-sn*lz,m.z+sn*lx+c*lz];if(m.park)return[{k:0,p:P2(-14.5,-22.3),t:m.rot,in:P2(-14.5,-10.6)},{k:1,p:P2(-19.5,20.7),t:m.rot,in:P2(-19.5,9)},{k:2,p:P2(-34.2,0),t:m.rot+Math.PI/2,in:P2(-22.5,0)},{k:3,p:P2(35.7,-2.5),t:m.rot+Math.PI/2,in:P2(24,-2.5)}];if(m.type)return[{k:0,p:P2(-38,0),t:m.rot+Math.PI/2,in:P2(-26,0)},{k:1,p:P2(0,34),t:m.rot,in:P2(0,21)},{k:2,p:P2(0,-34),t:m.rot,in:P2(0,-21)}];return[{k:0,p:P2(-35,0),t:m.rot+Math.PI/2,in:P2(-26,0)},{k:1,p:P2(0,30),t:m.rot,in:P2(0,21)},{k:2,p:P2(0,-30),t:m.rot,in:P2(0,-21)}];},
+  nearSawSlot(x,z,r){let best=null,bd=r;for(const [kind,L] of this.slotInds())L.forEach((m,mi)=>{if(!this.indOn(kind,m))return;for(const s of this.sawSlots(m)){const d=Math.hypot(s.p[0]-x,s.p[1]-z);if(d<bd){bd=d;best={kind,mi,k:s.k,slot:s,m};}}});return best;},
+  indName(q){if(q.kind==='farm')return `${q.m.v.name} Farm`;return `${q.m.v?q.m.v.name+' ':''}${q.kind==='sawmill'?'Sawmill':q.kind==='mine'?ORE[q.m.type].name+' Mine':'Wood Workshop'}`;},
   attachSawmill(st){const sg=segById(st.sid);if(!sg)return;const p=segPoint(sg,st.t),q=this.nearSawSlot(p[0],p[1],45);if(q){st[q.kind]={mi:q.mi,k:q.k};st.name=this.indName(q);}},
   // level a plot: the average height inside the footprint, blended into the surroundings over a margin (in T.H and the flat mask)
   levelPlot(T,x,z,rot,hx,hz,margin,flatMask,flatH){const N=T.N,cs=T.cs,c=Math.cos(rot),sn=Math.sin(rot);let sum=0,n=0;for(let u=-hx;u<=hx;u+=4)for(let w=-hz;w<=hz;w+=4){const px=x+c*u-sn*w,pz=z+sn*u+c*w;sum+=R.sampleHr(T,px,pz);n++;}const avg=sum/n,ext=Math.hypot(hx,hz)+margin;
@@ -6556,7 +6758,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   // a plot rectangle is free: inside the world, dry, off the track and the streams, less than 5 m of fall, clear of other plots, streets (2 m) and the square
   fitsRect(Q,streets,v){const T=this.T,W=T.W,cq=VG.corners(Q);for(const p of cq)if(p[0]<25||p[1]<25||p[0]>W-25||p[1]>W-25)return null;let mn=1e9,mx=-1e9;const c=Math.cos(Q.a),s=Math.sin(Q.a);
     for(const h of this.houses)if(!h.gone&&Math.abs(h.x-Q.x)<45&&Math.abs(h.z-Q.z)<45&&VG.rectHit(Q,h.rect||VG.rectOf(h.x,h.z,h.rot,{r:h.r})))return null;
-    for(let i=0;i<=5;i++)for(let j=0;j<=5;j++){const u=Q.x0+(Q.x1-Q.x0)*i/5,w=Q.z0+(Q.z1-Q.z0)*j/5,xx=Q.x+c*u-s*w,zz=Q.z+s*u+c*w,hh=R.sampleHr(T,xx,zz);mn=Math.min(mn,hh);mx=Math.max(mx,hh);if(this.wetAt(xx,zz)||this.trackAt(xx,zz))return null;}
+    for(let i=0;i<=5;i++)for(let j=0;j<=5;j++){const u=Q.x0+(Q.x1-Q.x0)*i/5,w=Q.z0+(Q.z1-Q.z0)*j/5,xx=Q.x+c*u-s*w,zz=Q.z+s*u+c*w,hh=R.sampleHr(T,xx,zz);mn=Math.min(mn,hh);mx=Math.max(mx,hh);if(this.wetAt(xx,zz)||this.trackAt(xx,zz)||this.farmAt(xx,zz,2))return null;}
     if(mx-mn>(v&&v.plan==='hill'?6.5:5))return null;
     for(const st of streets||[]){if(VG.segDist(st,Q.x,Q.z)[0]>40)continue;const L=Math.hypot(st[2]-st[0],st[3]-st[1]),n=Math.ceil(L/1.5);for(let k=0;k<=n;k++)if(VG.inRect(Q,st[0]+(st[2]-st[0])*k/n,st[1]+(st[3]-st[1])*k/n,1.0))return null;}
     if(this.stInfo&&this.stInfo.length&&this.stRectHit(Q,(x,z,m)=>this.stReserve(x,z,m),2))return null;
@@ -6922,19 +7124,21 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   fieldPose(f,p){const lanes=Math.max(1,Math.ceil(2*f.hx/4)),fl=clamp(p,0,0.9999)*lanes,cur=Math.floor(fl),al=fl-cur,odd=cur%2===1,u=Math.min(-f.hx+(cur+0.5)*4,f.hx-1),w=odd?f.hz-al*2*f.hz:-f.hz+al*2*f.hz,c=Math.cos(f.a),s=Math.sin(f.a);
     return[f.x+c*u-s*w,f.z+s*u+c*w,f.a+(odd?-Math.PI/2:Math.PI/2),lanes];},
   updateFarm(dt){const F=this.farm,T=this.T;if(!T||!T.fields)return;if(F.season!==P.season){const init=F.season===null;F.season=P.season;this.farmSchedule(P.season,init);}
-    const home=v=>v.farm?v.farm.yard:[v.x,v.z];F.carts=F.carts||[];
-    for(const v of this.villages){const want=v.farmOwned?Math.round(P.tractors):0,mine=F.tr.filter(t=>t.v===v);if(mine.length<want&&(T.fields||[]).length){const h=home(v),k=mine.length;F.tr.push({v,x:h[0]+k*4,z:h[1],rot:v.farm?v.farm.rot+Math.PI/2:0,job:null,st:'idle',hash:Math.random(),tool:null});}
+    const home=(v,k)=>v.farm?(v.farm.park?v.farm.park[Math.max(0,k|0)%v.farm.park.length]:v.farm.yard):[v.x,v.z];F.carts=F.carts||[];
+    for(const v of this.villages){const want=v.farmOwned?Math.round(P.tractors):0,mine=F.tr.filter(t=>t.v===v);if(mine.length<want&&(T.fields||[]).length){const k=mine.length,h=home(v,k);F.tr.push({v,x:h[0],z:h[1],rot:v.farm?v.farm.rot:0,job:null,st:'idle',hash:Math.random(),tool:null});}
       else if(mine.length>want){const t=mine[mine.length-1];if(t.job)t.job.taken=false;F.tr.splice(F.tr.indexOf(t),1);}}
     const H=(x,z)=>R.sampleHr(T,x,z),route=(a,b)=>this.routePath(a,b,{cs:6,margin:90,bridge:true,wind:0,road:0.3,maxG:0.45})||[b],
       follow=(o,spd)=>{const wp=o.path[Math.min(o.pi,o.path.length-1)],dx=wp[0]-o.x,dz=wp[1]-o.z,d=Math.hypot(dx,dz);if(d<1.5){if(o.pi<o.path.length-1){o.pi++;return false;}return true;}const v=Math.min(spd*dt,d);o.x+=dx/d*v;o.z+=dz/d*v;o.rot=lerpAng(o.rot,Math.atan2(dz,dx),dt*4);return false;},
       TOOL={harvest:'combine',plough:'plough',sow:'drill',harrow:'harrow'};
-    for(const t of F.tr){const hm=home(t.v);
-      if(!t.job){if(t.st==='home'){if(!t.path){t.path=route([t.x,t.z],hm);t.pi=0;}if(follow(t,7*P.farmSpeed)){t.st='idle';t.path=null;t.tool=null;}continue;}
+    /* in and out of the farmstead by its gate at the front, so nothing drives through the house or the shed */
+    const farmRoute=(v,a,b)=>{const fm=v&&v.farm;if(!fm||!fm.gate)return route(a,b);const inF=p=>this.farmAt(p[0],p[1])===fm,ia=inF(a),ib=inF(b);if(ia&&ib)return[b];const r=route(ia?fm.gate:a,ib?fm.gate:b);return[...(ia?[fm.gate]:[]),...r,...(ib?[b]:[])];};
+    for(const t of F.tr){const hm=home(t.v,F.tr.filter(o=>o.v===t.v).indexOf(t));
+      if(!t.job){if(t.st==='home'){if(!t.path){t.path=farmRoute(t.v,[t.x,t.z],hm);t.pi=0;}if(follow(t,7*P.farmSpeed)){t.st='idle';t.path=null;t.tool=null;}continue;}
         if(Math.hypot(t.x-hm[0],t.z-hm[1])>8){t.st='home';t.path=null;continue;}
         let best=null,bd=1e9;for(const j of F.jobs){if(j.taken||!this.farmOn(j.f)||(j.f.v&&j.f.v!==t.v&&F.tr.some(o=>o.v===j.f.v)))continue;const d=Math.hypot(j.f.x-hm[0],j.f.z-hm[1]);if(d<bd){bd=d;best=j;}}
         if(best){best.taken=true;t.job=best;t.st='drive';t.tool=TOOL[best.kind];t.path=null;}else{t.st='idle';continue;}}
       const j=t.job,f=j.f,sp=(j.kind==='harvest'?2.2:2.8)*P.farmSpeed;
-      if(t.st==='drive'){const q=this.fieldPose(f,f.p);if(!t.path){t.path=route([t.x,t.z],[q[0],q[1]]);t.pi=0;}if(follow(t,7*P.farmSpeed)){t.st='work';t.path=null;if(j.kind==='harvest')F.carts.push({t,x:t.x,z:t.z,rot:t.rot,st:'escort',hash:Math.random(),v:t.v});}continue;}
+      if(t.st==='drive'){const q=this.fieldPose(f,f.p);if(!t.path){t.path=farmRoute(t.v,[t.x,t.z],[q[0],q[1]]);t.pi=0;}if(follow(t,7*P.farmSpeed)){t.st='work';t.path=null;if(j.kind==='harvest')F.carts.push({t,x:t.x,z:t.z,rot:t.rot,st:'escort',hash:Math.random(),v:t.v});}continue;}
       const lanes=Math.max(1,Math.ceil(2*f.hx/4));f.p+=sp*dt/(lanes*2*f.hz+lanes*6);
       if(f.p>=1){f.p=1;F.jobs.splice(F.jobs.indexOf(j),1);t.job=null;t.st='home';t.path=null;
         if(j.kind==='harvest'){f.base=2;f.tgt=1;f.p=0;F.jobs.push({f,kind:'plough'});const c=Math.cos(f.a),s2=Math.sin(f.a),n=Math.round(f.hx*f.hz/90);for(let q=0;q<n;q++){const u=(Math.random()-0.5)*1.8*f.hx,w=(Math.random()-0.5)*1.8*f.hz;this.bales.push({f,x:f.x+c*u-s2*w,z:f.z+s2*u+c*w,rot:Math.random()*6.28});}
@@ -6949,7 +7153,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     for(const cr of F.carts){if(cr.st==='escort'){const t=cr.t,sx=-Math.sin(t.rot),sz=Math.cos(t.rot),tx=t.x+sx*5.5-Math.cos(t.rot)*2,tz=t.z+sz*5.5-Math.sin(t.rot)*2;cr.x+=(tx-cr.x)*Math.min(1,dt*2);cr.z+=(tz-cr.z)*Math.min(1,dt*2);cr.rot=lerpAng(cr.rot,t.rot,dt*3);if(!t.job)cr.st='toSilo';continue;}
       const fm=cr.v.farm,tgt=cr.st==='toSilo'?(fm?fm.unload:[cr.v.x,cr.v.z]):cr.st==='tip'?null:(fm?fm.yard:[cr.v.x,cr.v.z]);
       if(cr.st==='tip'){cr.wait-=dt;if(P.smoke&&Math.random()<dt*6)Particles.spawn(cr.x-Math.cos(cr.rot)*3,H(cr.x,cr.z)+1.5,cr.z-Math.sin(cr.rot)*3,0,0.5,0,2,1,3,2);if(cr.wait<=0){cr.st='home';cr.path=null;}continue;}
-      if(!cr.path){cr.path=route([cr.x,cr.z],tgt);cr.pi=0;}if(follow(cr,7*P.farmSpeed)){if(cr.st==='toSilo'){cr.st='tip';cr.wait=8;}else cr.done=true;cr.path=null;}}
+      if(!cr.path){cr.path=farmRoute(cr.v,[cr.x,cr.z],tgt);cr.pi=0;}if(follow(cr,7*P.farmSpeed)){if(cr.st==='toSilo'){cr.st='tip';cr.wait=8;}else cr.done=true;cr.path=null;}}
     F.carts=F.carts.filter(c=>!c.done);},
   // ---------------- people: strollers, waiting passengers, boarding and alighting  // ---------------- people: strollers, waiting passengers, boarding and alighting
   updateWalkers(dt,A){const Hr0=(x,z)=>R.sampleHr(this.T,x,z);const T=this.T,want=Math.round(Math.min(320,this.houses.length*0.7*P.people)),out=1-smooth(0.35,0.85,A.night)*0.85;
@@ -7059,7 +7263,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     const d=W(dx+(Math.random()-0.5)*1.4,4.2),c=W(dx,6.6),b=W(dx,bk+0.25),a=W(dx+(Math.random()-0.5)*2,bk+2.6);return[[d[0],d[1],py],[c[0],c[1],py,'in'],[b[0],b[1],py,'wait',1+Math.random()*2],[b[0],b[1],py,'out'],G(a)];},
   updateStations(){this.stInfo=[];this.kitDirty=true;for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;const q=segPoint(s,st.t),y=segY(s,st.t);let c=Math.cos(q[2]),sn=Math.sin(q[2]);
       // a station at a sawmill or workshop turns its yard (and platform) toward it
-      st._f=1;const cargo=!!(st.sawmill||st.workshop||st.mine);{const kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null,m=kind?Crane.ind(kind,st[kind]):null;if(m&&sn*(m.x-q[0])-c*(m.z-q[1])<0){st._f=-1;c=-c;sn=-sn;}}
+      st._f=1;const cargo=!!(st.sawmill||st.workshop||st.mine||st.farm);{const kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null,m=st.farm?this.farmOf(st):kind?Crane.ind(kind,st[kind]):null;if(m&&sn*(m.x-q[0])-c*(m.z-q[1])<0){st._f=-1;c=-c;sn=-sn;}}
       if(!cargo&&(st.side||1)<0){st._f=-1;c=-c;sn=-sn;}
       const px=q[0]+sn*3.6,pz=q[1]-c*3.6,v=this.nearestVillage(q[0],q[1],420);
       const si={st,v,cargo,px,pz,y,half:(st.len||44)/2,dx:c,dz:sn,nx:sn,nz:-c,x:q[0],z:q[1],lx:[q[0]+sn*5.4-c*7,q[1]-c*5.4-sn*7],lx2:[q[0]+sn*5.4+c*7,q[1]-c*5.4+sn*7]};
@@ -7271,7 +7475,14 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       Particles.spawn(x,ho.y+def.chim[1],z,(Math.random()-0.5)*0.3,1.0+Math.random()*0.6,(Math.random()-0.5)*0.3,6+Math.random()*4,0.7,4.2,2);}},
   // ---------------- instance buffers
   // detailed buildings: the level of detail follows the camera (re-picked when it has moved 4 m, or when houses changed)
-  kitInst(B){const cp=Cam.pos||[0,0,0],lp=this.kitCP;if(!this.uploaded)this.kitDirty=true;const ps0=innerHeight/(2*Math.tan((Cam.fovy||1)/2));if(!this.kitDirty&&lp&&Math.hypot(cp[0]-lp[0],cp[1]-lp[1],cp[2]-lp[2])<4&&Math.abs(ps0/(this.kitPS||ps0)-1)<0.03)return;this.kitPS=ps0;this.kitDirty=false;this.kitCP=[cp[0],cp[1],cp[2]];/* detail levels by SIZE ON SCREEN (a building's radius in pixels), not by one fixed distance: 0 whole detail >= 150 px, 0.5 no single roof
+  kitInst(B){this.kitInst0(B);this.armInst(B);},
+  /* the grain arms turn and reach, so their instances are written every frame (a handful) */
+  armInst(B){const L=[[],[],[],[]],cp=Cam.pos||[0,0,0],G=KIT.GRAIN;for(const fm of this.farms()){if(!fm||!fm.v.farmOwned)continue;const tw=this.farmTower(fm),d=Math.hypot(tw.x-cp[0],tw.z-cp[2]);if(d>2400)continue;
+      const c=Math.cos(tw.rot),s=Math.sin(tw.rot),px=tw.x+c*G.pivot[0]-s*G.pivot[2],pz=tw.z+s*G.pivot[0]+c*G.pivot[2];let rot=tw.rot,sc=1;
+      if(tw.si){const st=Crane.S.get('st:'+tw.st.id),gx=st&&st.ax!==undefined?st.ax:tw.a,si=tw.si,dx=si.x+si.dx*gx-px,dz=si.z+si.dz*gx-pz;rot=Math.atan2(dx,-dz);sc=Math.hypot(dx,dz)/G.reach;}
+      L[d<140?0:d<320?1:d<700?2:3].push([px,tw.y-(sc-1)*G.pivot[1],pz,sc,rot,0.5,0.5,0]);}
+    for(let l=0;l<4;l++){const a=B(L[l].length);L[l].forEach((r,i)=>a.set(r,i*8));R.inst('kit_grainArm_'+l,a,L[l].length);}},
+  kitInst0(B){const cp=Cam.pos||[0,0,0],lp=this.kitCP;if(!this.uploaded)this.kitDirty=true;const ps0=innerHeight/(2*Math.tan((Cam.fovy||1)/2));if(!this.kitDirty&&lp&&Math.hypot(cp[0]-lp[0],cp[1]-lp[1],cp[2]-lp[2])<4&&Math.abs(ps0/(this.kitPS||ps0)-1)<0.03)return;this.kitPS=ps0;this.kitDirty=false;this.kitCP=[cp[0],cp[1],cp[2]];/* detail levels by SIZE ON SCREEN (a building's radius in pixels), not by one fixed distance: 0 whole detail >= 150 px, 0.5 no single roof
        tiles >= 93 px, 1 no small stones/grass >= 29 px, 2 big parts only; the pixel limits shrink with Quality > Building detail distance
        (x2 = twice the distance). A cottage keeps its old 110 m / 350 m switches; a culvert (radius counted as 8 m at least) switches near; every building
        larger than a cottage is counted as 16 m at most, so a 330 000-triangle station does not stay detailed out to 500 m (it measured heavier
@@ -7280,14 +7491,17 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     const KB={};for(const t of KIT_TYPES)for(let l=0;l<4;l++)KB[t+l]=[];
     for(const h of this.houses){const def=R.houseDefs[h.v];if(!def.kit||h.shop||(h.bank&&h.village&&h.village.bankOwned)||!this.houseOn(h))continue;const d=Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]);if(d>2400)continue;KB[def.kit+LVL(def.kit,d)].push(h);}
     for(const c of this.culverts||[]){const d=Math.hypot(c.x-cp[0],c.y-cp[1],c.z-cp[2]);if(d<1500)KB[(c.pipe?'culvertPipe':'culvert')+LVL(c.pipe?'culvertPipe':'culvert',d)].push({x:c.x,y:c.y,z:c.z,rot:c.rot,hash:0.5,sc:c.sc});}
+    for(const fm of this.farms()){if(!fm||!fm.v.farmOwned)continue;const d=Math.hypot(fm.x-cp[0],fm.z-cp[2]);if(d>2400)continue;KB['farmstead'+LVL('farmstead',d)].push({x:fm.x,y:R.sampleHr(this.T,fm.x,fm.z),z:fm.z,rot:fm.rot,hash:0.5});
+      const tw=this.farmTower(fm);KB['grainTower'+LVL('grainTower',Math.hypot(tw.x-cp[0],tw.z-cp[2]))].push({x:tw.x,y:tw.y,z:tw.z,rot:tw.rot,hash:0.5});}
     for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m))continue;const d=Math.hypot(m.x-cp[0],m.y-cp[1],m.z-cp[2]);if(d>2400)continue;KB[((m.up||1)>0?'sawmillA':'sawmillB')+LVL('sawmillA',d)].push({x:m.x,y:m.y,z:m.z,rot:m.rot,hash:0.5});}
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
-    for(const si of this.stInfo||[]){if(si.cargo)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
+    for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
       const put=(t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<1800)KB[t+LVL(t,dp)].push(o);};
       // at a point along a station's track (d from its centre) on the side sf: position and the rotation of a piece facing that platform
       const at=(st,d,sf)=>{const a=advance({sid:st.sid,t:st.t,dir:1},d);if(a.blocked)return null;const i=posInfo(a.pos);if(!i)return null;const h=a.pos.dir>0?i.h:i.h+Math.PI;return{x:i.x,y:i.y,z:i.z,rot:h+(sf>0?Math.PI:0),hash:0.5};};
       const ramps=(st,sf)=>{for(const e of [-1,1]){const o=at(st,e*((st.len||44)/2+2.05),sf);if(o)put((sf>0?-1:1)===e?'platEa':'platEb',o);}};
       const pieces=(st,o)=>{for(const pc of stationPieces(st,o))put('plat'+pc.v,pc);};
+      if(si.st.farm){const f=si.st._f||1;pieces(si.st,{sf:f,fr:si});ramps(si.st,f);continue;}/* a farm's grain station: just the platform, the grain tower is its building */
       const ps=si.parent||si,tp=this.stTown(ps),fb=KIT.FB[tp?'stationTown':'station'],stairs=tp?ST_SPAN.stairs.stationTown:null,shX=fb[0]-17;
       if(si.parent){// second track: its outer platform (with a shelter); the island platform between the tracks belongs to the first track
         const f=si.st._f||1,w=this.stW(ps,shX,-(KIT.TWIN_G+3.6)),o=at(si.st,alongD(si.st,w[0],w[1]),f);if(o)put('shelter',o);
@@ -7299,7 +7513,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const lx=(fb[0]+fb[1])/2,o=at(si.st,f>0?-lx:lx,f);if(o)put(si.twin?'fbT2':'fbT1',o);
         const w=this.stW(si,shX,-3.6),os=si.twin?null:at(si.st,alongD(si.st,w[0],w[1]),-f);if(os)put('shelter',os);
         pieces(si.st,{sf:-f,fr:si,stairs,shelterX:si.twin?null:shX,island:!!si.twin});ramps(si.st,-f);}}
-    for(const t of KIT_TYPES)for(let l=0;l<4;l++){const L=KB[t+l],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}},
+    for(const t of KIT_TYPES)if(t!=='grainArm')for(let l=0;l<4;l++){const L=KB[t+l],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,0],i*8));R.inst('kit_'+t+'_'+l,a,L.length);}},
   prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
     if(!this.uploaded){this.uploaded=true;
       for(let v=0;v<R.houseDefs.length;v++){if(R.houseDefs[v].kit){R.inst('house'+v,B(0),0);continue;}const L=this.houses.filter(h=>h.v===v&&!h.shop&&!(h.bank&&h.village&&h.village.bankOwned)&&this.houseOn(h)),a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('house'+v,a,L.length);}
@@ -7307,7 +7521,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const Lm=this.lamps.filter(l=>!l.gone&&!(l.vil&&(l.lvl|0)>(l.vil.level|0))),lb=B(Lm.length);Lm.forEach((l,i)=>lb.set([l.x,l.y,l.z,1,0,0.5,l.hash,0],i*8));R.inst('lamps',lb,Lm.length);
       {const SH={bakery:[],restaurant:[]};for(const h of this.houses)if(h.shop&&this.houseOn(h))SH[h.shop].push(h);for(const k in SH){const L=SH[k],b=B(L.length);L.forEach((h,i)=>b.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst(k==='bakery'?'bakeries':'restaurants',b,L.length);}
         {const BK=this.houses.filter(h=>h.bank&&h.village&&h.village.bankOwned&&this.houseOn(h)),bb=B(BK.length);BK.forEach((h,i)=>bb.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('banks',bb,BK.length);}
-        const MS=[];this.marketPeople=[];for(const v of this.villages){const lv=v.level|0;if(lv<1||!v.plaza)continue;const pr=v.plaza[2]-3.2,base=v.dir||0,angs=lv>=2?[0.32,0.6,0.95,1.23]:[0.78];
+        const MS=[];this.marketPeople=this.farmFolk();for(const v of this.villages){const lv=v.level|0;if(lv<1||!v.plaza)continue;const pr=v.plaza[2]-3.2,base=v.dir||0,angs=lv>=2?[0.32,0.6,0.95,1.23]:[0.78];
           for(let q=0;q<4;q++)for(const a0 of angs){const a=base+q*Math.PI/2+a0,x=v.x+Math.cos(a)*pr,z=v.z+Math.sin(a)*pr,y=R.sampleHr(this.T,x,z),rot=a+Math.PI,hh=((q*7+a0*13)%1+1)%1;if(this.stReserve(x,z,3))continue;MS.push([x,y,z,1,rot,0.5,hh,0]);
             if(P.timeOfDay>7&&P.timeOfDay<19){const bx=x+Math.cos(a)*1.4,bz=z+Math.sin(a)*1.4;this.marketPeople.push({x:bx,z:bz,y:R.sampleHr(this.T,bx,bz)-0.05,rot:rot,hash:hh,k:'stand'});if(hh>0.4){const fx=x-Math.cos(a)*1.6,fz=z-Math.sin(a)*1.6;this.marketPeople.push({x:fx,z:fz,y:R.sampleHr(this.T,fx,fz)-0.05,rot:a,hash:(hh*3.7)%1,k:'stand'});}}}}
         const mb=B(MS.length);MS.forEach((r,i)=>mb.set(r,i*8));R.inst('stalls',mb,MS.length);}
@@ -7315,7 +7529,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       {const SW=(this.sawmills||[]).filter(m=>this.indOn('sawmill',m)),sb3=B(SW.length);R.inst('sawmills',sb3,0);const WK=this.workshops||[],wb3=B(WK.length);WK.forEach((m,i)=>wb3.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('workshops',wb3,WK.length);
         for(const k of ['gold','silver','diamond']){const L=(this.mines||[]).filter(m=>m.type===k&&this.indOn('mine',m)),b=B(L.length);L.forEach((m,i)=>b.set([m.x,m.y,m.z,1,m.rot,0.5,0.5,0],i*8));R.inst('mines_'+k,b,L.length);}}
       for(const [kind,key] of [['neu','castle'],['hoh','castle2']]){const L=this.castleList().filter(c=>(c.kind||'neu')===kind),cb=B(L.length);L.forEach((C,i)=>cb.set([C.x,C.y,C.z,1,C.rot,0.5,0.4,0],i*8));R.inst(key,cb,L.length);}
-      {const FM=this.villages.filter(v=>v.farm&&v.farmOwned).map(v=>v.farm),bb=B(FM.length),sb=B(FM.length),ss=B(FM.length);FM.forEach((f,i)=>{const y=R.sampleHr(this.T,f.barn[0],f.barn[1]);bb.set([f.barn[0],y,f.barn[1],1,f.rot,0.5,0.3,0],i*8);sb.set([f.shed[0],R.sampleHr(this.T,f.shed[0],f.shed[1]),f.shed[1],1,f.rot,0.5,0.3,0],i*8);ss.set([f.silo[0],R.sampleHr(this.T,f.silo[0],f.silo[1]),f.silo[1],1,f.rot,0.5,0.3,0],i*8);});R.inst('barns',bb,FM.length);R.inst('sheds',sb,FM.length);R.inst('silos',ss,FM.length);}
+      {const FM=[]/* the old barn, shed and silos made way for the farmstead (kitInst) */,bb=B(FM.length),sb=B(FM.length),ss=B(FM.length);FM.forEach((f,i)=>{const y=R.sampleHr(this.T,f.barn[0],f.barn[1]);bb.set([f.barn[0],y,f.barn[1],1,f.rot,0.5,0.3,0],i*8);sb.set([f.shed[0],R.sampleHr(this.T,f.shed[0],f.shed[1]),f.shed[1],1,f.rot,0.5,0.3,0],i*8);ss.set([f.silo[0],R.sampleHr(this.T,f.silo[0],f.silo[1]),f.silo[1],1,f.rot,0.5,0.3,0],i*8);});R.inst('barns',bb,FM.length);R.inst('sheds',sb,FM.length);R.inst('silos',ss,FM.length);}
       {const SB=[[],[],[]];this.sitePeople=[];for(const h of this.building||[]){if(h.gone||!this.plotOn(h))continue;const st=Math.min(2,Math.floor(h.prog*3)),sc=h.v===2?1.25:1,c=Math.cos(h.rot),s=Math.sin(h.rot);SB[st].push([h.x,h.y,h.z,sc,h.rot,0.5,h.hash,0]);
           for(const [lx,lz,ry] of [[-3.2,-4.7,0],[2.6,-4.5,0.5],[6.4,1.2,2.4]].slice(0,h.hash>0.5?3:2)){const x=h.x+(c*lx-s*lz)*sc,z=h.z+(s*lx+c*lz)*sc;this.sitePeople.push({x,z,y:h.y-0.05,rot:h.rot+Math.PI/2+ry,hash:(h.hash*7.3+lx*0.13+1)%1,pose:8,var:'man'});}}
         SB.forEach((L,k)=>{const b=B(L.length);L.forEach((r,i)=>b.set(r,i*8));R.inst('sites'+k,b,L.length);});
@@ -7355,7 +7569,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const BP=(this.beachP||[]).filter(q=>near(q.x,q.z,900)).concat(DW),K={parasol:[],towel:[],lier:[],swim:[]},stand=[];for(const q of BP){if(q.k==='stand')stand.push(q);else K[q.k].push(q);}
         for(const [k,key] of [['parasol','parasols'],['towel','towels'],['lier','liers'],['swim','swimmers']]){const L=K[k],b=B(L.length);L.forEach((q,i)=>b.set([q.x,q.y,q.z,k==='swim'?1.2:1,q.rot,0.5,q.hash,0],i*8));R.inst(key,b,L.length);}this.beachStand=stand;}
       {const SH=this.shovel.filter(q=>q.x!==undefined&&near(q.x,q.z,800)),sb=B(SH.length);SH.forEach((q,i)=>sb.set([q.x,Hr(q.x,q.z)-0.05,q.z,1.25,q.rot,0.5,q.hash,1],i*8));R.inst('shovelers',sb,SH.length);}
-      {const SM=[];const showSlots=Build.active&&((Build.mode==='signals'&&Build.sigTool==='station')||(Build.target==='road'&&Roads.tool==='stop'));if(showSlots)for(const [kind,LST] of this.inds())LST.forEach((m,mi)=>{if(!near(m.x,m.z,1500)||!this.indOn(kind,m))return;for(const sl of this.sawSlots(m)){
+      {const SM=[];const showSlots=Build.active&&((Build.mode==='signals'&&Build.sigTool==='station')||(Build.target==='road'&&Roads.tool==='stop'));if(showSlots)for(const [kind,LST] of this.slotInds())LST.forEach((m,mi)=>{if(!m||(kind==='farm'&&Build.target==='road'))return;if(!near(m.x,m.z,1500)||!this.indOn(kind,m))return;for(const sl of this.sawSlots(m)){
           const rs=Track.stations.find(st=>st[kind]&&st[kind].mi===mi&&st[kind].k===sl.k),bs=Buses.stops.find(q=>q[kind]&&q[kind].mi===mi&&q[kind].k===sl.k);if(!rs&&!bs)SM.push([sl.p[0],Hr(sl.p[0],sl.p[1]),sl.p[1],1,sl.t,0.5,0.5,0]);}});
         const b=B(SM.length);SM.forEach((r,i)=>b.set(r,i*8));R.inst('slotmarks',b,SM.length);}
       {const BL=Buses.list.filter(b=>near(b.x,b.z,1500)),bb=B(BL.length),lb=B(BL.length);let nB=0,nL=0;BL.forEach((b,i)=>{const y=Math.max(Hr(b.x,b.z),this.deckY(b.x,b.z)),a=Hr(b.x+Math.cos(b.rot)*3,b.z+Math.sin(b.rot)*3),c=Hr(b.x-Math.cos(b.rot)*3,b.z-Math.sin(b.rot)*3);const row=[b.x,y,b.z,0.75,b.rot,clamp(0.5+Math.atan((a-c)/6)/2,0,1),b.hash,0];if(b.goods)lb.set(row,(nL++)*8);else bb.set(row,(nB++)*8);});R.inst('buses',bb,nB);R.inst('lorries',lb,nL);
