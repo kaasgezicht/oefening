@@ -138,12 +138,12 @@ void main(){vec3 p=aPos,n=aNrm;int ty=int(aAnim.x+.5);
   vec4 w=uModel*vec4(p,1.);vW=w.xyz;vN=mat3(uModel)*n;vC=aCol;vMat=aMat;vL=p;gl_Position=(uPass==1?uLightVP:uViewProj)*w;
   // glass and solid parts are drawn in separate passes: the triangles of the other kind leave the view here (a material is per triangle),
   // so the fragment shader needs no discard and the GPU can reject hidden pixels early
-  int mm=int(aMat+.5);bool gs=mm==2||mm==12;/* 12: the plane's propeller disc, see-through like glass */if(uPass==1?gs:((uGlass==2&&gs)||(uGlass==1&&!gs)))gl_Position=vec4(2.,2.,2.,1.);}`;
+  int mm=int(aMat+.5);bool gs=mm==2||mm==12||mm==13;/* 12: the plane's propeller disc, see-through like glass */if(uPass==1?gs:((uGlass==2&&gs)||(uGlass==1&&!gs)))gl_Position=vec4(2.,2.,2.,1.);}`;
 const FS_VEH=GLSL_HEAD+GLSL_COMMON+`
 uniform int uPass;uniform int uGlass;uniform vec3 uLamp;uniform vec2 uOcc;in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;in vec3 vL;`+FS_OUT+`
 float person(vec2 q){return 1.-smoothstep(0.,.025,min(length(q-vec2(0.,.12))-.11,length(vec2(q.x/.22,(q.y+.24)/.17))*.17-.17));}
 void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
-  vec3 V=normalize(uCamPos.xyz-vW);vec3 N=normalize(vN);if(dot(N,V)<0.)N=-N;int m=int(vMat+.5);vec3 c=L(vC);vec3 em=vec3(0);float sil=0.;
+  vec3 V=normalize(uCamPos.xyz-vW);vec3 N=normalize(vN);if(dot(N,V)<0.)N=-N;int m=int(vMat+.5);bool pg=m==13;if(pg)m=2;/* 13: the plane's cabin glass: like glass, more reflective, no lamplight */vec3 c=L(vC);vec3 em=vec3(0);float sil=0.;
   if(m==2&&uOcc.x>0.&&abs(vL.z)>1.39){float wi=floor((vL.x+6.97)/1.74),sd=sign(vL.z),wx=-6.1+wi*1.74;// coach windows: who sits where is a hash of window, side and train
     for(int k=0;k<2;k++){float h=fract(sin(wi*12.9898+sd*78.233+uOcc.y*37.71+float(k)*5.17)*43758.5453);if(h<uOcc.x)sil=max(sil,person(vec2(vL.x-wx-(float(k)-.5)*.5-(fract(h*7.)-.5)*.12,vL.y-2.55)));}
     c=mix(c,L(vec3(.10,.09,.08)),sil*.85);}
@@ -163,10 +163,10 @@ void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
     vec3 env=mix(L(uSkyH.rgb),L(uSkyZ.rgb),clamp(R.y*1.4,0.,1.));env=mix(L(vec3(.20,.22,.14))*day*.6,env,smoothstep(-.2,.04,R.y));// sky above, the land below the horizon
     if(m==11){float F=.04+.96*pow(1.-cv,5.);col+=env*(F*.85+.06)*day;col+=uSunCol.rgb*(pow(sd,160.)*2.2+pow(sd,18.)*.08)*sh;}// glossy paint: a clear coat over the colour
     if(m==10){float F=.65+.35*pow(1.-cv,3.);col=col*.35+env*c*1.6*F*day+env*.25*day;col+=uSunCol.rgb*(pow(sd,90.)*3.+pow(sd,10.)*.15)*sh;}}// chrome: mostly the reflection, tinted by its colour
-  if(m==2)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
+  if(m==2&&!pg)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
   if(m==12){float a=uOcc.x;o=vec4(fogc(col*.8,vW)*a,a);return;}
   if(m==4)em=vC*uLamp*(1.2+4.*uSunCol.w);
-  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=clamp(.14+.75*F+uMisc.x*.1,0.,.95);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
+  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=pg?clamp(.32+.6*F,0.,.95):clamp(.14+.75*F+uMisc.x*.1,0.,.95);if(pg)col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),.5)*.35*(.3+.7*uSunDir.w);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
   o=vec4(fogc(col+em,vW),1.);}`;
 
 // ---------------- track: ballast, sleepers, rails, stone viaducts and tunnel portals

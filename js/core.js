@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.14.0 (smoother: no per-frame rebuilds, follow camera, pixel density limit; game split into files)';
+const VERSION='4.15.0 (Staggerwing rebuilt from the photos, game controller)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

@@ -1,4 +1,4 @@
-# Trein handoff 72 (14 Nov 2026): v4.14.0 — performance (no per-frame rebuilds, pixel density limit, presets), smooth follow camera, slot ghosts; the game is now split into files; next: plan step 7 (footbridge)
+# Trein handoff 73 (14 Nov 2026): v4.15.0 — the Staggerwing rebuilt from the user's photos, game controller support; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,39 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.14.0, 14 Nov) — smoothness, performance settings, follow camera, slot ghosts, file split
+### Latest (4.15.0, 14 Nov) — the Staggerwing rebuilt from three photos, game controller
+User's choices: controller throttle as a rate (stays where you leave it); right stick up = nose down; the proposed button map; a full rebuild.
+- **Model** (`planeMeshes` in js/plane.js; a source copy in tools/proto/plane_model.js may lag behind: plane.js is the truth):
+  - Parametric and smooth: `surf(M,f,us,vs,paint)` builds a grid surface with normals from central differences and one colour/material per
+    quad. Fuselage = one loft of superellipse sections (tables `yT`, `yB`, `hW`, `eX`, `cowlR`, interpolated by `mono`, a monotone cubic)
+    from the cowling lip (x 3.02) to the rudder hinge (x -4.62). Proportions measured from photo 1 (depth ~1.5 m at the cabin, cowl 1.28 m).
+  - Wings and tail are NACA 4-digit aerofoils (`lift`, `foilY`) on planforms with elliptic tips (`wingPF`); negative stagger (lower LE 1.55,
+    upper LE 0.85); I-struts as flared aerofoils; doubled flying and landing wires; tailplane braced from below; rounded fin and rudder.
+  - Paint: lightning bolt and cowl speed lines as decal ribbons (`ribbon`, side-view polylines mapped onto the loft, 6 mm proud; normals
+    from the skin via `decalNormals`), a pinstripe on the upper wing, gold bars as registration on the rudder.
+  - Cabin: the skin is left open where the windows and windscreen are (W1, W2, `inWS`), with glass (material 13: plane glass, more
+    reflective, no lamplight) and red frame mouldings; a dark lining (open at the windows), floor, seats, panel with gauges, yoke; pilot and
+    passenger are separate meshes (the passenger waves, like photo 2; the pilot is hidden in the cockpit view).
+  - Engine: polished lip, nine finned cylinders with pushrods, crankcase, baffle; exhaust stubs; chrome bullet spinner and two twisted
+    blades with yellow tips; a faint prop disc (material 12, transparent pass, strength from rpm via uOcc.x).
+  - Gear: oleo leg with coil spring and chrome piston, fork, tyre (torus), red hub with chrome cap, drag brace and the big outer fairing plate;
+    folds aft into the lower wing root (same 1.45 rad as before). Contact points moved with the new model: mains at x 1.15, y -1.81; tailwheel
+    y -0.75 (about 11° nose-up on the ground). Eye for the cockpit view [0.52, 0.6, -0.27].
+  - Moving parts on their own hinge lines: `PLANE_PARTS[name] = {i, o, ax}` (ailerons on the upper wing, flaps on the lower wing, elevators,
+    rudder); `Plane.draw` uses them. `R.planeMesh = R.veh.slice(37)` (the plane's meshes are last). About 57k triangles in all.
+  - New vehicle-shader materials: 10 chrome (mostly reflection), 11 glossy clear-coat paint, 12 prop disc, 13 plane glass.
+  - Bugs found on the way: `revolve` and the fairing outline read outside their tables at the first finite difference, and the wing tip
+    `sqrt(1-q²)` went NaN just past the tip: each crashed the boot (all vehicles are built at start). Check new mesh code in Node first:
+    the builder is plain JS (`/tmp`-style harness: load js/plane.js up to "// ---- flight model" with stub `vmesh`, `clamp`, `COL`).
+- **Controller** (`PlanePad` in js/plane.js, polled from `Plane.update`): Gamepad API, standard mapping (Xbox layout). Left stick Y: throttle
+  rate (0.7/s); right stick: roll and pitch with a little expo (stick up = nose down, same sign as the touch stick); LB/RB rudder; LT brake
+  (analog); A gear, B next camera, X flaps step, Y assists, D-pad down/up flaps out/in, D-pad left/right camera, RT held look back
+  (`Plane.lookBack`), Start pause (`Plane.paused`), Back reset. The pad writes a control only while it is used and releases it once, so the
+  touch controls still work. `PlaneUI` got `gear()`, `setFlaps(n)`, `nextCam(d)`, `easy()` shared by both.
+- Renders for checking: a persistent-profile harness posed like the photos (scratchpad plv.js; views photo1/photo2/photo3/rear/gearup/
+  cockpit). Pictures: checks/staggerwing-*.png.
+
+### Earlier (4.14.0, 14 Nov) — smoothness, performance settings, follow camera, slot ghosts, file split
 The user's M1 measurement: 599×338 render, 9.3 ms GPU in "Measure on this phone", but the game ran at 44 fps (22.5 ms). Causes found:
 - **Every frame rebuilt the station picture and all building instances** (since 4.8.0): `Life.updateStations` ran every frame and called
   `applyTrackMask`, which set `uploaded=false`, so the whole instance set was rebuilt and uploaded each frame (the log was full of

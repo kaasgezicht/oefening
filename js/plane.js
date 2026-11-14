@@ -65,7 +65,7 @@ function planeMeshes(){
     // the tail end: a small cap behind the rudder hinge
     {const s=sec(xTail),c0=V(body,[xTail-0.01,s[0],0],[-1,0,0],RD,PAINT);for(let k=0;k<32;k++){const a=F(xTail,k/32*Math.PI*2),b=F(xTail,(k+1)/32*Math.PI*2);body.i.push(c0,V(body,b,[-1,0,0],RD,PAINT),V(body,a,[-1,0,0],RD,PAINT));}}
     // glass: the same skin where the windows are, in the transparent pass
-    const gl2=body;surf(gl2,F,xs.filter(x=>x>-1.0&&x<1.6),range(0,Math.PI*2,88),(x,th)=>inWS(x,th)||sideWin(x,th)?[GLs,GLASS]:null,{ev:1e-3});}
+    const gl2=body;surf(gl2,F,xs.filter(x=>x>-1.0&&x<1.6),range(0,Math.PI*2,88),(x,th)=>inWS(x,th)||sideWin(x,th)?[GLs,13]:null,{ev:1e-3});}
   // ---- decals: a ribbon along a side-view polyline (x, y), perpendicular offset dy, half width hw; mitred corners (the bolt's points)
   const ribbon=(M,pts,dy,hw,col,mat,sd,off)=>{const n=pts.length,nm=[];for(let i=0;i<n;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],c=pts[i];
       const d0=i>0?nrm([c[0]-a[0],c[1]-a[1],0]):null,d1=i<n-1?nrm([b[0]-c[0],b[1]-c[1],0]):null,p0=d0?[-d0[1],d0[0]]:null,p1=d1?[-d1[1],d1[0]]:null;
