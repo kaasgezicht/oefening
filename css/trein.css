@@ -177,4 +177,4 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 #rvStickWrap{position:absolute;right:calc(16px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
 #rvStick{width:min(46vw,200px);height:min(46vw,200px);border-radius:50%;background:radial-gradient(circle,#ffffff22,#15191aa0);border:2px solid #c9a14a90;pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center}
 #rvKnob{width:60px;height:60px;border-radius:50%;background:#c9a14a;box-shadow:0 2px 8px #000a;pointer-events:none}
-body.roaddrive #bar,body.roaddrive .vlabel,body.roaddrive .ilabel,body.roaddrive #upNotes{display:none!important}body.roaddrive #rvPanel{bottom:auto;top:calc(150px + env(safe-area-inset-top))}
+body.roaddrive #bar,body.roaddrive .vlabel,body.roaddrive .ilabel,body.roaddrive #upNotes{display:none!important}body.roaddrive #rvPanel{left:calc(10px + env(safe-area-inset-left));transform:none;bottom:calc(16px + env(safe-area-inset-bottom));width:min(58vw,360px)}

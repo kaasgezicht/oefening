@@ -25,7 +25,12 @@ const RVMesh=(()=>{
     if(cap)for(const [p,r,sg] of [[a,r0,-1],[b,r1,1]]){const c0=V(M,p,mul(ax,sg),col,mat);for(let k=0;k<n;k++){const t0=k/n*Math.PI*2,t1=(k+1)/n*Math.PI*2;M.i.push(c0,V(M,add(p,add(mul(u,Math.cos(t0)*r),mul(w,Math.sin(t0)*r))),mul(ax,sg),col,mat),V(M,add(p,add(mul(u,Math.cos(t1)*r),mul(w,Math.sin(t1)*r))),mul(ax,sg),col,mat));}}};
   // a box with rounded edges and corners (superquadric): centre c, half sizes h, roundness e (small = boxier), optional paint(p) for a colour per quad
   const sq=(c,h,e)=>(u,v)=>{const pw=(x,k)=>Math.sign(x)*Math.pow(Math.abs(x),k),cv=Math.cos(v),sv=Math.sin(v),cu=Math.cos(u),su=Math.sin(u);return[c[0]+h[0]*pw(cv,e)*pw(cu,e),c[1]+h[1]*pw(sv,e),c[2]+h[2]*pw(cv,e)*pw(su,e)];};
-  const rbox=(M,c,h,e,col,mat,paint,n)=>{n=n||24;const f=sq(c,h,e);surf(M,f,range(0,Math.PI*2,n),range(-Math.PI/2,Math.PI/2,Math.ceil(n/2)),paint?(u,v)=>paint(f(u,v)):()=>[col,mat],{eu:2e-3,ev:2e-3});};
+  // parameters spaced evenly along the surface (a strongly rounded box bunches its samples at the faces' edges otherwise)
+  const arc=(g,a,b,n)=>{const K=1500,P=[],L=[0];for(let i=0;i<=K;i++){const t=a+(b-a)*i/K;P.push([t,g(t)]);if(i)L.push(L[i-1]+Math.hypot(P[i][1][0]-P[i-1][1][0],P[i][1][1]-P[i-1][1][1]));}
+    const out=[a];let j=0;for(let k=1;k<n;k++){const tl=L[K]*k/n;while(L[j+1]<tl)j++;const f=(tl-L[j])/Math.max(1e-9,L[j+1]-L[j]);out.push(P[j][0]+(P[j+1][0]-P[j][0])*f);}out.push(b);return out;};
+  const pw2=(x,k)=>Math.sign(x)*Math.pow(Math.abs(x),k);
+  const sqU=(h,e,n)=>arc(u=>[h[0]*pw2(Math.cos(u),e),h[2]*pw2(Math.sin(u),e)],0,Math.PI*2,n),sqV=(h,e,n)=>arc(v=>[Math.max(h[0],h[2])*pw2(Math.cos(v),e),h[1]*pw2(Math.sin(v),e)],-Math.PI/2,Math.PI/2,n);
+  const rbox=(M,c,h,e,col,mat,paint,n)=>{n=n||24;const f=sq(c,h,e);surf(M,f,sqU(h,e,n),sqV(h,e,Math.ceil(n/2)),paint?(u,v)=>paint(f(u,v)):()=>[col,mat],{eu:2e-3,ev:2e-3});};
   const box=(M,c,h,col,mat)=>{const [x,y,z]=c,[a,b,d]=h,P=(i,j,k)=>[x+i*a,y+j*b,z+k*d];for(const [n,q] of [[[1,0,0],[P(1,-1,-1),P(1,1,-1),P(1,1,1),P(1,-1,1)]],[[-1,0,0],[P(-1,-1,1),P(-1,1,1),P(-1,1,-1),P(-1,-1,-1)]],[[0,1,0],[P(-1,1,-1),P(-1,1,1),P(1,1,1),P(1,1,-1)]],[[0,-1,0],[P(-1,-1,1),P(-1,-1,-1),P(1,-1,-1),P(1,-1,1)]],[[0,0,1],[P(-1,-1,1),P(1,-1,1),P(1,1,1),P(-1,1,1)]],[[0,0,-1],[P(1,-1,-1),P(-1,-1,-1),P(-1,1,-1),P(1,1,-1)]]]){const ix=q.map(p=>V(M,p,n,col,mat));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
   const ball=(M,c,r,s,col,mat,n)=>{n=n||12;s=s||[1,1,1];surf(M,(a,b)=>[c[0]+Math.cos(b)*Math.cos(a)*r*s[0],c[1]+Math.sin(b)*r*s[1],c[2]+Math.cos(b)*Math.sin(a)*r*s[2]],range(0,Math.PI*2,n),range(-Math.PI/2,Math.PI/2,Math.ceil(n/2)),()=>[col,mat],{ev:1e-3});};
   const PAINT=11,CHROME=10,GLASS=13,MATTE=3,INT=7,BK=[0.035,0.035,0.04],TY=[0.045,0.045,0.05],CH=[0.92,0.92,0.94],DK=[0.08,0.08,0.09],GLs=[0.5,0.58,0.62],SKIN=[0.86,0.63,0.5];
@@ -77,8 +82,8 @@ const RVMesh=(()=>{
     // ---- cab: a rounded box; windscreen (two panes), door windows and the rear window cut out with glass; door, handle, hinges, mirror
     const cab=(u,v)=>sq([-0.15,1.6,0],[0.75,0.62,0.92],0.18)(u,v);const win=p=>{const [x,y,z]=p;
       if(x>0.5&&y>1.55&&y<2.06&&Math.abs(z)<0.82&&Math.abs(z)>0.025)return'ws';if(Math.abs(z)>0.85&&y>1.55&&y<2.0&&x>-0.55&&x<0.42)return'side';if(x<-0.82&&y>1.62&&y<1.95&&Math.abs(z)<0.5)return'rear';return null;};
-    surf(B,cab,range(0,Math.PI*2,48),range(-Math.PI/2,Math.PI/2,26),(u,v)=>{const p=cab(u,v);if(p[1]<1.0)return null;return win(p)?null:[RD,PAINT];},{eu:2e-3,ev:2e-3});
-    surf(B,cab,range(0,Math.PI*2,48),range(-Math.PI/2,Math.PI/2,26),(u,v)=>{const p=cab(u,v);return win(p)?[GLs,GLASS]:null;},{eu:2e-3,ev:2e-3});
+    const cU=sqU([0.75,0.62,0.92],0.18,64),cV=sqV([0.75,0.62,0.92],0.18,30);surf(B,cab,cU,cV,(u,v)=>{const p=cab(u,v);if(p[1]<1.0)return null;return win(p)?null:[RD,PAINT];},{eu:2e-3,ev:2e-3});
+    surf(B,cab,cU,cV,(u,v)=>{const p=cab(u,v);return win(p)?[GLs,GLASS]:null;},{eu:2e-3,ev:2e-3});
     rbox(B,[-0.15,1.6,0],[0.72,0.59,0.89],0.18,DK,INT,p=>{if(p[1]<1.05)return[DK,MATTE];return[[0.16,0.13,0.11],INT];},28);// inside
     box(B,[-0.15,1.0,0],[0.75,0.05,0.92],BK,MATTE);// cab floor
     for(const sd of [-1,1]){const zz=sd*0.93;quad(B,[0.47,1.02,zz],[-0.62,1.02,zz],[-0.62,1.03,zz],[0.47,1.03,zz],RDd,PAINT);quad(B,[0.47,1.02,zz],[0.47,2.12,zz],[0.48,2.12,zz],[0.48,1.02,zz],RDd,PAINT);quad(B,[-0.62,1.02,zz],[-0.62,2.1,zz],[-0.63,2.1,zz],[-0.63,1.02,zz],RDd,PAINT);// door shut lines
@@ -106,17 +111,17 @@ const RVMesh=(()=>{
   const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.07,0.24,0.14],band:[0.97,0.78,0.3],up:[0.07,0.24,0.14],roof:[0.62,0.63,0.6],hood:[0.07,0.24,0.14]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
     const L0=dd?-4.65:-4.4,Lc=dd?1.95:2.15,W=dd?1.2:1.18,yb=0.62,y1=2.28,y2=dd?3.82:2.75,ax=dd?[2.6,-2.4]:[2.3,-2.3];
     // ---- lower deck: a rounded box with the window band cut out; frames; the gold lining
-    const lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],[(Lc-L0)/2,(y1-yb)/2,W],0.12),winL=p=>Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1;
-    surf(B,lowF,range(0,Math.PI*2,64),range(-Math.PI/2,Math.PI/2,24),(u,v)=>{const p=lowF(u,v);if(winL(p))return null;return[p[1]>2.12?C.band:C.low,PAINT];},{eu:2e-3,ev:2e-3});
-    surf(B,lowF,range(0,Math.PI*2,64),range(-Math.PI/2,Math.PI/2,24),(u,v)=>winL(lowF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
+    const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1;
+    surf(B,lowF,lU,lV,(u,v)=>{const p=lowF(u,v);if(winL(p))return null;return[p[1]>2.12?C.band:C.low,PAINT];},{eu:2e-3,ev:2e-3});
+    surf(B,lowF,lU,lV,(u,v)=>winL(lowF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
     rbox(B,[(L0+Lc)/2,(yb+y1)/2,0],[(Lc-L0)/2-0.04,(y1-yb)/2-0.04,W-0.04],0.12,null,null,()=>[[0.18,0.15,0.12],INT],40);
     for(const sd of [-1,1]){const z=sd*(W+0.006);for(const y of [1.32,2.11])quad(B,[L0+0.3,y,z],[Lc-0.3,y,z],[Lc-0.3,y+0.025,z],[L0+0.3,y+0.025,z],dd?C.band:[0.95,0.8,0.4],PAINT);
       for(const y of [0.98,1.02])quad(B,[L0+0.35,y,z],[Lc-0.35,y,z],[Lc-0.35,y+0.012,z],[L0+0.35,y+0.012,z],[0.95,0.75,0.3],PAINT);// gold lining
       for(let x=L0+0.4;x<Lc-0.4;x+=0.82)box(B,[x+0.05,1.71,z],[0.05,0.37,0.012],dd?C.band:C.band,PAINT);}
     if(dd){// ---- upper deck: cream window frames on green, the long yellow side board for the lettering, a silver roof with an overhang
-      const upF=sq([(L0+Lc-0.1)/2,(y1+y2)/2,0],[(Lc-0.1-L0)/2,(y2-y1)/2,W*0.99],0.12),winU=p=>(Math.abs(p[2])>W*0.93&&p[1]>2.86&&p[1]<3.52&&p[0]>L0+0.25&&p[0]<Lc-0.3&&((p[0]-L0-0.25)%0.78)>0.08)||(p[0]>Lc-0.25&&p[1]>2.86&&p[1]<3.52&&Math.abs(p[2])<W*0.85&&Math.abs(p[2])>0.04);
-      surf(B,upF,range(0,Math.PI*2,64),range(-Math.PI/2,Math.PI/2,24),(u,v)=>{const p=upF(u,v);if(winU(p))return null;if(p[1]>3.55)return[C.roof,PAINT];return[p[1]>2.8?C.band:C.up,PAINT];},{eu:2e-3,ev:2e-3});
-      surf(B,upF,range(0,Math.PI*2,64),range(-Math.PI/2,Math.PI/2,24),(u,v)=>winU(upF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
+      const upH=[(Lc-0.1-L0)/2,(y2-y1)/2,W*0.99],uU=sqU(upH,0.12,110),uV=sqV(upH,0.12,34),upF=sq([(L0+Lc-0.1)/2,(y1+y2)/2,0],upH,0.12),winU=p=>(Math.abs(p[2])>W*0.93&&p[1]>2.86&&p[1]<3.52&&p[0]>L0+0.25&&p[0]<Lc-0.3&&((p[0]-L0-0.25)%0.78)>0.08)||(p[0]>Lc-0.25&&p[1]>2.86&&p[1]<3.52&&Math.abs(p[2])<W*0.85&&Math.abs(p[2])>0.04);
+      surf(B,upF,uU,uV,(u,v)=>{const p=upF(u,v);if(winU(p))return null;if(p[1]>3.55)return[C.roof,PAINT];return[p[1]>2.8?C.band:C.up,PAINT];},{eu:2e-3,ev:2e-3});
+      surf(B,upF,uU,uV,(u,v)=>winU(upF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
       rbox(B,[(L0+Lc-0.1)/2,(y1+y2)/2,0],[(Lc-0.1-L0)/2-0.04,(y2-y1)/2-0.04,W*0.99-0.04],0.12,null,null,()=>[[0.2,0.17,0.13],INT],40);
       rbox(B,[(L0+Lc)/2,y2+0.02,0],[(Lc-L0)/2+0.12,0.06,W+0.06],0.2,C.roof,PAINT,null,28);// roof with the overhang
       for(const sd of [-1,1]){const z=sd*(W+0.01);quad(B,[L0+1.6,2.35,z],[Lc-0.8,2.35,z],[Lc-0.8,2.75,z],[L0+1.6,2.75,z],C.band,PAINT);for(const [a,b] of [[2.37,2.39],[2.71,2.73]])quad(B,[L0+1.65,a,z*1.001],[Lc-0.85,a,z*1.001],[Lc-0.85,b,z*1.001],[L0+1.65,b,z*1.001],C.low,PAINT);}}
@@ -223,7 +228,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   nextCam(){const L=this.drv?['chase','cab','wheel','follow']:['follow','chase','cab','wheel'];this.setCam(L[(L.indexOf(this.cam)+1)%L.length]);},
   camera(dt){const b=this.drv||this.sel;if(!b)return null;const F=this.frame(b),k=F.k,S=this.spec(b),P=v=>{const r=Q.rot(F.qb,v);return[F.ob[0]+r[0]*k,F.ob[1]+r[1]*k,F.ob[2]+r[2]*k];};let p,look,cab=false;
     if(this.cam==='cab'){const e=b.goods?[0.1,1.95,-0.45]:b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
-    else if(this.cam==='wheel'){p=P([S.axF+1.4,0.45,S.trF+1.3]);look=P([S.axR,0.7,S.trF]);cab=true;}
+    else if(this.cam==='wheel'){p=P([S.axF+2.8,0.75,S.trF+2.3]);look=P([S.axR-0.5,0.7,S.trF]);cab=true;}/* low beside the front wheel, looking back along the side: the springs at work */
     else{const fw=[Math.cos(b.rot),0,Math.sin(b.rot)],back=(b.manual&&(b.mv||0)<-0.5)?-1:1,want=[b.x-fw[0]*11*back,F.oc[1]+4.2,b.z-fw[2]*11*back];if(!this.cp||Math.hypot(this.cp[0]-want[0],this.cp[2]-want[2])>40)this.cp=want.slice();const a=Math.min(1,dt*3);for(let i=0;i<3;i++)this.cp[i]+=(want[i]-this.cp[i])*a;p=this.cp.slice();look=[b.x+fw[0]*3,F.oc[1]+1.2,b.z+fw[2]*3];}
     const gh=this.gy(p[0],p[2])+0.4;if(p[1]<gh)p[1]=gh;return{p,look,cab};},
   panel(on){let el=$('#rvPanel');if(!el){el=document.createElement('div');el.id='rvPanel';document.body.appendChild(el);el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const a=t.dataset.a,b=this.sel;if(!b&&a!=='x')return;

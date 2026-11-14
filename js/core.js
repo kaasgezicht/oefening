@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.15.0 (Staggerwing rebuilt from the photos, game controller)';
+const VERSION='4.16.0 (Opel Blitz lorry, double-decker, tap a bus or lorry to follow, re-route or drive it)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -603,7 +603,7 @@ const BusUI={open:false,ed:null,
     if(!Buses.list.length)h+=`<div class="bp-note">No buses yet. Place bus stops on roads, then add a bus (Build → Roads).</div>`;
     Buses.list.forEach((b,i)=>{const RS=Buses.route(b);let round=0,allRoad=true;const legs=RS.map((s,k)=>{const a=RS[(k-1+RS.length)%RS.length],L=RS.length>1?Buses.legLen(a,s):{len:0,road:true};round+=L.len;if(!L.road)allRoad=false;return L;});
       h+=`<div class="bp-v"><div class="bp-h"><div><b>${b.goods?'🚚':'🚌'} ${esc(b.name)}</b><span>${esc(Buses.status(b))}${b.goods?'':' · '+b.pax.length+' aboard'}</span></div><button data-a="go" data-i="${i}">Go to</button><button data-a="ed" data-i="${i}" class="${this.ed===b?'on':''}">Stops</button></div>`;
-      h+=`<div class="bp-sum">${RS.length} stops · round ${allRoad?'':'≈ '}${this.fmt(round)}</div>`;
+      h+=`<div class="bp-sum">${RV[RoadVeh.type(b)].name} · ${RS.length} stops · round ${allRoad?'':'≈ '}${this.fmt(round)} · earned € ${Money.fmt(Math.round(b.earned||0))}</div>`;
       if(this.ed===b){h+=`<div class="bp-cap">in driving order · distance by road from the stop before</div><ol class="bp-s">`+RS.map((s,k)=>`<li${k===b.leg%RS.length?' class="cur"':''}><span>${esc(s.name)}</span><em>${RS.length>1?(legs[k].road?'':'≈ ')+this.fmt(legs[k].len):''}</em><button data-a="up" data-i="${i}" data-k="${k}" aria-label="Earlier">↑</button><button data-a="dn" data-i="${i}" data-k="${k}" aria-label="Later">↓</button><button data-a="rm" data-i="${i}" data-k="${k}" aria-label="Remove">✕</button></li>`).join('')+`</ol>`;
         const cand=Buses.stops.filter(s=>b.goods||!Buses.isCargo(s));h+=`<div class="bp-f"> <select data-a="add" data-i="${i}"><option value="">Add a stop…</option>${cand.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select><button data-a="del" data-i="${i}">Remove ${b.goods?'lorry':'bus'}</button></div>`;}
       h+=`</div>`;});
