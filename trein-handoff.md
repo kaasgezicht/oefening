@@ -1,4 +1,4 @@
-# Trein handoff 75 (14 Nov 2026): v4.16.1 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
+# Trein handoff 76 (14 Nov 2026): v4.17.0 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,36 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.16.1, 14 Nov) — the user's phone screenshot of the plane controls
+### Latest (4.17.0, 14 Nov) — airstrips, cargo flights, compass; controller UI; bus routes fixed (user's save + log)
+User's choices: airstrip at village level 2, placed by the player; pay by distance on landing, with visible unloading/loading of cargo.
+- **Bus routes through lakes** (the user's save): three stops were 38-144 m from any road (their roads had gone, probably a station
+  road), so `roadPath` found nothing and the fallback `Life.routePath(...,{bridge:true})` crossed water, and for long legs the grid
+  (max 280 cells) ran out and the path ended in a straight line. Now: `Buses.fixStops()` (called when the road graph is built) moves a
+  stop more than 25 m from the roads onto the nearest dry road node within 250 m (log + toast); `plan` follows the road network as far
+  as it goes (nearest nodes within 900 m) with cross-country only to reach it; `Buses.cross` tries dry routes first (margins 140 and
+  700 m, cell size growing with the distance) and bridges last; no way at all → the stop is skipped with a message (`b.skip`).
+  `Life.routePath` marks house cells -2 (water -1) and `clearEnds` opens house cells near the start and end (a coarse grid walled
+  village stops in). Tested on the save: all 12 legs found; Dalwijk's legs cross-country (its country roads failed at world gen).
+- **Controller flying**: once a pad is used, body.padfly hides #plTop/#plLeft/#plRight; Start pauses and adds body.padmenu (shown).
+- **Driving**: 🙈 Hide (body.rvmin) leaves the joystick and 👁 Show; off-road rolling resistance 0.35 m/s² (was 1.1: half stick did
+  nothing), joystick gas x1.4.
+- **js/air.js** (after roadveh.js; sw.js cache trein-v4):
+  - `Life.UPG.air` (level 2, €60,000): buying starts `Air.startPlace(v)`: a ghost runway (420 x 26 m) from `bestSpot` (6 distances x 24
+    directions x 12 headings, flattest valid), tap to move (camera.js tap hook), ⟲ ⟳ 15°, ✓ pays and builds. `check`: world edge,
+    water, height range <= 14 m, slope <= 0.08, within 2.5 km of the village, no houses, no track, not near another strip.
+  - Airstrips: `{x,z,h,v,n}`; unique colour per number (golden-angle hues, alternating lightness); saved as `airstrips` in the snapshot
+    (+ `air` flag per village). Mesh in world coordinates (`Air.mesh`): mown stripes draped on the ground, threshold bars, the number in
+    pixel runs at both ends, edge markers, windsock, hangar, number board; trees cleared once (`R.clearVegRect`).
+  - Cargo: stopped on a strip (onG, < 1.2 m/s, throttle < 0.35): unload (5 s) if the cargo came from another strip → paid €200/km x
+    crates/8 (`Money.earn`, toast, log), then load (5 s, 8 crates). Moving off cancels; a crash loses the cargo (`Air.lost`). Visible: HUD
+    progress, floating ±📦 icons, a crate stack beside the plane. The plane spawns on the nearest airstrip (`Air.spawnSpot`).
+  - `Plane.settle()` puts the plane exactly on its wheels (spawns used to drop it, which could count as a hard landing).
+  - `Compass`: #compass canvas under the top buttons: ±60° tape, N/E/S/W, coloured numbered markers with distance (◀ ▶ at the edges;
+    the cargo's origin outlined) while flying; the current stop while driving.
+  - Tested (scratchpad air.js on save3.json): placement 2 strips, spawn+load on 1, unload on 2 paid €725 for 3.62 km, reload; pad hide
+    and Start; half-stick off-road 14 km/h in 3 s; Hide button; airstrips in the save. Pictures checks/airstrip-compass.png.
+
+### Earlier (4.16.1, 14 Nov) — the user's phone screenshot of the plane controls
 - Plane and road-driving controls moved to the top left and made small (#plTop/#plHud, #rvTop/#rvHud in css/trein.css); while flying or
   driving the game's own #hud (title, clock, stats), #money and the station chips (.ldchip) are hidden (body.flying / body.roaddrive).
 - Gear folds inward about the fore-aft axis (in line with the lower wing, toward the fuselage); the big outer fairing plate turns
