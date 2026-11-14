@@ -1,4 +1,4 @@
-# Trein handoff 68 (14 Nov 2026): v4.10.1 — plan steps 1–6 done; between steps: farm with grain tower, DB 01 118, HEA grain hopper; next: plan step 7 (footbridge)
+# Trein handoff 69 (14 Nov 2026): v4.11.0 — farm rebuilt from the reference picture, cargo-only grain station, installable app, building detail fade; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -14,7 +14,38 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.10.1, 14 Nov) — 01 118 reworked from the user's close-ups (cylinder, cab side, tender rear, front)
+### Latest (4.11.0, 14 Nov) — user's phone screenshots of the farm + three general requests
+**User's findings (phone):** tractor half in the ground, farm buildings "made lazily" (holes, clipping), the grain station partly a normal
+station (platform), the look far from the reference; and: make "install app" work in Chrome; building detail slider down to 0.10x; details
+should fade in instead of popping.
+- **Installable app (PWA)**: `manifest.webmanifest`, `sw.js` (network first, cache fallback, so new versions show on the next start),
+  `icons/` (192, 512, maskable 512, drawn by a Python script), `index.html` (redirects to trein.html). trein.html links the manifest and
+  registers `sw.js` only on http(s). Checked with Chrome's own installability check (no errors, worker active). **Needs GitHub Pages**:
+  repo Settings > Pages > Deploy from branch (the branch with these files, folder /), then open https://kaasgezicht.github.io/oefening/
+  on the phone > menu > Install app. Opening the file from Files/Drive (content://) can never offer install.
+- **Building detail**: slider `kitLod` min 0.1. **Fade**: instances within +-22 % (in size on screen) of a level switch are drawn by both
+  levels (buckets `kit_<type>_<l>f`, program `R.pKitF` = FS_KIT(true)), each dithered by a screen-space noise: the finer level keeps the share
+  u, the coarser the rest (instance float iB.w = +-(1+u)). Costs extra draws only for buildings near a switch.
+- **Farm rebuilt** (buildings/farm.js): split into kit types `farmHouse`, `farmBarn`, `farmShed`, `farmYard` (each its own plot and level, so
+  big pieces no longer drop to the coarse level early), plus `grainTower`, `grainArm`, `farmAll` (render only). Built in the reference's
+  layout (seen from the track: shed front left, house behind it, barn at the back, tower on the right) by building mirrored in x (`mirror`),
+  positions in `KIT.FARM` (farm frame). New helpers: `slab` (a roof plane laid with real slates), `hip` (pyramid/hip roof of slabs),
+  `gable`, `fret` (white fretwork bargeboards and finial), `win2` (sash window with louvred shutters), `door2`, `picket`, `railFence`.
+  House: two front gabled bays, quoins, three chimneys with pots, veranda with posts/brackets/balusters and a slate lean-to, roses.
+  Tower: quoins, lamps, braced stage, gallery with balusters, board cabin, slate pyramid roof and cupola with real slates, weathervane,
+  lean-to with its own slate roof, silo with seams, catwalk, machine house. Tractor wheels stay as discs at the far level (it looked sunken
+  because the wheels vanished there).
+- **Grain station is cargo only**: `isCargo` includes `st.farm`; no platform pieces, no passenger terrace (it painted the whole area as
+  gravel and cleared houses). Instead the ground from the track to behind the tower is levelled to rail height without gravel, and the tower
+  stands on its own cobbled loading apron (stone base reaching 3 m down) with a low brick wall, coping and iron posts 2.3 m from the track.
+  Passenger trains don't stop there (destOf). Checked: no walkers within 30 m, no conductor, loading still works with the 01 and 4 hoppers.
+- Farm positions moved with the layout: `fm.yard`, `fm.gate` (front field gate), `fm.park` (in the yard), `fm.unload`, farm folk.
+- **Lesson**: the version bump broke the script once (an apostrophe in the VERSION string ended it): after every edit of trein.html run the
+  syntax check (extract the biggest <script>, `node --check`), also after the bump. Kit memory now 156 MB, built in about 3 s on the test machine.
+- Not tested: phone speed (the farm is ~130k triangles at full detail; four kit types more to build at start-up), old saves (farm layout is
+  regenerated from the seed, so it just changes), night lights on the farm.
+
+### Earlier (4.10.1, 14 Nov) — 01 118 reworked from the user's close-ups (cylinder, cab side, tender rear, front)
 - Proportions: loco 15.2 m (front +7.6), tender 8.0 m (VEH.loco01 / tender01). Bogie axles 6.05/3.85, drivers 2.3/0/-2.3 (main crank on the middle one), trailing axle -6.2 under the cab (-5.2..-7.25); a long firebox (down to the running board) between the rear driver and the cab. G01 updated (L 3.6, link pivot 2.6/1.82, lever 4.08, valve spindle at 1.86).
 - New helpers: `vhull` (prism over the convex hull of circles: the lagged cylinder + valve chest casing), `vbolts`, `vsign`; `vplate` also faces -x and its frame no longer covers the figures.
 - Details from the photos: cylinder blocks under the running board with bolted covers, valve chest tail tube and the red Krupp plate; red rods (coupling, main, eccentric, return crank), steel crosshead/link/radius rod/lever; two slide bars; red main air reservoir between the rear driver and the trailing wheel; cab with a glazed front side window, an open driver's window, grab rail, gold "01 118" plate and small plates, red bottom band, steps; roof with the long overhang and the four-opening ventilator; washout covers and the tall box beside the firebox; deflectors with a rounded top corner standing on the running board; tender: full-width tank, narrower ribbed upper part, rear box with the number plate, three rear lamps, door panels, yellow warning plates, ladder, coil-sprung bogies.
@@ -337,7 +368,7 @@ stretched to the spout position), `farmAll` (render only). A farm is a fourth st
 - **Rolling stock views**: `node tools/rolling_views.js <outdir> '[["front",7.2,0.35,0.08,14,2.5]]'` (01 + tender + 3 hoppers at 20/10/0 t;
   NOHOP=1 without hoppers, CAB=1 adds cab views; a view named "gear" is rendered at four quarter turns of the wheels).
 - **Farm grain cycle**: `node tools/farm_grain_check.js <outdir> <side 0-3>` logs fill levels, arm phase and train status every 4 s.
-- **Building renders**: `node tools/render_building.js farmAll out.jpg` (also farmstead, grainTower, grainArm with '{"game":true,"lod":N}').
+- **Building renders**: `node tools/render_building.js farmAll out.jpg` (also farmHouse, farmBarn, farmShed, farmYard, grainTower, grainArm with '{"game":true,"lod":N}').
 - **Syntax check**: extract the biggest `<script>` and run `node --check` on it (a `//` comment once swallowed code on a one-line edit; use `/* */` inside lines).
 - **Pitfalls**:
   - headless frames are slow, so use `waitForTimeout` generously, set screenshot `timeout` to 180000, and use `deviceScaleFactor` 2 via a copy of boot.js for user-facing shots;
