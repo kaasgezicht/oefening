@@ -355,8 +355,8 @@ precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform vec4 uWaveA
 vec3 swellD(vec2 p,float dep,out vec3 sg){vec3 d=vec3(0);sg=vec3(0);if(uSwell.x<=0.)return d;float t=uCamPos.w,fd=clamp(dep/16.,0.,1.);
   for(int i=0;i<5;i++){float fi=float(i),lam=330.*pow(.73,fi),sh=fi==0.?.42:fi==1.?.27:fi==2.?.17:fi==3.?.09:.05,da=fi==0.?0.:fi==1.?.32:fi==2.?-.41:fi==3.?.75:-.9;
     float k=6.2832/lam,w=sqrt(9.81*k),A=uSwell.x*.5*sh*1.25*fd,Q=min(.16/max(k*A,1e-4),1.);vec2 dir=vec2(cos(uSwell.z+da),sin(uSwell.z+da));float ph=k*dot(dir,p)-w*t+fi*1.7,c=cos(ph),s=sin(ph);
-    d.xz-=Q*A*dir*s;d.y+=A*c;sg.xy-=A*k*dir*s;sg.z+=sh*max(c,0.);}
-  sg.z=clamp(sg.z/.6,0.,1.);return d;}
+    d.xz-=Q*A*dir*s;d.y+=A*c;sg.xy-=A*k*dir*s;sg.z+=sh*c;}
+  sg.z=clamp(sg.z,-1.,1.);return d;}/* sg.z: -1 trough .. 1 where all crests meet */
 vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;float lod=log2(max(spc*2./(uWL[c]/uWL.w),1.));d+=textureLod(uWDisp,vec3(p/uWL[c],float(c)),lod).xyz;}return d;}
 `;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
@@ -435,7 +435,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   float lkw=uWaveA.x>0.?clamp(vLake*2.-.5,0.,1.)*(1.-iceF):0.,wf=0.;
   if(lkw>0.){vec4 dv=vec4(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;vec3 u=vec3(vP/uWL[c],float(c));dv+=texture(uWDeriv,u);wf+=texture(uWDisp,u).w*(c==2?.5:1.);}
     float sf=clamp(depth/1.5,0.,1.);g=mix(g,vec2(dv.x/max(1.+dv.z,.2),dv.y/max(1.+dv.w,.2))*sf+g*.25,lkw);wf*=sf;}
-  g+=vSw.xy;wf+=smoothstep(.72,1.,vSw.z)*clamp(uSwell.x/7.,0.,.8)*(.6+.4*vnoise(W.xz*.08+uCamPos.w*.05));// ocean swell: its slope, whitecaps on the crests
+  g+=vSw.xy;wf+=smoothstep(.62,.92,vSw.z)*clamp(uSwell.x/8.,0.,.75)*smoothstep(.35,.75,vnoise(W.xz*.05+uCamPos.w*.04));// ocean swell: its slope, whitecaps on the crests
   g+=((vec2(vnoise(W.xz*.06),vnoise(W.xz*.06+7.))-.5)*.05+(vec2(vnoise(W.xz*.35),vnoise(W.xz*.35+9.))-.5)*.045+(vec2(vnoise(W.xz*1.4+3.),vnoise(W.xz*1.4+5.))-.5)*.02)*iceF;// ice: bump map that ripples the mirror
   vec3 N=normalize(vec3(-g.x,1.,-g.y));
   float th=depth/max(V.y,.12);
