@@ -1,4 +1,4 @@
-# Trein handoff 76 (14 Nov 2026): v4.17.0 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
+# Trein handoff 77 (14 Nov 2026): v4.18.0 — ocean swell up to 20 m with whales, dolphins and fish; airstrip missions from a tappable ✈ icon; plane roll on the left stick; parking-brake fix; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,22 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.17.0, 14 Nov) — airstrips, cargo flights, compass; controller UI; bus routes fixed (user's save + log)
+### Latest (4.18.0, 14 Nov) — ocean swell, sea life, airstrip missions, roll on the left stick
+- Controller: roll moved to the left stick X (with throttle on left Y); the right stick is pitch only. Every other button is unchanged (`Plane` pad code in js/plane.js).
+- Parking brake: ground spawns set `parkBrake`; it releases on its own when throttle goes above 8% (and clears a full brake left over from the button). Tested: 50% throttle → brake 0, plane moving.
+- Airstrips (js/air.js):
+  - Built from a level-2 village (town): the village panel's airstrip upgrade, or Build → Roads → 🛩️ Airstrip. If no town is eligible, a toast says why.
+  - Placement ghost; tap to move, rotate, ✓ to build. The ground is graded under the strip (least-squares line, ≤3% slope, raised over streams); lakes and the sea are refused.
+  - Strip length is now 600 m (`AIR.len`) so there is room to land.
+  - With two or more strips, each strip gets a tappable ✈ icon (with its colour number). It opens a destination list (`#airMis`) with distance and pay; picking one spawns the plane on that strip with 8 crates for the destination. Pay only on landing and stopping at that strip; +25% for a touchdown below 1.5 m/s (+10% below 3 m/s).
+- Ocean (js/sea.js, WAVE_GL in js/objshaders.js):
+  - New setting `oceanSwell` (0–20 m, default 4). Five Gerstner waves on the sea cells only (lakes keep their own waves), faded in shallow water. Height scales with wind and storms (`Sea.amp()`). The same formula runs in JS (`Sea.height`), so the animals ride the waves.
+  - Raised maximums: lake waves 7.5, chop 3, wave strength 4, foam 4.
+  - Sea life: 6 whales (surface and spout, dive with flukes, sometimes breach), 4 dolphin pods (porpoising, follow the plane when it flies low over the sea), 8 fish schools under water with fish jumping.
+- Tested headless on an island world (seed 777, 4096, swell 12 → 10.6 m): both airstrip sites accepted, icons shown, mission paid €308 for 1.2 km with the smooth bonus, pad mapping checked, shaders compile. Not tested: a real controller, a phone.
+- Pictures: checks/ocean-swell-sealife.png, checks/airstrip-missions.png.
+
+### Earlier (4.17.0, 14 Nov) — airstrips, cargo flights, compass; controller UI; bus routes fixed (user's save + log)
 User's choices: airstrip at village level 2, placed by the player; pay by distance on landing, with visible unloading/loading of cargo.
 - **Bus routes through lakes** (the user's save): three stops were 38-144 m from any road (their roads had gone, probably a station
   road), so `roadPath` found nothing and the fallback `Life.routePath(...,{bridge:true})` crossed water, and for long legs the grid
