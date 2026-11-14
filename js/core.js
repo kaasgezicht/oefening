@@ -551,7 +551,13 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
     const GR=new Map(),gk=(x,z)=>Math.floor(x/16)+','+Math.floor(z/16);N.forEach((p,i)=>{const k=gk(p[0],p[1]);if(!GR.has(k))GR.set(k,[]);GR.get(k).push(i);});
     const nearest=(x,z,r,skip)=>{let b=-1,bd=r;for(let kz=Math.floor((z-r)/16);kz<=Math.floor((z+r)/16);kz++)for(let kx=Math.floor((x-r)/16);kx<=Math.floor((x+r)/16);kx++)for(const i of GR.get(kx+','+kz)||[]){if(skip&&skip(i))continue;const d=Math.hypot(N[i][0]-x,N[i][1]-z);if(d<bd){bd=d;b=i;}}return b;};
     for(const [e,pi] of ends){if(E[e].length>1)continue;const j=nearest(N[e][0],N[e][1],7,i=>PI[i]===pi||i===e);if(j>=0)link(e,j);}
-    return this.G={N,E,nearest};},
+    this.G={N,E,nearest};this.fixStops();return this.G;},
+  // a stop whose road has gone (more than 25 m from any road) moves onto the nearest road within 250 m, so buses and lorries follow the
+  // roads again instead of going cross-country (4.17.0: a removed station road left three stops in the fields)
+  fixStops(){const G=this.G;if(!G||!G.N.length)return;let moved=0;for(const s of this.stops){if(G.nearest(s.rx,s.rz,25)>=0)continue;const n=G.nearest(s.rx,s.rz,250);if(n<0)continue;
+      const [nx,nz]=G.N[n],e=G.E[n][0],dx=e?G.N[e[0]][0]-nx:1,dz=e?G.N[e[0]][1]-nz:0,dl=Math.hypot(dx,dz)||1,ox=s.x-s.rx,oz=s.z-s.rz,d=Math.hypot(nx-s.rx,nz-s.rz);
+      s.rx=nx;s.rz=nz;s.rot=Math.atan2(dz/dl,dx/dl);s.x=nx-dz/dl*3;s.z=nz+dx/dl*3;moved++;Log.info(`bus stop ${s.name} moved ${d.toFixed(0)} m onto the road (its road was gone)`);if(typeof UI!=='undefined')UI.toast(`Bus stop ${s.name} moved ${d.toFixed(0)} m onto the road`);}
+    if(moved){this.legCache=null;for(const b of this.list)b.path=null;}},
   roadPath(a,b){const G=this.graph(),s0=G.nearest(a[0],a[1],25),s1=G.nearest(b[0],b[1],25);if(s0<0||s1<0)return null;const n=G.N.length,g=new Float64Array(n).fill(1e30),pr=new Int32Array(n).fill(-1),hk=[],hv=[];
     const push=(v,k)=>{hk.push(k);hv.push(v);let i=hv.length-1;while(i>0){const p=(i-1)>>1;if(hv[p]<=hv[i])break;[hv[p],hv[i]]=[hv[i],hv[p]];[hk[p],hk[i]]=[hk[i],hk[p]];i=p;}};
     const pop=()=>{const k=hk[0],lv=hv.pop(),lk=hk.pop();if(hv.length){hv[0]=lv;hk[0]=lk;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;if(l<hv.length&&hv[l]<hv[m])m=l;if(r<hv.length&&hv[r]<hv[m])m=r;if(m===i)break;[hv[m],hv[i]]=[hv[i],hv[m]];[hk[m],hk[i]]=[hk[i],hk[m]];i=m;}}return k;};
