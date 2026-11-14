@@ -42,7 +42,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   // both ends in the airstrip's colour, a windsock, a hangar and a number board
   mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),g=(u,w)=>{const [x,z]=P(u,w);return[x,R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n);
     const V=(p,n,cl,m)=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],cl[0],cl[1],cl[2],0,0,0,1,m);return M.n++;},q=(a,b,cc,d,cl,m)=>{const ix=[a,b,cc,d].map(p=>V(p,[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);};
-    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,cl=stripe?[0.42,0.58,0.24]:[0.36,0.52,0.2];q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
+    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,edge=Math.abs(w)>=W-W/2-0.01&&(w===-W||w+W/2>=W-0.01),cl=stripe?[0.62,0.78,0.34]:[0.5,0.68,0.26];/* mown stripes, lighter than the meadow around */q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
     const lift=(p,d)=>[p[0],p[1]+d,p[2]];
     for(const e of [-1,1]){for(let k=0;k<8;k++){const w=-W+3+k*(2*W-6)/7.5;q(lift(g(e*(L-4),w),0.02),lift(g(e*(L-14),w),0.02),lift(g(e*(L-14),w+1.4),0.02),lift(g(e*(L-4),w+1.4),0.02),[0.95,0.95,0.92],0);}
       // the number, painted big across the runway, readable when landing toward it
@@ -62,7 +62,8 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     for(const e of [-1,1])q(g(e*L-0.75,-W),g(e*L+0.75,-W),g(e*L+0.75,W),g(e*L-0.75,W));return R.uploadVeh(M);},
   draw(p,pass){if(!App.T)return;if(this.pending)this.restore();if(!this.list.length&&!this.pl)return;const cp=Cam.pos||[0,0,0],I=M4.ident();
     const dm=m=>{if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,I);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};gl.uniform1f(p.u('uDist'),0);
-    for(const s of this.list){if(Math.hypot(s.x-cp[0],s.z-cp[2])>(pass===1?900:6000))continue;let m=this.meshes.get(s);if(!m){m=this.mesh(s);this.meshes.set(s,m);}dm(m);}
+    for(const s of this.list){if(!s.cleared&&R.vegB){s.cleared=true;/* trees and rocks off the runway, the hangar and a margin */R.clearVegRect(App.T,{x:s.x,z:s.z,a:s.h,x0:-AIR.len/2-15,x1:AIR.len/2+15,z0:-AIR.w/2-48,z1:AIR.w/2+12},2);}
+      if(Math.hypot(s.x-cp[0],s.z-cp[2])>(pass===1?900:6000))continue;let m=this.meshes.get(s);if(!m){m=this.mesh(s);this.meshes.set(s,m);}dm(m);}
     if(this.pl&&pass!==1){if(!this.ghost)this.ghost=this.ghostMesh(this.pl);dm(this.ghost);}
     if(this.job&&this.cratesAt)dm(this.crateMesh());},
   // ---- cargo flights: stopped on an airstrip → unload (paid by the distance from where it was loaded) → load
