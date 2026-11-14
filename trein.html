@@ -23,6 +23,11 @@ body{font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:va
 #buildBar button{pointer-events:auto}
 #buildBar{pointer-events:none;position:fixed;left:0;right:0;bottom:0;padding:8px 10px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(#0000,#0b0f10cc 30%)}
 #buildBar[hidden]{display:none}
+#mapOv{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4}#mapOv[hidden],#mapBar[hidden]{display:none}
+#mapBar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:6;display:flex;gap:10px;align-items:center;background:#15191af0;border:1px solid #c9a14a80;border-radius:14px;padding:8px 12px;color:#f1e7d0;font:600 13px system-ui;max-width:94vw;flex-wrap:wrap;justify-content:center}
+#mapBar button{font:600 13px system-ui;padding:6px 12px;border-radius:10px;border:1px solid #c9a14a;background:#1e3b30;color:#f1e7d0}#mapLegend{font-weight:500;font-size:12px;opacity:.9}
+body.mapmode .vlabel,body.mapmode .ilabel,body.mapmode #bar,body.mapmode #upNotes{display:none!important}
+#money [hidden]{display:none!important}
 #buildInfo{font-size:13px;margin:0 4px 8px;min-height:18px;text-shadow:0 1px 3px #000}
 #buildBar .tools{display:flex;gap:6px}#buildBar .tools[hidden]{display:none}#buildBar .tools button{flex:1;padding:10px 4px;font-size:14px;min-height:46px}#buildBar .tools button.big{flex:2;font-size:16px}
 #buildBar .chips[hidden],#buildBar [hidden]{display:none!important}
@@ -159,7 +164,8 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 <body>
 <canvas id="gl"></canvas>
 <div id="hud"><div class="title">Trein</div><div id="clock"></div><div id="stats"></div></div>
-<div id="bar"><button id="btnMenu" data-ic="gear">Settings</button><button id="btnBuild" data-ic="build">Build</button><button id="btnDrive" data-ic="trains">Trains</button><button id="btnGen" data-ic="generate">Generate</button><button id="btnSave" data-ic="save">Save</button></div>
+<div id="bar"><button id="btnMenu" data-ic="gear">Settings</button><button id="btnBuild" data-ic="build">Build</button><button id="btnDrive" data-ic="trains">Trains</button><button id="btnGen" data-ic="generate">Generate</button><button id="btnMap" data-ic="map">Map</button><button id="btnSave" data-ic="save">Save</button></div>
+<canvas id="mapOv" hidden></canvas><div id="mapBar" hidden><span id="mapTitle">Map</span><span id="mapLegend"></span><button id="mapClose">✕ Close map</button></div>
 <button id="btnSound" class="corner" data-ic="soundOff">Sound off</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button><button id="btnFF" class="corner" aria-label="Fast forward">1×</button>
 <div id="skySheet" hidden>
   <h4>Time of day</h4><input type="range" id="skyTime" min="0" max="24" step="0.05">
@@ -222,7 +228,7 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.11.0 (farm rebuilt from the reference, grain station without platform, installable app, detail fade)';
+const VERSION='4.12.0 (map view, big mountains, world cache, money on by default, bus stop fix)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -264,6 +270,13 @@ def('valleyFlat',{tab:'world',label:'Valley flatness',min:1,max:3,step:0.05,def:
 def('strata',{tab:'world',label:'Rock ledges',min:0,max:1,step:0.01,def:0.35,apply:'world'});
 def('strataStep',{tab:'world',label:'Ledge height',min:4,max:60,step:1,def:18,unit:' m',apply:'world'});
 def('edgeMountains',{tab:'world',label:'Edge mountains',min:0,max:1,step:0.01,def:0.35,apply:'world'});
+def('bigMtns',{tab:'world',label:'Big mountains',min:0,max:3,step:1,def:0,apply:'world'});
+def('bigMtnHeight',{tab:'world',label:'Big mountain height',min:200,max:3000,step:50,def:1200,unit:' m',apply:'world'});
+def('bigMtnBase',{tab:'world',label:'Big mountain base width',min:400,max:6000,step:50,def:2400,unit:' m',apply:'world'});
+def('bigMtnLong',{tab:'world',label:'Big mountain shape (round peak → long ridge)',min:0,max:1,step:0.01,def:0.2,apply:'world'});
+for(const k of [1,2,3]){def('bigMtnX'+k,{tab:'world',label:`Mountain ${k}: east-west (0 = from the seed)`,min:0,max:100,step:1,def:0,unit:' %',apply:'world'});
+  def('bigMtnZ'+k,{tab:'world',label:`Mountain ${k}: north-south (0 = from the seed)`,min:0,max:100,step:1,def:0,unit:' %',apply:'world'});
+  def('bigMtnDir'+k,{tab:'world',label:`Mountain ${k}: ridge direction (0 = from the seed)`,min:0,max:180,step:1,def:0,unit:'°',apply:'world'});}
 def('tilt',{tab:'world',label:'Regional tilt',min:0,max:1.5,step:0.01,def:0.5,apply:'world'});
 def('erosionOn',{tab:'erosion',label:'Erosion',kind:'check',def:1,apply:'world'});
 def('dropletsPerCell',{tab:'erosion',label:'Raindrops per cell',min:0,max:3,step:0.05,def:1.2,apply:'world'});
@@ -413,7 +426,7 @@ def('stopStations',{tab:'trains',label:'Auto trains stop at stations',kind:'chec
 def('timetable',{tab:'trains',label:'Run to a timetable',kind:'check',def:0,apply:'live'});
 def('ttInterval',{tab:'trains',label:'Timetable: a departure every',min:5,max:120,step:5,def:30,unit:' min',apply:'live'});
 def('stopAll',{tab:'trains',label:'Stop at every station on the way',kind:'check',def:1,apply:'live'});
-def('money',{tab:'trains',label:'Money: earn fares, pay for building (OpenTTD style)',kind:'check',def:0,apply:'live'});
+def('money',{tab:'trains',label:'Money: earn fares, pay for building (OpenTTD style)',kind:'check',def:1,apply:'live'});
 def('fareRate',{tab:'trains',label:'Fare level',min:0.25,max:4,step:0.05,def:1,unit:'×',apply:'live'});
 def('goodsRate',{tab:'trains',label:'Goods production',min:0.2,max:4,step:0.1,def:1,unit:'×',apply:'live'});
 def('dwell',{tab:'trains',label:'Station stop time',min:10,max:90,step:1,def:30,unit:' s',apply:'live'});
@@ -448,6 +461,7 @@ def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can dr
 def('optShadowHalf',{tab:'exp',label:'Update sun shadows every other frame (moving shadows lag one frame)',kind:'check',def:0,apply:'live'});
 def('optBackface',{tab:'exp',label:'Skip the far sides of building blocks (same picture)',kind:'check',def:1,apply:'live'});
 def('optPrepass',{tab:'exp',label:'Buildings depth-first (same picture; may help or hurt, measure)',kind:'check',def:0,apply:'live'});
+def('worldCache',{tab:'exp',label:'Keep the generated land in a cache (fast start; regenerated when settings or the game change)',kind:'check',def:1,apply:'live'});
 def('optCull',{tab:'exp',label:'Skip buildings and objects outside the view (same picture)',kind:'check',def:1,apply:'live'});
 def('peopleLod',{tab:'quality',label:'People detail distance',min:0.3,max:2,step:0.05,def:1,unit:' ×',apply:'live',q:1});
 def('kitLod',{tab:'quality',label:'Building detail distance',min:0.1,max:2,step:0.05,def:1,unit:' ×',apply:'live',q:1});
@@ -490,6 +504,7 @@ const ICONS=(()=>{const F=' fill="currentColor" stroke="none"';
   const loco=`<path d="M2 15.5h19M4 15.5V10h9v5.5M13 15.5V6h6.5v9.5M12 6h8.5M5.5 10V6.5H8V10"/><circle cx="7" cy="18.5" r="2"/><circle cx="12.5" cy="18.5" r="2"/><circle cx="18" cy="18.5" r="2"/>`;
   return{
     gear,
+    map:`<path d="M3 6l6-2.5 6 2.5 6-2.5v14l-6 2.5-6-2.5-6 2.5z"/><path d="M9 3.5v14M15 6v14"/>`,
     build:`<path d="M4 20l9-9" stroke-width="2.6"/><path d="M10.2 7.8l5-5 6 6-5 5z" fill="currentColor"/>`,
     trains:loco,
     generate:`<path d="M2.5 20l6-9 4 5.2 2.8-3.4 6.2 7.2z"/><path d="M20.2 6.4a4 4 0 1 1-1.4-3"/><path d="M19.6 1.6v2.9h-2.9"/>`,
@@ -641,8 +656,11 @@ const Money={cash:200000,loan:0,inited:false,paid:new Map(),paidSt:new Set(),pai
   repay(){const r=Math.min(50000,this.loan,Math.max(0,this.cash));if(r<=0){UI.toast(this.loan?'Not enough cash to repay':'No loan');return;}this.loan-=r;this.cash-=r;this.hud();},
   note(v,txt,x,y,z){this.flo.push({v,txt,x,y,z,t:0});if(this.flo.length>6){const o=this.flo.shift();if(o.el)o.el.remove();}},
   hud(){let el=document.getElementById('money');if(!el){el=document.createElement('div');el.id='money';el.style.cssText='margin-top:4px;font:600 14px system-ui;color:#fff;text-shadow:0 1px 2px #000;pointer-events:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap';
-      const hud=document.getElementById('hud');if(!hud)return;hud.appendChild(el);el.innerHTML='<span id="mCash"></span><button id="mBor" style="font-size:12px;padding:2px 8px">Borrow</button><button id="mRep" style="font-size:12px;padding:2px 8px">Repay</button><div id="mLog" style="width:100%;font-weight:500;font-size:12px"></div>';
-      el.querySelector('#mBor').onclick=()=>this.borrow();el.querySelector('#mRep').onclick=()=>this.repay();}
+      const hud=document.getElementById('hud');if(!hud)return;hud.appendChild(el);el.innerHTML='<span id="mCash" role="button" title="Tap for the bank: borrow or repay" style="cursor:pointer"></span><button id="mBor" hidden style="font-size:12px;padding:2px 8px">Borrow</button><button id="mRep" hidden style="font-size:12px;padding:2px 8px">Repay</button><div id="mLog" style="width:100%;font-weight:500;font-size:12px"></div>';
+      /* the bank's buttons show only after a tap on the money, and hide again after a while */
+      const bank=on=>{el.querySelector('#mBor').hidden=!on;el.querySelector('#mRep').hidden=!on;clearTimeout(this.bankT);if(on)this.bankT=setTimeout(()=>bank(false),8000);};
+      el.querySelector('#mCash').onclick=e=>{e.stopPropagation();bank(el.querySelector('#mBor').hidden);};
+      el.querySelector('#mBor').onclick=e=>{e.stopPropagation();this.borrow();bank(true);};el.querySelector('#mRep').onclick=e=>{e.stopPropagation();this.repay();bank(true);};}
     el.hidden=!this.on();if(!this.on())return;const c=el.querySelector('#mCash');c.textContent=`€ ${this.fmt(this.cash)}`+(this.loan?`  ·  loan € ${this.fmt(this.loan)}`:'');c.style.color=this.cash<0?'#ff9a8a':'#fff';},
   tick(dt){if(!this.on())return;this.acc=(this.acc||0)+dt;if(this.acc>1){this.acc=0;this.check();}
     const lg=document.getElementById('mLog');if(lg){this.flo.forEach(f=>{f.t+=dt;if(f.t>=6&&f.el)f.el.remove();});this.flo=this.flo.filter(f=>f.t<6);const h=this.flo.map(f=>`<div style="color:${f.v>=0?'#bff5b0':'#ffb3a6'}">${f.v>=0?'+':'−'}€ ${this.fmt(Math.abs(f.v))} ${f.txt}</div>`).join('');if(h!==this.logH){this.logH=h;lg.innerHTML=h;}}
@@ -772,7 +790,9 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   update(dt){const ST=this.stops,CS=Life.castleList();for(const s of ST){s.cargo=this.isCargo(s);s.castle=!s.cargo&&CS.some(c=>Math.hypot(c.x-s.x,c.z-s.z)<450);const lv=s.v?(s.v.level|0):0;
       s.waiting=s.cargo?0:s.castle?Math.min(20,s.waiting+dt*0.03*P.people):Math.min(16+lv*12,s.waiting+dt*(s.v?0.05*P.people*(1+lv*0.9):0.01));}
     for(const b of this.list){const R2=this.route(b);if(R2.length<2){b.v=0;b.st='dwell';continue;}const t=R2[b.leg%R2.length];
-      if(b.st==='dwell'){b.v=0;b.wait-=dt;if(b.wait<=0&&!this.list.some(o=>o!==b&&o.st==='drive'&&o.v<2&&Math.hypot(o.x-b.x,o.z-b.z)<9.5&&o.id<b.id)){b.leg=(b.leg+1)%R2.length;b.st='drive';b.path=null;}continue;}
+      if(b.st==='dwell'){b.v=0;b.wait-=dt;/* leave once nobody with right of way is about to move off right beside it. A vehicle queued behind this one (waiting for
+        it to leave) never holds it: that used to lock two or three vehicles at the same stop for good. After 20 s of waiting it goes anyway. */
+        if(b.wait<=0&&(b.wait<-20||!this.list.some(o=>o!==b&&o.st==='drive'&&o.v<2&&!o.queued&&Math.hypot(o.x-b.x,o.z-b.z)<9.5&&o.id<b.id&&((o.x-b.x)*Math.cos(b.rot)+(o.z-b.z)*Math.sin(b.rot))>-1))){b.leg=(b.leg+1)%R2.length;b.st='drive';b.path=null;}continue;}
       if(!b.path)this.plan(b,t);
       const rem=b.len-b.ps;let vt=Math.min(11,Math.sqrt(2*1.2*Math.max(0,rem))+0.5);
       {const p0=this.at(b,b.ps),p1=this.at(b,Math.min(b.len,b.ps+14));const turn=Math.abs(wrapPi(p1.h-p0.h));vt=Math.min(vt,11-7*clamp(turn/0.9,0,1));}
@@ -1053,6 +1073,16 @@ function makeTerrainFn(p){
   };
 }
 
+// ---- big mountains (World settings): up to three massifs added in metres on top of the shaped land, each a cone with concave flanks
+// stretched along a ridge (shape 0 = round peak, 1 = a long ridge four times longer than wide), with spurs and gullies from ridged
+// noise so erosion has something to carve. Position and direction come from the seed unless set.
+function bigMountains(p){const n=Math.min(3,p.bigMtns|0);if(!n)return null;const W=p.worldSize,rng=mulberry32((p.seed|0)*97+5),nz=makeNoise((p.seed|0)+515),L=[];
+  for(let k=1;k<=3;k++){const ax=0.22+rng()*0.56,az=0.22+rng()*0.56,ad=rng()*Math.PI;if(k>n)continue;const fx=+p['bigMtnX'+k]||0,fz=+p['bigMtnZ'+k]||0,fd=+p['bigMtnDir'+k]||0;
+    const x=(fx>0?fx/100:ax)*W,z=(fz>0?fz/100:az)*W,d=fd>0?fd*Math.PI/180:ad,R=p.bigMtnBase/2,el=clamp(+p.bigMtnLong||0,0,1),Lr=R*3*el,H=p.bigMtnHeight*(1-0.14*(k-1));
+    L.push({x,z,c:Math.cos(d),s:Math.sin(d),R,Lr,H});}
+  return{list:L,at(x,z){let h=0,m=0;for(const q of L){const dx=x-q.x,dz=z-q.z,u=dx*q.c+dz*q.s,v=-dx*q.s+dz*q.c,uu=Math.max(0,Math.abs(u)-q.Lr),r=Math.hypot(uu,v)/q.R;if(r>=1.25)continue;
+      const along=q.Lr>0?1-0.25*Math.min(1,Math.abs(u)/(q.Lr+q.R)):1,t=clamp(1-r,0,1),prof=Math.pow(t,1.7)*(1-Math.exp(-t*6))*along+Math.max(0,0.25-Math.abs(r-1.05))*0.12;
+      const sp=ridged(nz,x/(q.R*0.55),z/(q.R*0.55),5,0.5,2),gul=0.72+0.38*sp;h+=q.H*prof*gul;m=Math.max(m,clamp(t*1.6,0,1));}return{h,m};}};}
 // normalise raw -> metres (shared by inner map and far ring so they meet)
 function shapeHeight(raw,norm,p,mm){
   let h01=(raw-norm.min)/(norm.max-norm.min);
@@ -1077,7 +1107,8 @@ async function genTerrain(p,y){
   const norm={min:mn,max:mx};
   const H=new Float32Array(N*N);
   for(let k=0;k<N*N;k++)H[k]=shapeHeight(raw[k],norm,p,mmA[k]);
-  return {N,W,cs,H,mm:mmA,norm};
+  const BM=bigMountains(p);if(BM)for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,r=BM.at(x,z);if(r.h>0){r.h*=smooth(0,W*0.09,Math.min(x,z,W-x,W-z));H[k]+=r.h;mmA[k]=Math.max(mmA[k],r.m);}}if(j%32===0)await y(j/N,'Raising the big mountains');}
+  return {N,W,cs,H,mm:mmA,norm,bigMtns:BM?BM.list:null};
 }
 
 // ---- Hydraulic (droplet) + thermal erosion. Heights are converted to
@@ -8566,7 +8597,9 @@ R.fillUBO=function(cam,A,lightVP){const U=R.U,T=R.world,E=A.E;
   const wa=P.windDir*Math.PI/180,ws=E.wind;U.set([Math.cos(wa)*ws*8,ws,Math.sin(wa)*ws*8,0],80);
   U.set([E.rain,E.snow,E.wet,E.snowCover],84);U.set([E.mist,E.flash,E.mistTop,E.overcast],88);
   U.set(seasonW(),92);
-  U.set([P.grassHue,1-Math.cos(P.grassMaxSlope*Math.PI/180),P.snowLine*P.maxHeight,P.sandShore],96);
+  /* snow line: a share of the land's height, measured on the real top when big mountains rise far above "Mountain height" */
+  if(T&&T.hTop===undefined){let m=0;for(let k=0;k<T.H.length;k+=7)if(T.H[k]>m)m=T.H[k];T.hTop=m;}
+  U.set([P.grassHue,1-Math.cos(P.grassMaxSlope*Math.PI/180),P.snowLine*Math.max(P.maxHeight,T&&T.hTop>P.maxHeight*1.25?T.hTop*0.8:0),P.sandShore],96);
   U.set([P.waterGreen,P.waveStrength,P.foam,E.ice],100);
   U.set([...A.zen,clamp(A.night*1.3-0.2,0,1)*(1-E.overcast)],104);U.set([...A.hor,1],108);
   U.set([...A.st.moon,A.moonUp],112);U.set([...A.st.sun,smooth(-0.05,0.02,A.st.sun[1])],116);
@@ -8866,7 +8899,7 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
       // follow the average ground around the target (not every bump) so panning over hills stays smooth
       const rr=clamp(this.dist*0.16,4,220);let g=this.ground(this.target[0],this.target[2])*2;for(let k=0;k<8;k++){const a=k*0.785;g+=this.ground(this.target[0]+Math.cos(a)*rr,this.target[2]+Math.sin(a)*rr);}g/=10;
       if(!this.anim)this.target[1]+=(g-this.target[1])*Math.min(1,dt*14);}
-    this.pitch=clamp(this.pitch,-0.2,1.55);this.dist=clamp(this.dist,1.5,7000);
+    MapView.hold();this.pitch=clamp(this.pitch,-0.2,1.55);this.dist=clamp(this.dist,1.5,MapView.on?(App.T?App.T.W*2.4:20000):7000);
     if(Build.active&&Build.camGoal&&this.mode==='free'&&!this.anim){const G=Build.camGoal,k=Math.min(1,dt*2.2);if(G.x!==undefined){this.target[0]+=(G.x-this.target[0])*k;this.target[2]+=(G.z-this.target[2])*k;}
       if(G.dist!==undefined)this.dist+=(G.dist-this.dist)*k;if(G.pitch!==undefined)this.pitch+=(G.pitch-this.pitch)*k;}
     const tr=this.mode!=='free'?Trains.cur():null,L=tr&&tr.poses&&tr.poses[0];let p,look=this.target,cab=false;
@@ -8938,7 +8971,7 @@ function initInput(cv){
     // rotation and zoom: noise-gated a little so a pure tilt does not wobble, zoom keeps the ground point under the fingers
     const rotOK=Math.abs(da)*n.d*0.5>0.25,zoomOK=Math.abs(ds)*n.d*0.5>0.25;
     if(rotOK){Cam.yaw+=da;Input.spin=Input.spin*0.5+da/Math.max(dtI,0.008)*0.5;}
-    if(zoomOK){const f=Math.exp(-ds),Q=groundUnder(n.cx,n.cy);Cam.dist=clamp(Cam.dist*f,8,7000);if(Q&&Cam.mode==='free'){Cam.target[0]=Q[0]+(Cam.target[0]-Q[0])*f;Cam.target[2]=Q[2]+(Cam.target[2]-Q[2])*f;}}
+    if(zoomOK){const f=Math.exp(-ds),Q=groundUnder(n.cx,n.cy);Cam.dist=clamp(Cam.dist*f,8,MapView.on&&App.T?App.T.W*2.4:7000);if(Q&&Cam.mode==='free'){Cam.target[0]=Q[0]+(Cam.target[0]-Q[0])*f;Cam.target[2]=Q[2]+(Cam.target[2]-Q[2])*f;}}
     if(par)Cam.pitch=clamp(Cam.pitch+par*0.0065,-0.2,1.55);
     TouchLog.frame(par?(rotOK||zoomOK?'tilt+twist':'tilt'):'twist',{da,ds,dx,dy});g=n;};
   const up=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;Input.live=false;TouchLog.ev(e,pts);
@@ -8946,6 +8979,7 @@ function initInput(cv){
     if(e.pointerId===buildPtr){buildPtr=null;const tl=Build.active?Build:Drive;if(e.type==='pointerup')tl.up(e);else tl.cancel();return;}
     const now=performance.now();if(Build.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Build.tap(e);return;}
     if(Drive.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Drive.tap(e);return;}
+    if(MapView.on){if(pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup')MapView.tap(e.clientX,e.clientY);return;}
     if(pts.size===0&&moved<12&&now-downAt<300){
       if(now-lastTap<320&&Math.hypot(e.clientX-lastTapPos[0],e.clientY-lastTapPos[1])<30){const h=Cam.pick(e.clientX,e.clientY);if(h){Cam.flyTo(h);Log.info(`fly to ${h.map(v=>v.toFixed(0)).join(',')}`);}lastTap=0;}
       else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}}}};
@@ -8972,6 +9006,66 @@ function keyMove(dt){const k=Cam.keys||{};const s=500*dt;if(k.w)camPan(0,s);if(k
 // APP — boot, generation pipeline, file actions, frame loop
 // ===================================================================
 const SAVE_KEY='trein.save.v1';
+// ---- the map: the world seen straight down without clouds, mist or haze; on top of it (a 2D canvas) the railways, the bus and lorry
+// routes, the trains, and symbols with names for the villages (by size), stations, bus stops, farms, mines, sawmills, workshops, castles
+// and docks. One finger pans, two pinch to zoom (the usual camera controls, rotation locked); a tap on a symbol leaves the map there.
+const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
+  toggle(){this.on?this.close():this.open();},
+  open(){if(!App.T||this.on)return;if(Build.active)Build.exit();if(Drive.active)Drive.exit();this.on=true;this.cam=Cam.state();this.keep={mode:Cam.mode,fog:P.fogDensity,bokeh:P.bokeh,skip:R.skip};
+    P.fogDensity=0;P.bokeh=0;R.skip={...R.skip,clouds:1,mist:1};const T=App.T;Cam.mode='free';Cam.anim=null;Cam.target=[T.W/2,0,T.W/2];const asp=innerWidth/innerHeight,fy=(asp<1?64:50)*Math.PI/180;Cam.dist=T.W/2/(Math.tan(fy/2)*Math.min(1,asp))*1.05;Cam.pitch=1.52;Cam.yaw=0;
+    document.body.classList.add('mapmode');$('#mapOv').hidden=false;$('#mapBar').hidden=false;this.paths.clear();this.legend();},
+  close(){if(!this.on)return;this.on=false;P.fogDensity=this.keep.fog;P.bokeh=this.keep.bokeh;R.skip=this.keep.skip||{};Cam.mode=this.keep.mode==='free'?'free':this.keep.mode;
+    if(this.fly){Cam.setState(this.cam);Cam.flyTo(this.fly,160);this.fly=null;}else Cam.setState(this.cam);
+    document.body.classList.remove('mapmode');$('#mapOv').hidden=true;$('#mapBar').hidden=true;},
+  legend(){$('#mapLegend').innerHTML='<span style="color:#ff5a4a">━ railway</span> · <span style="color:#4fb4ff">┅ bus</span> · <span style="color:#ffb340">┅ lorry</span> · 🏡 hamlet · 🏘️ village · 🏰 town';},
+  /* the camera is held straight down while the map is open */
+  hold(){if(!this.on)return;Cam.pitch=1.52;Cam.yaw=0;Cam.mode='free';Cam.dist=clamp(Cam.dist,60,App.T?App.T.W*2.4:20000);},
+  busPath(a,b){const k=a.id+'>'+b.id;if(!this.paths.has(k)){let p=null;try{p=Buses.roadPath([a.rx,a.rz],[b.rx,b.rz]);}catch(e){}this.paths.set(k,p&&p.length>1?p:[[a.rx,a.rz],[b.rx,b.rz]]);}return this.paths.get(k);},
+  draw(){if(!this.on||!App.T)return;const cv=$('#mapOv'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+    const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);const T=App.T,Hr=(x,z)=>R.sampleHr(T,x,z),S=(x,z,y)=>Cam.toScreen(x,y===undefined?Hr(x,z):y,z);this.hits=[];
+    const line=(pts,col,w,dash,casing)=>{const sp=pts.map(p=>S(p[0],p[1],p[2])).filter(Boolean);if(sp.length<2)return;g.setLineDash(dash||[]);g.lineJoin='round';g.lineCap='round';
+      if(casing){g.strokeStyle=casing;g.lineWidth=w+3;g.beginPath();sp.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();}
+      g.strokeStyle=col;g.lineWidth=w;g.beginPath();sp.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.setLineDash([]);};
+    // railways
+    for(const sg of Track.segs){if(sg.pend)continue;const n=Math.max(2,Math.ceil(sg.L/12)),pts=[];for(let k=0;k<=n;k++){const t=sg.L*k/n,q=segPoint(sg,t);pts.push([q[0],q[1],segY(sg,t)]);}line(pts,'#ff5a4a',3.5,null,'#2a0d0acc');}
+    // bus and lorry routes (each leg along the roads)
+    Buses.list.forEach((b,bi)=>{const RS=Buses.route(b);if(RS.length<2)return;const col=b.goods?'#ffb340':'#4fb4ff',off=(bi%3-1)*Cam.dist*0.004;for(let k=0;k<RS.length;k++){const a=RS[k],c=RS[(k+1)%RS.length],p=this.busPath(a,c);line(p.map(q=>[q[0]+off,q[1]+off]),col,2.5,[7,5],'#0008');}});
+    // vehicles: trains and buses as dots
+    for(const tr of Trains.list){const p=tr.poses&&tr.poses[0];if(!p)continue;const q=S(p.c[0],p.c[2],p.c[1]);if(q){g.fillStyle='#fff';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],5,0,6.283);g.fill();g.stroke();}}
+    for(const b of Buses.list){const q=S(b.x,b.z);if(q){g.fillStyle=b.goods?'#ffb340':'#4fb4ff';g.strokeStyle='#000';g.lineWidth=1.5;g.beginPath();g.arc(q[0],q[1],4,0,6.283);g.fill();g.stroke();}}
+    // symbols with names
+    const boxes=[],sym=(x,z,icon,name,size,col,obj)=>{const q=S(x,z);if(!q||q[0]<-40||q[1]<-40||q[0]>W+40||q[1]>H+40)return;const r=size/2+5;g.fillStyle='#15191ae6';g.strokeStyle=col||'#c9a14a';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],r,0,6.283);g.fill();g.stroke();
+      g.font=`${size}px system-ui`;g.textAlign='center';g.textBaseline='middle';g.fillText(icon,q[0],q[1]+1);if(name){g.font=`600 ${size>20?14:12}px system-ui`;const tw=g.measureText(name).width/2+3,bx=[q[0]-tw,q[1]+r+2,q[0]+tw,q[1]+r+17];if(boxes.some(o=>o[0]<bx[2]&&o[2]>bx[0]&&o[1]<bx[3]&&o[3]>bx[1]))name='';else boxes.push(bx);}if(name){g.lineWidth=3;g.strokeStyle='#000c';g.strokeText(name,q[0],q[1]+r+9);g.fillStyle='#fff';g.fillText(name,q[0],q[1]+r+9);}
+      this.hits.push({x:q[0],y:q[1],r:r+6,wx:x,wz:z});};
+    const LV=Life.LEVELS||[];for(const v of Life.villages){const lv=v.level|0,big=lv>=LV.length-1,mid=lv>=1;sym(v.x,v.z,big?'🏰':mid?'🏘️':'🏡',`${v.name} · ${(LV[lv]&&LV[lv].name)||''}`,big?26:mid?22:18,big?'#ffd36a':'#c9a14a',v);}
+    for(const si of Life.stInfo||[]){if(si.parent)continue;sym(si.x,si.z,si.st.farm?'🌾':si.cargo?'🚂':'🚉',si.st.name,18,'#ff5a4a');}
+    for(const c of Life.castleList())sym(c.x,c.z,'🏯',c.name,18,'#b9a7ff');
+    for(const fm of Life.farms())if(fm&&fm.v.farmOwned)sym(fm.x,fm.z,'🌾',fm.v.name+' farm',16,'#e7c35a');
+    for(const [kind,L] of Life.inds())L.forEach(m=>{if(!Life.indOn(kind,m))return;sym(m.x,m.z,kind==='sawmill'?'🪚':kind==='mine'?'⛏️':'🪑',kind==='mine'?(ORE[m.type]?ORE[m.type].name+' mine':'Mine'):kind==='sawmill'?'Sawmill':'Workshop',16,'#9fd0a0');});
+    for(const d of Life.docks||[])if(d.v&&d.v.docksOwned)sym(d.sx,d.sz,'⚓','',14,'#8fd3ff');
+    for(const st of Buses.stops)sym(st.x,st.z,st.sawmill||st.workshop?'🚚':'🚏',st.name,14,'#4fb4ff');},
+  tap(x,y){let best=null,bd=1e9;for(const h of this.hits){const d=Math.hypot(h.x-x,h.y-y);if(d<h.r&&d<bd){bd=d;best=h;}}if(!best)return false;this.fly=[best.wx,R.sampleHr(App.T,best.wx,best.wz),best.wz];this.close();return true;}};
+// ---- world cache (IndexedDB): the land as generated before the villages (terrain, erosion, water, streams, vegetation) is kept so the next
+// start skips those 15-20 s. It is a CACHE, not a save: the game state lives in the compact save (localStorage, saved on every Save and
+// automatically every few minutes and when the page is hidden). The entry is keyed by every setting that shapes the land plus the game
+// version, so any change of either just regenerates; a missing, unreadable or inconsistent entry is ignored (and removed) and the land is
+// generated as before. Only the latest world is kept. Villages are always generated anew on top (a few seconds), then the save's growth
+// log, track, trains etc. are applied as before.
+const WorldCache={DB:'trein-cache',ST:'world',db:null,
+  open(){if(this.db)return Promise.resolve(this.db);return new Promise((res,rej)=>{if(typeof indexedDB==='undefined')return rej(new Error('no IndexedDB'));const r=indexedDB.open(this.DB,1);
+    r.onupgradeneeded=()=>{r.result.createObjectStore(this.ST);};r.onsuccess=()=>{this.db=r.result;res(this.db);};r.onerror=()=>rej(r.error);});},
+  key(p){const o={};for(const id of PORDER){const a=PDEF[id].apply;if(a==='world'||a==='water'||a==='veg')o[id]=p[id];}return VERSION+'|'+JSON.stringify(o);},
+  async load(key){try{const db=await this.open();const rec=await new Promise((res,rej)=>{const q=db.transaction(this.ST,'readonly').objectStore(this.ST).get('land');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+      if(!rec)return null;if(rec.key!==key){Log.info('world cache: settings or version changed, regenerating');return null;}const T=rec.T;
+      if(!T||!T.H||!T.N||T.H.length!==T.N*T.N||!T.veg||!T.stats){Log.warn('world cache entry is incomplete: removed');this.clear();return null;}return T;}
+    catch(e){Log.warn('world cache unreadable ('+(e.message||e)+'): generating instead');this.clear();return null;}},
+  /* a copy of the land without functions (they cannot be stored; none are needed after generation) */
+  plain(o,seen){if(o===null||typeof o!=='object')return typeof o==='function'?undefined:o;if(ArrayBuffer.isView(o)||o instanceof ArrayBuffer)return o;seen=seen||new Map();if(seen.has(o))return seen.get(o);
+    if(Array.isArray(o)){const a=[];seen.set(o,a);for(const v of o)a.push(this.plain(v,seen));return a;}if(o instanceof Map||o instanceof Set)return o;const r={};seen.set(o,r);for(const k in o){const v=this.plain(o[k],seen);if(v!==undefined)r[k]=v;}return r;},
+  store(key,T){try{const C=this.plain(T);this.open().then(db=>{const t0=performance.now();const tx=db.transaction(this.ST,'readwrite');tx.objectStore(this.ST).put({key,T:C,at:Date.now()},'land');/* the value is copied here, at the call */
+      Log.info(`world cache: land copied in ${(performance.now()-t0).toFixed(0)} ms`);tx.oncomplete=()=>Log.info('world cache: stored');tx.onerror=()=>Log.warn('world cache: could not store ('+(tx.error&&tx.error.message)+')');}).catch(e=>Log.warn('world cache off: '+(e.message||e)));}
+    catch(e){Log.warn('world cache: could not copy the land ('+(e.message||e)+')');}},
+  clear(){this.open().then(db=>{db.transaction(this.ST,'readwrite').objectStore(this.ST).delete('land');}).catch(()=>{});}};
 const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{fr:[],last:0,logAt:0,hudAt:0},
   async generate(from){
     if(this.busy){this.pendingFrom=Math.min(this.pendingFrom,from);return;}
@@ -8983,15 +9077,19 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     const y=makeYielder((f,l)=>{if(show)UI.progress(true,st[0]+f*st[1],l);});
     if(show)UI.progress(true,0,'Starting');await new Promise(r=>setTimeout(r,30));
     try{
-      let t=performance.now();
+      let t=performance.now(),T,cached=false,ckey=null;
+      if(from===0&&+P.worldCache!==0&&!Bench.on){ckey=WorldCache.key(P);if(show)UI.progress(true,0.05,'Loading the land from the cache');const c=await WorldCache.load(ckey);
+        if(c){T=c;cached=true;this.base=null;this.eroded=null;times.push('land from cache '+(performance.now()-t).toFixed(0));t=performance.now();}}
+      if(!cached){
       if(from<=0){st=W[0];this.base=await genTerrain(P,y);times.push('terrain '+(performance.now()-t).toFixed(0));t=performance.now();}
       if(from<=1){st=W[1];const B=this.base;const E={N:B.N,W:B.W,cs:B.cs,mm:B.mm,norm:B.norm,H:new Float32Array(B.H),flow:null,depo:null};
         if(P.erosionOn&&P.dropletsPerCell>0)await genErosion(P,E,y);this.eroded=E;times.push('erosion '+(performance.now()-t).toFixed(0));t=performance.now();}
-      let T;
       if(from<=2){st=W[2];const E=this.eroded;T={...E,H:new Float32Array(E.H),stats:{}};
         await genWater(P,T,y);if(bigLakeArea(T)<Math.min(400000,T.W*T.W*0.025)){const T2={...E,H:new Float32Array(E.H),stats:{}},b=carveLakeBowl(T2,P.seed|0);await genWater(P,T2,y);T=T2;Log.info(`no big lake: carved a lake basin (r ${b.R.toFixed(0)} m) at ${b.x.toFixed(0)},${b.z.toFixed(0)}, now ${(bigLakeArea(T)/10000).toFixed(0)} ha`);}T.H0=new Float32Array(T.H);carveTrack(T);genMaps(P,T);times.push('water+maps '+(performance.now()-t).toFixed(0));t=performance.now();}
       else T=this.T;
-      st=W[3];if(from<=3){await genVegetation(P,T,y);T.vegOrig=null;T.Hr=null;times.push('vegetation '+(performance.now()-t).toFixed(0));t=performance.now();}
+      st=W[3];if(from<=3){await genVegetation(P,T,y);T.vegOrig=null;T.Hr=null;times.push('vegetation '+(performance.now()-t).toFixed(0));t=performance.now();
+        if(+P.worldCache!==0&&!Bench.on)WorldCache.store(ckey||WorldCache.key(P),T);}
+      }
       if(show)UI.progress(true,0.97,'Villages and fields');await new Promise(r=>setTimeout(r,0));
       Life.generate(T);times.push('villages '+(performance.now()-t).toFixed(0));
       this.T=T;R.uploadWorld(T);Weather.setWorld(T);if(this.pendingTrains){Trains.load(this.pendingTrains);this.pendingTrains=null;}else Trains.trackChanged();
@@ -9014,6 +9112,8 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   },
   trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now();T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T);
     Log.info(`track earthworks rebuilt in ${(performance.now()-t0).toFixed(0)} ms (${Track.segs.length} pieces, ${Track.length().toFixed(0)} m)`);},
+  /* a recent compact save is always there: every 3 minutes of play and whenever the page is hidden (app switched, screen off) */
+  autosave(){if(Bench.on||!App.T||App.busy)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));}catch(e){}},
   save(){if(Bench.on){UI.toast('Saving is switched off in the benchmark world');return;}try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));UI.toast('Saved');Log.info('saved to browser storage');}catch(e){Log.err('save failed '+e);UI.toast('Save failed: browser storage is blocked');}},
   load(){if(Bench.on){UI.toast('Leave the benchmark world first (Bench > Exit)');return;}let s;try{s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(e){s=null;}if(!s){UI.toast('No save found yet');return;}
     try{applySnapshot(s);this.camLoaded=true;this.generate(0);UI.toast('Save loaded');}catch(e){UI.toast(e.message);}},
@@ -9195,6 +9295,7 @@ function loop(ts){
   resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(Bench.on)Bench.sim(sdt);else{if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}}Weather.update(sdt);if(App.T)Life.update(sdt);}if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
   R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
+  if(MapView.on)MapView.draw();
   const cpu=performance.now()-c0,pf=App.perf;pf.fr.push(dt*1000);if(pf.fr.length>240)pf.fr.shift();pf.cpu=(pf.cpu||cpu)*0.95+cpu*0.05;
   AutoRes.tick(ts,pf.fr);{const dtm=Math.min(0.1,(ts-(pf.mlast||ts))/1000);Money.tick(dtm*(App.ff||1));Icons.tick(dtm);TripFX.tick(dtm);LoadUI.tick(dtm);VillageUI.tick();IndUI.tick();StationUI.tick();Bench.tick();UpgNotes.tick(dtm);BusUI.tick();if(App.T)Goods.tick(dtm*(App.ff||1));}pf.mlast=ts;if(ts-pf.hudAt>350){pf.hudAt=ts;const st=$('#stats');st.hidden=!P.showStats;
     if(P.showStats){const a=pf.fr.slice(-60),avg=a.reduce((x,y)=>x+y,0)/a.length;
@@ -9210,6 +9311,7 @@ async function boot(){
   $('#btnMenu').onclick=()=>{$('#panel').classList.add('open');$('#bar').classList.add('hide');};
   $('#btnClose').onclick=()=>{$('#panel').classList.remove('open');$('#bar').classList.remove('hide');};
   $('#btnGen').onclick=()=>App.generate(0);$('#btnSave').onclick=()=>App.save();
+  $('#btnMap').onclick=()=>MapView.open();$('#mapClose').onclick=()=>MapView.close();
   $('#btnBuild').onclick=()=>{if(!Sfx.on)Sfx.start();Sfx.syncBtn();Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
   const on=(sel,fn)=>{for(const b of document.querySelectorAll(sel))b.onclick=()=>fn(b);};
   on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-btab]',b=>Build.setTab(b.dataset.btab));on('#buildBar [data-rtool]',b=>{Build.discard(true);Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rAddBus').onclick=()=>Buses.add();$('#rAddLorry').onclick=()=>Buses.add(true);$('#rBusList').onclick=()=>BusUI.toggle();on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
@@ -9239,6 +9341,7 @@ async function boot(){
     resizeCanvas();R.init();Trains.init();Particles.init();initInput(gl.canvas);
     requestAnimationFrame(loop);
     Bench.capture();await App.generate(0);
+    setInterval(()=>App.autosave(),180000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')App.autosave();});addEventListener('pagehide',()=>App.autosave());
     if(saved)UI.toast(recovered?'Recovered after a graphics reset':'Restored your last save');
   }catch(e){Log.err('boot failed: '+(e.stack||e));$('#err').hidden=false;$('#errMsg').textContent=String(e.message||e);UI.progress(false);}
 }

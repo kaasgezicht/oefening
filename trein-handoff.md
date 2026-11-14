@@ -1,4 +1,4 @@
-# Trein handoff 69 (14 Nov 2026): v4.11.0 — farm rebuilt from the reference picture, cargo-only grain station, installable app, building detail fade; next: plan step 7 (footbridge)
+# Trein handoff 70 (14 Nov 2026): v4.12.0 — map view, big mountains, world cache + autosave, money on by default, bus stop deadlock fix; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -14,7 +14,31 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.11.0, 14 Nov) — user's phone screenshots of the farm + three general requests
+### Latest (4.12.0, 14 Nov) — five requests with the user's save and log (8 km, Pixel 9a, ~50-60 fps)
+- **Bus bug** (3 buses + a lorry stopped at the last stop): a vehicle leaving a stop waited for any lower-id vehicle that was driving slowly
+  within 9.5 m, including one queued behind it, which itself waited for the first to leave: a deadlock at a shared stop. Now a dwelling
+  vehicle ignores queued vehicles and ones behind it, and after 20 s of extra waiting it goes anyway. Could not reproduce the exact freeze in
+  the test (the save stores no bus positions, so they restart at their first stop; a 2-hour simulated run cycled fine); fix is by reading.
+- **Money**: on by default (old saves keep their setting). Borrow/Repay hidden until the money is tapped, hide again after 8 s.
+- **Big mountains** (World tab): `bigMtns` 0-3, `bigMtnHeight` 200-3000 m, `bigMtnBase` 400-6000 m, `bigMtnLong` (round peak → ridge up
+  to 4x longer than wide), and per mountain X/Z position (%) and ridge direction (0 = from the seed). `bigMountains(p)` adds them in metres
+  after `shapeHeight` (concave cone along a segment, ridged-noise spurs, faded out within 9 % of the world edge), before erosion, so rivers
+  carve them. The snow line follows the real top when the land rises far above "Mountain height" (`T.hTop`). Villages place as usual.
+- **World cache** (IndexedDB `trein-cache`, one entry 'land'): the land after vegetation and before villages, stored with the key
+  VERSION + every setting with apply world/water/veg. Functions are stripped (`WorldCache.plain`). On start (generate(0)) a matching entry
+  replaces terrain/erosion/water/vegetation; villages are generated on top as before, then the compact save applies growth, track etc. Wrong key,
+  incomplete or unreadable entries are ignored (and removed) and the land is generated. Test (4 km): 4.7 s of generation → 0.1 s, identical
+  village/house/tree counts; a changed seed misses as it should. Setting: Experimental > "Keep the generated land in a cache".
+  **Compact save** is now also written automatically every 3 minutes and when the page is hidden (`App.autosave`).
+- **Map** (new Map button): camera straight down, clouds/mist/haze/blur off (R.skip + params restored on close), north up, pinch zoom out to
+  2.4x the world; a 2D canvas `#mapOv` draws railways (red), bus routes (blue dashed) and lorry routes (orange) along the roads
+  (`Buses.roadPath`, cached per leg), trains and buses as dots, and symbols with names (village size: 🏡 hamlet, 🏘️ village, 🏰 town; 🚉
+  stations, 🌾 farm stations/farms, 🚏 bus stops, 🏯 castles, ⛏️ mines, 🪚 sawmills, 🪑 workshops, ⚓ docks); names that would overlap one
+  already drawn are left out. Tap a symbol to leave the map there.
+- Not tested on the phone. The map renders the whole world at once (the user's 8 km world: 1.1M triangles in the test at 15-20 fps on the
+  software renderer).
+
+### Earlier (4.11.0, 14 Nov) — user's phone screenshots of the farm + three general requests
 **User's findings (phone):** tractor half in the ground, farm buildings "made lazily" (holes, clipping), the grain station partly a normal
 station (platform), the look far from the reference; and: make "install app" work in Chrome; building detail slider down to 0.10x; details
 should fade in instead of popping.
