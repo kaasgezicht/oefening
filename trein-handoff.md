@@ -1,4 +1,4 @@
-# Trein handoff 66 (14 Nov 2026): v4.10.0, DB 01 118 locomotive (second choice) and the HEA-style grain hopper; next: plan step 7 (footbridge)
+# Trein handoff 67 (14 Nov 2026): v4.10.1, 01 118 reworked from four more photos; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -13,7 +13,13 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.10.0, 14 Nov) — DB class 01 and the grain hopper (user's photos)
+### Latest (4.10.1, 14 Nov) — 01 118 reworked from the user's close-ups (cylinder, cab side, tender rear, front)
+- Proportions: loco 15.2 m (front +7.6), tender 8.0 m (VEH.loco01 / tender01). Bogie axles 6.05/3.85, drivers 2.3/0/-2.3 (main crank on the middle one), trailing axle -6.2 under the cab (-5.2..-7.25); a long firebox (down to the running board) between the rear driver and the cab. G01 updated (L 3.6, link pivot 2.6/1.82, lever 4.08, valve spindle at 1.86).
+- New helpers: `vhull` (prism over the convex hull of circles: the lagged cylinder + valve chest casing), `vbolts`, `vsign`; `vplate` also faces -x and its frame no longer covers the figures.
+- Details from the photos: cylinder blocks under the running board with bolted covers, valve chest tail tube and the red Krupp plate; red rods (coupling, main, eccentric, return crank), steel crosshead/link/radius rod/lever; two slide bars; red main air reservoir between the rear driver and the trailing wheel; cab with a glazed front side window, an open driver's window, grab rail, gold "01 118" plate and small plates, red bottom band, steps; roof with the long overhang and the four-opening ventilator; washout covers and the tall box beside the firebox; deflectors with a rounded top corner standing on the running board; tender: full-width tank, narrower ribbed upper part, rear box with the number plate, three rear lamps, door panels, yellow warning plates, ladder, coil-sprung bogies.
+- Triangles: loco ~24.7k, tender ~9.4k. Checked: renders matching each photo's view, valve gear at four quarter turns, cab view, save/load; ui_checks and step2_checks.
+
+### Earlier (4.10.0, 14 Nov) — DB class 01 and the grain hopper (user's photos)
 - **Loco choice**: `LOCOS` table (`std` = the green loco, `'01'`) with per-kind mesh, chimney/drain/whistle/eye/crew positions, driving wheel radius `R` (exhaust beats) and pull factor `te`; `locoSpec(tr)` reads `tr.veh[0].lt`. `Trains.locoPair(lt)`, `Trains.setLoco(t,lt)`, `consist(n,livery,lt)`; saves store `lt`. Train list: "🚂 Green / 🚂 01" buttons above the wagon editor; `Drive.locoKind` = the kind new locos get.
 - **01 118** (`loco01Mesh`, mesh 34; `VEH.loco01` 14.6 m, 108 t): real size, 2'C1' wheels (bogie 1.0 m, drivers 2.0 m with counterweights, trailing 1.25 m), bar frames, Wagner smoke deflectors, smokebox door with handwheel and "01 118" plate (7-segment figures, `vplate`), chimney, three domes, safety valves, whistle, air and feed pumps, three headlamps, cab with glazed windows, backhead and firedoor glow. ~19k triangles.
 - **Valve gear**: vertex anim types 4-10 in VS_VEH with uniforms uG1-uG3 from `G01` (crank -1.3/1.0, r 0.33, main rod 3.3, return crank 0.2 at -90°, link pivot 0.25/1.78, foot 0.42, die 0.26, lever 0.72..1.98): main rod, crosshead/piston rod/union link, eccentric rod, expansion link, radius rod, combination lever (shear) and valve spindle; the die flips with the running direction (`tr._gs`). Checked frame by frame at four quarter turns.
