@@ -126,7 +126,10 @@ function planeMeshes(){
     lift(body,LEl,TEl,U,0.15,0.02,inF,0,1,null,16);lift(body,LEl,TEl,U,0.15,0.02,fS,0,tFlap,null,16);lift(body,LEl,TEl,U,0.15,0.02,outF,0,1,null,16);
     // ailerons (upper wing) and flaps (lower wing): own meshes around their hinge lines
     const mk=(PF,LE,TE,sr,t0,name,ns)=>{const h0=hingeOf(PF,sr[0],t0,sd),h1=hingeOf(PF,sr[1],t0,sd),org=mul(add(h0,h1),0.5),M=vmesh();const sh=f=>s=>sub(f(s),org);
-      lift(M,sh(LE),sh(TE),U,0.15,0.02,ss.filter(s=>s>=sr[0]-1e-9&&s<=sr[1]+1e-9),t0,1,null,8);parts[name]={o:org,ax:nrm(sub(h1,h0)),M};};
+      lift(M,sh(LE),sh(TE),U,0.15,0.02,ss.filter(s=>s>=sr[0]-1e-9&&s<=sr[1]+1e-9),t0,1,null,8);
+      // a dark seam along the hinge on both faces (moving part and wing), so the surface reads as separate and its movement shows
+      const sSeam=ss.filter(s=>s>=sr[0]-1e-9&&s<=sr[1]+1e-9);for(const [tt0,tt1,MM,f] of [[t0,t0+0.025,M,sh],[t0-0.02,t0,body,g=>g]])for(const sg of [1,-1])surf(MM,(s2,t)=>{const a=f(LE)(s2),b=f(TE)(s2),c=Math.hypot(...sub(a,b)),y=foilY(t,0.15,0.02,0.4)[sg>0?0:1];return add(add(a,mul(sub(b,a),t)),[0,y*c+sg*0.004,0]);},sSeam,[tt0,tt1],()=>[[0.2,0.02,0.02],MATTE]);
+      parts[name]={o:org,ax:nrm(sub(h1,h0)),M};};
     mk(upper,LEu,TEu,sAil,tAil,sd<0?'ailL':'ailR');mk(lower,LEl,TEl,sFlap,tFlap,sd<0?'flapL':'flapR');
     // I-strut between the wings at z 3.3: an aerofoil web flaring into wide feet at both wings
     {const zS=3.3,sl=(zS-0.3)/(4.875-0.3),su=zS/4.875,bl=lower(sl,sd),bu=upper(su,sd),pl=add(bl[0],mul(sub(bl[1],bl[0]),0.42)),pu=add(bu[0],mul(sub(bu[1],bu[0]),0.42));
@@ -301,7 +304,7 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
     dm('tailw',this.mat([-4.4,-0.12,0],Q.axis([0,0,1],-(1-this.gearPos)*1.2)));
     // control surfaces turn about their own hinge lines
     const hg=(n,a)=>{const q=PP[n];dm(n,this.mat(q.o,Q.axis(q.ax,a)));};
-    hg('elev',-c.pitch*0.35);hg('rud',c.yaw*0.4);hg('ailL',-c.roll*0.3);hg('ailR',-c.roll*0.3);hg('flapL',-this.flapPos*0.7);hg('flapR',this.flapPos*0.7);
+    hg('elev',-c.pitch*0.35);hg('rud',c.yaw*0.4);hg('ailL',-c.roll*0.4);hg('ailR',-c.roll*0.4);hg('flapL',-this.flapPos*0.7);hg('flapR',this.flapPos*0.7);
     // the propeller disc: faint, in the transparent pass, when the engine turns fast
     const da=clamp((r-500)/1400,0,1)*0.42;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',this.mat([PL.propX,0,0]));gl.uniform2f(p.u('uOcc'),0,0);}},
   // camera modes: chase (behind and above, smoothed), cockpit (pilot's eye, rolls with the plane), wing (on the left wing looking in),
