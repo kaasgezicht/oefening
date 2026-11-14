@@ -563,13 +563,13 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   // the lane: the road line rounded off once, then 0.9 m to the right; the last point pulls in at the stop
   // cross-country between two points: around water first (bridges only if there is no other way); the grid grows with the distance so a
   // long leg never ends in a straight line across lakes (4.17.0: stops left away from the roads drove straight through lakes)
-  cross(a,c){const span=Math.max(Math.abs(a[0]-c[0]),Math.abs(a[1]-c[1]))+280,cs=Math.max(5,span/270),o={cs,margin:140,wind:0,road:0.12,maxG:0.4};
-    return Life.routePath(a,c,{...o,bridge:false})||Life.routePath(a,c,{...o,bridge:true})||[a.slice(),c.slice()];},
+  cross(a,c){const d=Math.max(Math.abs(a[0]-c[0]),Math.abs(a[1]-c[1]));for(const [bridge,margin] of [[false,140],[false,700],[true,140],[true,700]]){const cs=Math.max(5,(d+2*margin)/270),p=Life.routePath(a,c,{cs,margin,wind:0,road:0.12,maxG:0.4,bridge});if(p)return p;}return null;},/* null: no dry way (or bridge) at all */
   plan(b,t){let p=this.roadPath([b.x,b.z],[t.rx,t.rz]);b.onRoad=!!p;
     if(!p){// along the roads as far as they go: cross-country only from the vehicle to the nearest road and from the road to the stop
-      const G=this.graph(),s0=G.nearest(b.x,b.z,450),s1=G.nearest(t.rx,t.rz,450),mid=s0>=0&&s1>=0?this.roadPath(G.N[s0],G.N[s1]):null;
-      if(mid){const c0=Math.hypot(G.N[s0][0]-b.x,G.N[s0][1]-b.z)>3?this.cross([b.x,b.z],G.N[s0]):[[b.x,b.z]],c1=Math.hypot(G.N[s1][0]-t.rx,G.N[s1][1]-t.rz)>3?this.cross(G.N[s1],[t.rx,t.rz]):[[t.rx,t.rz]];p=[...c0,...mid.slice(1,-1),...c1];b.onRoad=true;}
-      else p=this.cross([b.x,b.z],[t.rx,t.rz]);}
+      const G=this.graph(),s0=G.nearest(b.x,b.z,900),s1=G.nearest(t.rx,t.rz,900),mid=s0>=0&&s1>=0?this.roadPath(G.N[s0],G.N[s1]):null;
+      const c0=mid?(Math.hypot(G.N[s0][0]-b.x,G.N[s0][1]-b.z)>3?this.cross([b.x,b.z],G.N[s0]):[[b.x,b.z]]):null,c1=mid?(Math.hypot(G.N[s1][0]-t.rx,G.N[s1][1]-t.rz)>3?this.cross(G.N[s1],[t.rx,t.rz]):[[t.rx,t.rz]]):null;
+      if(mid&&c0&&c1){p=[...c0,...mid.slice(1,-1),...c1];b.onRoad=true;}else p=this.cross([b.x,b.z],[t.rx,t.rz]);
+      if(!p){/* no way at all (water all round): skip this stop rather than drive through a lake */if(!b._noWay||b._noWay!==t.id){b._noWay=t.id;UI.toast(`${b.name} cannot reach ${t.name}: no road and no dry way. Move that stop onto a road`);Log.warn(`${b.name}: no way to ${t.name}`);}p=[[b.x,b.z],[b.x+0.01,b.z]];b.skip=true;}}
     const q=[p[0]];for(let i=0;i<p.length-1;i++){const a=p[i],c=p[i+1];if(Math.hypot(c[0]-a[0],c[1]-a[1])<0.3)continue;q.push([a[0]*.75+c[0]*.25,a[1]*.75+c[1]*.25],[a[0]*.25+c[0]*.75,a[1]*.25+c[1]*.75]);}q.push(p[p.length-1]);
     const n=q.length,L=[];for(let i=0;i<n;i++){const a=q[Math.max(0,i-1)],c=q[Math.min(n-1,i+1)];let dx=c[0]-a[0],dz=c[1]-a[1];const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const o=i===0?0:i===n-1?1.15:0.9;L.push([q[i][0]-dz*o,q[i][1]+dx*o]);}
     b.path=L;const c=[0];for(let k=1;k<L.length;k++)c.push(c[k-1]+Math.hypot(L[k][0]-L[k-1][0],L[k][1]-L[k-1][1]));b.cum=c;b.len=c[c.length-1];b.ps=0;b.pi=1;},
@@ -593,7 +593,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
       b.queued=null;const fx=Math.cos(b.rot),fz=Math.sin(b.rot);for(const o of this.list){if(o===b)continue;const dx=o.x-b.x,dz=o.z-b.z;if(Math.abs(dx)>30||Math.abs(dz)>30)continue;
         const a=dx*fx+dz*fz,l=-dx*fz+dz*fx;if((a>0.05||(a>-0.05&&o.id<b.id&&o.st==='drive'))&&a<30&&Math.abs(l)<1.8&&Math.cos(o.rot-b.rot)>0.2){const lim=a<9.5?0:Math.sqrt(2*2*(a-9.5));if(lim<vt){vt=lim;if(lim<0.5)b.queued=o.name;}}}
       b.v+=clamp(vt-b.v,-3*dt,1.2*dt);if(b.v<0)b.v=0;b.ps=Math.min(b.len,b.ps+b.v*dt);
-      if(b.len-b.ps<0.8&&!b.queued){this.arrive(b,t);continue;}
+      if(b.skip){b.skip=false;b.path=null;b.leg=(b.leg+1)%R2.length;continue;}if(b.len-b.ps<0.8&&!b.queued){this.arrive(b,t);continue;}
       const q=this.at(b,b.ps);b.pi=q.i;b.x=q.x;b.z=q.z;b.rot=lerpAng(b.rot,q.h,Math.min(1,dt*5));}}};
 // ---- the bus list (Build → Roads → Bus list): every bus and lorry with its stops in order, the road distance of each leg and of a round
 const BusUI={open:false,ed:null,

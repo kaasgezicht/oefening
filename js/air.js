@@ -12,15 +12,15 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   startPlace(v){if(!App.T)return;if(Plane.on)Plane.exit();if(Build.active)Build.exit();const s=this.bestSpot(v);this.pl={v,x:s.x,z:s.z,h:s.h};this.ghost=null;this.check();this.ui(true);
     Cam.mode='free';Cam.anim=null;Cam.flyTo([s.x,R.sampleHr(App.T,s.x,s.z),s.z],Math.max(Cam.dist,520));UI.toast(`Airstrip for ${v.name}: tap the ground to move it, ⟲ ⟳ to turn it, ✓ to build`);},
   // a first guess: the flattest dry stretch within reach of the village, in 8 directions and 3 distances
-  bestSpot(v){let best=null;for(let r of [350,700,1100])for(let k=0;k<12;k++){const a=k/12*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<6;j++){const h=j/6*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
+  bestSpot(v){let best=null;for(let r of [350,650,950,1300,1700,2200])for(let k=0;k<24;k++){if(best&&best.score<4)break;const a=k/24*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<12;j++){const h=j/12*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
     return best||{x:v.x+400,z:v.z,h:0};},
   corners(a){const c=Math.cos(a.h),s=Math.sin(a.h),L=AIR.len/2,W=AIR.w/2;return{c,s,L,W,P:(u,w)=>[a.x+c*u-s*w,a.z+s*u+c*w]};},
   check(a,quiet){a=a||this.pl;if(!a)return{ok:false};const T=App.T,{P,L,W}=this.corners(a);let lo=1e9,hi=-1e9,msg='',worst=0;
     for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w);if(x<60||z<60||x>T.W-60||z>T.W-60){msg='Too close to the edge of the world';break;}
       const g=R.sampleHr(T,x,z),wa=sampleWater(T,x,z);if(wa[1]>0&&wa[0]>g-0.1){msg='Water is in the way';break;}lo=Math.min(lo,g);hi=Math.max(hi,g);
       if(w===0&&u>-L){const [x0,z0]=P(u-20,0),d=Math.abs(g-R.sampleHr(T,x0,z0))/20;worst=Math.max(worst,d);}}
-    if(!msg&&hi-lo>9)msg=`Too uneven: ${Math.round(hi-lo)} m between the highest and lowest point`;
-    if(!msg&&worst>0.06)msg='Too steep in places';
+    if(!msg&&hi-lo>14)msg=`Too uneven: ${Math.round(hi-lo)} m between the highest and lowest point`;
+    if(!msg&&worst>0.08)msg='Too steep in places';
     if(!msg&&Math.hypot(a.x-a.v.x,a.z-a.v.z)>AIR.maxDist)msg=`Too far from ${a.v.name} (at most ${AIR.maxDist/1000} km)`;
     if(!msg){for(const hs of Life.houses){if(hs.gone)continue;const dx=hs.x-a.x,dz=hs.z-a.z,u=dx*Math.cos(a.h)+dz*Math.sin(a.h),w=-dx*Math.sin(a.h)+dz*Math.cos(a.h);if(Math.abs(u)<L+15&&Math.abs(w)<W+18){msg='Houses are in the way';break;}}}
     if(!msg)for(let u=-L;u<=L;u+=15){const [x,z]=P(u,0);if(Net.nearestOnTrack(x,z,W+6)){msg='The railway is in the way';break;}}
