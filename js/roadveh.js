@@ -108,7 +108,7 @@ const RVMesh=(()=>{
     person(B,-0.25,1.08,-0.45,[0.92,0.92,0.9],[0.15,0.15,0.17]);
     return B;};
   // ================================================================ buses: decks 1 (the small cream-and-red bus) or 2 (the 1930s double-decker)
-  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.03,0.2,0.09],band:[0.98,0.8,0.28],up:[0.03,0.2,0.09],roof:[0.62,0.63,0.6],hood:[0.03,0.2,0.09]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
+  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.015,0.26,0.07],band:[0.98,0.8,0.28],up:[0.015,0.26,0.07],roof:[0.62,0.63,0.6],hood:[0.015,0.26,0.07]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
     const L0=dd?-4.65:-4.4,Lc=dd?1.95:2.15,W=dd?1.2:1.18,yb=0.62,y1=2.28,y2=dd?3.82:2.75,ax=dd?[2.6,-2.4]:[2.3,-2.3];
     // ---- lower deck: a rounded box with the window band cut out; frames; the gold lining
     const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1;
