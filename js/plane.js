@@ -231,15 +231,26 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
     const g=R.sampleHr(T,x,z),y=air?Math.max(g,this.groundAt(x,z))+300:g+2.2;
     // nose up on the ground (taildragger: about 11°), level in the air
     const q0=Q.axis([0,1,0],-h),qp=Q.axis([0,0,1],air?0:0.19);
-    this.st={p:[x,y,z],v:air?Q.rot(q0,[60,0,0]):[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:air?0.7:0,pitch:0,roll:0,yaw:0,brake:air?0:1};this.gear=air?0:1;this.gearPos=this.gear;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
+    this.st={p:[x,y,z],v:air?Q.rot(q0,[60,0,0]):[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:air?0.7:0,pitch:0,roll:0,yaw:0,brake:air?0:1};this.gear=air?0:1;this.gearPos=this.gear;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
     if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);UI.toast(air?'Flying: no flat ground nearby, so you start in the air':'Ready on a flat field: full throttle, keep it straight, lift off at about 110 km/h');},
   exit(){this.on=false;PlaneUI.show(false);Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=60;}},
   groundAt(x,z){const T=App.T;if(!T)return 0;const g=R.sampleHr(T,clamp(x,0,T.W),clamp(z,0,T.W)),w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0?Math.max(g,w[0]):g;},
   water(x,z){const T=App.T;const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0&&w[0]>R.sampleHr(T,x,z)+0.1;},
   setCam(c){this.cam=c;Cam.anim=null;if(c==='orbit'){Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=25;}}else Cam.mode='plane';PlaneUI.refresh();},
   update(dt){if(!this.on||!this.st)return;PlanePad.poll(dt);if(this.paused)return;const n=Math.max(1,Math.ceil(dt/0.008));for(let i=0;i<n;i++)this.step(dt/n);
-    this.gearPos+=clamp(this.gear-this.gearPos,-dt/6,dt/6);this.flapPos+=clamp(this.flaps/2-this.flapPos,-dt/3,dt/3);
+    this.gearPos+=clamp(this.gear-this.gearPos,-dt/4,dt/4);this.flapPos+=clamp(this.flaps/2-this.flapPos,-dt/2,dt/2);try{this.bridgeCheck();}catch(e){if(!this._bErr){this._bErr=1;Log.warn('bridge check: '+e.message);}}
     this.prop=(this.prop+dt*this.rpm()/60*6.283)%6.283;if(this.cam==='orbit'){const p=this.st.p;for(let k=0;k<3;k++)Cam.target[k]+=(p[k]-Cam.target[k])*Math.min(1,dt*8);}Sfx.plane&&Sfx.plane(this);},
+  // bridges as deck lines [ax,az,ay,bx,bz,by]: rail bridge spans (sampled every 6 m) and road bridges; rebuilt when the track or roads change
+  bridgeLines(){const key=Net.ver+'|'+(Life.bridges?Life.bridges.length:0);if(this._bk===key)return this._bl;const L=[];
+    for(const s of Track.segs){if(!s.spans)continue;for(const sp of s.spans){if(sp[2]!=='b')continue;let prev=null;for(let t=sp[0];t<=sp[1]+0.01;t+=Math.max(2,Math.min(6,(sp[1]-sp[0])/2))){const q=segPoint(s,Math.min(t,sp[1])),y=segY(s,Math.min(t,sp[1]));if(prev)L.push([prev[0],prev[1],prev[2],q[0],q[1],y]);prev=[q[0],q[1],y];}}}
+    for(const b of Life.bridges||[]){const p=b.pts;if(!p)continue;for(let i=0;i+1<p.length;i++)L.push([p[i][0],p[i][2],p[i][1],p[i+1][0],p[i+1][2],p[i+1][1]]);}
+    this._bk=key;this._bl=L;return L;},
+  bridgeCheck(){const s=this.st;if(!s||this.crashed){this.prevP=null;return;}const p=s.p,o=this.prevP;this.prevP=p.slice();if(!o||!App.T)return;const T=App.T,now=App.time;
+    for(const l of this.bridgeLines()){// 2D crossing of the plane's step with the deck line, then: below the deck at the crossing?
+      const dx=p[0]-o[0],dz=p[2]-o[2],ex=l[3]-l[0],ez=l[4]-l[1],den=dx*ez-dz*ex;if(Math.abs(den)<1e-9)continue;const t=((l[0]-o[0])*ez-(l[1]-o[2])*ex)/den,u=((l[0]-o[0])*dz-(l[1]-o[2])*dx)/den;if(t<0||t>1||u<0||u>1)continue;
+      const py=o[1]+(p[1]-o[1])*t,dy=l[2]+(l[5]-l[2])*u,cx=l[0]+ex*u,cz=l[1]+ez*u;if(py>dy-0.8||dy-R.sampleHr(T,cx,cz)<3)continue;
+      if(this._lastBr&&Math.hypot(this._lastBr[0]-cx,this._lastBr[1]-cz)<40&&now-this._lastBr[2]<6)continue;this._lastBr=[cx,cz,now];
+      this.bridges=(this.bridges||0)+1;if(Money.on())Money.earn(1000,'under a bridge',cx,dy,cz);UI.toast(`Under the bridge! ${Money.on()?'+€1.000 ':''}(${this.bridges} this flight)`);Sfx.clunk&&Sfx.clunk();break;}},
   rpm(){return this.crashed?0:900+this.ctl.thr*1300+Math.hypot(...this.st.v)*4;},
   step(dt){const s=this.st,c=this.ctl,rho=1.225*Math.exp(-s.p[1]/9000);if(this.crashed){s.v=s.v.map(v=>v*Math.max(0,1-dt*2));s.w=s.w.map(v=>v*Math.max(0,1-dt*3));return;}
     const qi=Q.inv(s.q),vb=Q.rot(qi,s.v),V=Math.hypot(...vb),qd=0.5*rho*V*V,alpha=Math.atan2(-vb[1],Math.max(vb[0],0.1)),beta=V>1?Math.asin(clamp(vb[2]/V,-1,1)):0;
@@ -279,14 +290,14 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
     const gy=this.groundAt(s.p[0],s.p[2]);if(s.p[1]<gy+0.5){if(Math.hypot(...s.v)>12)this.crash('Crashed into the ground');s.p[1]=gy+0.5;}
     const T=App.T;if(s.p[0]<-2000||s.p[2]<-2000||s.p[0]>T.W+2000||s.p[2]>T.W+2000){s.v=s.v.map(v=>-v);UI.toast('The edge of the world: turned around');}
     this.alpha=ae;this.V=V;this.onG=onG;this.stall=!this.easy&&Math.abs(ae)>aS*0.9&&V>5;},
-  crash(why){if(this.crashed)return;this.crashed=true;this.st.v=this.st.v.map(v=>v*0.2);UI.toast(why+' — tap Reset to try again');if(P.smoke)for(let k=0;k<40;k++){const p=this.st.p;Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*4,2+Math.random()*3,(Math.random()-0.5)*4,3,0.5,3,0);}PlaneUI.refresh();},
+  crash(why){if(this.crashed)return;this.crashed=true;this.st.v=this.st.v.map(v=>v*0.2);if(Money.on())Money.spend(1000,'plane crash');UI.toast(why+(Money.on()?' — €1.000 for the repairs':'')+' — tap Reset to try again');if(P.smoke)for(let k=0;k<40;k++){const p=this.st.p;Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*4,2+Math.random()*3,(Math.random()-0.5)*4,3,0.5,3,0);}PlaneUI.refresh();},
   // body-frame matrix for drawing (column-major, like the train poses)
   mat(off,extra){const s=this.st,qq=extra?Q.mul(s.q,extra):s.q,X=Q.rot(qq,[1,0,0]),Y=Q.rot(qq,[0,1,0]),Z=Q.rot(qq,[0,0,1]),o=Q.rot(s.q,off||[0,0,0]);
     return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,s.p[0]+o[0],s.p[1]+o[1],s.p[2]+o[2],1]);},
   draw(p){if(!this.on||!this.st||!R.planeMesh)return;const M=R.planeMesh,PP=PLANE_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     gl.uniform1f(p.u('uDist'),0);dm('body',this.mat());const r=this.rpm(),c=this.ctl;
     dm('prop',this.mat([PL.propX,0,0],Q.axis([1,0,0],this.prop)));if(this.cam!=='cockpit')dm('pilot',this.mat());dm('pax',this.mat());
-    const ga=-(1-this.gearPos)*1.45;/* the legs fold aft into the lower wing roots */dm('gearL',this.mat([PL.gearHinge[0],PL.gearHinge[1],-PL.gearZ],Q.axis([0,0,1],ga)));dm('gearR',this.mat([PL.gearHinge[0],PL.gearHinge[1],PL.gearZ],Q.axis([0,0,1],ga)));
+    const ga=(1-this.gearPos)*Math.PI/2;/* the legs fold inward, in line with the lower wing, toward the fuselage; the big fairing plate turns underneath and closes the bay */dm('gearL',this.mat([PL.gearHinge[0],PL.gearHinge[1],-PL.gearZ],Q.axis([1,0,0],-ga)));dm('gearR',this.mat([PL.gearHinge[0],PL.gearHinge[1],PL.gearZ],Q.axis([1,0,0],ga)));
     dm('tailw',this.mat([-4.4,-0.12,0],Q.axis([0,0,1],-(1-this.gearPos)*1.2)));
     // control surfaces turn about their own hinge lines
     const hg=(n,a)=>{const q=PP[n];dm(n,this.mat(q.o,Q.axis(q.ax,a)));};
