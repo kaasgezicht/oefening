@@ -164,7 +164,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   // with the wheels merged in (one draw call)
   build(){const U=m=>R.uploadVeh(m),cat=(...ms)=>{const M=vmesh();for(const [m,off] of ms){const b=M.n;for(let k=0;k<m.n;k++){const o=k*14;M.v.push(m.v[o]+off[0],m.v[o+1]+off[1],m.v[o+2]+off[2],...m.v.slice(o+3,o+14));}for(const i of m.i)M.i.push(i+b);M.n+=m.n;}return M;};
     const W={blitz:[0.62,0.04,0.035],bus:[0.55,0.07,0.05],dd:[0.06,0.06,0.07]},out={};
-    for(const ty of ['blitz','bus','dd']){const S=RV[ty],bodies=ty==='blitz'?[RVMesh.blitz([0.8,0.05,0.04]),RVMesh.blitz([0.5,0.04,0.055])]:[RVMesh.bus(ty==='dd'?2:1)];
+    for(const ty of ['blitz','bus','dd']){const S=RV[ty],bodies=ty==='blitz'?[RVMesh.blitz([0.92,0.035,0.025]),RVMesh.blitz([0.68,0.03,0.035])]:[RVMesh.bus(ty==='dd'?2:1)];
       const wR=RVMesh.wheel(S.r,W[ty],1,false),wL=RVMesh.wheel(S.r,W[ty],-1,false),wRi=RVMesh.wheel(S.r,W[ty],-1,true),wLi=RVMesh.wheel(S.r,W[ty],1,true);
       const wp=[];for(const sd of [-1,1]){wp.push([sd<0?wL:wR,[S.axF,S.r,sd*S.trF]]);S.trR.forEach((t,i)=>wp.push([i===0&&S.trR.length>1?(sd<0?wLi:wRi):(sd<0?wL:wR),[S.axR,S.r,sd*t]]));}
       out[ty]={body:bodies.map(U),far:bodies.map(b=>U(cat([b,[0,0,0]],...wp))),wL:U(wL),wR:U(wR),wLi:U(wLi),wRi:U(wRi)};}
@@ -173,7 +173,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   words(b){const s=Buses.route(b)[0],v=s&&s.v||(s?Life.nearestVillage(s.x,s.z,2000):null),town=v?v.name:'Trein';const h=Math.floor((b.hash||0.5)*997);
     if(b.goods){const N=['Bakker','de Vries','Jansen','Visser','Smit','Meijer','de Boer','Mulder','Bos','Vos','Peters','Hendriks'],I='ABCDGHJKMPW';return{town,owner:`${I[h%I.length]}. ${N[h%N.length]}`,tel:`TEL. ${10+h%90}`};}return{town};},
   text(b){const M=vmesh(),w=this.words(b),gold=[0.98,0.86,0.5],cream=[0.98,0.94,0.82],ty=this.type(b);
-    if(ty==='blitz'){for(const sd of [-1,1])rvText(M,[{t:w.owner,font:'italic bold PX Georgia',h:0.12},{t:'VRACHTRIJDERIJ',font:'bold PX Arial',h:0.05},{t:w.tel,font:'bold PX Arial',h:0.045},{t:w.town.toUpperCase(),font:'bold PX Arial',h:0.06}],{x:-0.06,y:1.48,z:sd*0.935,col:cream,px:120});}
+    if(ty==='blitz'){for(const sd of [-1,1])rvText(M,[{t:w.owner,font:'italic bold PX Georgia',h:0.17},{t:'VRACHTRIJDERIJ',font:'bold PX Arial',h:0.065},{t:w.tel,font:'bold PX Arial',h:0.06},{t:w.town.toUpperCase(),font:'bold PX Arial',h:0.08}],{x:-0.06,y:1.5,z:sd*0.935,col:cream,px:110});}
     else if(ty==='dd'){for(const sd of [-1,1]){rvText(M,[{t:`${w.town.toUpperCase()} COACH COMPANY`,font:'bold PX Georgia',h:0.13}],{x:-1.1,y:1.27,z:sd*1.207,col:gold,px:90});rvText(M,[{t:`${w.town} Transit`,font:'bold PX Georgia',h:0.2}],{x:-0.6,y:2.66,z:sd*1.216,col:[0.03,0.2,0.09],px:80});}}
     else for(const sd of [-1,1])rvText(M,[{t:`${w.town.toUpperCase()} AUTOBUSDIENST`,font:'bold PX Georgia',h:0.13}],{x:-1.0,y:1.26,z:sd*1.187,col:[0.98,0.88,0.6],px:90});
     return M.n?R.uploadVeh(M):null;},

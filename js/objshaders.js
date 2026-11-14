@@ -161,7 +161,7 @@ void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
     float sp=pow(max(dot(R,uSunDir.xyz),0.),m==1?30.:60.)*sh;col+=uSunCol.rgb*sp*(m==2?.6:.35);}
   {vec3 R=reflect(-V,N);float cv=max(dot(N,V),0.),sd=max(dot(R,uSunDir.xyz),0.),day=.3+.7*uSunDir.w;
     vec3 env=mix(L(uSkyH.rgb),L(uSkyZ.rgb),clamp(R.y*1.4,0.,1.));env=mix(L(vec3(.20,.22,.14))*day*.6,env,smoothstep(-.2,.04,R.y));// sky above, the land below the horizon
-    if(m==11){float F=.04+.96*pow(1.-cv,5.);col+=env*(F*.85+.06)*day;col+=uSunCol.rgb*(pow(sd,160.)*2.2+pow(sd,18.)*.08)*sh;}// glossy paint: a clear coat over the colour
+    if(m==11){float F=.04+.96*pow(1.-cv,5.);col+=env*(F*.55+.025)*day;col+=uSunCol.rgb*(pow(sd,160.)*2.2+pow(sd,18.)*.08)*sh;}// glossy paint: a clear coat over the colour
     if(m==10){float F=.65+.35*pow(1.-cv,3.);col=col*.35+env*c*1.6*F*day+env*.25*day;col+=uSunCol.rgb*(pow(sd,90.)*3.+pow(sd,10.)*.15)*sh;}}// chrome: mostly the reflection, tinted by its colour
   if(m==2&&!pg)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
   if(m==12){float a=uOcc.x;o=vec4(fogc(col*.8,vW)*a,a);return;}
