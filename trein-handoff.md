@@ -34,10 +34,12 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   - Modes: Scenic, Direct, Tunnels (tunnels cheap; a tunnel mouth's cutting never costs more than the tunnel), Surface (earthworks dear; the A* state carries the tunnel/bridge run, at most 50 m of tunnel and 100 m of bridge). Tunnels and Surface are track only.
   - Measured on a 4 km world with a 900 m big mountain (`RT_TUNE={dbg:1}` makes the search store its best partial path in `RT_PATH`/`RT_DBG`):
     - Ridge, 900 m along the flank, level ends: the old planner peaked at 89% in every mode. Now every mode is at most 5.3%. Tunnels finds a 654 m tunnel.
-    - Climb, 300 m up within 800 m: the old planner made 812–873 m at 77–81%. Now Scenic and Surface wind 2.9 km at mostly 9% (peak 17–18%). Tunnels and Direct fall back to the last rung.
+    - Climb, 300 m up within 800 m: the old planner made 812–873 m at 77–81%. Now Scenic and Surface wind 2.9 km at mostly 9% (peak 17–18%), out and back round the mountain's shoulder rather than a tidy spiral. Tunnels and Direct fall back to the last rung.
+    - Open: true spirals and loops (helix on viaducts) are not produced. The 5% rung rarely succeeds on climbs over about 150 m, because the search runs out of budget or climbs the wrong hill (the heuristic counts any height gained). A coarse pre-pass that finds the slope to climb could fix this.
     - A destination on a cliff-sided butte (140 m) finds no easy line and falls back: correct, as only a helix on viaducts would do.
   - Search speed: about 45 µs per step without rendering (10.5k steps in 0.48 s). The worst case is all three rungs failing (about 290k steps).
 - Hold to route (Build.holdBegin/holdEnd/holdRoute, camera.js): in the Route tool, once a start is tapped, holding a spot for 0.55 s fills a ring (#holdRing, SVG stroke animation) and routes from the start to that spot. The start is kept, so you can try one destination after another. Moving more than 12 px, a second finger or an early release cancels it.
+- Pictures: checks/route-grades.png (contour map, old vs new, coloured by grade), checks/hold-to-route-ring.png, checks/island16-sea.png.
 
 ### Earlier (4.18.0, 14 Nov) — ocean swell, sea life, airstrip missions, roll on the left stick
 - Controller: roll moved to the left stick X (with throttle on left Y); the right stick is pitch only. Every other button is unchanged (`Plane` pad code in js/plane.js).
