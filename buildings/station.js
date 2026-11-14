@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/station.js — Victorian brick railway stations (user's two reference images, Nov 2026: "Ravenbrook").
 // Local frame: the track runs along x through the origin (rail top y = 0); the platform is z 1.5..5.7 (top y = 1.0) and is drawn
 // from 4 m platform pieces (plat*) so it can follow curves and grow; the building stands behind it (z >= 5.8) and faces the track (-z).

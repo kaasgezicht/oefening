@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/kit.js — shared building kit (geometry builders + materials + renderer) for the detailed house types.
 // Vertex: pos3 nrm3 col3 mat1 uv2 halfSize2 seed1 aux1 (16 floats). uv is -1..1 over each face, halfSize the face's half extents in metres,
 // so the shader can draw bevels, grain, joints and weathering per piece. Material classes are K.M.

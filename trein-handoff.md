@@ -1,20 +1,79 @@
-# Trein handoff 71 (14 Nov 2026): v4.13.0 — main menu + new-game preview, island and archipelago maps, 16 km worlds, Staggerwing biplane; next: plan step 7 (footbridge)
+# Trein handoff 72 (14 Nov 2026): v4.14.0 — performance (no per-frame rebuilds, pixel density limit, presets), smooth follow camera, slot ghosts; the game is now split into files; next: plan step 7 (footbridge)
 
-Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
+The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
 ## START HERE (restart brief, updated 14 Nov 2026)
-**Project**: Trein, a toy train sim in one file, `trein.html` (WebGL2, about 6000 lines plus the embedded building kit). The user plays it on a Pixel 9a.
+**Project**: Trein, a toy train sim (WebGL2): `trein.html` + `css/` + `js/` + `buildings/`, hosted on GitHub Pages (https://kaasgezicht.github.io/oefening/trein.html). The user plays it on a Pixel 9a and a MacBook M1 Air.
 - Repo `kaasgezicht/oefening`. Always work on, commit to and push to branch `claude/trein-village-growth-texture-lhhj3b` (`git push -u origin claude/trein-village-growth-texture-lhhj3b`; it continues from `claude/project-improvements-polish-enesc6`). No PR unless asked.
 - End commit messages with these two lines, and put no model names in code or commits:
   ```
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
   Claude-Session: https://claude.ai/code/session_01XEFkHm1jcQJ6MRroWR8zg2
   ```
-- After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
+- After each change, push (GitHub Pages serves the branch the user set up) and send this file plus check pictures with SendUserFile. trein.html alone no longer runs without its js/ files.
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.13.0, 14 Nov) — main menu, map styles, 16 km, the Staggerwing
+### Latest (4.14.0, 14 Nov) — smoothness, performance settings, follow camera, slot ghosts, file split
+The user's M1 measurement: 599×338 render, 9.3 ms GPU in "Measure on this phone", but the game ran at 44 fps (22.5 ms). Causes found:
+- **Every frame rebuilt the station picture and all building instances** (since 4.8.0): `Life.updateStations` ran every frame and called
+  `applyTrackMask`, which set `uploaded=false`, so the whole instance set was rebuilt and uploaded each frame (the log was full of
+  "N houses make way for the railway"). Now `Life.update` builds a signature (Net.ver, stations, village levels) and only rebuilds when it
+  changes; otherwise `trainsAtStations()` does the cheap per-frame part. Also: a new house no longer throws away the leaf tree grid (it was
+  rebuilt from ~170k trees each time; the grid now holds references and skips felled trees), growth runs for one village every 120 ms instead
+  of all at once, and culverts are applied at most every 1.5 s (`culvertLater`/`culvertFlush`). CPU per frame on the user's save
+  (headless): 4.26 → 1.77 ms at 1×, 29.36 → 3.38 ms at 8×.
+- **Full-resolution tone/upscale pass**: with "Sharper upscaling" the last pass runs at the full canvas size (2880×1800 on a retina M1);
+  the user's numbers showed +5 ms for it. New **Screen sharpness (pixel density limit)** `maxDpr` (1, 1.25, 1.5, 2, full) caps the canvas.
+- **New Quality settings, all in the presets**: `maxDpr`, `labelRate` (labels move every frame / 2nd / 3rd), `ffDetail` (at 4× and 8×
+  leaves, steamers, balloons and beach-goers update every 3rd frame with the summed time). Presets now also set shadows, building detail,
+  plant budget, cloud/mist/reflection quality, glow, diorama blur and sharper upscaling. Low: 0.7 render scale, pixel density 1×, shadows off,
+  no glow/blur, plain upscaling, labels every 2nd frame. Medium: 1.5×. High: 2×. Settings outside "quality" that are in a preset now count
+  as device settings (`device()`), so a save from another device does not override them.
+- **Measure on this phone**: also reports the real game loop (fps, worst frame, CPU, screen → canvas → render size), the quality settings and
+  the browser, plus two new tests (no glow/blur, pixel density 1×). **Copy results** puts the text on the clipboard (with a fallback).
+- **Follow camera**: it eased the target toward the train (k = 6·dt), so it lagged by speed/6 and jittered with uneven frames; at 8× the
+  train sat 74 px off centre and jumped 2.3 px per frame (headless check). Now the target is fixed to the train and only the left-over offset
+  (switching trains, panning) eases away; the ground-follow no longer pulls the follow target. Chase does the same in the train's frame.
+  Result: 0 px offset, 0 px jumps at 1× and 8×.
+- **Station chips** (name + waiting counts over stations): light background with black text (was gold on dark).
+- **Industry station places**: green rectangles with a dark rim on stakes (were thin white rails). Tapping one shows the station ghost there
+  (on the track if one passes within 9 m, else free with its own 70 m siding); ✓ builds it. Such a ghost skips the collision check
+  (`G.slot`, the places were checked when generated); dragging it makes it a normal ghost again.
+- **Bug found while testing**: loading a save charged the trains again (€100,000 for the user's train) because `Money.paidTr` was empty
+  after a load. `Trains.load` now marks loaded trains as paid.
+- **File split** (the user: GitHub Pages lifts the one-file limit): see "Files (4.14.0)".
+- **The user's code review (mid-turn) and what was done**:
+  - `updateStations` setting `kitDirty` and calling `applyTrackMask` every frame: fixed by the signature check above (it runs only on change).
+  - `Clouds.update` ran its 96² simulation at 10 Hz with Cloud quality Off: now it stops, and the cloud map is cleared once (the ground's
+    cloud shadows and the water's sky reflection read it, so leaving it would give shadows of invisible clouds).
+  - `fxUpscale` on by default ran the tone pass (bicubic + sharpen) at full screen size whatever the render scale: now off by default and on
+    Medium; only High has it. (The bloom and tilt-shift blurs already run at quarter size and are skipped at 0; the tone pass reads one
+    bloom sample, now also skipped at 0.)
+  - `FS_TERRAIN` had no cheap path: new **Ground detail** setting (`terrainQ`, Full/Simple; Simple on Low). `FS_TERRAIN_LO` is the same
+    shader with `#define TLO`: one broad noise for the grass instead of three scales of tufts, no flowers, no rock speckle, plain sand roads
+    (no ruts, pebbles, puddles), forest edge read once. Compiled the first time it's used. Picture: checks/ground-full-vs-simple.png.
+    SwiftShader frame 5.2 → 1.6 ms in one view (CPU renderer, only indicative).
+
+## Files (4.14.0)
+`trein.html` holds the markup and the list of scripts; CSS is `css/trein.css`. The scripts are classic `<script src>` files in one shared
+global scope, in this order (code that runs at load time may only use what earlier files define; functions can use anything):
+- `js/core.js` — VERSION, log, the parameter registry (`def(...)`, every setting), PRESETS, panel UI, save/load, Money, Goods, UI chips
+  (LoadUI, StationUI, VillageUI...).
+- `js/gen.js` — terrain generation, erosion, water, the world cache. `js/gl.js` — WebGL setup. `js/shaders.js` — terrain/water/sky shaders.
+- `buildings/kit.js` + the models (cottage, tavern, farmhouse, shop, church, bridge, station, sawmill, farm) — loaded directly now; edit them
+  in place (there is no embed step any more; `tools/embed_buildings.py` is gone).
+- `js/objshaders.js` — shaders for instanced objects and the kit. `js/meshes.js` — low-poly meshes (trees, people, vehicles, slot marks...).
+- `js/track.js`, `js/route.js`, `js/network.js`, `js/build.js` (Build: track/road/station tools), `js/train.js` (Trains, Crane),
+  `js/audio.js`, `js/drive.js`, `js/weather.js`, `js/life.js` (villages, people, farms, industries, growth), `js/music.js`,
+  `js/render.js` (R: passes, post), `js/camera.js` (Cam), `js/plane.js` (Staggerwing), `js/main.js` (main menu, map view, App),
+  `js/bench.js` (benchmark world, PhoneBench, the frame loop, boot).
+- `sw.js` lists every file for offline play (cache `trein-v2`; bump it and update the list when files are added). It fetches with
+  `cache:'no-cache'` so all files come from the same version.
+- `?nostart` loads the code without booting (used by `tools/meshcheck.js`); `?nomenu` skips the main menu.
+- Syntax check: `for f in js/*.js buildings/*.js; do node --check $f; done`.
+
+### Earlier (4.13.0, 14 Nov) — main menu, map styles, 16 km, the Staggerwing
 User's choices: 16 km with 8 m cells (2048²); stick + throttle on screen; realistic with assists; menu at start and from a button.
 - **16 × 16 km**: World size option 16384 (auto map detail 2048, also selectable). Generated fine on the test machine (32 villages); about 4x
   the memory and first-start time of 8 km on the phone (not measured there); the world cache makes later starts fast.
@@ -110,7 +169,7 @@ should fade in instead of popping.
 
 ### Earlier (4.9.0, 14 Nov) — farm from the user's picture, grain station, small fixes
 - **4.8.1**: opening Build no longer drags the camera to a far track end (piece preview only moves the camera when the selected end is in view and near); opening Trains no longer switches to follow; the train list's destination menu only offers stations reachable from the train's track (`Net.reachSegs`).
-- **buildings/farm.js** (embedded; `tools/embed_buildings.py` lists it): kit models `farmstead` (brick farmhouse with veranda, outbuilding, open tractor shed with a static red tractor, yard, fences; built mirrored in x, see `mirror()`), `grainTower`, `grainArm`, and `farmAll` (render only: `node tools/render_building.js farmAll out.jpg`). `KIT.GRAIN={pivot,reach,tipY,track,swing}`.
+- **buildings/farm.js** (loaded by trein.html): kit models `farmstead` (brick farmhouse with veranda, outbuilding, open tractor shed with a static red tractor, yard, fences; built mirrored in x, see `mirror()`), `grainTower`, `grainArm`, and `farmAll` (render only: `node tools/render_building.js farmAll out.jpg`). `KIT.GRAIN={pivot,reach,tipY,track,swing}`.
 - **Game**: `v.farm` keeps its old spot; `fm.rot` is now the model's rotation (long side across the village-fields line when free), `fm.park` (tractor parking), `fm.gate` (tractors enter and leave by the front: `farmRoute` in updateFarm), `fm.unload`. Old barn/shed/silo meshes are no longer instanced. `Life.farmAt(x,z,m)` (plot test: houses and station ghosts keep out), `Life.farmFolk()` (four standing people by day).
 - **Grain station**: farms are a fourth slot kind (`Life.slotInds()`, `sawSlots(fm)` gives 4 sides, `st.farm={mi:villageIndex,k}`, name "<village> Farm"). `Life.farmTower(fm)` puts the tower at the station (11.7 m from the track, facing it) or at the farm's front when there is none. The station is cargo (`si.cargo`), drawn as kit platform pieces. Grain now accrues only at farm stations (`Goods.src` no longer gives grain near farms).
 - **Arm** (`Crane` kind 'farm', `runGrain`, `grainWork`): `Crane.stopAt` stops the train with the first two unfilled grain hoppers either side of the arm; the arm (`s.ax` = spout position along the track; `Life.armInst` writes its instance every frame: turn + stretch) fills the nearer, then the other; then sets `tr.grainMove` and the train draws up (train loop, "Drawing up at"), two wagons at a time; `tr.grainStuck` when the track ends.
@@ -372,7 +431,7 @@ stretched to the spout position), `farmAll` (render only). A farm is a fourth st
 
 ### Building kit (the most recent work)
 - **Source of truth**: `buildings/`. `kit.js` holds the builders, materials (`K.M`) and the standalone renderer; `cottage.js`, `tavern.js`, `farmhouse.js` and `shop.js` register `KIT.models[name]`.
-- **Embedding**: `python3 tools/embed_buildings.py` copies them into `trein.html` between the `/*@@BUILDINGS@@*/` markers. Never edit the embedded copy; edit `buildings/*.js`, then re-run.
+- **Loading**: since 4.14.0 trein.html loads `buildings/*.js` directly (no embedding).
 - **Preview**: `node tools/render_building.js <name> <out.jpg> ['{"game":true,"lod":1}']` (Playwright + SwiftShader, about 1 s per render).
 - **In the game**:
   - Game mode: `K.plot` from `KIT.plots` keeps everything on the plot (gardens, fences, props) and drops the render surroundings (boxes over 20 m, anything centred off the plot, `K.grass` lawns).
@@ -418,7 +477,7 @@ stretched to the spout position), `farmAll` (render only). A farm is a fourth st
   NOHOP=1 without hoppers, CAB=1 adds cab views; a view named "gear" is rendered at four quarter turns of the wheels).
 - **Farm grain cycle**: `node tools/farm_grain_check.js <outdir> <side 0-3>` logs fill levels, arm phase and train status every 4 s.
 - **Building renders**: `node tools/render_building.js farmAll out.jpg` (also farmHouse, farmBarn, farmShed, farmYard, grainTower, grainArm with '{"game":true,"lod":N}').
-- **Syntax check**: extract the biggest `<script>` and run `node --check` on it (a `//` comment once swallowed code on a one-line edit; use `/* */` inside lines).
+- **Syntax check**: `for f in js/*.js buildings/*.js; do node --check $f; done` (a `//` comment once swallowed code on a one-line edit; use `/* */` inside lines).
 - **Pitfalls**:
   - headless frames are slow, so use `waitForTimeout` generously, set screenshot `timeout` to 180000, and use `deviceScaleFactor` 2 via a copy of boot.js for user-facing shots;
   - villages show houses only as they grow: use `Life.addGrowth(v,400)` and wait about 30 s.
@@ -431,7 +490,7 @@ stretched to the spout position), `farmAll` (render only). A farm is a fourth st
 - Add a setting whenever something is uncertain.
 
 ## Done: building kit in the game (with gardens, fences and LODs)
-- **Embedding**: `tools/embed_buildings.py` copies `buildings/kit.js` and the models into `trein.html` between the `/*@@BUILDINGS@@*/` markers. Edit `buildings/*.js`, then re-run it.
+- **Loading**: trein.html loads `buildings/kit.js` and the models directly (4.14.0; the embed step is gone).
 - **Game mode**: `K.plot` (`KIT.plots[type]`, local rect, front -z) keeps everything on the plot (gardens, fences, beds, props, fence-line tufts). It drops the render surroundings: boxes over 20 m, anything centred outside the plot, and `K.grass` lawns.
 - **LOD from the same model code** (`K.lod`):
   - 1: no shingles; roofs are painted rows (material 20); stone walls are painted courses (material 21); parts under 0.12 m dropped;

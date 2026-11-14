@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/farmhouse.js — the farmhouse (reference sheet #5): two-storey half-timbered house on a fieldstone base with a long
 // bendy wood-shingle roof and a covered veranda, an attached plank barn (big doors, one open on the hay; hayloft with pulley),
 // an open lean-to shed with firewood and a cart, a fenced vegetable garden with a scarecrow, a farmyard with chickens, hay bales,

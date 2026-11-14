@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/bridge.js — medieval stone road bridge, built per crossing from a spec (the game calls KIT.bridge for every bridge).
 // Local frame: the road runs along x (u = -L/2..L/2), across is z, y = 0 at the stream bed. s = {L, w (half road width), deck:[[u,y]..],
 // ground:[[u,y]..], water (y or null), sw (stream width, 0 for rivers)}. One round arch over a stream, a row of arches on piers with

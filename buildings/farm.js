@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/farm.js — the farm with a grain tower (user's reference picture, Nov 2026), second build (4.11.0).
 // Kit models, each with its own plot and detail levels (the game places them in the farm's frame, see Life.farmParts):
 //   farmHouse  — a red-brick Victorian farmhouse: two storeys, a slate main roof with two front gables (white fretwork bargeboards),

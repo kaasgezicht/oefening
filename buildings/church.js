@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/church.js — the village church (user's reference, Nov 2026): plastered nave on a sandstone plinth with sandstone quoins and
 // round-arched stained-glass windows, a half-timbered front gable, a sandstone porch with a round-arched double door and steps, a side tower
 // (plastered base, half-timbered belfry with louvres and clocks, onion dome, lantern, small onion, cross), slate roof, and a churchyard:

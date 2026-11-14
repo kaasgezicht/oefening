@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/cottage.js — the cozy cottage (approved style, Nov 2026): fieldstone base with quoins, half-timbered plaster walls,
 // bendy wood-shingle roof, leaning stone chimney, porch, rustic garden. ~120k triangles with its garden (the close-up level of detail).
 KIT.models.cottage=function(K,opt){

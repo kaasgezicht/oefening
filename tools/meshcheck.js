@@ -4,18 +4,16 @@ const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const [,, htmlPath, outDir, filter] = process.argv;
 fs.mkdirSync(outDir, { recursive: true });
-let html = fs.readFileSync(htmlPath, 'utf8');
-// stop the app from booting; expose mesh builders
-html = html.replace(/\nboot\(\);\n<\/script>/, '\nwindow.__ready=1;\n</script>');
+// the page is opened with ?nostart (the game code loads but does not boot), then the viewer is added
 const VIEW = fs.readFileSync(path.join(__dirname, 'meshcheck_page.js'), 'utf8');
-html = html.replace('</body>', '<script>' + VIEW + '</script></body>');
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
   const errs = [];
   p.on('pageerror', e => errs.push('pageerror ' + e.message));
   p.on('console', m => { if (m.type() === 'error') errs.push('console ' + m.text()); });
-  await p.setContent(html, { waitUntil: 'load' });
+  await p.goto('file://' + path.resolve(htmlPath) + '?nostart', { waitUntil: 'load' });
+  await p.addScriptTag({ content: VIEW });
   await p.waitForFunction(() => window.__ready && window.MV);
   const list = await p.evaluate(() => MV.list());
   const report = [];

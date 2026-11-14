@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/sawmill.js — the water-powered sawmill (user's reference picture, Nov 2026): a two-storey mill on a rubble-stone
 // foundation, red brick ground floor with round-arched windows and an arched log door, a board-and-batten timber upper floor and gables
 // with fretwork bargeboards and finials, a steep shingle roof with a louvred ventilator, a tall iron engine stack, a lean-to log shed;

@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/shop.js — the merchant's shop (reference sheet #3): two storeys, jettied half-timbered upper floor on a fieldstone ground
 // floor, blue-grey slate roof with a front dormer, tall stone chimney, an open shop front with counter and shelves under a red-and-white
 // striped awning, a market stall with produce, crates, sacks, baskets and barrels, a hanging sign with scales, cobbled forecourt.

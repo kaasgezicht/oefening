@@ -1,3 +1,4 @@
+'use strict';
 // ===== buildings/tavern.js — the tavern (reference sheet #4): two storeys, jettied upper floor, half-timbering with St Andrew's crosses
 // over a fieldstone ground floor, a front cross-gable wing, steep bendy red clay-tile roofs with two dormers, a big stone chimney on
 // the left gable and a smaller stack on the ridge, double door, hanging sign with a beer mug, cobbled courtyard with trestle tables,
