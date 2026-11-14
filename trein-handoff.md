@@ -1,4 +1,4 @@
-# Trein handoff 73 (14 Nov 2026): v4.15.0 — the Staggerwing rebuilt from the user's photos, game controller support; next: plan step 7 (footbridge)
+# Trein handoff 74 (14 Nov 2026): v4.16.0 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,46 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.15.0, 14 Nov) — the Staggerwing rebuilt from three photos, game controller
+### Latest (4.16.0, 14 Nov) — Opel Blitz, double-decker, tap/follow/drive buses and lorries, suspension
+User's choices: the double-decker is a second bus type (bought separately); lettering with names from the game world; manual driving
+anywhere (roads faster, grass slower, water stops it); touch driving with one joystick.
+- **New file js/roadveh.js** (loaded after plane.js; in sw.js, cache trein-v3):
+  - `RVMesh`: vehicle-shader models built like the plane (smooth parametric surfaces). `blitz(red)`: chassis, leaf springs, tank; bonnet
+    loft with 14 side louvres and chrome strips; tall shield grille with bars and the diagonal badge; sweeping black fenders down to the
+    running boards; headlamps on brackets, orange indicators, bumper, the thin black marker rods; a rounded cab (superquadric) with
+    two-pane windscreen, door windows and rear window cut out with glass, a dark inside, steering wheel, seat and driver; wooden drop-side
+    bed with headboard, stakes and hinge straps; twin rear wheels. `bus(decks)`: 1 = the small cream-and-red bus, 2 = the 1930s green
+    double-decker (yellow window band and side board, silver roof with overhang, conventional bonnet and radiator, passengers).
+    `wheel(r,disc,side,dual)`: tyre torus with tread ribs, painted disc with holes, nuts, hub. Superquadric boxes use arc-length
+    resampled parameters (`arc`, `sqU`, `sqV`), otherwise a strongly rounded box puts almost all rows on the edges of its faces.
+  - `RV` per type: axles, tracks, wheel radius, length, capacity (20 / 30 / 60), price (30k / 35k / 55k). Everything is drawn at
+    `RV_SCALE` 0.75 (the road scale; the old instanced buses used the same).
+  - Lettering: `rvText` draws text on a canvas and turns each run of lit pixels into a thin quad on a side of the body. Per vehicle
+    (`RoadVeh.text`, made when first seen within 350 m): lorry door = an owner name (initial + surname from the vehicle's hash) in
+    script, VRACHTRIJDERIJ, TEL., the town of its first stop; double-decker = "<TOWN> COACH COMPANY" in gold and "<Town> Transit" on
+    the yellow board; small bus = "<TOWN> AUTOBUSDIENST".
+  - `RoadVeh.draw(p,pass)` (from R.drawVehicles next to Plane.draw, opaque and glass passes): per vehicle a chassis frame on the four
+    wheel contacts (pitch and roll from the ground, decks of bridges included), the body on its springs, wheels spinning with the
+    distance and front wheels steering (from the yaw rate, or the driver). Beyond 140 m one merged mesh (body + wheels), no
+    suspension. The instanced 'buses'/'lorries' in Life.prepare are now drawn with count 0.
+  - Suspension (`update`): within 160 m (or followed/driven), springs at ~1.4 Hz (slower for the double-decker), damping 0.3; pitch
+    from acceleration, roll from speed x yaw rate, heave/pitch/roll from value-noise bumps along the distance driven (5x stronger off
+    the road).
+  - Tap a vehicle (camera.js tap, before trains): `RoadVeh.pick` → `select` shows #rvPanel: name, type, status, load or passengers,
+    speed, earned (b.earned), stops served (b.trips), buttons Camera (Follow = free camera following it / Behind / Driver / Wheel),
+    Change stops (opens the bus list editor on it), Drive it / Back to the route.
+  - Driving (`startDriving`, `driveStep`): b.manual makes Buses.update skip it. Bicycle model: gas, brake then reverse, rolling
+    resistance (road mask `Life.roadKill`: off-road more), slope, speed caps 17 m/s on roads and 7 off (x 0.75), steering eased and
+    reduced with speed; water or the world's edge ahead stops it. Touch: #rvUI joystick (left/right steer, up gas, down brake/reverse),
+    Camera, Horn, Back to the route. Controller: left stick steer, RT gas, LT brake/reverse, A horn, B camera, Y back to the route.
+    Back to the route: manual off, path cleared, it plans from where it stands to its current stop (roads, else cross-country).
+- **Buses (core.js)**: `type` ('bus', 'dd', 'blitz'), `earned`, `trips` on each vehicle, saved; `add(goods,type)` (Build → Roads: "Add
+  double-decker"); capacity from RV; fares and lorry deliveries (`Goods.lastPay`) credited to the vehicle; the bus list shows type and
+  earnings.
+- Tests: scratchpad rvt.js (save2.json; fake gamepad): models, tap pick, panel, cameras, driving with RT/steer/LT, Y back to the
+  route (passes; hold the button longer than a headless frame). Pictures: checks/roadveh-*.png.
+
+### Earlier (4.15.0, 14 Nov) — the Staggerwing rebuilt from three photos, game controller
 User's choices: controller throttle as a rate (stays where you leave it); right stick up = nose down; the proposed button map; a full rebuild.
 - **Model** (`planeMeshes` in js/plane.js, the only copy):
   - Parametric and smooth: `surf(M,f,us,vs,paint)` builds a grid surface with normals from central differences and one colour/material per

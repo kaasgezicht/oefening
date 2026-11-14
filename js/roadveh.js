@@ -108,7 +108,7 @@ const RVMesh=(()=>{
     person(B,-0.25,1.08,-0.45,[0.92,0.92,0.9],[0.15,0.15,0.17]);
     return B;};
   // ================================================================ buses: decks 1 (the small cream-and-red bus) or 2 (the 1930s double-decker)
-  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.07,0.24,0.14],band:[0.97,0.78,0.3],up:[0.07,0.24,0.14],roof:[0.62,0.63,0.6],hood:[0.07,0.24,0.14]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
+  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.03,0.2,0.09],band:[0.98,0.8,0.28],up:[0.03,0.2,0.09],roof:[0.62,0.63,0.6],hood:[0.03,0.2,0.09]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
     const L0=dd?-4.65:-4.4,Lc=dd?1.95:2.15,W=dd?1.2:1.18,yb=0.62,y1=2.28,y2=dd?3.82:2.75,ax=dd?[2.6,-2.4]:[2.3,-2.3];
     // ---- lower deck: a rounded box with the window band cut out; frames; the gold lining
     const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1;
@@ -120,7 +120,7 @@ const RVMesh=(()=>{
       for(let x=L0+0.4;x<Lc-0.4;x+=0.82)box(B,[x+0.05,1.71,z],[0.05,0.37,0.012],dd?C.band:C.band,PAINT);}
     if(dd){// ---- upper deck: cream window frames on green, the long yellow side board for the lettering, a silver roof with an overhang
       const upH=[(Lc-0.1-L0)/2,(y2-y1)/2,W*0.99],uU=sqU(upH,0.12,110),uV=sqV(upH,0.12,34),upF=sq([(L0+Lc-0.1)/2,(y1+y2)/2,0],upH,0.12),winU=p=>(Math.abs(p[2])>W*0.93&&p[1]>2.86&&p[1]<3.52&&p[0]>L0+0.25&&p[0]<Lc-0.3&&((p[0]-L0-0.25)%0.78)>0.08)||(p[0]>Lc-0.25&&p[1]>2.86&&p[1]<3.52&&Math.abs(p[2])<W*0.85&&Math.abs(p[2])>0.04);
-      surf(B,upF,uU,uV,(u,v)=>{const p=upF(u,v);if(winU(p))return null;if(p[1]>3.55)return[C.roof,PAINT];return[p[1]>2.8?C.band:C.up,PAINT];},{eu:2e-3,ev:2e-3});
+      surf(B,upF,uU,uV,(u,v)=>{const p=upF(u,v);if(winU(p))return null;if(p[1]>3.62)return[C.roof,PAINT];return[p[1]>2.8?C.band:C.up,PAINT];},{eu:2e-3,ev:2e-3});
       surf(B,upF,uU,uV,(u,v)=>winU(upF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
       rbox(B,[(L0+Lc-0.1)/2,(y1+y2)/2,0],[(Lc-0.1-L0)/2-0.04,(y2-y1)/2-0.04,W*0.99-0.04],0.12,null,null,()=>[[0.2,0.17,0.13],INT],40);
       rbox(B,[(L0+Lc)/2,y2+0.02,0],[(Lc-L0)/2+0.12,0.06,W+0.06],0.2,C.roof,PAINT,null,28);// roof with the overhang
@@ -141,7 +141,7 @@ const RVMesh=(()=>{
     box(B,[Lc+0.02,dd?2.18:2.4,0],[0.02,0.08,0.5],[0.04,0.04,0.04],MATTE);
     person(B,Lc-0.55,1.0,-0.6,[0.15,0.2,0.32],[0.1,0.12,0.2]);tube(B,[Lc-0.2,1.45,-0.6],[Lc-0.45,1.05,-0.6],0.02,0.02,6,BK,MATTE);
     // a few passengers at the windows
-    for(let k=0;k<(dd?7:4);k++){const x=L0+0.9+k*0.95,sd=k%2?1:-1;person(B,x,dd&&k>3?2.35:0.9,sd*0.6,[[0.5,0.2,0.2],[0.2,0.3,0.5],[0.4,0.4,0.35],[0.25,0.4,0.25]][k%4]);}
+    for(let k=0;k<(dd?7:4);k++){const kk=dd&&k>3?k-4:k,x=L0+0.9+kk*(dd&&k>3?1.6:0.95),sd=k%2?1:-1;person(B,x,dd&&k>3?2.35:0.9,sd*0.6,[[0.5,0.2,0.2],[0.2,0.3,0.5],[0.4,0.4,0.35],[0.25,0.4,0.25]][k%4]);}
     return B;};
   return {blitz,bus,wheel};})();
 // lettering: text from a canvas, turned into thin quads (one per run of lit pixels in a row), lying on a side of the body.
@@ -171,7 +171,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     if(b.goods){const N=['Bakker','de Vries','Jansen','Visser','Smit','Meijer','de Boer','Mulder','Bos','Vos','Peters','Hendriks'],I='ABCDGHJKMPW';return{town,owner:`${I[h%I.length]}. ${N[h%N.length]}`,tel:`TEL. ${10+h%90}`};}return{town};},
   text(b){const M=vmesh(),w=this.words(b),gold=[0.98,0.86,0.5],cream=[0.98,0.94,0.82],ty=this.type(b);
     if(ty==='blitz'){for(const sd of [-1,1])rvText(M,[{t:w.owner,font:'italic bold PX Georgia',h:0.12},{t:'VRACHTRIJDERIJ',font:'bold PX Arial',h:0.05},{t:w.tel,font:'bold PX Arial',h:0.045},{t:w.town.toUpperCase(),font:'bold PX Arial',h:0.06}],{x:-0.06,y:1.48,z:sd*0.935,col:cream,px:120});}
-    else if(ty==='dd'){for(const sd of [-1,1]){rvText(M,[{t:`${w.town.toUpperCase()} COACH COMPANY`,font:'bold PX Georgia',h:0.13}],{x:-1.1,y:1.27,z:sd*1.207,col:gold,px:90});rvText(M,[{t:`${w.town} Transit`,font:'bold PX Georgia',h:0.2}],{x:-0.6,y:2.66,z:sd*1.216,col:[0.07,0.24,0.14],px:80});}}
+    else if(ty==='dd'){for(const sd of [-1,1]){rvText(M,[{t:`${w.town.toUpperCase()} COACH COMPANY`,font:'bold PX Georgia',h:0.13}],{x:-1.1,y:1.27,z:sd*1.207,col:gold,px:90});rvText(M,[{t:`${w.town} Transit`,font:'bold PX Georgia',h:0.2}],{x:-0.6,y:2.66,z:sd*1.216,col:[0.03,0.2,0.09],px:80});}}
     else for(const sd of [-1,1])rvText(M,[{t:`${w.town.toUpperCase()} AUTOBUSDIENST`,font:'bold PX Georgia',h:0.13}],{x:-1.0,y:1.26,z:sd*1.187,col:[0.98,0.88,0.6],px:90});
     return M.n?R.uploadVeh(M):null;},
   // ---- the frame of a vehicle: chassis on the ground under its wheels, the body on its springs (heave h, pitch p, roll r)
