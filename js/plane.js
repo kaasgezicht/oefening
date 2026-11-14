@@ -228,15 +228,15 @@ const Q={mul(a,b){return[a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*
 const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:0},gear:1,gearPos:1,flaps:0,flapPos:0,easy:true,coord:true,prop:0,crashed:false,
   spawn(at){if(!App.T){UI.toast('Wait for the world to load');return;}const T=App.T;let x,z,h;
     // a runway-like spot: the longest flat, dry stretch near the camera (else take off in the air)
-    const c=Cam.target,as=Air.spawnSpot(c);if(as){/* start on the nearest airstrip, at one end of its runway */const q0=Q.axis([0,1,0],-as.h),qp=Q.axis([0,0,1],0.19);let g=-1e9;for(let u=-6;u<=6;u+=2)for(const w of [-1.2,0,1.2])g=Math.max(g,R.sampleHr(T,as.x+Math.cos(as.h)*u-Math.sin(as.h)*w,as.z+Math.sin(as.h)*u+Math.cos(as.h)*w));/* the highest ground under the plane: it settles onto its wheels */this.st={p:[as.x,g+2.3,as.z],v:[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:1};this.gear=1;this.gearPos=1;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
-      if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);UI.toast(`On airstrip ${as.s.n}: stop here to load cargo, then fly it to another airstrip`);return;}
+    const c=Cam.target,as=Air.spawnSpot(c);if(as){/* start on the nearest airstrip, at one end of its runway */const q0=Q.axis([0,1,0],-as.h),qp=Q.axis([0,0,1],0.19);this.st={p:[as.x,0,as.z],v:[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:1};this.gear=1;this.gearPos=1;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
+      if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);this.settle();UI.toast(`On airstrip ${as.s.n}: stop here to load cargo, then fly it to another airstrip`);return;}
     const flat=(x0,z0,hd,L)=>{let mn=1e9,mx=-1e9;for(let t=0;t<=L;t+=10){const px=x0+Math.cos(hd)*t,pz=z0+Math.sin(hd)*t;if(px<40||pz<40||px>T.W-40||pz>T.W-40)return 1e9;const w=sampleWater(T,px,pz);if(w[1]>0&&w[0]>R.sampleHr(T,px,pz)-0.2)return 1e9;const g=R.sampleHr(T,px,pz);mn=Math.min(mn,g);mx=Math.max(mx,g);}return mx-mn;};
     let best=null;for(let k=0;k<1500&&!(best&&best.f<1.5);k++){const sp=k<700?2500:T.W,px=c[0]+(Math.random()-0.5)*sp,pz=c[2]+(Math.random()-0.5)*sp,hd=Math.random()*6.283,f=flat(px,pz,hd,380);if(f<5&&(!best||f+Math.hypot(px-c[0],pz-c[2])*0.002<best.f+Math.hypot(best.x-c[0],best.z-c[2])*0.002))best={x:px,z:pz,h:hd,f};}
     const air=!best;if(air){x=c[0];z=c[2];h=Cam.yaw+Math.PI;}else{x=best.x;z=best.z;h=best.h;}
     const g=R.sampleHr(T,x,z),y=air?Math.max(g,this.groundAt(x,z))+300:g+2.2;
     // nose up on the ground (taildragger: about 11°), level in the air
     const q0=Q.axis([0,1,0],-h),qp=Q.axis([0,0,1],air?0:0.19);
-    this.st={p:[x,y,z],v:air?Q.rot(q0,[60,0,0]):[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:air?0.7:0,pitch:0,roll:0,yaw:0,brake:air?0:1};this.gear=air?0:1;this.gearPos=this.gear;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
+    this.st={p:[x,y,z],v:air?Q.rot(q0,[60,0,0]):[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};if(!air)this.settle();this.ctl={thr:air?0.7:0,pitch:0,roll:0,yaw:0,brake:air?0:1};this.gear=air?0:1;this.gearPos=this.gear;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
     if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);UI.toast(air?'Flying: no flat ground nearby, so you start in the air':'Ready on a flat field: full throttle, keep it straight, lift off at about 110 km/h');},
   exit(){this.on=false;PlaneUI.show(false);Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=60;}},
   groundAt(x,z){const T=App.T;if(!T)return 0;const g=R.sampleHr(T,clamp(x,0,T.W),clamp(z,0,T.W)),w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0?Math.max(g,w[0]):g;},
@@ -256,6 +256,8 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
       const py=o[1]+(p[1]-o[1])*t,dy=l[2]+(l[5]-l[2])*u,cx=l[0]+ex*u,cz=l[1]+ez*u;if(py>dy-0.8||dy-R.sampleHr(T,cx,cz)<3)continue;
       if(this._lastBr&&Math.hypot(this._lastBr[0]-cx,this._lastBr[1]-cz)<40&&now-this._lastBr[2]<6)continue;this._lastBr=[cx,cz,now];
       this.bridges=(this.bridges||0)+1;if(Money.on())Money.earn(1000,'under a bridge',cx,dy,cz);UI.toast(`Under the bridge! ${Money.on()?'+€1.000 ':''}(${this.bridges} this flight)`);Sfx.clunk&&Sfx.clunk();break;}},
+  // put the plane exactly on its wheels where it stands (main wheels and tailwheel just touching the ground), at rest
+  settle(){const s=this.st;let y=-1e9;for(const cp of PL.wheels){const wp=Q.rot(s.q,cp);y=Math.max(y,this.groundAt(s.p[0]+wp[0],s.p[2]+wp[2])-wp[1]);}s.p[1]=y+0.01;s.v=[0,0,0];s.w=[0,0,0];},
   rpm(){return this.crashed?0:900+this.ctl.thr*1300+Math.hypot(...this.st.v)*4;},
   step(dt){const s=this.st,c=this.ctl,rho=1.225*Math.exp(-s.p[1]/9000);if(this.crashed){s.v=s.v.map(v=>v*Math.max(0,1-dt*2));s.w=s.w.map(v=>v*Math.max(0,1-dt*3));return;}
     const qi=Q.inv(s.q),vb=Q.rot(qi,s.v),V=Math.hypot(...vb),qd=0.5*rho*V*V,alpha=Math.atan2(-vb[1],Math.max(vb[0],0.1)),beta=V>1?Math.asin(clamp(vb[2]/V,-1,1)):0;
