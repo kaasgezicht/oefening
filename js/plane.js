@@ -8,7 +8,7 @@
 const PL={span:9.75,len:8.18,S:27.5,m:1900,P:336000,cg:[0,0,0],
   // contact points in body frame (gear down): left/right main wheels, tailwheel (about 11.6° nose up on the ground); gear up: the belly
   wheels:[[1.15,-1.81,-1.0],[1.15,-1.81,1.0],[-4.45,-0.75,0]],belly:[[1.1,-0.95,-0.7],[1.1,-0.95,0.7],[-4.4,-0.2,0],[2.4,-0.8,0]],
-  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.55,0.73,-0.27]};
+  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.55,0.79,-0.27]};
 const PLANE_PARTS={};
 function planeMeshes(){
   const RD=[0.80,0.045,0.035],RDd=[0.55,0.03,0.025],MR=[0.30,0.025,0.04],GD=[0.96,0.74,0.30],CH=[0.92,0.92,0.94],AL=[0.62,0.62,0.64],BK=[0.04,0.04,0.045],
@@ -157,7 +157,7 @@ function planeMeshes(){
   // ---------------------------------------------------------------- cabin interior (seen through the glass)
   {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>inWS(x,th)||sideWin(x,th)?null:Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});/* open where the windows are */
     surf(body,(x,z)=>[x,-0.38,z],[-1.0,1.5],[-0.52,0.52],()=>[DK,MATTE]);// floor
-    {const xf=1.6,s=sec(xf);surf(body,(k,th)=>[xf,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])],[0,0.5,0.985],range(0,Math.PI*2,40),(k,th)=>s[0]+s[1]*k*pw(Math.sin(th),s[3])>0.38?null:[DK,MATTE]);}// firewall (below the panel top only)
+    {const xf=1.6,s=sec(xf);surf(body,(k,th)=>[xf,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])],[0,0.5,0.985],range(0,Math.PI*2,40),()=>[DK,MATTE]);}// firewall: closes the fuselage ahead of the panel
     // instrument panel with gauges, glare shield, throw-over yoke
     surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.55,0.55],[0.05,0.37],()=>[DK,MATTE]);
     for(const [z,y,r] of [[-0.42,0.29,0.04],[-0.31,0.29,0.04],[-0.42,0.18,0.036],[-0.31,0.18,0.036],[-0.19,0.24,0.032],[0.05,0.28,0.032],[0.17,0.28,0.032],[0.31,0.23,0.04]])
