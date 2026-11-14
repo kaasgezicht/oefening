@@ -185,3 +185,14 @@ body.flying #hud,body.roaddrive #hud,body.flying #money,body.roaddrive #money{di
 #planeUI #plTop button,#rvUI #rvTop button{font:600 11px system-ui!important;padding:5px 8px!important;border-radius:8px!important}
 #plHud,#rvHud{top:calc(44px + env(safe-area-inset-top))!important;left:calc(8px + env(safe-area-inset-left))!important;transform:none!important;font:500 12px system-ui!important;padding:3px 9px!important}
 body.flying .ldchip,body.roaddrive .ldchip{display:none!important}
+
+/* 4.17.0: a controller flying hides the touch controls (Start = pause + menu); driving can hide everything but the joystick */
+body.padfly:not(.padmenu) #plTop,body.padfly:not(.padmenu) #plLeft,body.padfly:not(.padmenu) #plRight{display:none!important}
+body.rvmin #rvPanel,body.rvmin #rvTop button:not([data-a="min"]),body.rvmin #rvHud{display:none!important}
+
+/* airstrip placement bar and the compass (4.17.0) */
+#airUI{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:17;width:min(94vw,460px);background:#15191aeb;border:1px solid #c9a14a88;border-radius:14px;padding:9px 12px;color:#f1e7d0;font:13px system-ui}
+#airUI[hidden]{display:none}.air-b{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}#airUI button{font:600 14px system-ui;padding:8px 12px;border-radius:10px;border:1px solid #c9a14a90;background:#22292a;color:#f1e7d0}#airUI button.go{background:var(--brass);color:var(--coal)}#airUI button:disabled{opacity:.4}
+#compass{position:fixed;left:50%;transform:translateX(-50%);top:calc(8px + env(safe-area-inset-top));width:min(46vw,440px);height:52px;z-index:16;pointer-events:none;background:linear-gradient(#15191acc,#15191a99);border:1px solid #c9a14a66;border-radius:10px;overflow:hidden}
+#compass[hidden]{display:none}#compass canvas{width:100%;height:100%;display:block}
+body.flying #plHud,body.roaddrive #rvHud{top:calc(66px + env(safe-area-inset-top))!important;left:50%!important;transform:translateX(-50%)!important}

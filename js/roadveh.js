@@ -252,12 +252,12 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   startDriving(b){if(Plane.on)Plane.exit();if(Build.active)Build.exit();if(Drive.active)Drive.exit();this.drv=b;b.manual=true;b.mv=b.st==='drive'?b.v:0;b.st='drive';b.queued=null;this.sel=b;
     this.setCam('chase');this.ui(true);UI.toast('You drive '+b.name+': joystick to steer and drive, or a controller (left stick, RT, LT)');this.refresh();},
   stopDriving(){const b=this.drv;if(!b)return;b.manual=false;b.mv=0;b.v=0;b.path=null;b.st='drive';b.offRoad=false;this.drv=null;this.ui(false);if(this.sel)this.setCam('follow');UI.toast(b.name+' goes back to its route');this.refresh();},
-  ui(on){let el=$('#rvUI');if(!el){el=document.createElement('div');el.id='rvUI';el.innerHTML='<div id="rvHud"></div><div id="rvTop"><button data-a="cam">📷 Camera</button><button data-a="horn">📯 Horn</button><button data-a="back" class="go">Back to the route</button></div><div id="rvStickWrap"><div id="rvStick"><div id="rvKnob"></div></div></div>';document.body.appendChild(el);
-      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='cam')this.nextCam();else if(t.dataset.a==='horn')this.horn();else if(t.dataset.a==='back')this.stopDriving();});
+  ui(on){let el=$('#rvUI');if(!el){el=document.createElement('div');el.id='rvUI';el.innerHTML='<div id="rvHud"></div><div id="rvTop"><button data-a="min">🙈 Hide</button><button data-a="cam">📷 Camera</button><button data-a="horn">📯 Horn</button><button data-a="back" class="go">Back to the route</button></div><div id="rvStickWrap"><div id="rvStick"><div id="rvKnob"></div></div></div>';document.body.appendChild(el);
+      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='cam')this.nextCam();else if(t.dataset.a==='horn')this.horn();else if(t.dataset.a==='back')this.stopDriving();else if(t.dataset.a==='min'){const on=!document.body.classList.contains('rvmin');document.body.classList.toggle('rvmin',on);t.textContent=on?'👁 Show':'🙈 Hide';}});
       const st=el.querySelector('#rvStick'),kn=el.querySelector('#rvKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,Rr=r.width/2-14;let dx=(ev.clientX-cx)/Rr,dy=(ev.clientY-cy)/Rr;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}
-        this.inp.steer=dx;this.inp.gas=Math.max(0,-dy);this.inp.brake=Math.max(0,dy);this.inp.touch=true;kn.style.transform=`translate(${dx*Rr}px,${dy*Rr}px)`;};
+        this.inp.steer=dx;this.inp.gas=Math.min(1,Math.max(0,-dy)*1.4);this.inp.brake=Math.min(1,Math.max(0,dy)*1.4);/* full gas before the edge of the ring */this.inp.touch=true;kn.style.transform=`translate(${dx*Rr}px,${dy*Rr}px)`;};
       st.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};st.onpointerup=st.onpointercancel=ev=>{if(ev.pointerId!==id)return;id=null;this.inp.steer=this.inp.gas=this.inp.brake=0;this.inp.touch=false;kn.style.transform='';};}
-    el.hidden=!on;document.body.classList.toggle('roaddrive',on);},
+    el.hidden=!on;document.body.classList.toggle('roaddrive',on);if(!on)document.body.classList.remove('rvmin');},
   hud(){const b=this.drv,el=$('#rvHud');if(!el)return;el.innerHTML=`<b>${Math.round(Math.abs(b.mv||0)/RV_SCALE*3.6)}</b> km/h${(b.mv||0)<-0.3?' · reverse':''}${b.offRoad?' · off the road':''} · ${esc(b.name)}`;},
   horn(){const c=Sfx.ctx;if(!c||!Sfx.on)return;const t=c.currentTime,g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.03);g.gain.setValueAtTime(0.18,t+0.45);g.gain.linearRampToValueAtTime(0,t+0.55);g.connect(Sfx.master);
     for(const f of [392,494]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;o.connect(lp);lp.connect(g);o.start(t);o.stop(t+0.6);}},
@@ -270,7 +270,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     // on a road? (the road mask used by the routing), and the slope along the heading
     const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci]);b.offRoad=!onRoad;
     const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2),slope=Math.atan2(h1-h0,4);
-    const amax=b.goods?2.0:1.5,vmax=(onRoad?17:7)*k,roll=(onRoad?0.18:1.1)+0.0015*v*v;
+    const amax=b.goods?2.4:2.0,vmax=(onRoad?17:8)*k,roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
     let a=0;if(I.gas>0.02)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
     a-=Math.sign(v)*Math.min(Math.abs(v)/dt,roll)+9.81*Math.sin(slope)*0.6;if(Math.abs(v)<0.05&&I.gas<0.02&&I.brake<0.02&&Math.abs(slope)<0.25){a=0;v=0;}
     v+=a*dt;if(v>vmax&&I.gas<0.02)v-=Math.min(v-vmax,3*dt);

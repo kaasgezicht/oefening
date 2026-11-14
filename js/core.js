@@ -561,7 +561,15 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   // road distance from stop a to stop b (cached), and whether it follows the roads
   legLen(a,b){this.legCache=this.legCache||new Map();const k=a.id+'>'+b.id;if(this.legCache.has(k))return this.legCache.get(k);const p=this.roadPath([a.rx,a.rz],[b.rx,b.rz]),r=p?{len:this.plen(p),road:true}:{len:Math.hypot(a.rx-b.rx,a.rz-b.rz)*1.3,road:false};this.legCache.set(k,r);return r;},
   // the lane: the road line rounded off once, then 0.9 m to the right; the last point pulls in at the stop
-  plan(b,t){let p=this.roadPath([b.x,b.z],[t.rx,t.rz]);b.onRoad=!!p;if(!p)p=Life.routePath([b.x,b.z],[t.rx,t.rz],{cs:5,margin:140,bridge:true,wind:0,road:0.12,maxG:0.4})||[[b.x,b.z],[t.rx,t.rz]];
+  // cross-country between two points: around water first (bridges only if there is no other way); the grid grows with the distance so a
+  // long leg never ends in a straight line across lakes (4.17.0: stops left away from the roads drove straight through lakes)
+  cross(a,c){const span=Math.max(Math.abs(a[0]-c[0]),Math.abs(a[1]-c[1]))+280,cs=Math.max(5,span/270),o={cs,margin:140,wind:0,road:0.12,maxG:0.4};
+    return Life.routePath(a,c,{...o,bridge:false})||Life.routePath(a,c,{...o,bridge:true})||[a.slice(),c.slice()];},
+  plan(b,t){let p=this.roadPath([b.x,b.z],[t.rx,t.rz]);b.onRoad=!!p;
+    if(!p){// along the roads as far as they go: cross-country only from the vehicle to the nearest road and from the road to the stop
+      const G=this.graph(),s0=G.nearest(b.x,b.z,450),s1=G.nearest(t.rx,t.rz,450),mid=s0>=0&&s1>=0?this.roadPath(G.N[s0],G.N[s1]):null;
+      if(mid){const c0=Math.hypot(G.N[s0][0]-b.x,G.N[s0][1]-b.z)>3?this.cross([b.x,b.z],G.N[s0]):[[b.x,b.z]],c1=Math.hypot(G.N[s1][0]-t.rx,G.N[s1][1]-t.rz)>3?this.cross(G.N[s1],[t.rx,t.rz]):[[t.rx,t.rz]];p=[...c0,...mid.slice(1,-1),...c1];b.onRoad=true;}
+      else p=this.cross([b.x,b.z],[t.rx,t.rz]);}
     const q=[p[0]];for(let i=0;i<p.length-1;i++){const a=p[i],c=p[i+1];if(Math.hypot(c[0]-a[0],c[1]-a[1])<0.3)continue;q.push([a[0]*.75+c[0]*.25,a[1]*.75+c[1]*.25],[a[0]*.25+c[0]*.75,a[1]*.25+c[1]*.75]);}q.push(p[p.length-1]);
     const n=q.length,L=[];for(let i=0;i<n;i++){const a=q[Math.max(0,i-1)],c=q[Math.min(n-1,i+1)];let dx=c[0]-a[0],dz=c[1]-a[1];const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const o=i===0?0:i===n-1?1.15:0.9;L.push([q[i][0]-dz*o,q[i][1]+dx*o]);}
     b.path=L;const c=[0];for(let k=1;k<L.length;k++)c.push(c[k-1]+Math.hypot(L[k][0]-L[k-1][0],L[k][1]-L[k-1][1]));b.cum=c;b.len=c[c.length-1];b.ps=0;b.pi=1;},
@@ -777,7 +785,7 @@ const VillageUI={els:new Map(),panel:null,cur:null,
     p.querySelector('#vpX').onclick=()=>{p.hidden=true;this.why=null;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
 function snapshot(){
   return{app:'Trein',saveVersion:SAVE_VERSION,build:VERSION,savedAt:new Date().toISOString(),params:{...P},camera:Cam.state(),
-    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
+    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
 }
 function applySnapshot(s){
   if(!s||s.app!=='Trein')throw new Error('Not a Trein save file');
@@ -789,6 +797,7 @@ function applySnapshot(s){
   if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
+  Air.list=[];Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
   Life.pendingV=s.villages||null;
   if(s.money){Money.cash=s.money.cash;Money.loan=s.money.loan;Money.paid=new Map(s.money.paid||[]);Money.inited=false;Money.paidSt=new Set(Track.stations.map(q=>q.id));Money.paidTr=new Set();Money.loadedTrains=true;}

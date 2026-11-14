@@ -106,6 +106,7 @@ function initInput(cv){
     if(e.pointerId===buildPtr){buildPtr=null;const tl=Build.active?Build:Drive;if(e.type==='pointerup')tl.up(e);else tl.cancel();return;}
     const now=performance.now();if(Build.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Build.tap(e);return;}
     if(Drive.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Drive.tap(e);return;}
+    if(Air.pl&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Air.tap(e.clientX,e.clientY);return;}/* placing an airstrip */
     if(MapView.on){if(pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup')MapView.tap(e.clientX,e.clientY);return;}
     if(pts.size===0&&moved<12&&now-downAt<300){
       if(now-lastTap<320&&Math.hypot(e.clientX-lastTapPos[0],e.clientY-lastTapPos[1])<30){const h=Cam.pick(e.clientX,e.clientY);if(h){Cam.flyTo(h);Log.info(`fly to ${h.map(v=>v.toFixed(0)).join(',')}`);}lastTap=0;}

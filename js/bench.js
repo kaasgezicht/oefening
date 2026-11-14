@@ -143,7 +143,7 @@ function loop(ts){
   const dt=lastT?Math.min(raw,0.1):0.016,ff=App.ff||1,sdt=dt*ff;lastT=ts;if(!Bench.on)App.time+=sdt;// ff: fast forward (1, 2, 4 or 8 ×) speeds up the whole simulation
   if(!Bench.on&&P.timeSpeed>0){const nt=P.timeOfDay+sdt*P.timeSpeed/3600;if(nt>=24)Weather.newDay();P.timeOfDay=nt%24;if((frameAcc+=dt)>0.5){frameAcc=0;UI.refresh('timeOfDay');Sky.refresh();}}
   const c0=performance.now();
-  resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(Bench.on)Bench.sim(sdt);else{if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}Plane.update(sdt);RoadVeh.update(sdt);}Weather.update(sdt);if(App.T)Life.update(sdt);}if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
+  resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(Bench.on)Bench.sim(sdt);else{if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}Plane.update(sdt);RoadVeh.update(sdt);try{Air.update(sdt);Compass.tick();}catch(e){if(!Air._err){Air._err=1;Log.err('air/compass: '+(e.stack||e));}}}Weather.update(sdt);if(App.T)Life.update(sdt);}if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
   R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
   if(MapView.on)MapView.draw();if(Plane.on)PlaneUI.hud();

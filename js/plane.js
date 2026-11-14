@@ -228,7 +228,9 @@ const Q={mul(a,b){return[a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*
 const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:0},gear:1,gearPos:1,flaps:0,flapPos:0,easy:true,coord:true,prop:0,crashed:false,
   spawn(at){if(!App.T){UI.toast('Wait for the world to load');return;}const T=App.T;let x,z,h;
     // a runway-like spot: the longest flat, dry stretch near the camera (else take off in the air)
-    const c=Cam.target,flat=(x0,z0,hd,L)=>{let mn=1e9,mx=-1e9;for(let t=0;t<=L;t+=10){const px=x0+Math.cos(hd)*t,pz=z0+Math.sin(hd)*t;if(px<40||pz<40||px>T.W-40||pz>T.W-40)return 1e9;const w=sampleWater(T,px,pz);if(w[1]>0&&w[0]>R.sampleHr(T,px,pz)-0.2)return 1e9;const g=R.sampleHr(T,px,pz);mn=Math.min(mn,g);mx=Math.max(mx,g);}return mx-mn;};
+    const c=Cam.target,as=Air.spawnSpot(c);if(as){/* start on the nearest airstrip, at one end of its runway */const q0=Q.axis([0,1,0],-as.h),qp=Q.axis([0,0,1],0.19),g=R.sampleHr(T,as.x,as.z);this.st={p:[as.x,g+2.2,as.z],v:[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};this.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:1};this.gear=1;this.gearPos=1;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
+      if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);UI.toast(`On airstrip ${as.s.n}: stop here to load cargo, then fly it to another airstrip`);return;}
+    const flat=(x0,z0,hd,L)=>{let mn=1e9,mx=-1e9;for(let t=0;t<=L;t+=10){const px=x0+Math.cos(hd)*t,pz=z0+Math.sin(hd)*t;if(px<40||pz<40||px>T.W-40||pz>T.W-40)return 1e9;const w=sampleWater(T,px,pz);if(w[1]>0&&w[0]>R.sampleHr(T,px,pz)-0.2)return 1e9;const g=R.sampleHr(T,px,pz);mn=Math.min(mn,g);mx=Math.max(mx,g);}return mx-mn;};
     let best=null;for(let k=0;k<1500&&!(best&&best.f<1.5);k++){const sp=k<700?2500:T.W,px=c[0]+(Math.random()-0.5)*sp,pz=c[2]+(Math.random()-0.5)*sp,hd=Math.random()*6.283,f=flat(px,pz,hd,380);if(f<5&&(!best||f+Math.hypot(px-c[0],pz-c[2])*0.002<best.f+Math.hypot(best.x-c[0],best.z-c[2])*0.002))best={x:px,z:pz,h:hd,f};}
     const air=!best;if(air){x=c[0];z=c[2];h=Cam.yaw+Math.PI;}else{x=best.x;z=best.z;h=best.h;}
     const g=R.sampleHr(T,x,z),y=air?Math.max(g,this.groundAt(x,z))+300:g+2.2;
@@ -293,7 +295,7 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
     const gy=this.groundAt(s.p[0],s.p[2]);if(s.p[1]<gy+0.5){if(Math.hypot(...s.v)>12)this.crash('Crashed into the ground');s.p[1]=gy+0.5;}
     const T=App.T;if(s.p[0]<-2000||s.p[2]<-2000||s.p[0]>T.W+2000||s.p[2]>T.W+2000){s.v=s.v.map(v=>-v);UI.toast('The edge of the world: turned around');}
     this.alpha=ae;this.V=V;this.onG=onG;this.stall=!this.easy&&Math.abs(ae)>aS*0.9&&V>5;},
-  crash(why){if(this.crashed)return;this.crashed=true;this.st.v=this.st.v.map(v=>v*0.2);if(Money.on())Money.spend(1000,'plane crash');UI.toast(why+(Money.on()?' — €1.000 for the repairs':'')+' — tap Reset to try again');if(P.smoke)for(let k=0;k<40;k++){const p=this.st.p;Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*4,2+Math.random()*3,(Math.random()-0.5)*4,3,0.5,3,0);}PlaneUI.refresh();},
+  crash(why){if(this.crashed)return;this.crashed=true;Air.lost();this.st.v=this.st.v.map(v=>v*0.2);if(Money.on())Money.spend(1000,'plane crash');UI.toast(why+(Money.on()?' — €1.000 for the repairs':'')+' — tap Reset to try again');if(P.smoke)for(let k=0;k<40;k++){const p=this.st.p;Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*4,2+Math.random()*3,(Math.random()-0.5)*4,3,0.5,3,0);}PlaneUI.refresh();},
   // body-frame matrix for drawing (column-major, like the train poses)
   mat(off,extra){const s=this.st,qq=extra?Q.mul(s.q,extra):s.q,X=Q.rot(qq,[1,0,0]),Y=Q.rot(qq,[0,1,0]),Z=Q.rot(qq,[0,0,1]),o=Q.rot(s.q,off||[0,0,0]);
     return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,s.p[0]+o[0],s.p[1]+o[1],s.p[2]+o[2],1]);},
@@ -320,7 +322,7 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
 const PlaneUI={show(on){$('#planeUI').hidden=!on;document.body.classList.toggle('flying',on);if(on)this.refresh();},
   refresh(){if(!Plane.on)return;$('#plGear').textContent=Plane.gear?'Gear ▼':'Gear ▲';$('#plFlaps').textContent='Flaps '+['0','½','1'][Plane.flaps];$('#plCam').textContent='📷 '+{chase:'Chase',cockpit:'Cockpit',wing:'Wing',tower:'Tower',orbit:'Orbit'}[Plane.cam];$('#plEasy').classList.toggle('on',Plane.easy);},
   hud(){if(!Plane.on||!Plane.st)return;const s=Plane.st,F=Q.rot(s.q,[1,0,0]),hd=((Math.atan2(F[2],F[0])*180/Math.PI+90)%360+360)%360,gy=Plane.groundAt(s.p[0],s.p[2]);
-    $('#plHud').innerHTML=`<b>${Math.round((Plane.V||0)*3.6)}</b> km/h · ${Math.round(s.p[1]-gy)} m · ${(s.v[1]>=0?'+':'')}${s.v[1].toFixed(1)} m/s · ${String(Math.round(hd)).padStart(3,'0')}° · ${Math.round(Plane.ctl.thr*100)}%`+(Plane.stall?' · <span style="color:#ff6a5a">STALL</span>':'')+(Plane.gearPos>0&&Plane.gearPos<1?' · gear moving':'')+(Plane.paused?' · <b>PAUSED</b> (Start)':'');},
+    $('#plHud').innerHTML=`<b>${Math.round((Plane.V||0)*3.6)}</b> km/h · ${Math.round(s.p[1]-gy)} m · ${(s.v[1]>=0?'+':'')}${s.v[1].toFixed(1)} m/s · ${String(Math.round(hd)).padStart(3,'0')}° · ${Math.round(Plane.ctl.thr*100)}%`+(Plane.stall?' · <span style="color:#ff6a5a">STALL</span>':'')+(Plane.gearPos>0&&Plane.gearPos<1?' · gear moving':'')+Air.hudText()+(Plane.paused?' · <b>PAUSED</b> (Start)':'');},
   gear(){Plane.gear=Plane.gear?0:1;if(Plane.onG&&!Plane.gear){Plane.gear=1;UI.toast('Not on the ground');}else UI.toast(Plane.gear?'Gear down':'Gear up');this.refresh();},
   setFlaps(n){Plane.flaps=clamp(n,0,2);this.refresh();},
   nextCam(d){const L=['chase','cockpit','wing','tower','orbit'];Plane.setCam(L[(L.indexOf(Plane.cam)+(d||1)+L.length)%L.length]);},
@@ -341,7 +343,8 @@ const PlaneUI={show(on){$('#planeUI').hidden=!on;document.body.classList.toggle(
 const PlanePad={prev:[],act:{},seen:false,
   pad(){if(!navigator.getGamepads)return null;let any=null;for(const q of navigator.getGamepads()){if(!q||!q.connected)continue;if(q.mapping==='standard')return q;any=any||q;}return any;},
   poll(dt){const g=this.pad();if(!g)return;const c=Plane.ctl;
-    if(!this.seen){this.seen=true;UI.toast('Controller ready: left stick throttle, right stick pitch and roll, LB/RB rudder, A gear, B camera');}
+    if(!this.seen){this.seen=true;UI.toast('Controller ready: left stick throttle, right stick pitch and roll, LB/RB rudder, A gear, B camera. Start shows the menu');}
+    document.body.classList.add('padfly');/* the touch controls are hidden while a controller flies; Start pauses and shows them */
     const ax=i=>{const v=g.axes[i]||0;return Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;},bt=i=>{const b=g.buttons[i];return b?(typeof b==='object'?(b.value||(b.pressed?1:0)):+b):0;},pr=i=>bt(i)>0.5,ed=i=>pr(i)&&!this.prev[i];
     const ly=ax(1);if(ly){c.thr=clamp(c.thr-ly*dt*0.7,0,1);const th=$('#plThr');if(th)th.value=Math.round(c.thr*100);}
     const ex=v=>v*(0.5+0.5*v*v),rx=ax(2),ry=ax(3);if(rx||ry){c.roll=ex(rx);c.pitch=ex(ry);this.act.stick=true;}else if(this.act.stick){c.roll=c.pitch=0;this.act.stick=false;}
@@ -350,9 +353,10 @@ const PlanePad={prev:[],act:{},seen:false,
     Plane.lookBack=pr(7);
     if(ed(0))PlaneUI.gear();if(ed(1))PlaneUI.nextCam(1);if(ed(2))PlaneUI.setFlaps((Plane.flaps+1)%3);if(ed(3))PlaneUI.easy();
     if(ed(13))PlaneUI.setFlaps(Plane.flaps+1);if(ed(12))PlaneUI.setFlaps(Plane.flaps-1);if(ed(14))PlaneUI.nextCam(-1);if(ed(15))PlaneUI.nextCam(1);
-    if(ed(9)){Plane.paused=!Plane.paused;UI.toast(Plane.paused?'Paused (Start to fly on)':'Flying');}if(ed(8)){Plane.paused=false;Plane.spawn();}
+    if(ed(9)){Plane.paused=!Plane.paused;document.body.classList.toggle('padmenu',Plane.paused);UI.toast(Plane.paused?'Paused: the menu is shown (Start to fly on)':'Flying');}if(ed(8)){Plane.paused=false;Plane.spawn();}
     this.prev=g.buttons.map((b,i)=>pr(i));}};
 addEventListener('gamepadconnected',e=>Log.info('controller connected: '+e.gamepad.id+' ('+(e.gamepad.mapping||'no standard mapping')+')'));
+addEventListener('gamepaddisconnected',()=>{document.body.classList.remove('padfly','padmenu');PlanePad.seen=false;});
 
 // ---- the main menu: shown when the game opens (the world loads behind it) and from the Menu button. New game picks the map style and the
 // land settings with a live 2D preview, then starts a fresh game (track, trains, roads, buses, money and village growth cleared).
