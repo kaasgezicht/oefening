@@ -1,4 +1,4 @@
-# Trein handoff 77 (14 Nov 2026): v4.18.0 — ocean swell up to 20 m with whales, dolphins and fish; airstrip missions from a tappable ✈ icon; plane roll on the left stick; parking-brake fix; next: plan step 7 (footbridge)
+# Trein handoff 78 (14 Nov 2026): v4.19.0 — island sea fixed on 16 km maps; Tunnels and Surface route modes; hold to route; loading bar moves during villages; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,21 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.18.0, 14 Nov) — ocean swell, sea life, airstrip missions, roll on the left stick
+### Latest (4.19.0, 14 Nov) — the user's 16 km island had no sea; route modes; hold to route; loading bar
+- Island sea gone on big maps (js/gen.js genWater):
+  - The terrain and the preview had the ocean (58% of a 16 km island), but genWater lost it.
+  - Cause: the outlet gorge of a coastal lake whose level is below sea level walked across the flat filled sea and trenched through the board's rim (rim cells down to -136 m), so the ocean drained over the edge.
+  - Fix: an outlet stops where it reaches the sea component, and the rim is reset to sea level after the gorges. Checked on the user's state (seed 60302, 16384 m): sea-level water went from 0% to 58%.
+- Loading bar (js/life.js, js/main.js, css):
+  - Life.generate is now a generator, `genSteps(T)`, with `yield [frac,label]` at each stage (per village, per country road, fields, windmills, farms, mines, clearing). `generate(T)` still runs it in one go for the other callers.
+  - App.generate steps through it and updates the bar every 40 ms. The stage weights changed: villages take 62–96% of the bar (they are about a third of the time on 16 km).
+  - The bar has a sweeping highlight. It is a compositor animation, so it keeps moving even while one step holds the page.
+- Route modes (js/route.js, Build → Route): Scenic, Direct, plus two new ones (track only; roads keep Scenic and Direct):
+  - Tunnels: tunnels are cheap. The A* height lags the ground (×0.2 per step), and the profile is smoothed over about ±160 m (`profileFollow(...,sm)`, vmode 'smooth'), so the line cuts through hills and spans dips.
+  - Surface: earthworks are dear, so the line hugs the ground. The A* state carries the current tunnel and bridge run (`tr`, `br`, in the key as buckets): a tunnel may be at most 50 m, a bridge at most 100 m. Tunnels under 10 m are cuttings (classify's minimum).
+- Hold to route (Build.holdBegin/holdEnd/holdRoute, camera.js): in the Route tool, once a start is tapped, holding a spot for 0.55 s fills a ring (#holdRing, SVG stroke animation) and routes from the start to that spot. The start is kept, so you can try one destination after another. Moving more than 12 px, a second finger or an early release cancels it.
+
+### Earlier (4.18.0, 14 Nov) — ocean swell, sea life, airstrip missions, roll on the left stick
 - Controller: roll moved to the left stick X (with throttle on left Y); the right stick is pitch only. Every other button is unchanged (`Plane` pad code in js/plane.js).
 - Parking brake: ground spawns set `parkBrake`; it releases on its own when throttle goes above 8% (and clears a full brake left over from the button). Tested: 50% throttle → brake 0, plane moving.
 - Airstrips (js/air.js):

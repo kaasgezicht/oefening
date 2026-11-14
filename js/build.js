@@ -31,12 +31,12 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   hint(){const m=this.mode;if(this.road()&&m!=='signals'){if(Roads.tool!=='build'){this.info(Roads.hint());return;}
       if(m==='pieces')this.info(this.pc.cur?'':this.pc.newLine?'Tap the ground where the new road should start.':this.pc.branch?'Tap a road where the new road should branch off.':'Tap a gold ring (the end of a road you built), Junction to branch off any road, or New road.');
       else if(m==='draw')this.info('Draw the road with one finger on the map, from a gold ring or a road to extend it. End on a road to join it. Two fingers move the camera.');
-      else this.info(!this.rt.a?'Tap where the road should start: on a road, a gold ring or open ground.':!this.rt.b?'Now tap the destination: a road to join it, or open ground.':'');return;}
+      else this.info(!this.rt.a?'Tap where the road should start: on a road, a gold ring or open ground.':!this.rt.b?'Now tap the destination: a road to join it, or open ground. Or hold a spot until the ring fills.':'');return;}
     if(this.remove){this.info('Tap a piece of track to remove it. Tap Remove again when done.');return;}
     if(m==='pieces')this.info(this.pc.cur?'':this.pc.newLine?'Tap the ground where the new line should start.':Track.segs.length?'Tap a gold ring (a track end) to build from it, or the pin with + for a new line.':'Tap the pin with + (new line), then tap the ground to start your railway.');
     else if(m==='draw')this.info(Track.segs.length?'Draw with one finger on the map, starting on a gold ring to extend the track. End on another ring to join up.':'Draw your railway with one finger on the map. Two fingers move the camera.');
     else if(m==='signals')this.info(this.sigTool==='signal'?'Tap the track to put up a signal. Signals split the line into blocks; trains on Auto only enter an empty block.':this.sigTool==='station'?'Tap where the station should stand, on a track or on open ground. A green ghost shows it: drag it, then press ✓. Trains on Auto stop at every station.':this.sigTool==='longer'?'Tap a station to make its platform 16 m (about one coach) longer, so long trains fit.':this.sigTool==='shorter'?'Tap a station to make its platform 16 m shorter.':'Tap a signal or station to remove it.');
-    else this.info(!this.rt.a?'Tap where the line should start: a gold ring, or open ground.':!this.rt.b?'Now tap the destination: another ring to join up, or open ground.':'');},
+    else this.info(!this.rt.a?'Tap where the line should start: a gold ring, or open ground.':!this.rt.b?'Now tap the destination: another ring to join up, or open ground. Or hold a spot until the ring fills.':'');},
   setSig(t){this.sigTool=t;if(t!=='station')this.stg=null;this.ui();this.hint();},
   // ---- station ghost: where the station will stand; drag it along the track, flip it to the other side, then Build it (the ground is
   // levelled only then). The building side defaults to the village's side of the line.
@@ -100,7 +100,8 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     for(const b of document.querySelectorAll('#buildBar [data-v]'))b.classList.toggle('on',b.dataset.v===P.trackProfile);
     for(const b of document.querySelectorAll('#buildBar [data-dir]'))b.classList.toggle('on',+b.dataset.dir===this.pc.dir);
     for(const b of document.querySelectorAll('#buildBar [data-slope]'))b.classList.toggle('on',b.dataset.slope===this.pc.slope);
-    for(const b of document.querySelectorAll('#buildBar [data-prefer]'))b.classList.toggle('on',b.dataset.prefer===this.rt.prefer);
+    if(this.road()&&(this.rt.prefer==='tunnel'||this.rt.prefer==='surface'))this.rt.prefer='direct';/* roads route their own way: scenic or direct */
+    for(const b of document.querySelectorAll('#buildBar [data-prefer]')){b.classList.toggle('on',b.dataset.prefer===this.rt.prefer);if(b.classList.contains('trkOnly'))b.hidden=this.road();}
     $('#pLen').textContent=this.pc.len+' m';$('#pRot').hidden=!(this.pc.cur&&!this.pc.cur.node);$('#pPlace').disabled=!(this.pc.cur&&this.plan&&this.plan.ok);
     $('#pNew').classList.toggle('on',this.pc.newLine);$('#pBranch').classList.toggle('on',!!this.pc.branch||!!(this.pc.cur&&this.pc.cur.sj));$('#pDemolish').disabled=!(this.pc.cur&&this.pc.cur.node);
     $('#bBridges').classList.toggle('on',!!P.trackBridges);$('#bTunnels').classList.toggle('on',!!P.trackTunnels);$('#btnRemove').classList.toggle('on',this.remove);},
@@ -116,9 +117,10 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     const T=R.world,gmax=P.maxGrade/100,y0=st.y,gIn=st.node?st.g:null,Lt=pieces.reduce((a,p)=>a+p.L,0);let bad='';
     for(const p of pieces)for(let t=0;t<=p.L;t+=4){const q=segPoint(p,t);if(q[0]<10||q[1]<10||q[0]>T.W-10||q[1]>T.W-10){bad='That runs off the edge of the world';break;}}
     const tooSteep=()=>`The ends are ${Math.abs(snap.y-y0).toFixed(1)} m apart in height, too steep to join over ${Lt.toFixed(0)} m. ${this.mode==='pieces'?'Use ↗ / ↘ pieces to bring them level first.':'Start further away so it can climb.'}`;
-    if(snap){if(vmode==='follow'){if(!profileFollow(pieces,y0,snap.y,gmax,gIn))bad=bad||tooSteep();}
+    const sm=vmode==='smooth'?{win:40,it:6}:null;if(sm)vmode='follow';
+    if(snap){if(vmode==='follow'){if(!profileFollow(pieces,y0,snap.y,gmax,gIn,sm))bad=bad||tooSteep();}
       else{const avg=(snap.y-y0)/Lt;if(Math.abs(avg)>gmax*1.05)bad=bad||tooSteep();profileGrade(pieces,y0,snap.y,gIn!==null?clamp(gIn,-gmax,gmax):null,clamp(-snap.g,-gmax,gmax));}}
-    else if(vmode==='follow')profileFollow(pieces,y0,null,gmax,gIn);
+    else if(vmode==='follow')profileFollow(pieces,y0,null,gmax,gIn,sm);
     else if(vmode==='grade'){const lp=pieces[pieces.length-1],e=segPoint(lp,lp.L);const yT=clamp(ground0(e[0],e[1])+FORMATION_DROP,y0-gmax*Lt,y0+gmax*Lt);profileGrade(pieces,y0,yT,gIn!==null?clamp(gIn,-gmax,gmax):null,null);}
     else{const gs=clamp(vmode,-gmax,gmax);profileGrade(pieces,y0,y0+gs*Lt,gIn!==null?clamp(gIn,-gmax,gmax):null,gs);}
     if(bad)profileGrade(pieces,y0,y0,null,null);
@@ -334,12 +336,12 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   async runRoute(){const rt=this.rt;if(!rt.a||!rt.b||rt.busy)return;if(this.road()){this.roadRoute();return;}rt.busy=true;this.plan=null;this.preview(null);this.ui();
     this.info('Looking for a route…');const t0=performance.now();
     const res=await planRoute(rt.a,rt.b,rt.prefer,(f,d)=>this.info(`Looking for a route… ${Math.round(f*100)}%`));rt.busy=false;
-    if(!res){this.info(`No route found within the limits. Try ${rt.prefer==='scenic'?'Direct':'a closer destination'}, or allow bridges and tunnels.`);this.ui();return;}
-    const st=rt.a.node?rt.a:{...rt.a,h:res.h0};this.plan=this.plan_(st,res.pieces,rt.b.node||null,P.trackProfile);
+    if(!res){this.info(`No route found within the limits. Try ${rt.prefer==='direct'?'a closer destination':'Direct or Tunnels'}${rt.prefer==='surface'?' (Surface allows tunnels up to 50 m and bridges up to 100 m)':''}, or allow bridges and tunnels.`);this.ui();return;}
+    const st=rt.a.node?rt.a:{...rt.a,h:res.h0};this.plan=this.plan_(st,res.pieces,rt.b.node||null,rt.prefer==='tunnel'&&P.trackProfile==='follow'?'smooth':P.trackProfile);
     this.preview(this.plan.pieces,this.plan.ok,this.plan.warn);
     let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of this.plan.pieces)for(let t=0;t<=p.L;t+=8){const q=segPoint(p,t);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
     this.camGoal={x:(x0+x1)/2,z:(z0+z1)/2,dist:clamp(Math.hypot(x1-x0,z1-z0)*1.1,120,2200),pitch:1.0};
-    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, ✕ to discard, or try the ${rt.prefer==='scenic'?'direct (straight arrow)':'scenic (winding)'} route.`:''));this.ui();},
+    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, ✕ to discard, or try another way of routing.`:''));this.ui();},
   setPrefer(p){this.rt.prefer=p;this.ui();if(this.rt.a&&this.rt.b)this.runRoute();},
   routeClear(){this.rt.a=this.rt.b=null;this.plan=null;this.preview(null);this.ui();this.hint();},
   // ---- pointer: Draw captures one finger; everything else is taps (one-finger drags pan)
@@ -401,6 +403,17 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
       if(!rt.a||(rt.a&&rt.b)){if(rt.a&&rt.b){this.plan=null;this.preview(null);}rt.a=pick;rt.b=null;this.buzz();this.ui();this.hint();this.camGoal=null;}
       else{if(n&&rt.a.node&&n.id===rt.a.node.id)return;rt.b=n?{node:n,x:n.x,z:n.z}:pick.road?{x:pick.x,z:pick.z,road:pick.road}:{x:h[0],z:h[2]};this.buzz();this.runRoute();}}
   },
+  /* tap and hold (Route tool, once a start is tapped): a ring fills under the finger, then the line is routed from the start to that spot;
+     it keeps the start, so you can try one destination after another without tapping the start again */
+  holdBegin(e){if(this.mode!=='route'||this.remove||!this.rt.a||this.rt.busy||(this.road()&&Roads.tool!=='build'))return;this.holdEnd();
+    let el=document.getElementById('holdRing');if(!el){el=document.createElement('div');el.id='holdRing';el.innerHTML='<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="bg"/><circle cx="32" cy="32" r="26" class="fg"/></svg>';document.body.appendChild(el);}
+    el.style.left=e.clientX+'px';el.style.top=e.clientY+'px';el.classList.remove('go','done');void el.offsetWidth;el.classList.add('go');el.hidden=false;
+    const x=e.clientX,y=e.clientY;this.holdT=setTimeout(()=>{this.holdT=null;el.classList.add('done');setTimeout(()=>{el.hidden=true;},260);this.holdRoute(x,y);},550);},
+  holdEnd(){if(this.holdT){clearTimeout(this.holdT);this.holdT=null;const el=document.getElementById('holdRing');if(el)el.hidden=true;}},
+  holdRoute(cx,cy){const rt=this.rt;if(!Build.active||this.mode!=='route'||!rt.a)return;const h=Cam.pick(cx,cy);const n=this.endNear(cx,cy);if(!h&&!n)return;
+    if(n&&rt.a.node&&n.id===rt.a.node.id)return;
+    let b=n?{node:n,x:n.x,z:n.z}:{x:h[0],z:h[2]};if(this.road()&&!n){const q=Roads.nearestRoad(h[0],h[2],Math.max(6,Cam.dist*0.02));if(q)b={x:q.x,z:q.z,road:q.road};}
+    this.plan=null;this.preview(null);rt.b=b;this.buzz();this.runRoute();},
   // ---- shared actions
   clearAll(){if(!Track.segs.length){UI.toast('There is no track yet');return;}if(!confirm('Remove all track, signals, stations and trains? (Undo brings the track back.)'))return;this.discard(true);this.pc.cur=null;Net.clearAll();this.ui();this.hint();},
   commit(p){if(!Money.canBuild()){UI.toast('Out of money, and the bank will not lend more');return;}Track.undo.push(JSON.stringify(Track.serialize()));if(Track.undo.length>100)Track.undo.shift();

@@ -19,7 +19,9 @@ const VG={rectOf(x,z,a,def){const p=def.plot||{x0:-def.r,x1:def.r,z0:-def.r,z1:d
   segDist(sg,x,z){const ex=sg[2]-sg[0],ez=sg[3]-sg[1],ll=ex*ex+ez*ez||1e-6,t=clamp(((x-sg[0])*ex+(z-sg[1])*ez)/ll,0,1),px=sg[0]+ex*t,pz=sg[1]+ez*t;return[Math.hypot(x-px,z-pz),px,pz];}};
 const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear:1,shovel:[],farm:{season:null,jobs:[],tr:[]},villages:[],houses:[],mills:[],lamps:[],walkers:[],sk:{groups:[],game:null},sledP:[],sledH:null,vRoads:[],roads:[],stRoads:{},roadsDirty:true,animals:[],swimmers:[],boats:[],flocks:[],T:null,uploaded:false,stInfo:[],spawnT:0,
   // ---------------- generation (deterministic from the seed)
-  generate(T){const t0=performance.now();this.T=T;const N=T.N,cs=T.cs,W=T.W,rng=mulberry32((P.seed|0)*31+77);
+  /* the plain call runs it in one go; App.generate steps through it (genSteps) so the loading bar keeps moving on big maps */
+  generate(T){const g=this.genSteps(T);let r;while(!(r=g.next()).done);return r.value;},
+  *genSteps(T){const t0=performance.now();this.T=T;const N=T.N,cs=T.cs,W=T.W,rng=mulberry32((P.seed|0)*31+77);
     if(!T.vegOrig)T.vegOrig={trees:T.veg.trees.map(a=>a.slice()),rocks:T.veg.rocks.slice()};
     const veg={trees:T.vegOrig.trees.map(a=>Array.from(a)),rocks:Array.from(T.vegOrig.rocks)};
     T.flatMask=null;R.computeRenderHeights(T);
@@ -35,6 +37,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         let cx=0,cz=0;for(const n of cells){cx+=(n%N+0.5)*cs;cz+=(((n/N)|0)+0.5)*cs;}lakes.push({id,cells,area:cells.length*cs*cs,cx:cx/cells.length,cz:cz/cells.length,lvl:T.water[cells[0]*4]});}
       this.lakes=lakes;this.lakeComp=comp;}
     const bigLakeAt=(x,z)=>{const c=this.lakeComp[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)];return c>=0&&this.lakes[c].area>60000;};
+    yield [0.05,'Choosing village sites'];
     // --- village sites: flat, low, near water, apart
     const cand=[];for(let k=0;k<Math.round(2600*Math.max(1,W*W/(4096*4096)));k++){const x=170+rng()*(W-340),z=170+rng()*(W-340),h=H(x,z);if(h>P.maxHeight*0.5||wet(x,z)||onTrack(x,z))continue;
       let mn=h,mx=h,ok=true;for(let a=0;a<8;a++){const xx=x+Math.cos(a*0.785)*48,zz=z+Math.sin(a*0.785)*48,hh=H(xx,zz);mn=Math.min(mn,hh);mx=Math.max(mx,hh);if(wet(xx,zz))ok=false;}
@@ -76,7 +79,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     // plans after the old village forms of western Europe: a clustered village (Haufendorf: an irregular square, three or four bending arms,
     // forks), a street village (Strassendorf: one long street), a village green (Angerdorf: the road splits round a long green with the church
     // in it) and a hill village (streets along the contours, the church on the uphill side, steeper plots)
-    for(const v of this.villages){v.R0=v.R;v.ways=[];v.log=[];v.streets=[];
+    for(const v of this.villages){yield [0.1+0.3*this.villages.indexOf(v)/this.villages.length,'Laying out '+v.name];v.R0=v.R;v.ways=[];v.log=[];v.streets=[];
       let fall=0;{let mn=1e9,mx=-1e9;for(let a=0;a<12;a++)for(const r of [20,45]){const h=H(v.x+Math.cos(a*0.5236)*r,v.z+Math.sin(a*0.5236)*r);mn=Math.min(mn,h);mx=Math.max(mx,h);}fall=mx-mn;}
       const gx=H(v.x+25,v.z)-H(v.x-25,v.z),gz=H(v.x,v.z+25)-H(v.x,v.z-25);v.upA=Math.hypot(gx,gz)>1.5?Math.atan2(gz,gx):null;
       {const r=rng();v.plan=fall>11&&v.upA!==null?'hill':r<0.45?'cluster':r<0.72?'anger':'street';}
@@ -116,13 +119,14 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     this.links=[];if(+P.countryRoads>0&&this.villages.length>1){const V=this.villages,E=[];for(let a=0;a<V.length;a++)for(let b=a+1;b<V.length;b++){const d=Math.hypot(V[a].x-V[b].x,V[a].z-V[b].z);if(d<2600)E.push([d,a,b]);}
       E.sort((p,q)=>p[0]-q[0]);const par=V.map((_,i)=>i),fd=i=>par[i]===i?i:(par[i]=fd(par[i])),pick=[],rest=[];for(const e of E){const ra=fd(e[1]),rb=fd(e[2]);if(ra!==rb){par[ra]=rb;pick.push(e);}else rest.push(e);}
       if(+P.countryRoads>1)pick.push(...rest.filter(e=>e[0]<1100).slice(0,2));
-      for(const [,a,b] of pick){const A=V[a],B=V[b];let best=null,bd=1e9;for(const sa of A.streets)for(const ea of [[sa[0],sa[1]],[sa[2],sa[3]]])for(const sb of B.streets)for(const eb of [[sb[0],sb[1]],[sb[2],sb[3]]]){const d=Math.hypot(ea[0]-eb[0],ea[1]-eb[1]);if(d<bd){bd=d;best=[ea,eb];}}
+      for(const [pi,[,a,b]] of pick.entries()){yield [0.4+0.35*pi/pick.length,'Country roads'];const A=V[a],B=V[b];let best=null,bd=1e9;for(const sa of A.streets)for(const ea of [[sa[0],sa[1]],[sa[2],sa[3]]])for(const sb of B.streets)for(const eb of [[sb[0],sb[1]],[sb[2],sb[3]]]){const d=Math.hypot(ea[0]-eb[0],ea[1]-eb[1]);if(d<bd){bd=d;best=[ea,eb];}}
         if(!best)continue;let pts=this.routePath(best[0],best[1],{cs:Math.max(7,(bd+320)/270),margin:160,bridge:true,wind:0.6});if(!pts)pts=this.routePath(best[0],best[1],{cs:Math.max(10,(bd+640)/270),margin:320,bridge:true,wind:0.2,maxG:0.55});
         if(!pts)pts=this.routePath(best[0],best[1],{cs:Math.max(12,(bd+1400)/270),margin:700,bridge:true,wind:0.1,maxG:0.6});// long way round a lake
         if(!pts&&bd<500){const a=best[0],b=best[1],n=Math.ceil(bd/4);let ok=true;for(let q=0;q<=n&&ok;q++){const x=a[0]+(b[0]-a[0])*q/n,z=a[1]+(b[1]-a[1])*q/n,c=clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1);if(T.water[c*4+3]>0&&T.shore[c]>=0.99)ok=false;}if(ok)pts=[a,b];}
         if(!pts)Log.warn(`country road ${A.name} – ${B.name} (${bd.toFixed(0)} m) found no route`);if(pts){this.vRoads.push({p:pts.flat(),w:1.55,link:true});this.links.push(pts);}}}
     for(const r of this.vRoads){if(r.disc){killSeg(r.disc[0],r.disc[1],r.disc[0],r.disc[1],r.disc[2]);continue;}for(let i=0;i+3<r.p.length;i+=2)killSeg(r.p[i],r.p[i+1],r.p[i+2],r.p[i+3],r.w);}
     const onRoad=(x,z)=>roadKill[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)]===1;this.roadKill=roadKill;
+    yield [0.75,'Fields'];
     // --- farm fields around the villages
     const fieldFree=(f)=>{const c=Math.cos(f.a),s=Math.sin(f.a);let mn=1e9,mx=-1e9;
       for(let u=-1;u<=1;u+=0.5)for(let w=-1;w<=1;w+=0.5){const lx=u*f.hx,lz=w*f.hz,x=f.x+c*lx-s*lz,z=f.z+s*lx+c*lz;if(x<20||z<20||x>W-20||z>W-20)return false;
@@ -140,6 +144,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         for(let j=Math.floor((f.z-rad)/cs);j<=Math.ceil((f.z+rad)/cs);j++)for(let i=Math.floor((f.x-rad)/cs);i<=Math.ceil((f.x+rad)/cs);i++){if(i<0||j<0||i>=N||j>=N)continue;
           const dx=(i+0.5)*cs-f.x,dz=(j+0.5)*cs-f.z,lx=c*dx+s*dz,lz=-s*dx+c*dz;if(Math.abs(lx)<f.hx+cs*0.75&&Math.abs(lz)<f.hz+cs*0.75)fieldId[j*N+i]=id;}}}
     T.fields=fields;
+    yield [0.8,'Windmills and castles'];
     // --- windmills on open rises near the villages (and a few in the countryside)
     for(let m=0;m<P.windmills;m++){const v=this.villages.length?this.villages[m%this.villages.length]:null;let best=null;
       for(let at=0;at<40;at++){let x,z;if(v&&m<this.villages.length*2){const a=rng()*6.283,d=v.R+25+rng()*170;x=v.x+Math.cos(a)*d;z=v.z+Math.sin(a)*d;}else{x=100+rng()*(W-200);z=100+rng()*(W-200);}
@@ -163,6 +168,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
           const pts=e&&this.routePath(g,e,{cs:Math.max(7,(ed+320)/270),margin:220,bridge:true,wind:0.3,maxG:0.32});if(pts){this.vRoads.push({p:pts.flat(),w:1.5,link:true});this.vRoads.push({p:[best.x+Math.cos(rot)*(gd-8),best.z+Math.sin(rot)*(gd-8),g[0],g[1]],w:2.2});}}
         Log.info(`${c.name} on a summit at ${best.x.toFixed(0)},${best.z.toFixed(0)} (${y.toFixed(0)} m)`);}
       this.castle=this.castles[0]||null;}
+    yield [0.84,'Farms and workshops'];
     // --- farmsteads: one per village with arable fields, on the edge toward them
     for(const v of this.villages){const my=fields.filter(f=>f.v===v&&f.crop!==2);if(!my.length)continue;let cx=0,cz=0;for(const f of my){cx+=f.x;cz+=f.z;}cx/=my.length;cz/=my.length;
       const a0=Math.atan2(cz-v.z,cx-v.x);let spot=null;
@@ -197,6 +203,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
           if(this.houses.some(h=>Math.hypot(h.x-x,h.z-z)<h.r+28)||fields.some(f=>Math.hypot(f.x-x,f.z-z)<Math.hypot(f.hx,f.hz)+18)||(v.farm&&Math.hypot(v.farm.x-x,v.farm.z-z)<55))continue;const sc=-dens2(x,z)-(mx-mn)*2;if(!best||sc>best.sc)best={x,z,sc};}
         if(!best)continue;const rot=Math.atan2(v.z-best.z,v.x-best.x),yl=this.levelPlot(T,best.x,best.z,rot,17,13,9,flatMask,flatH);this.workshops.push({x:best.x,z:best.z,rot,v,y:yl});clearZones.push([best.x,best.z,32]);
         const pts=this.routePath([best.x+Math.cos(rot)*14,best.z+Math.sin(rot)*14],[v.x,v.z],{cs:6,margin:100,bridge:true,wind:0.2,maxG:0.3});if(pts)this.vRoads.push({p:pts.flat(),w:1.4,kind:1});}}
+    yield [0.88,'Mines and sawmills'];
     // --- mines: 60% of villages have a gold, silver or diamond lode in the hills nearby (a village upgrade)
     this.mines=[];{const mr=mulberry32((P.seed|0)*7919+13);for(const v of this.villages){if(mr()>0.6)continue;const type=['gold','silver','diamond'][Math.floor(mr()*3)],hv=H(v.x,v.z);let best=null;
       for(let k=0;k<70;k++){const a=mr()*6.283,r=v.R+160+mr()*380,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;if(x<60||z<60||x>W-60||z>W-60)continue;let mn=1e9,mx=-1e9,ok=true;
@@ -211,6 +218,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     this.placeSawmills(T,{H,wet,onRoad,onTrack,fields,flatMask,flatH,clearZones,oldSaw,order:[...sawOrder,...this.villages.filter(v=>!sawOrder.includes(v))]});
     // --- sledding slopes: pick open runs near the villages now and keep them free of trees
     const sledKill=new Uint8Array(N*N);this.sledH=this.findHills(true,fieldId);for(const hl of this.sledH)for(const p of hl.pts){const r=8;for(let j=Math.floor((p[1]-r)/cs);j<=Math.floor((p[1]+r)/cs);j++)for(let i=Math.floor((p[0]-r)/cs);i<=Math.floor((p[0]+r)/cs);i++)if(i>=0&&j>=0&&i<N&&j<N)sledKill[j*N+i]=1;}
+    yield [0.94,'Clearing trees'];
     // --- clear trees out of villages, plots and fields
     const inField=(x,z)=>{const id=fieldId[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)];return id>0;};
     let cleared=0;const clearArr=(arr,isRock)=>{for(let k=0;k<arr.length;k+=8){const x=arr[k],z=arr[k+2];let kill=inField(x,z);

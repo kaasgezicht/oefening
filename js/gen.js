@@ -112,15 +112,15 @@ async function genTerrain(p,y){
   let mn=1e9,mx=-1e9;
   for(let j=0;j<N;j++){
     for(let i=0;i<N;i++){const v=fn((i+0.5)*cs,(j+0.5)*cs,o);raw[j*N+i]=v;mmA[j*N+i]=o.mm;if(v<mn)mn=v;if(v>mx)mx=v;}
-    await y(j/N,'Shaping terrain');
+    await y(j/N*0.6,'Shaping terrain');
   }
   const norm={min:mn,max:mx};
   const H=new Float32Array(N*N);
   for(let k=0;k<N*N;k++)H[k]=shapeHeight(raw[k],norm,p,mmA[k]);
-  const BM=bigMountains(p);if(BM)for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,r=BM.at(x,z);if(r.h>0){r.h*=smooth(0,W*0.09,Math.min(x,z,W-x,W-z));H[k]+=r.h;mmA[k]=Math.max(mmA[k],r.m);}}if(j%32===0)await y(j/N,'Raising the big mountains');}
+  const BM=bigMountains(p);if(BM)for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,r=BM.at(x,z);if(r.h>0){r.h*=smooth(0,W*0.09,Math.min(x,z,W-x,W-z));H[k]+=r.h;mmA[k]=Math.max(mmA[k],r.m);}}if(j%32===0)await y(0.6+j/N*0.25,'Raising the big mountains');}
   /* island styles: the land is lifted onto a coastline mask and the rest sinks into an ocean whose surface is SEA_LEVEL; the outermost
      cells are held at sea level so the whole ocean becomes one basin that the water pass fills to that level (see genWater: T.sea) */
-  const sea=await coastShape(p,H,mmA,N,cs,W,y);
+  const sea=await coastShape(p,H,mmA,N,cs,W,(f,l)=>y(0.85+f*0.15,l));
   return {N,W,cs,H,mm:mmA,norm,bigMtns:BM?BM.list:null,sea};
 }
 
@@ -243,7 +243,7 @@ async function genWater(p,T,y){
       // trace the outlet along the steepest way down (on flat filled ground that is a ruler-straight line), then round it off and let it
       // meander: a sideways swing that grows from the lake, with a wavelength and phase of its own, carved along the curve with a falling floor
       const path=[];let c=d.minC,cur=L,steps=0;
-      while(c>=0&&steps<N*4){steps++;if(D.comp[c]!==id&&H[c]<=cur)break;path.push([(c%N)+0.5,((c/N)|0)+0.5,cur,D.comp[c]===id]);if(D.comp[c]!==id)cur-=0.03*cs;c=rc0[c];}
+      while(c>=0&&steps<N*4){steps++;if(D.comp[c]!==id&&H[c]<=cur)break;if(D.comp[c]>=0&&D.list[D.comp[c]].sea)break;/* the outlet reaches the ocean: it must not trench across the sea floor and through the rim */path.push([(c%N)+0.5,((c/N)|0)+0.5,cur,D.comp[c]===id]);if(D.comp[c]!==id)cur-=0.03*cs;c=rc0[c];}
       if(path.length<2)continue;const n=path.length,sm=path.map((q,i)=>{let x=0,z=0,k=0;for(let j=Math.max(0,i-4);j<=Math.min(n-1,i+4);j++){x+=path[j][0];z+=path[j][1];k++;}return[x/k,z/k];});
       const rg=mulberry32((p.seed|0)*97+id*13+5),lam=26+rg()*18,ph=rg()*6.283,amp=Math.min(6,n/8)*(0.7+rg()*0.5);let sl=0,first=path.findIndex(q=>!q[3]);if(first<0)first=n;
       const pts=[];for(let i=0;i<n;i++){if(i>0)sl+=Math.hypot(sm[i][0]-sm[i-1][0],sm[i][1]-sm[i-1][1]);const a=sm[Math.max(0,i-2)],b=sm[Math.min(n-1,i+2)];let tx=b[0]-a[0],tz=b[1]-a[1];const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
@@ -256,6 +256,7 @@ async function genWater(p,T,y){
             const v=cv+Math.max(0,Math.hypot(x+0.5-px,yy+0.5-pz)-0.7)*wallT;if(H[nn]>v)H[nn]=v;}}}
     }
     T.stats.carvedCells=carved;
+    if(T.sea!=null)for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])H[c]=T.sea;/* no gorge may drain the ocean over the board's edge */
   }
   await y(0.12,'Finding lakes');
   const Fx=priorityFlood(H,N,0).F;const DL=depr(Fx);

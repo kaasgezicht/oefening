@@ -98,7 +98,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     if(from===4&&this.T){this.busy=true;try{const T=this.T;Life.generate(T);R.refreshGround(T);if(R.buildStreams)R.buildStreams(T);Weather.setWorld(T);}catch(e){Log.err('villages failed: '+(e.stack||e));}this.busy=false;
       if(this.pendingFrom<99){const f=this.pendingFrom;this.pendingFrom=99;this.generate(f);}return;}
     this.busy=true;const t0=performance.now(),show=from<=2;const times=[];
-    const W={0:[0,0.12],1:[0.12,0.6],2:[0.72,0.16],3:[0.88,0.12]};let st=W[from];
+    const W={0:[0,0.08],1:[0.08,0.36],2:[0.44,0.1],3:[0.54,0.08]};/* the villages take the rest (0.62-0.96): on a 16 km map they are a third of the time */let st=W[from];
     const y=makeYielder((f,l)=>{if(show)UI.progress(true,st[0]+f*st[1],l);});
     if(show)UI.progress(true,0,'Starting');await new Promise(r=>setTimeout(r,30));
     try{
@@ -115,8 +115,10 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
       st=W[3];if(from<=3){await genVegetation(P,T,y);T.vegOrig=null;T.Hr=null;times.push('vegetation '+(performance.now()-t).toFixed(0));t=performance.now();
         if(+P.worldCache!==0&&!Bench.on)WorldCache.store(ckey||WorldCache.key(P),T);}
       }
-      if(show)UI.progress(true,0.97,'Villages and fields');await new Promise(r=>setTimeout(r,0));
-      Life.generate(T);times.push('villages '+(performance.now()-t).toFixed(0));
+      if(show)UI.progress(true,0.62,'Villages and fields');await new Promise(r=>setTimeout(r,0));
+      {const g=Life.genSteps(T);let r,last=Date.now();while(!(r=g.next()).done){const [f,l]=r.value;if(show&&Date.now()-last>40){UI.progress(true,0.62+f*0.34,l);await new Promise(q=>setTimeout(q,0));last=Date.now();}}}
+      if(show){UI.progress(true,0.97,'Building the 3D world');await new Promise(q=>setTimeout(q,0));}
+      times.push('villages '+(performance.now()-t).toFixed(0));
       this.T=T;R.uploadWorld(T);Weather.setWorld(T);if(this.pendingTrains){Trains.load(this.pendingTrains);this.pendingTrains=null;}else Trains.trackChanged();
       const s=T.stats;Log.info(`generate(from ${from}) ${(performance.now()-t0).toFixed(0)} ms [${times.join(', ')}] seed ${P.seed} ${T.W}m/${T.N}px lakes ${s.lakes} riverCells ${s.riverCells} falls ${s.fallCells} gorgeCells ${s.carvedCells||0} trees ${s.trees} bushes ${s.bushes} rocks ${s.rocks}`);
       $('#worldinfo').textContent=`Seed ${P.seed}: ${T.W/1000} km world, ${s.lakes} lakes, ${s.villages} villages with ${s.houses} houses, ${s.fields} fields, ${s.mills} windmills, ${s.trees.toLocaleString()} trees.`;

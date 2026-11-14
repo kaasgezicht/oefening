@@ -73,10 +73,11 @@ function initInput(cv){
   const pinfo=()=>{const a=[...pts.values()];if(a.length<2)return null;const cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2;return{cx,cy,d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),ang:Math.atan2(a[1].y-a[0].y,a[1].x-a[0].x)};};
   const pan=camPan;
   cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId);}catch(err){}
+    if(Build.active){Build.holdEnd();if(pts.size===0&&e.button===0)Build.holdBegin(e);}/* hold to route (Route tool) */
     const tool=Build.active?Build:Drive.active?Drive:null;if(tool){if(pts.size===0&&e.button===0&&tool.down(e))buildPtr=e.pointerId;else if(buildPtr!==null){tool.cancel();buildPtr=null;}}
     pts.set(e.pointerId,{x:e.clientX,y:e.clientY,b:e.button,shift:e.shiftKey});Cam.anim=null;Input.vel=null;Input.spin=0;Input.live=false;g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;downAt=performance.now();moved=0;TouchLog.ev(e,pts);});
   cv.addEventListener('pointermove',e=>{const p=pts.get(e.pointerId);if(!p)return;
-    if(e.pointerId===buildPtr){(Build.active?Build:Drive).move(e);p.x=e.clientX;p.y=e.clientY;return;}const dx=e.clientX-p.x,dy=e.clientY-p.y;moved+=Math.abs(dx)+Math.abs(dy);
+    if(e.pointerId===buildPtr){(Build.active?Build:Drive).move(e);p.x=e.clientX;p.y=e.clientY;return;}const dx=e.clientX-p.x,dy=e.clientY-p.y;moved+=Math.abs(dx)+Math.abs(dy);if(moved>=12&&Build.holdT)Build.holdEnd();
     // one finger pans, two fingers rotate (twist), tilt (move up/down together) and zoom (pinch); mouse: left pans, right rotates
     if(pts.size===1){if(p.b===2||p.shift||e.buttons===2){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else if(Cam.mode==='cab'||Cam.mode==='coach'){Cam.lookYaw-=dx*0.005;Cam.lookPitch=clamp(Cam.lookPitch-dy*0.004,-0.8,0.6);}else if(Cam.mode!=='free'){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else grabPan(p.x,p.y,e.clientX,e.clientY);}
     p.x=e.clientX;p.y=e.clientY;
@@ -101,7 +102,7 @@ function initInput(cv){
     if(zoomOK){const f=Math.exp(-ds),Q=groundUnder(n.cx,n.cy);Cam.dist=clamp(Cam.dist*f,8,MapView.on&&App.T?App.T.W*2.4:7000);if(Q&&Cam.mode==='free'){Cam.target[0]=Q[0]+(Cam.target[0]-Q[0])*f;Cam.target[2]=Q[2]+(Cam.target[2]-Q[2])*f;}}
     if(par)Cam.pitch=clamp(Cam.pitch+par*0.0065,-0.2,1.55);
     TouchLog.frame(par?(rotOK||zoomOK?'tilt+twist':'tilt'):'twist',{da,ds,dx,dy});g=n;};
-  const up=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;Input.live=false;TouchLog.ev(e,pts);
+  const up=e=>{if(!pts.has(e.pointerId))return;if(Build.holdT)Build.holdEnd();pts.delete(e.pointerId);g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;Input.live=false;TouchLog.ev(e,pts);
     if(pts.size===0){const now2=performance.now();if(Input.pv&&now2-Input.pvT<90&&Math.hypot(Input.pv[0],Input.pv[1])>2)Input.vel=Input.pv.slice();Input.pv=null;if(Math.abs(Input.spin)<0.3)Input.spin=0;}else Input.spin=0;
     if(e.pointerId===buildPtr){buildPtr=null;const tl=Build.active?Build:Drive;if(e.type==='pointerup')tl.up(e);else tl.cancel();return;}
     const now=performance.now();if(Build.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Build.tap(e);return;}

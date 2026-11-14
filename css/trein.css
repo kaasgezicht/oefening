@@ -121,7 +121,10 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .actions button{min-height:40px;padding:8px 12px;font-size:13px}
 #prog{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);background:#1e3b30f2;padding:16px 18px 14px;border-radius:12px;width:min(300px,80vw);display:none;box-shadow:0 6px 24px #000a;border:1px solid #c9a14a40}
 #progLabel{font-size:13.5px}
-#prog .bar{height:6px;background:#0006;border-radius:3px;margin-top:10px;overflow:hidden}
+#prog .bar{height:6px;background:#0006;border-radius:3px;margin-top:10px;overflow:hidden;position:relative}
+/* a light sweeping along the bar: a compositor animation, so it keeps moving even while a long step holds the page */
+#prog .bar::after{content:'';position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,#fff0,#fff5,#fff0);animation:progSweep 1.3s linear infinite;will-change:transform}
+@keyframes progSweep{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
 #progBar{display:block;height:100%;background:var(--brass);width:0;transition:width .15s}
 #toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translate(-50%,10px);background:var(--coal);border:1px solid #c9a14a59;color:var(--paper);padding:9px 14px;border-radius:10px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;font-size:13.5px;max-width:86vw}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -203,3 +206,10 @@ body.flying #plHud,body.roaddrive #rvHud{top:calc(102px + env(safe-area-inset-to
 #airMis{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:18;width:min(94vw,420px);max-height:60vh;overflow:auto;background:#15191aeb;border:1px solid #c9a14a88;border-radius:14px;padding:9px 12px;color:#f1e7d0;font:13px system-ui;display:flex;flex-direction:column;gap:6px}
 #airMis[hidden]{display:none}#airMis button{font:600 14px system-ui;padding:9px 10px;border-radius:10px;border:1px solid #c9a14a90;background:#22292a;color:#f1e7d0;text-align:left}
 #airMis button.mis i{display:inline-block;min-width:20px;text-align:center;border-radius:6px;color:#111;font-style:normal;font-weight:800;margin-right:4px}
+
+/* tap and hold to route: a ring that fills under the finger */
+#holdRing{position:fixed;width:64px;height:64px;margin:-32px 0 0 -32px;pointer-events:none;z-index:45}
+#holdRing svg{width:100%;height:100%;transform:rotate(-90deg)}
+#holdRing circle{fill:none;stroke-width:6}#holdRing .bg{stroke:#0007}#holdRing .fg{stroke:var(--brass);stroke-linecap:round;stroke-dasharray:163.4;stroke-dashoffset:163.4}
+#holdRing.go .fg{animation:holdFill .55s linear forwards}#holdRing.done{transition:transform .25s,opacity .25s;transform:scale(1.35);opacity:0}
+@keyframes holdFill{to{stroke-dashoffset:0}}

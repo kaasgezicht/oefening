@@ -10,15 +10,19 @@
 async function planRoute(a,b,prefer,progress){
   const T=R.world,Rmin=Math.max(P.minRadius,20),Rg=Math.max(Rmin*2.4,170),STEP=16,gmax=P.maxGrade/100,W=T.W,M=14;
   const KS=[0,1/Rg,-1/Rg,1/Rmin,-1/Rmin];
-  const w=prefer==='direct'?{earth:0.18,tunnel:2.2,bridge:1.8,curve:0.12,heur:1.6}:{earth:0.6,tunnel:7,bridge:5,curve:0.35,heur:1.35};
+  /* four ways to weigh a line: scenic (winding round the hills), direct (short, earthworks are cheap), tunnel (straight through the hills on a
+     smooth grade: tunnels are cheap, the line does not follow every rise) and surface (hug the ground; tunnels only 10-50 m long, bridges at most 100 m) */
+  const w=prefer==='direct'?{earth:0.18,tunnel:2.2,bridge:1.8,curve:0.12,heur:1.6}:prefer==='tunnel'?{earth:0.5,tunnel:0.35,bridge:1.6,curve:0.15,heur:1.6}
+    :prefer==='surface'?{earth:1.1,tunnel:2.5,bridge:2.5,curve:0.25,heur:1.3}:{earth:0.6,tunnel:7,bridge:5,curve:0.35,heur:1.35};
+  const SURF=prefer==='surface',TUN=prefer==='tunnel',TMAX=50,BMAX=100;
   const gx=b.x,gz=b.z,gh=b.node?wrapPi(b.node.h+Math.PI):null;
-  const CELL=7,NH=36,key=(x,z,h)=>((Math.round(x/CELL)*1000+Math.round(z/CELL))*NH)+((Math.round(wrapPi(h)/(2*Math.PI)*NH)+NH)%NH);
+  const CELL=7,NH=36,key=(x,z,h,r)=>(((Math.round(x/CELL)*1000+Math.round(z/CELL))*NH)+((Math.round(wrapPi(h)/(2*Math.PI)*NH)+NH)%NH))*16+(r||0);/* r: how far into a tunnel / over a bridge (surface mode) */
   const nodes=[],best=new Map(),heap=new MinHeap(400000);
   const H=(x,z)=>Math.hypot(gx-x,gz-z);
   const push=(n)=>{nodes.push(n);const id=nodes.length-1;heap.push(id,n.g+w.heur*H(n.x,n.z));};
   const g0=(x,z)=>ground0(x,z)+FORMATION_DROP;
-  if(a.node)push({x:a.x,z:a.z,h:a.h,y:a.y,g:0,k:0,p:-1});
-  else for(let i=0;i<24;i++)push({x:a.x,z:a.z,h:i/24*2*Math.PI,y:a.y,g:0,k:0,p:-1});
+  if(a.node)push({x:a.x,z:a.z,h:a.h,y:a.y,g:0,k:0,p:-1,tr:0,br:0});
+  else for(let i=0;i<24;i++)push({x:a.x,z:a.z,h:i/24*2*Math.PI,y:a.y,g:0,k:0,p:-1,tr:0,br:0});
   let found=-1,join=null,exp=0,last=performance.now();const LIM=90000;
   const okJoin=(bb,d)=>bb&&bb.length&&bb.every(q=>Math.abs(q.k)<=1/Rmin*1.02&&Math.abs(q.k*q.L)<2.2)&&bb.reduce((s,q)=>s+q.L,0)<d*1.6+20;
   while(heap.n&&exp<LIM){
@@ -29,16 +33,18 @@ async function planRoute(a,b,prefer,progress){
       else if(d<STEP*1.05){const ac=arcThrough(n.x,n.z,n.h,gx,gz);if(ac&&Math.abs(ac.k)<=1/Rmin){found=id;join=[{x0:n.x,z0:n.z,h0:n.h,k:ac.k,L:ac.L}];break;}}}
     for(const k of KS){const pc={x0:n.x,z0:n.z,h0:n.h,k,L:STEP},e=segPoint(pc,STEP);
       if(e[0]<M||e[1]<M||e[0]>W-M||e[1]>W-M)continue;const m=segPoint(pc,STEP/2);
-      const gm=g0(m[0],m[1]),ge=g0(e[0],e[1]);const y1=clamp(ge,n.y-gmax*STEP,n.y+gmax*STEP),ym=(n.y+y1)/2;
+      const gm=g0(m[0],m[1]),ge=g0(e[0],e[1]);const y1=clamp(TUN?n.y+(ge-n.y)*0.2:ge,n.y-gmax*STEP,n.y+gmax*STEP),ym=(n.y+y1)/2;/* tunnel mode: the height lags the ground, as the smoothed profile will */let tr=n.tr,br=n.br;
       let cost=STEP+w.curve*Math.abs(k)*Rmin*STEP+(k!==n.k?3:0)+(Math.sign(k)*Math.sign(n.k)<0?6:0);
       for(const [yy,gg,q] of [[ym,gm,m],[y1,ge,e]]){const dd=yy-gg,wt=waterAt0(q[0],q[1]);let c;
-        if(wt[1]>0){if(!P.trackBridges){c=Infinity;}else c=w.bridge*STEP/2;}
-        else if(dd>0)c=dd<P.bridgeMin||!P.trackBridges?dd*dd*w.earth*STEP/8:w.bridge*STEP/2+dd*0.3;
-        else c=-dd<P.tunnelMin||!P.trackTunnels?dd*dd*w.earth*STEP/8:w.tunnel*STEP/2;
+        let kind=0;/* 1 bridge, 2 tunnel */
+        if(wt[1]>0){if(!P.trackBridges){c=Infinity;}else{c=w.bridge*STEP/2;kind=1;}}
+        else if(dd>0){if(dd<P.bridgeMin||!P.trackBridges)c=dd*dd*w.earth*STEP/8;else{c=w.bridge*STEP/2+dd*0.3;kind=1;}}
+        else{if(-dd<P.tunnelMin||!P.trackTunnels)c=dd*dd*w.earth*STEP/8;else{c=w.tunnel*STEP/2;kind=2;}}
+        br=kind===1?br+STEP/2:0;tr=kind===2?tr+STEP/2:0;if(SURF&&(br>BMAX||tr>TMAX))c=Infinity;
         cost+=c;}
       if(!isFinite(cost))continue;
-      const ng=n.g+cost,kk=key(e[0],e[1],e[2]);const prev=best.get(kk);if(prev!==undefined&&prev<=ng)continue;best.set(kk,ng);
-      push({x:e[0],z:e[1],h:e[2],y:y1,g:ng,k,p:id});}
+      const ng=n.g+cost,kk=key(e[0],e[1],e[2],SURF?Math.min(3,Math.ceil(tr/16))*4+Math.min(3,Math.ceil(br/34)):0);const prev=best.get(kk);if(prev!==undefined&&prev<=ng)continue;best.set(kk,ng);
+      push({x:e[0],z:e[1],h:e[2],y:y1,g:ng,k,p:id,tr,br});}
     if(performance.now()-last>18){progress&&progress(exp/LIM,d);await new Promise(r=>setTimeout(r,0));last=performance.now();}
   }
   Log.info(`route search: ${exp} steps, ${found>=0?'found':'no route'} (${prefer})`);
