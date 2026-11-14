@@ -11,7 +11,7 @@ const PL={span:9.75,len:8.18,S:27.5,m:1900,P:336000,cg:[0,0,0],
 const PLANE_PARTS={};
 function planeMeshes(){
   const RD=[0.80,0.045,0.035],RDd=[0.55,0.03,0.025],MR=[0.30,0.025,0.04],GD=[0.96,0.74,0.30],CH=[0.92,0.92,0.94],AL=[0.62,0.62,0.64],BK=[0.04,0.04,0.045],
-    TY=[0.05,0.05,0.055],GLs=[0.55,0.62,0.66],INT=[0.40,0.34,0.28],SEAT=[0.33,0.19,0.12],DK=[0.12,0.12,0.13],ENG=[0.30,0.30,0.32],SKIN=[0.86,0.63,0.50],
+    TY=[0.05,0.05,0.055],GLs=[0.55,0.62,0.66],INT=[0.17,0.15,0.13],SEAT=[0.22,0.12,0.08],DK=[0.12,0.12,0.13],ENG=[0.30,0.30,0.32],SKIN=[0.86,0.63,0.50],
     SHIRT=[0.14,0.28,0.66],SHIRT2=[0.85,0.85,0.82],HAIR=[0.25,0.18,0.12],PAINT=11,CHROME=10,GLASS=2,MATTE=3,INTM=7;
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k],
     crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];},lerp=(a,b,t)=>a+(b-a)*t;
@@ -154,7 +154,7 @@ function planeMeshes(){
     for(const sd of [-1,1])for(let k=0;k<5;k++)surf(M,(u,v)=>[-0.08-k*0.065-u*0.045,0.98+v*0.12,sd*0.022],[0,1],[0,1],()=>[GD,PAINT]);
     parts.rud={o:[xH,0,0],ax:[0,1,0],M};}
   // ---------------------------------------------------------------- cabin interior (seen through the glass)
-  {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});
+  {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>inWS(x,th)||sideWin(x,th)?null:Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});/* open where the windows are */
     surf(body,(x,z)=>[x,-0.42,z],[-1.0,1.5],[-0.55,0.55],()=>[DK,MATTE]);// floor
     // instrument panel with gauges, glare shield, throw-over yoke
     surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.58,0.58],[0.1,0.5],()=>[DK,MATTE]);

@@ -7,12 +7,12 @@
 // window frames are thin decals a few millimetres proud of the skin. Parts that move are separate meshes; their hinges are in PLANE_PARTS.
 const PL={span:9.75,len:8.18,S:27.5,m:1900,P:336000,cg:[0,0,0],
   // contact points in body frame (gear down): left/right main wheels, tailwheel (about 11.6° nose up on the ground); gear up: the belly
-  wheels:[[1.15,-1.9,-1.0],[1.15,-1.9,1.0],[-4.45,-0.75,0]],belly:[[1.1,-0.95,-0.7],[1.1,-0.95,0.7],[-4.4,-0.2,0],[2.4,-0.8,0]],
-  gearHinge:[1.05,-0.78],gearZ:1.0,propX:3.07,eye:[0.5,0.6,-0.27]};
+  wheels:[[1.15,-1.81,-1.0],[1.15,-1.81,1.0],[-4.45,-0.75,0]],belly:[[1.1,-0.95,-0.7],[1.1,-0.95,0.7],[-4.4,-0.2,0],[2.4,-0.8,0]],
+  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.52,0.6,-0.27]};
 const PLANE_PARTS={};
 function planeMeshes(){
   const RD=[0.80,0.045,0.035],RDd=[0.55,0.03,0.025],MR=[0.30,0.025,0.04],GD=[0.96,0.74,0.30],CH=[0.92,0.92,0.94],AL=[0.62,0.62,0.64],BK=[0.04,0.04,0.045],
-    TY=[0.05,0.05,0.055],GLs=[0.55,0.62,0.66],INT=[0.40,0.34,0.28],SEAT=[0.33,0.19,0.12],DK=[0.12,0.12,0.13],ENG=[0.30,0.30,0.32],SKIN=[0.86,0.63,0.50],
+    TY=[0.05,0.05,0.055],GLs=[0.55,0.62,0.66],INT=[0.17,0.15,0.13],SEAT=[0.22,0.12,0.08],DK=[0.12,0.12,0.13],ENG=[0.30,0.30,0.32],SKIN=[0.86,0.63,0.50],
     SHIRT=[0.14,0.28,0.66],SHIRT2=[0.85,0.85,0.82],HAIR=[0.25,0.18,0.12],PAINT=11,CHROME=10,GLASS=2,MATTE=3,INTM=7;
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k],
     crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];},lerp=(a,b,t)=>a+(b-a)*t;
@@ -40,10 +40,10 @@ function planeMeshes(){
   // ---------------------------------------------------------------- fuselage: one loft from the cowling lip to the rudder hinge
   // sections are superellipses: centre height, half height, half width, exponent (2 = round at the cowling, squarer along the cabin)
   const xLip=3.02,xTail=-4.62,xCowl=1.95;
-  const cowlR=mono([[3.02,0.625],[2.98,0.655],[2.9,0.678],[2.75,0.69],[2.4,0.686],[2.1,0.678],[1.95,0.672]]);
-  const yT=mono([[1.95,0.672],[1.78,0.69],[1.6,0.72],[1.35,0.82],[1.1,0.93],[0.9,0.98],[0.4,0.995],[-0.3,0.985],[-0.85,0.93],[-1.5,0.82],[-2.4,0.67],[-3.4,0.52],[-4.2,0.42],[-4.62,0.385]]);
-  const yB=mono([[1.95,-0.672],[1.7,-0.715],[1.2,-0.765],[0.0,-0.775],[-0.8,-0.735],[-1.8,-0.6],[-3.0,-0.37],[-4.0,-0.13],[-4.62,0.04]]);
-  const hW=mono([[1.95,0.672],[1.6,0.665],[1.0,0.64],[0.2,0.605],[-0.6,0.555],[-1.6,0.455],[-2.8,0.325],[-3.8,0.205],[-4.3,0.13],[-4.62,0.075]]);
+  const cowlR=mono([[3.02,0.58],[2.98,0.607],[2.9,0.628],[2.75,0.64],[2.4,0.637],[2.1,0.63],[1.95,0.625]]);
+  const yT=mono([[1.95,0.625],[1.78,0.64],[1.6,0.665],[1.35,0.74],[1.1,0.82],[0.9,0.86],[0.4,0.87],[-0.3,0.86],[-0.85,0.82],[-1.5,0.74],[-2.4,0.62],[-3.4,0.5],[-4.2,0.42],[-4.62,0.385]]);
+  const yB=mono([[1.95,-0.625],[1.7,-0.65],[1.2,-0.675],[0.0,-0.68],[-0.8,-0.65],[-1.8,-0.54],[-3.0,-0.34],[-4.0,-0.12],[-4.62,0.04]]);
+  const hW=mono([[1.95,0.625],[1.6,0.62],[1.0,0.6],[0.2,0.575],[-0.6,0.555],[-1.6,0.455],[-2.8,0.325],[-3.8,0.205],[-4.3,0.13],[-4.62,0.075]]);
   const eX=mono([[1.95,2.0],[1.55,2.4],[0.9,2.9],[-0.5,2.9],[-2.0,2.5],[-4.62,2.2]]);
   const sec=x=>{if(x>=xCowl){const r=cowlR(x);return[0,r,r,2];}const t=yT(x),b=yB(x);return[(t+b)/2,(t-b)/2,hW(x),eX(x)];};
   const pw=(c,e)=>Math.sign(c)*Math.pow(Math.abs(c),2/e);
@@ -54,7 +54,7 @@ function planeMeshes(){
   const side=(x,y,sd,off)=>{const s=sec(x);let q=clamp((y-s[0])/s[1],-0.999,0.999);const th=Math.asin(Math.sign(q)*Math.pow(Math.abs(q),s[3]/2)),thS=sd>0?th:Math.PI-th;
     return add(F(x,thS),mul(outN(x,thS),off||0));};
   // windows (side view, right side; mirrored on the left) and the windscreen; the skin is left open there, glass and frames go on top
-  const W1=[[1.33,0.31],[1.21,0.79],[1.0,0.875],[0.13,0.875],[0.13,0.31]],W2=[[0.02,0.31],[0.02,0.875],[-0.5,0.85],[-0.92,0.66],[-0.95,0.42],[-0.78,0.31]];
+  const W1=[[1.33,0.27],[1.2,0.68],[1.0,0.76],[0.13,0.76],[0.13,0.27]],W2=[[0.02,0.27],[0.02,0.76],[-0.5,0.74],[-0.92,0.58],[-0.95,0.37],[-0.78,0.27]];
   const inPoly=(P,x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;};
   const wsX=th=>1.585-0.26*Math.pow(Math.cos(th),2),wsT=0.62;// windscreen: from the roof (x 0.97) down to this line; across the top between θ 0.62 and π-0.62
   const inWS=(x,th)=>x>0.97&&x<wsX(th)&&th>wsT&&th<Math.PI-wsT;
@@ -80,29 +80,29 @@ function planeMeshes(){
   const d0=body.n;
   for(const sd of [-1,1]){
     // the lightning bolt: from the cowling back along the side, a sharp step forward and down under the cabin, then aft, narrowing to the tail
-    const bolt=[[2.9,0.29],[1.33,0.215],[1.55,0.0],[0.2,-0.07],[-1.2,-0.1],[-2.8,0.0],[-4.35,0.17]];
+    const bolt=[[2.9,0.26],[1.33,0.19],[1.55,-0.01],[0.2,-0.07],[-1.2,-0.09],[-2.8,0.0],[-4.35,0.17]];
     for(const [dy,hw,col] of [[0.064,0.008,GD],[0.03,0.024,MR],[-0.004,0.008,GD],[-0.033,0.013,MR],[-0.054,0.006,GD]])ribbon(body,bolt,dy,hw*(1),col,PAINT,sd,0.006);
     // the cowling's speed lines: a dark-red band with gold edges stepping back from the lip
-    for(const [dy,hw,col] of [[0.0,0.018,MR],[0.026,0.005,GD],[-0.026,0.005,GD]])ribbon(body,[[2.97,0.47],[2.55,0.47],[2.45,0.39],[2.0,0.39]],dy,hw,col,PAINT,sd,0.006);
+    for(const [dy,hw,col] of [[0.0,0.018,MR],[0.026,0.005,GD],[-0.026,0.005,GD]])ribbon(body,[[2.97,0.43],[2.55,0.43],[2.45,0.36],[2.0,0.36]],dy,hw,col,PAINT,sd,0.006);
     // window frames (red mouldings over the cut edges of the skin)
     for(const W of [W1,W2])ribbon(body,[...W,W[0],W[1]],0,0.03,RDd,PAINT,sd,0.01);}
   // windscreen frame: along its bottom edge and its sides (in loft coordinates)
-  {const fr=(pts)=>{let prv=null;for(const [x,th] of pts){const n=outN(x,th),p=add(F(x,th),mul(n,0.01)),tg=nrm(crs(n,[1,0,0])),a=add(p,mul(tg,0.028)),b=add(p,mul(tg,-0.028)),q=[V(body,a,n,RDd,PAINT),V(body,b,n,RDd,PAINT)];if(prv)body.i.push(prv[0],prv[1],q[1],prv[0],q[1],q[0]);prv=q;}};
+  {const fr=(pts)=>{let prv=null;for(const [x,th] of pts){const n=outN(x,th),p=add(F(x,th),mul(n,0.01)),tg=nrm(crs(n,[1,0,0])),a=add(p,mul(tg,0.016)),b=add(p,mul(tg,-0.016)),q=[V(body,a,n,RDd,PAINT),V(body,b,n,RDd,PAINT)];if(prv)body.i.push(prv[0],prv[1],q[1],prv[0],q[1],q[0]);prv=q;}};
     const bot=[];for(let k=0;k<=40;k++){const th=wsT+(Math.PI-2*wsT)*k/40;bot.push([wsX(th),th]);}const fb=[];for(const [x,th] of bot){const n=outN(x,th),p=add(F(x,th),mul(n,0.01)),d=nrm(sub(F(x+0.03,th),F(x-0.03,th)));fb.push([p,n,d]);}
     let prv=null;for(const [p,n,d] of fb){const q=[V(body,add(p,mul(d,0.03)),n,RDd,PAINT),V(body,add(p,mul(d,-0.03)),n,RDd,PAINT)];if(prv)body.i.push(prv[0],prv[1],q[1],prv[0],q[1],q[0]);prv=q;}
     for(const th of [wsT,Math.PI-wsT,Math.PI/2]){const pts=[];for(let k=0;k<=12;k++){const x=lerp(0.96,wsX(th),k/12);pts.push([x,th]);}if(th===Math.PI/2)continue;fr(pts);}}
   decalNormals(body,d0);
   // ---------------------------------------------------------------- cowling lip, engine, exhausts
   // the lip turns in from the outer skin to the opening; a polished ring at its front, dark inside
-  revolve(body,[[3.02,0.625],[3.04,0.6],[3.045,0.575],[3.035,0.55],[3.0,0.528],[2.9,0.52],[2.7,0.515]],48,(u)=>u<1?[RD,PAINT]:u<2.5?[GD,CHROME]:u<3.5?[RDd,PAINT]:[DK,MATTE]);
-  revolve(body,[[2.72,0.52],[2.72,0.24]],32,()=>[DK,MATTE]);// baffle behind the cylinders
+  revolve(body,[[3.02,0.58],[3.04,0.557],[3.045,0.535],[3.035,0.512],[3.0,0.49],[2.9,0.483],[2.7,0.478]],48,(u)=>u<1?[RD,PAINT]:u<2.5?[GD,CHROME]:u<3.5?[RDd,PAINT]:[DK,MATTE]);
+  revolve(body,[[2.72,0.48],[2.72,0.24]],32,()=>[DK,MATTE]);// baffle behind the cylinders
   revolve(body,[[2.7,0.25],[2.86,0.25],[2.98,0.2],[3.02,0.15]],20,()=>[ENG,1]);// crankcase and nose case
   for(let k=0;k<9;k++){const a=k/9*Math.PI*2+0.17,c=Math.cos(a),s=Math.sin(a),P=r=>[2.84,s*r,c*r];
-    tube(body,P(0.22),P(0.31),0.075,0.075,10,ENG,1);for(let f=0;f<7;f++){const r0=0.31+f*0.022;tube(body,P(r0),P(r0+0.01),0.083,0.083,10,[0.38,0.38,0.4],1);}// finned barrel
-    tube(body,P(0.46),P(0.5),0.07,0.06,10,[0.36,0.36,0.38],1,true);// head
-    for(const dz of [-0.04,0.04])tube(body,[2.9,s*0.24+c*dz,c*0.24-s*dz],[2.9,s*0.46+c*dz,c*0.46-s*dz],0.009,0.009,5,CH,CHROME);}// pushrods
+    tube(body,P(0.22),P(0.31),0.075,0.075,10,ENG,1);for(let f=0;f<6;f++){const r0=0.31+f*0.02;tube(body,P(r0),P(r0+0.01),0.083,0.083,10,[0.38,0.38,0.4],1);}// finned barrel
+    tube(body,P(0.43),P(0.46),0.07,0.06,10,[0.36,0.36,0.38],1,true);// head
+    for(const dz of [-0.04,0.04])tube(body,[2.9,s*0.24+c*dz,c*0.24-s*dz],[2.9,s*0.43+c*dz,c*0.43-s*dz],0.009,0.009,5,CH,CHROME);}// pushrods
   // exhaust collector ring stub and the stack under the cowling
-  tube(body,[2.1,-0.62,0.28],[1.55,-0.7,0.33],0.055,0.05,10,DK,MATTE,true);tube(body,[2.1,-0.62,-0.28],[1.55,-0.7,-0.33],0.055,0.05,10,DK,MATTE,true);
+  tube(body,[2.1,-0.57,0.28],[1.55,-0.63,0.33],0.055,0.05,10,DK,MATTE,true);tube(body,[2.1,-0.57,-0.28],[1.55,-0.63,-0.33],0.055,0.05,10,DK,MATTE,true);
   // ---------------------------------------------------------------- wings and tail: aerofoils
   // NACA 4-digit: thickness th, camber m at p; returns [upper, lower] offsets as a fraction of chord at chord fraction t (0 = leading edge)
   const foilY=(t,th,m,p)=>{const yt=5*th*(0.2969*Math.sqrt(Math.max(t,0))-0.126*t-0.3516*t*t+0.2843*t*t*t-0.1036*t*t*t*t),yc=m?(t<p?m/(p*p)*(2*p*t-t*t):m/((1-p)*(1-p))*(1-2*p+2*p*t-t*t)):0;return[yc+yt,yc-yt];};
@@ -114,11 +114,11 @@ function planeMeshes(){
   // wing planform: straight taper, then an elliptic tip that sweeps the leading edge back; sd = side
   const wingPF=(o)=>{const sr=o.sr||0.82,LE=(s,sd)=>{const z=o.z0+s*(o.semi-o.z0),q=s>sr?Math.min(1,(s-sr)/(1-sr)):0,cl=lerp(o.c0,o.c1,Math.min(s,sr)/sr),cs=cl*Math.max(0.03,Math.sqrt(1-q*q)),xm=lerp(o.x0-o.c0/2,o.x0-o.c0/2-o.sw,Math.min(s,sr)/sr)-0.22*q*q*cl,y=o.y0+z*o.dih;return[[xm+cs/2,y,sd*z],[xm-cs/2,y,sd*z]];};return LE;};
   const spanS=(n,sr)=>{const r=[];for(let i=0;i<=n;i++){const t=i/n;r.push(t<0.6?t/0.6*sr:sr+(1-sr)*(1-Math.pow(1-(t-0.6)/0.4,1.6)));}return r;};
-  const upper=wingPF({x0:0.85,c0:1.62,c1:1.3,semi:4.875,z0:0,y0:1.075,dih:0.035,sw:0.05}),lower=wingPF({x0:1.55,c0:1.55,c1:1.25,semi:4.875,z0:0.3,y0:-0.66,dih:0.07,sw:0.05});
+  const upper=wingPF({x0:0.85,c0:1.62,c1:1.3,semi:4.875,z0:0,y0:0.95,dih:0.035,sw:0.05}),lower=wingPF({x0:1.55,c0:1.55,c1:1.25,semi:4.875,z0:0.3,y0:-0.57,dih:0.07,sw:0.05});
   const parts={};const hingeOf=(PF,s,t,sd)=>{const p=PF(s,sd);return add(p[0],mul(sub(p[1],p[0]),t));};
   const sAil=[0.42,0.86],tAil=0.74,sFlap=[0.06,0.4],tFlap=0.78;
     for(const sd of [-1,1]){const U=s=>[0,1,0],LEu=s=>upper(s,sd)[0],TEu=s=>upper(s,sd)[1],LEl=s=>lower(s,sd)[0],TEl=s=>lower(s,sd)[1];
-    const ss=spanS(30,0.82),inA=ss.filter(s=>s<=sAil[0]+1e-9),aS=ss.filter(s=>s>=sAil[0]-1e-9&&s<=sAil[1]+1e-9),outA=ss.filter(s=>s>=sAil[1]-1e-9);
+    const ss=[...new Set([...spanS(30,0.82),...sAil,...sFlap])].sort((a,b)=>a-b),inA=ss.filter(s=>s<=sAil[0]+1e-9),aS=ss.filter(s=>s>=sAil[0]-1e-9&&s<=sAil[1]+1e-9),outA=ss.filter(s=>s>=sAil[1]-1e-9);
     lift(body,LEu,TEu,U,0.15,0.02,inA,0,1,null,18);lift(body,LEu,TEu,U,0.15,0.02,aS,0,tAil,null,16);lift(body,LEu,TEu,U,0.15,0.02,outA,0,1,null,18);
     // a dark-red and gold pinstripe on top of the upper wing, parallel to the leading edge (photo 3)
     for(const [t0,t1,col] of [[0.15,0.19,MR],[0.2,0.21,GD],[0.135,0.142,GD]])surf(body,(s,t)=>{const a=LEu(s),b=TEu(s),c=Math.hypot(...sub(a,b)),y=foilY(t,0.15,0.02,0.4)[0];return add(add(a,mul(sub(b,a),t)),[0,y*c+0.006,0]);},spanS(16,0.82).filter(s=>s>=0.03&&s<=0.7),[t0,(t0+t1)/2,t1],()=>[col,PAINT]);
@@ -134,7 +134,7 @@ function planeMeshes(){
       const ctr=h=>[lerp(pl[0],pu[0],h),lerp(yl,yu,h),sd*zS];
       lift(body,h=>add(ctr(h),[c(h)/2,0,0]),h=>add(ctr(h),[-c(h)/2,0,0]),h=>[0,0,1],0.12,0,hs,0,1,null,10);
       // flying wires (lower wing root to the strut top) and landing wires (upper wing root to the strut foot), two of each
-      for(const dx of [-0.05,0.05]){tube(body,[1.0+dx,-0.66,sd*0.62],[pu[0]+dx,yu,sd*(zS-0.05)],0.006,0.006,4,AL,CHROME);tube(body,[0.35+dx,1.0,sd*0.5],[pl[0]+dx,yl,sd*(zS-0.05)],0.006,0.006,4,AL,CHROME);}}
+      for(const dx of [-0.05,0.05]){tube(body,[1.0+dx,-0.57,sd*0.6],[pu[0]+dx,yu,sd*(zS-0.05)],0.006,0.006,4,AL,CHROME);tube(body,[0.35+dx,0.88,sd*0.48],[pl[0]+dx,yl,sd*(zS-0.05)],0.006,0.006,4,AL,CHROME);}}
     // wingtip navigation light
     {const t=upper(1,sd);ball(body,add(mul(add(t[0],t[1]),0.5),[0,0,sd*0.01]),0.03,[1,1,1],sd<0?[0.9,0.1,0.1]:[0.1,0.8,0.3],1,8);}}
   // roots: fillets where the lower wing meets the fuselage (a dark walkway at the leading edge, like the black strip in photo 2)
@@ -155,13 +155,13 @@ function planeMeshes(){
     for(const sd of [-1,1])for(let k=0;k<5;k++)surf(M,(u,v)=>[-0.08-k*0.065-u*0.045,0.98+v*0.12,sd*0.022],[0,1],[0,1],()=>[GD,PAINT]);
     parts.rud={o:[xH,0,0],ax:[0,1,0],M};}
   // ---------------------------------------------------------------- cabin interior (seen through the glass)
-  {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});
-    surf(body,(x,z)=>[x,-0.42,z],[-1.0,1.5],[-0.55,0.55],()=>[DK,MATTE]);// floor
+  {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>inWS(x,th)||sideWin(x,th)?null:Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});/* open where the windows are */
+    surf(body,(x,z)=>[x,-0.38,z],[-1.0,1.5],[-0.52,0.52],()=>[DK,MATTE]);// floor
     // instrument panel with gauges, glare shield, throw-over yoke
-    surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.58,0.58],[0.1,0.5],()=>[DK,MATTE]);
-    for(const [z,y,r] of [[-0.42,0.38,0.05],[-0.3,0.38,0.05],[-0.42,0.25,0.045],[-0.3,0.25,0.045],[-0.18,0.32,0.04],[0.05,0.36,0.04],[0.18,0.36,0.04],[0.32,0.3,0.05]])
+    surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.55,0.55],[0.05,0.37],()=>[DK,MATTE]);
+    for(const [z,y,r] of [[-0.42,0.29,0.04],[-0.31,0.29,0.04],[-0.42,0.18,0.036],[-0.31,0.18,0.036],[-0.19,0.24,0.032],[0.05,0.28,0.032],[0.17,0.28,0.032],[0.31,0.23,0.04]])
       tube(body,[1.42-0.15*(y-0.1)-0.005,y,z],[1.42-0.15*(y-0.1)-0.012,y,z],r,r,12,[0.85,0.85,0.8],0,true);
-    tube(body,[1.36,0.52,-0.58],[1.36,0.52,0.58],0.04,0.04,8,DK,MATTE);
+    tube(body,[1.38,0.39,-0.55],[1.38,0.39,0.55],0.03,0.03,8,DK,MATTE);
     tube(body,[1.38,0.15,0],[1.05,0.12,0],0.025,0.025,6,AL,CHROME);tube(body,[1.05,0.12,0],[1.0,0.24,-0.25],0.02,0.02,6,DK,MATTE);
     tube(body,[1.0,0.24,-0.25],[0.98,0.3,-0.25],0.015,0.015,6,DK,MATTE);tube(body,[0.98,0.3,-0.36],[0.98,0.3,-0.14],0.02,0.02,6,DK,MATTE,true);
     // seats: two in front, a bench behind
@@ -207,8 +207,8 @@ tube(M,[0.065,-0.42,wz],[0.065,-0.69,wz],0.03,0.03,8,CH,CHROME);
   const tailw=vmesh();{tube(tailw,[0,0,0],[0.04,-0.4,0],0.03,0.025,8,DK,MATTE,true);tube(tailw,[0.04,-0.4,-0.04],[-0.06,-0.5,-0.04],0.012,0.012,5,DK,MATTE);tube(tailw,[0.04,-0.4,0.04],[-0.06,-0.5,0.04],0.012,0.012,5,DK,MATTE);
     surf(tailw,(a,b)=>{const R0=0.08,r=0.045;return[-0.06+Math.cos(a)*(R0+r*Math.cos(b)),-0.5+Math.sin(a)*(R0+r*Math.cos(b)),r*Math.sin(b)];},range(0,Math.PI*2,16),range(0,Math.PI*2,8),()=>[TY,MATTE],{ev:1e-3});}
   // the pitot tube under the left lower wing, a step under the door, the aerial mast behind the cabin
-  tube(body,[1.2,-0.74,-3.6],[1.75,-0.74,-3.6],0.012,0.012,6,AL,CHROME);tube(body,[0.3,-0.78,0.52],[0.3,-1.0,0.62],0.015,0.015,6,AL,CHROME);tube(body,[0.15,-1.0,0.55],[0.45,-1.0,0.68],0.02,0.02,6,AL,CHROME);
-  tube(body,[-1.3,0.86,0],[-1.45,1.12,0],0.012,0.008,6,AL,CHROME);tube(body,[-1.45,1.12,0],[-4.3,1.55,0],0.003,0.003,4,AL,CHROME);
+  tube(body,[1.2,-0.62,-3.6],[1.75,-0.62,-3.6],0.012,0.012,6,AL,CHROME);tube(body,[0.3,-0.68,0.52],[0.3,-0.9,0.62],0.015,0.015,6,AL,CHROME);tube(body,[0.15,-0.9,0.55],[0.45,-0.9,0.68],0.02,0.02,6,AL,CHROME);
+  tube(body,[-1.3,0.76,0],[-1.45,1.02,0],0.012,0.008,6,AL,CHROME);tube(body,[-1.45,1.02,0],[-4.3,1.55,0],0.003,0.003,4,AL,CHROME);
   // part list for Plane.draw (index into the meshes returned below)
   const list=[['body',body],['prop',prop],['pilot',pilotM],['pax',paxM],['gearL',gear(-1)],['gearR',gear(1)],['tailw',tailw],['elev',parts.elev.M],['rud',parts.rud.M],
     ['ailL',parts.ailL.M],['ailR',parts.ailR.M],['flapL',parts.flapL.M],['flapR',parts.flapR.M],['disc',disc]];
