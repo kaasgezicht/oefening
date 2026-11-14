@@ -8,7 +8,7 @@
 const PL={span:9.75,len:8.18,S:27.5,m:1900,P:336000,cg:[0,0,0],
   // contact points in body frame (gear down): left/right main wheels, tailwheel (about 11.6° nose up on the ground); gear up: the belly
   wheels:[[1.15,-1.81,-1.0],[1.15,-1.81,1.0],[-4.45,-0.75,0]],belly:[[1.1,-0.95,-0.7],[1.1,-0.95,0.7],[-4.4,-0.2,0],[2.4,-0.8,0]],
-  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.52,0.6,-0.27]};
+  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.55,0.73,-0.27]};
 const PLANE_PARTS={};
 function planeMeshes(){
   const RD=[0.80,0.045,0.035],RDd=[0.55,0.03,0.025],MR=[0.30,0.025,0.04],GD=[0.96,0.74,0.30],CH=[0.92,0.92,0.94],AL=[0.62,0.62,0.64],BK=[0.04,0.04,0.045],
@@ -85,7 +85,7 @@ function planeMeshes(){
     // the cowling's speed lines: a dark-red band with gold edges stepping back from the lip
     for(const [dy,hw,col] of [[0.0,0.018,MR],[0.026,0.005,GD],[-0.026,0.005,GD]])ribbon(body,[[2.97,0.43],[2.55,0.43],[2.45,0.36],[2.0,0.36]],dy,hw,col,PAINT,sd,0.006);
     // window frames (red mouldings over the cut edges of the skin)
-    for(const W of [W1,W2])ribbon(body,[...W,W[0],W[1]],0,0.03,RDd,PAINT,sd,0.01);}
+    for(const W of [W1,W2])ribbon(body,[...W,W[0],W[1]],0,0.022,RDd,PAINT,sd,0.01);}
   // windscreen frame: along its bottom edge and its sides (in loft coordinates)
   {const fr=(pts)=>{let prv=null;for(const [x,th] of pts){const n=outN(x,th),p=add(F(x,th),mul(n,0.01)),tg=nrm(crs(n,[1,0,0])),a=add(p,mul(tg,0.016)),b=add(p,mul(tg,-0.016)),q=[V(body,a,n,RDd,PAINT),V(body,b,n,RDd,PAINT)];if(prv)body.i.push(prv[0],prv[1],q[1],prv[0],q[1],q[0]);prv=q;}};
     const bot=[];for(let k=0;k<=40;k++){const th=wsT+(Math.PI-2*wsT)*k/40;bot.push([wsX(th),th]);}const fb=[];for(const [x,th] of bot){const n=outN(x,th),p=add(F(x,th),mul(n,0.01)),d=nrm(sub(F(x+0.03,th),F(x-0.03,th)));fb.push([p,n,d]);}
@@ -157,16 +157,17 @@ function planeMeshes(){
   // ---------------------------------------------------------------- cabin interior (seen through the glass)
   {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>inWS(x,th)||sideWin(x,th)?null:Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});/* open where the windows are */
     surf(body,(x,z)=>[x,-0.38,z],[-1.0,1.5],[-0.52,0.52],()=>[DK,MATTE]);// floor
+    {const xf=1.6,s=sec(xf);surf(body,(k,th)=>[xf,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])],[0,0.5,0.985],range(0,Math.PI*2,40),()=>[DK,MATTE]);}// firewall
     // instrument panel with gauges, glare shield, throw-over yoke
     surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.55,0.55],[0.05,0.37],()=>[DK,MATTE]);
     for(const [z,y,r] of [[-0.42,0.29,0.04],[-0.31,0.29,0.04],[-0.42,0.18,0.036],[-0.31,0.18,0.036],[-0.19,0.24,0.032],[0.05,0.28,0.032],[0.17,0.28,0.032],[0.31,0.23,0.04]])
       tube(body,[1.42-0.15*(y-0.1)-0.005,y,z],[1.42-0.15*(y-0.1)-0.012,y,z],r,r,12,[0.85,0.85,0.8],0,true);
     tube(body,[1.38,0.39,-0.55],[1.38,0.39,0.55],0.03,0.03,8,DK,MATTE);
-    tube(body,[1.38,0.15,0],[1.05,0.12,0],0.025,0.025,6,AL,CHROME);tube(body,[1.05,0.12,0],[1.0,0.24,-0.25],0.02,0.02,6,DK,MATTE);
-    tube(body,[1.0,0.24,-0.25],[0.98,0.3,-0.25],0.015,0.015,6,DK,MATTE);tube(body,[0.98,0.3,-0.36],[0.98,0.3,-0.14],0.02,0.02,6,DK,MATTE,true);
+    tube(body,[1.38,0.15,0],[1.05,0.12,0],0.025,0.025,6,AL,CHROME);tube(body,[1.05,0.12,0],[1.0,0.36,-0.25],0.02,0.02,6,DK,MATTE);
+    tube(body,[1.0,0.36,-0.25],[0.98,0.42,-0.25],0.015,0.015,6,DK,MATTE);tube(body,[0.98,0.42,-0.36],[0.98,0.42,-0.14],0.02,0.02,6,DK,MATTE,true);
     // seats: two in front, a bench behind
-    for(const [x,z,w] of [[0.4,-0.27,0.42],[0.4,0.27,0.42],[-0.45,0,1.0]]){surf(body,(u,v)=>[x+0.25-u*0.5,-0.14+0.03*u,z+(v-0.5)*w],[0,1],[0,1],()=>[SEAT,0]);
-      surf(body,(u,v)=>[x-0.25-u*0.08,-0.14+u*0.6,z+(v-0.5)*w],[0,1],[0,1],()=>[SEAT,0]);}}
+    for(const [x,z,w] of [[0.4,-0.27,0.42],[0.4,0.27,0.42],[-0.45,0,1.0]]){surf(body,(u,v)=>[x+0.25-u*0.5,-0.02+0.03*u,z+(v-0.5)*w],[0,1],[0,1],()=>[SEAT,0]);
+      surf(body,(u,v)=>[x-0.25-u*0.08,-0.02+u*0.6,z+(v-0.5)*w],[0,1],[0,1],()=>[SEAT,0]);}}
   // ---------------------------------------------------------------- pilot (left) and passenger (right): own meshes
   const person=(z,shirt,pilot)=>{const M=vmesh(),x=0.42;
     ball(M,[x-0.04,0.02,z],0.17,[1.0,1.35,1.15],shirt,0,12);// torso
@@ -180,7 +181,7 @@ function planeMeshes(){
     for(const sd of [-1,1]){const sh=[x-0.02,0.27,z+sd*0.19];let el,hd;if(pilot){el=[x+0.2,0.1,z+sd*0.2];hd=[0.97,0.3,z+sd*0.1];}else if(sd>0){el=[x+0.08,0.5,z+0.32];hd=[x+0.14,0.74,z+0.36];}else{el=[x+0.22,0.02,z-0.18];hd=[x+0.45,0.04,z-0.08];}
       tube(M,sh,el,0.05,0.045,8,shirt,0);tube(M,el,hd,0.045,0.035,8,shirt===SHIRT2?SKIN:shirt,0);ball(M,hd,0.04,[1,1,1],SKIN,0,8);}
     for(const sd of [-1,1]){tube(M,[x-0.06,-0.12,z+sd*0.08],[x+0.36,-0.08,z+sd*0.09],0.07,0.06,8,[0.2,0.2,0.24],0);tube(M,[x+0.36,-0.08,z+sd*0.09],[x+0.42,-0.4,z+sd*0.09],0.055,0.045,8,[0.2,0.2,0.24],0);}
-    return M;};
+    for(let k=0;k<M.n;k++)M.v[k*14+1]+=0.12;/* sit higher: the pilot looks over the nose */return M;};
   const pilotM=person(-0.27,SHIRT,true),paxM=person(0.27,SHIRT,false);
   // ---------------------------------------------------------------- propeller and spinner (turns): two polished blades, a chrome bullet spinner
   const prop=vmesh();

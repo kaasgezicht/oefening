@@ -166,7 +166,7 @@ void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
   if(m==2&&!pg)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
   if(m==12){float a=uOcc.x;o=vec4(fogc(col*.8,vW)*a,a);return;}
   if(m==4)em=vC*uLamp*(1.2+4.*uSunCol.w);
-  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=pg?clamp(.32+.6*F,0.,.95):clamp(.14+.75*F+uMisc.x*.1,0.,.95);if(pg)col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),.5)*.35*(.3+.7*uSunDir.w);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
+  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=pg?clamp(.45+.5*F,0.,.95):clamp(.14+.75*F+uMisc.x*.1,0.,.95);if(pg)col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),.5)*.55*(.3+.7*uSunDir.w);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
   o=vec4(fogc(col+em,vW),1.);}`;
 
 // ---------------- track: ballast, sleepers, rails, stone viaducts and tunnel portals
