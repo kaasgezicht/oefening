@@ -1,4 +1,4 @@
-# Trein handoff 70 (14 Nov 2026): v4.12.0 — map view, big mountains, world cache + autosave, money on by default, bus stop deadlock fix; next: plan step 7 (footbridge)
+# Trein handoff 71 (14 Nov 2026): v4.13.0 — main menu + new-game preview, island and archipelago maps, 16 km worlds, Staggerwing biplane; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
@@ -14,7 +14,32 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.12.0, 14 Nov) — five requests with the user's save and log (8 km, Pixel 9a, ~50-60 fps)
+### Latest (4.13.0, 14 Nov) — main menu, map styles, 16 km, the Staggerwing
+User's choices: 16 km with 8 m cells (2048²); stick + throttle on screen; realistic with assists; menu at start and from a button.
+- **16 × 16 km**: World size option 16384 (auto map detail 2048, also selectable). Generated fine on the test machine (32 villages); about 4x
+  the memory and first-start time of 8 km on the phone (not measured there); the world cache makes later starts fast.
+- **Map styles** (World > Map style, `mapStyle`: land / island / islands, `landShare`): `coastShape()` (after `shapeHeight` and big mountains)
+  lifts land onto a coastline mask and sinks the rest; the sea surface is `SEA_LEVEL` (40 m). The outermost cells are held at sea level, so
+  `genWater` sees the ocean as one basin filled to that level; that basin is never breached (`d.sea`). `T.sea` is carried through erosion and the
+  cache. The sea never freezes (water shader `uSeaL`, skating `iceOK`). Choosing an island style sets sea-like waves (lakeFetch 40,
+  lakeWaves 1.7, lakeFoam 1.4, lakeChop 1.1); Land restores the defaults.
+- **Main menu** (`MainMenu`, `#mainMenu`; Menu button 🏠 in the bar; shown at start unless `?nomenu` or a test browser): SVG logo; Continue /
+  New game / Saves / Quality / Fly the Staggerwing / All settings. New game: style chips, size, seed + dice, mountain sliders, big mountains,
+  island size, villages, and a live 2D preview (`previewLand` 160² + `drawPreview`: relief shading, sea, beaches, snow; no rivers/lakes).
+  Start clears track, trains, roads, buses, money and growth, applies the land settings and generates. Saves: save now, load, export/import
+  file, debug log. Quality: presets, building detail, render scale.
+- **Staggerwing** (`Plane`, `PlaneUI`, `planeMeshes`, vehicle meshes 37-45; Settings > Trains > Fly the Staggerwing, or the menu): lofted fuselage
+  with gold/maroon stripe, NACA cowling with polished lip, radial cylinders, chrome spinner, two-blade prop (turns), cabin glazing, crew,
+  negative-stagger wings with rounded tips, I-struts and wires, fin, tailplane with struts; moving: propeller, elevator, rudder, ailerons,
+  main gear (folds aft, 6 s) and tailwheel. Flight model: rigid body (quaternion), lift curve with stall (~16°, flaps move it), induced/parasite/
+  gear/flap drag, thrust from 450 hp and speed, propwash on the controls, stability and damping moments, three wheel contacts (springs,
+  brakes, steerable tailwheel), belly with the gear up, crash on hard impacts or water. Assists (on by default): coordinated rudder, bank and
+  pitch limits, no stall, vertical-speed hold with the stick centred. Spawns on the flattest dry stretch near the camera (else 300 m up).
+  Cameras: chase, cockpit (at the windscreen, rolls with the plane), wing, tower, orbit (free camera following). Controls: throttle slider,
+  stick, rudder and brake buttons, gear, flaps, camera, assist, reset, exit. Tested by a scripted take-off: rolls, lifts off ~105 km/h,
+  climbs, gear retracts. Not tested: phone touch handling, sound (none yet), landing by hand.
+
+### Earlier (4.12.0, 14 Nov) — five requests with the user's save and log (8 km, Pixel 9a, ~50-60 fps)
 - **Bus bug** (3 buses + a lorry stopped at the last stop): a vehicle leaving a stop waited for any lower-id vehicle that was driving slowly
   within 9.5 m, including one queued behind it, which itself waited for the first to leave: a deadlock at a shared stop. Now a dwelling
   vehicle ignores queued vehicles and ones behind it, and after 20 s of extra waiting it goes anyway. Could not reproduce the exact freeze in
