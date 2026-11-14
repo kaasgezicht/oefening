@@ -349,20 +349,28 @@ void main(){ivec2 id=ivec2(gl_FragCoord.xy);ivec2 ia=ivec2(id.x,uC*uN+id.y);vec4
   o0=vec4(uLam*a.y,a.x,uLam*a.z,max(prev*uDecay,inj));o1=vec4(a.w,b.x,Dxx,Dzz);}`;
 // wave displacement for the water meshes, low-passed to what the mesh spacing can carry
 const WAVE_GL=`
-precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform vec4 uWaveA,uWL;
+precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform vec4 uWaveA,uWL;uniform vec4 uSwell;
+// ocean swell (4.18.0): long Gerstner waves (90-330 m) around the wind, only on the sea, fading where the water gets shallow.
+// Returns the displacement; sg: slope (x, z) and how close to a crest (0..1). Sea.height in sea.js is the same sum in JS.
+vec3 swellD(vec2 p,float dep,out vec3 sg){vec3 d=vec3(0);sg=vec3(0);if(uSwell.x<=0.)return d;float t=uCamPos.w,fd=clamp(dep/16.,0.,1.);
+  for(int i=0;i<5;i++){float fi=float(i),lam=330.*pow(.73,fi),sh=fi==0.?.42:fi==1.?.27:fi==2.?.17:fi==3.?.09:.05,da=fi==0.?0.:fi==1.?.32:fi==2.?-.41:fi==3.?.75:-.9;
+    float k=6.2832/lam,w=sqrt(9.81*k),A=uSwell.x*.5*sh*1.25*fd,Q=min(.16/max(k*A,1e-4),1.);vec2 dir=vec2(cos(uSwell.z+da),sin(uSwell.z+da));float ph=k*dot(dir,p)-w*t+fi*1.7,c=cos(ph),s=sin(ph);
+    d.xz-=Q*A*dir*s;d.y+=A*c;sg.xy-=A*k*dir*s;sg.z+=sh*max(c,0.);}
+  sg.z=clamp(sg.z/.6,0.,1.);return d;}
 vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;float lod=log2(max(spc*2./(uWL[c]/uWL.w),1.));d+=textureLod(uWDisp,vec3(p/uWL[c],float(c)),lod).xyz;}return d;}
 `;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
-layout(location=0) in vec2 aQ;uniform vec4 uLakeP;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;
+layout(location=0) in vec2 aQ;uniform vec4 uLakeP;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 void main(){vec2 p=uLakeP.xy+(aQ*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=floor(f);f-=i0;ivec2 c=ivec2(i0);int M=int(uWorld.y)-1;float sw=0.,sl=0.,bl=0.;
   for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1);vec4 w=texelFetch(uWaterTex,clamp(c+o2,ivec2(0),ivec2(M)),0);float b=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);float lk=w.a>.75&&w.a<1.5?1.:0.;sw+=b*lk;sl+=b*lk*w.r;bl+=b*w.r;}
   float l=sw>1e-4?sl/sw:bl;vLake=sw;vFall=0.;vL=l;vP=p;vec3 W=vec3(p.x,l,p.y);
   float e=clamp((uLakeP.z-max(abs(p.x-uLakeP.x),abs(p.y-uLakeP.y)))/(uLakeP.z*.3),0.,1.);
   float fd=step(.01,sw)*clamp((l-terrainH(p))/2.,0.,1.)*(1.-uWater.w);vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,l-terrainH(p),sg);W+=sd;vSw=sg;d.y+=sd.y;}
   W+=d;vH=d.y;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 
 const VS_WATER=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
-layout(location=0) in vec3 aG;uniform vec4 uChunk;uniform vec4 uFlood;uniform float uSpc;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;
+layout(location=0) in vec3 aG;uniform vec4 uChunk;uniform vec4 uFlood;uniform float uSpc;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 float lkf(float a){return a>.75&&a<1.5?1.:0.;}
 float rw(float a){return a<.05?0.:a<.5?(a-.1)/.3:a<2.5?a-1.:1.;}
 float wl(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));return texelFetch(uWaterTex,c,0).r;}
@@ -375,9 +383,10 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
   float lw=.25*(lkf(a0)+lkf(a1)+lkf(a2)+lkf(a3));vLake=lw;vP=W.xz;vH=0.;
   W.y+=(sin(W.x*.11+t*1.3)*.5+sin(W.z*.13-t*1.1+W.x*.05)*.5)*.22*uWater.y*(1.-uWater.w)*min(pr,1.)*(1.-lw*uWaveA.x);
   if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w);W+=d;vH=d.y;}
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);W+=sd;vSw=sg;vH+=sd.y;}
   vL=l;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
-in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;uniform vec4 uFlood;uniform vec4 uFallP[8];
+in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;in vec3 vSw;uniform vec4 uFlood;uniform vec4 uFallP[8];uniform vec4 uSwell;
 precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform sampler2DArray uWDeriv;uniform sampler2D uSceneCol;uniform sampler2D uDepthCopy;
 uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;`+FS_OUT+`
 float linZ(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
@@ -426,6 +435,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   float lkw=uWaveA.x>0.?clamp(vLake*2.-.5,0.,1.)*(1.-iceF):0.,wf=0.;
   if(lkw>0.){vec4 dv=vec4(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;vec3 u=vec3(vP/uWL[c],float(c));dv+=texture(uWDeriv,u);wf+=texture(uWDisp,u).w*(c==2?.5:1.);}
     float sf=clamp(depth/1.5,0.,1.);g=mix(g,vec2(dv.x/max(1.+dv.z,.2),dv.y/max(1.+dv.w,.2))*sf+g*.25,lkw);wf*=sf;}
+  g+=vSw.xy;wf+=smoothstep(.72,1.,vSw.z)*clamp(uSwell.x/7.,0.,.8)*(.6+.4*vnoise(W.xz*.08+uCamPos.w*.05));// ocean swell: its slope, whitecaps on the crests
   g+=((vec2(vnoise(W.xz*.06),vnoise(W.xz*.06+7.))-.5)*.05+(vec2(vnoise(W.xz*.35),vnoise(W.xz*.35+9.))-.5)*.045+(vec2(vnoise(W.xz*1.4+3.),vnoise(W.xz*1.4+5.))-.5)*.02)*iceF;// ice: bump map that ripples the mirror
   vec3 N=normalize(vec3(-g.x,1.,-g.y));
   float th=depth/max(V.y,.12);

@@ -196,3 +196,10 @@ body.rvmin #rvPanel,body.rvmin #rvTop button:not([data-a="min"]),body.rvmin #rvH
 #compass{position:fixed;left:50%;transform:translateX(-50%);top:calc(44px + env(safe-area-inset-top));width:min(46vw,440px);height:52px;z-index:16;pointer-events:none;background:linear-gradient(#15191acc,#15191a99);border:1px solid #c9a14a66;border-radius:10px;overflow:hidden}
 #compass[hidden]{display:none}#compass canvas{width:100%;height:100%;display:block}
 body.flying #plHud,body.roaddrive #rvHud{top:calc(102px + env(safe-area-inset-top))!important;left:50%!important;transform:translateX(-50%)!important}
+
+/* airstrip mission icons and the destination list (4.18.0) */
+.airIcon{width:auto!important;height:auto!important;border-radius:14px!important;padding:3px 7px 3px 5px;gap:4px;background:#15191ae6!important;border:1px solid #c9a14a!important;font:700 15px system-ui!important;color:#f1e7d0}
+.airIcon span{font-size:18px}.airIcon b{min-width:18px;padding:0 4px;border-radius:6px;color:#111;font:800 13px system-ui;text-align:center}
+#airMis{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:18;width:min(94vw,420px);max-height:60vh;overflow:auto;background:#15191aeb;border:1px solid #c9a14a88;border-radius:14px;padding:9px 12px;color:#f1e7d0;font:13px system-ui;display:flex;flex-direction:column;gap:6px}
+#airMis[hidden]{display:none}#airMis button{font:600 14px system-ui;padding:9px 10px;border-radius:10px;border:1px solid #c9a14a90;background:#22292a;color:#f1e7d0;text-align:left}
+#airMis button.mis i{display:inline-block;min-width:20px;text-align:center;border-radius:6px;color:#111;font-style:normal;font-weight:800;margin-right:4px}

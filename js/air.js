@@ -3,7 +3,7 @@
 // ✓ to build), each with a unique number and colour; flying cargo between them (land and stop: the crates are unloaded and paid by the
 // distance from the airstrip where they were loaded, then a new load goes on board); and the compass, a horizontal tape at the top that
 // shows N, E, S, W rolling past and coloured markers: the airstrips while flying, the next stop while driving a bus or lorry.
-const AIR={len:420,w:26,price:60000,rate:200,crates:8,maxDist:2500};// runway length and width (m), price, € per km, crates per load, max distance from the village
+const AIR={len:600,w:28,price:60000,rate:200,crates:8,maxDist:2500};// runway length and width (m), price, € per km, crates per load, max distance from the village
 const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),ghost:null,
   // ---- a unique colour per airstrip number: hues spaced by the golden angle, alternating lightness, so no two are the same
   color(n){const h=((n-1)*137.508)%360,l=n%2?52:62,s=82;return`hsl(${h.toFixed(0)},${s}%,${l}%)`;},
@@ -73,11 +73,12 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     const s=Plane.st,v=Math.hypot(s.v[0],s.v[2]),here=Plane.onG?this.stripAt(s.p[0],s.p[2]):null;
     if(this.job){if(v>2.5||here!==this.job.s){UI.toast(this.job.kind==='unload'?'Unloading stopped: the cargo stays on board':'Loading stopped');this.job=null;this.cratesAt=null;return;}
       const J=this.job;J.t+=dt;const k=Math.floor(J.t/J.dur*AIR.crates);while(J.shown<Math.min(k,AIR.crates)){J.shown++;Icons.add(s.p[0]+(Math.random()-0.5)*3,s.p[1]+2,s.p[2]+(Math.random()-0.5)*3,(J.kind==='unload'?'−':'+')+'📦');}
-      if(J.t>=J.dur){if(J.kind==='unload'){const from=this.cargo.from,km=this.dist(from,J.s)/1000,pay=Math.round(km*AIR.rate*this.cargo.n/AIR.crates);if(Money.on()&&pay>0)Money.earn(pay,`air cargo ${from.n} → ${J.s.n}`,s.p[0],s.p[1]+3,s.p[2]);
-          UI.toast(`${this.cargo.n} crates delivered from airstrip ${from.n} to ${J.s.n}: ${km.toFixed(1)} km${Money.on()?`, +€${Money.fmt(pay)}`:''}`);Log.info(`air cargo ${from.n}→${J.s.n} ${km.toFixed(2)} km €${pay}`);this.cargo=null;this.job={kind:'load',s:J.s,t:0,dur:5,shown:0};}
+      if(J.t>=J.dur){if(J.kind==='unload'){const from=this.cargo.from,km=this.dist(from,J.s)/1000,tv=Plane.touchV||0,bonus=this.cargo.to?(tv<1.5?0.25:tv<3?0.1:0):0,pay=Math.round(km*AIR.rate*this.cargo.n/AIR.crates*(1+bonus));if(Money.on()&&pay>0)Money.earn(pay,`air cargo ${from.n} → ${J.s.n}`,s.p[0],s.p[1]+3,s.p[2]);
+          UI.toast(`${this.cargo.n} crates delivered from airstrip ${from.n} to ${J.s.n}: ${km.toFixed(1)} km${bonus?` · smooth landing +${Math.round(bonus*100)}%`:''}${Money.on()?`, +€${Money.fmt(pay)}`:''}`);Log.info(`air cargo ${from.n}→${J.s.n} ${km.toFixed(2)} km €${pay}`);this.cargo=null;this.job={kind:'load',s:J.s,t:0,dur:5,shown:0};}
         else{this.cargo={from:J.s,n:AIR.crates};this.job=null;this.cratesAt=null;UI.toast(`${AIR.crates} crates loaded at airstrip ${J.s.n}: fly them to another airstrip (the compass shows them)`);}}
       this.cratesAt=[s.p[0],s.p[2],J.kind==='unload'?1-Math.min(1,J.t/J.dur):Math.min(1,J.t/J.dur)];return;}
-    if(here&&v<1.2&&Plane.ctl.thr<0.35){if(this.cargo&&this.cargo.from!==here)this.job={kind:'unload',s:here,t:0,dur:5,shown:0};else if(!this.cargo)this.job={kind:'load',s:here,t:0,dur:5,shown:0};}},
+    if(here&&v<1.2&&Plane.ctl.thr<0.35){if(this.cargo&&this.cargo.to&&this.cargo.to!==here){if(this._hint!==here){this._hint=here;UI.toast(`This cargo is for airstrip ${this.cargo.to.n} (${this.cargo.to.v?this.cargo.to.v.name:''}): the compass shows it`);}}
+      else if(this.cargo&&this.cargo.from!==here)this.job={kind:'unload',s:here,t:0,dur:5,shown:0};else if(!this.cargo)this.job={kind:'load',s:here,t:0,dur:5,shown:0};}},
   lost(){if(this.cargo){UI.toast(`The ${this.cargo.n} crates from airstrip ${this.cargo.from.n} are lost`);this.cargo=null;}this.job=null;this.cratesAt=null;},
   // crates stacked beside the plane while (un)loading: as many as are still on the ground
   crateMesh(){const [x,z,f]=this.cratesAt,n=Math.round(f*AIR.crates),key=n+'|'+x.toFixed(0)+'|'+z.toFixed(0);if(this._ck===key)return this._cm;if(this._cm){gl.deleteVertexArray(this._cm.vao);}
@@ -85,7 +86,21 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     for(let k=0;k<n;k++){const cx=bx+(k%4)*1.0*F[0],cz=bz+(k%4)*1.0*F[2],cy=y0+0.42+Math.floor(k/4)*0.84,h=0.4;const P=[[-h,-h,-h],[h,-h,-h],[h,h,-h],[-h,h,-h],[-h,-h,h],[h,-h,h],[h,h,h],[-h,h,h]].map(v=>[cx+v[0],cy+v[1],cz+v[2]]);
       for(const [fc,nn] of [[[0,1,2,3],[0,0,-1]],[[5,4,7,6],[0,0,1]],[[4,0,3,7],[-1,0,0]],[[1,5,6,2],[1,0,0]],[[3,2,6,7],[0,1,0]]]){const ix=fc.map(i=>{M.v.push(P[i][0],P[i][1],P[i][2],nn[0],nn[1],nn[2],0.62,0.45,0.25,0,0,0,1,0);return M.n++;});M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}}
     this._ck=key;this._cm=M.n?R.uploadVeh(M):null;return this._cm;},
-  hudText(){if(this.job){const p=Math.round(this.job.t/this.job.dur*100);return` · ${this.job.kind==='unload'?'Unloading':'Loading'} 📦 ${p}%`;}return this.cargo?` · 📦 ${this.cargo.n} from ${this.cargo.from.n}`:(this.list.length?' · no cargo: stop on an airstrip':'');},
+  hudText(){if(this.cargo&&this.cargo.to&&!this.job)return` · 📦 ${this.cargo.n} for airstrip ${this.cargo.to.n} · ${(Plane.st?Math.hypot(this.cargo.to.x-Plane.st.p[0],this.cargo.to.z-Plane.st.p[2])/1000:0).toFixed(1)} km`;if(this.job){const p=Math.round(this.job.t/this.job.dur*100);return` · ${this.job.kind==='unload'?'Unloading':'Loading'} 📦 ${p}%`;}return this.cargo?` · 📦 ${this.cargo.n} from ${this.cargo.from.n}`:(this.list.length?' · no cargo: stop on an airstrip':'');},
+  pay(a,b){return Math.round(this.dist(a,b)/1000*AIR.rate);},
+  icons(){const show=this.list.length>=2&&!Plane.on&&!RoadVeh.drv&&!Build.active&&!MapView.on&&!this.pl;this.ic=this.ic||new Map();
+    for(const s of this.list){let el=this.ic.get(s);if(!el){el=document.createElement('div');el.className='ilabel airIcon';el.innerHTML=`<span>✈</span><b style="background:${this.color(s.n)}">${s.n}</b>`;el.title='Start a cargo flight from airstrip '+s.n;el.onclick=()=>this.missionPanel(s);document.body.appendChild(el);this.ic.set(s,el);}
+      const q=show?Cam.toScreen(s.x,R.sampleHr(App.T,s.x,s.z)+12,s.z):null,far=Cam.pos?Math.hypot(Cam.pos[0]-s.x,Cam.pos[2]-s.z)>9000:false;if(!q||far){el.style.display='none';continue;}el.style.display='';el.style.left=q[0]+'px';el.style.top=q[1]+'px';}
+    for(const [s,el] of this.ic)if(!this.list.includes(s)){el.remove();this.ic.delete(s);}},
+  missionPanel(a){let el=$('#airMis');if(!el){el=document.createElement('div');el.id='airMis';document.body.appendChild(el);el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='x'){el.hidden=true;return;}const A=this.list.find(s=>s.n===+t.dataset.a),B=this.list.find(s=>s.n===+t.dataset.b);if(A&&B){el.hidden=true;this.startMission(A,B);}});}
+    const others=this.list.filter(s=>s!==a).sort((p,q)=>this.dist(a,p)-this.dist(a,q));
+    el.innerHTML=`<div class="rv-h"><div><b>✈ Airstrip ${a.n}${a.v?' · '+esc(a.v.name):''}</b><span>Fly ${AIR.crates} crates to another airstrip. Paid on landing there, +25% for a smooth touchdown</span></div><button data-a="x">✕</button></div>`+
+      others.map(b=>`<button class="mis" data-a="${a.n}" data-b="${b.n}"><i style="background:${this.color(b.n)}">${b.n}</i> ${esc(b.v?b.v.name:'')} · ${(this.dist(a,b)/1000).toFixed(1)} km${Money.on()?` · €${Money.fmt(this.pay(a,b))}`:''}</button>`).join('');el.hidden=false;},
+  startMission(a,b){if(Plane.on)Plane.exit();if(RoadVeh.drv)RoadVeh.stopDriving();Plane.spawn(a);this.job=null;this.cargo={from:a,n:AIR.crates,to:b};this._hint=null;UI.toast(`Cargo for airstrip ${b.n} (${b.v?b.v.name:''}), ${(this.dist(a,b)/1000).toFixed(1)} km: full throttle to take off`);},
+  // Build → Roads → Airstrip: the nearest village that can have one now, or what is still missing
+  buildButton(){const c=Cam.target,V=Life.villages.slice().sort((p,q)=>Math.hypot(p.x-c[0],p.z-c[2])-Math.hypot(q.x-c[0],q.z-c[2]));const ok=V.find(v=>Life.upgState(v,'air')==='available');
+    if(ok){Build.exit();Life.buyUpg(ok,'air');return;}const L=Life.LEVELS,lv=L[Life.UPG.air.level],best=V.filter(v=>!v.airOwned).sort((p,q)=>(q.gp||0)-(p.gp||0))[0];
+    UI.toast(best?`An airstrip needs a town (village level ${Life.UPG.air.level}). ${best.name} is the closest: level ${best.level|0}, ${Math.round(best.gp||0)} of ${lv?lv.need:'?'} growth points. Villages grow when people travel by train and bus`:'Every village already has an airstrip');},
   spawnSpot(c){if(!this.list.length)return null;let best=null,bd=1e18;for(const s of this.list){const d=Math.hypot(s.x-c[0],s.z-c[2]);if(d<bd){bd=d;best=s;}}const L=AIR.len/2-30;return{x:best.x-Math.cos(best.h)*L,z:best.z-Math.sin(best.h)*L,h:best.h,s:best};}};
 // ---- the compass: a horizontal tape at the top (±60° visible) with N/E/S/W rolling past, and coloured markers with distances
 const Compass={el:null,cv:null,
@@ -93,7 +108,7 @@ const Compass={el:null,cv:null,
   // heading in degrees (0 = north = -z, 90 = east = +x), the same as the flight HUD
   deg(dx,dz){return((Math.atan2(dz,dx)*180/Math.PI+90)%360+360)%360;},
   tick(){let hd=null,pos=null,marks=[];
-    if(Plane.on&&Plane.st){const F=Q.rot(Plane.st.q,[1,0,0]);hd=this.deg(F[0],F[2]);pos=Plane.st.p;for(const s of Air.list)marks.push({x:s.x,z:s.z,label:String(s.n),col:Air.color(s.n),ring:Air.cargo&&Air.cargo.from===s});}
+    if(Plane.on&&Plane.st){const F=Q.rot(Plane.st.q,[1,0,0]);hd=this.deg(F[0],F[2]);pos=Plane.st.p;for(const s of Air.list)marks.push({x:s.x,z:s.z,label:String(s.n),col:Air.color(s.n),ring:Air.cargo&&(Air.cargo.to?Air.cargo.to===s:Air.cargo.from===s)});}
     else if(RoadVeh.drv){const b=RoadVeh.drv;hd=this.deg(Math.cos(b.rot),Math.sin(b.rot));pos=[b.x,0,b.z];const t=Buses.cur(b);if(t)marks.push({x:t.rx,z:t.rz,label:'🚏',col:'#ffd27a',name:t.name});}
     this.show(hd!==null);if(hd===null)return;const t=performance.now();if(this._t>t-60)return;this._t=t;
     const cv=this.cv,dpr=Math.min(2,devicePixelRatio||1),W=this.el.clientWidth,H=this.el.clientHeight;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}

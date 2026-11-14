@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.17.0 (airstrips and cargo flights, compass, controller hides the flight controls, bus routes fixed)';
+const VERSION='4.18.0 (ocean swell, whales, dolphins and fish; airstrip missions; roll on the left stick)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -84,14 +84,15 @@ def('streams',{tab:'water',label:'Mountain streams',min:0,max:3,step:0.05,def:1,
 def('runoff',{tab:'water',label:'Rain run-off',min:0,max:1.5,step:0.05,def:1,apply:'live'});
 def('waterModel',{tab:'water',label:'Lake water',kind:'select',options:[[0,'Simple ripples'],[1,'Low: FFT waves'],[2,'Medium: FFT + 3D waves near camera'],[3,'High: finer FFT + larger 3D area']],def:2,apply:'live'});
 def('reflQuality',{tab:'water',label:'Reflections',kind:'select',options:[[0,'Sky only'],[1,'Mirror: low'],[2,'Mirror: medium'],[3,'Mirror: high']],def:2,apply:'live'});
-def('lakeWaves',{tab:'water',label:'Lake wave size',min:0,max:2.5,step:0.05,def:1,apply:'live'});
+def('oceanSwell',{tab:'water',label:'Ocean swell height (island maps)',min:0,max:20,step:0.5,def:4,unit:' m',apply:'live'});
+def('lakeWaves',{tab:'water',label:'Lake wave size',min:0,max:7.5,step:0.05,def:1,apply:'live'});
 def('lakeFetch',{tab:'water',label:'Lake fetch (sea-likeness)',min:0.5,max:40,step:0.5,def:15,unit:' km',apply:'live'});
-def('lakeChop',{tab:'water',label:'Wave choppiness',min:0,max:1.6,step:0.05,def:0.9,apply:'live'});
+def('lakeChop',{tab:'water',label:'Wave choppiness',min:0,max:3,step:0.05,def:0.9,apply:'live'});
 def('lakeFoam',{tab:'water',label:'Whitecaps',min:0,max:2,step:0.05,def:1,apply:'live'});
 def('fallSlope',{tab:'water',label:'Waterfall steepness',min:0.2,max:2,step:0.05,def:0.45,apply:'water'});
 def('waterGreen',{tab:'water',label:'Water colour (blue ↔ green)',min:0,max:1,step:0.01,def:0.35,apply:'live'});
-def('waveStrength',{tab:'water',label:'Ripples',min:0,max:1.5,step:0.01,def:0.6,apply:'live'});
-def('foam',{tab:'water',label:'Shore foam',min:0,max:2,step:0.05,def:1,apply:'live'});
+def('waveStrength',{tab:'water',label:'Ripples',min:0,max:4,step:0.01,def:0.6,apply:'live'});
+def('foam',{tab:'water',label:'Shore foam',min:0,max:4,step:0.05,def:1,apply:'live'});
 // --- Look (toy diorama)
 def('terrainSmooth',{tab:'look',label:'Bigger facets (smooths the land)',min:0,max:1,step:0.01,def:0.55,apply:'smooth'});
 def('saturation',{tab:'look',label:'Colour',min:0.4,max:1.6,step:0.01,def:1,apply:'live'});
