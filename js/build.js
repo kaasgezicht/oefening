@@ -113,11 +113,11 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
   buzz(){try{navigator.vibrate&&navigator.vibrate(12);}catch(e){}},
   endNear(sx,sy,exclude){let best=null,bd=this.snapPx;for(const n of this.ends()){if(exclude&&n.id===exclude)continue;const s=Cam.toScreen(n.x,n.y,n.z);if(!s)continue;const d=Math.hypot(s[0]-sx,s[1]-sy);if(d<bd){bd=d;best=n;}}return best;},
   // ---- shared: heights, structures, summary for a set of pieces
-  plan_(st,pieces,snap,vmode){
+  plan_(st,pieces,snap,vmode,tgt){
     const T=R.world,gmax=P.maxGrade/100,y0=st.y,gIn=st.node?st.g:null,Lt=pieces.reduce((a,p)=>a+p.L,0);let bad='';
     for(const p of pieces)for(let t=0;t<=p.L;t+=4){const q=segPoint(p,t);if(q[0]<10||q[1]<10||q[0]>T.W-10||q[1]>T.W-10){bad='That runs off the edge of the world';break;}}
     const tooSteep=()=>`The ends are ${Math.abs(snap.y-y0).toFixed(1)} m apart in height, too steep to join over ${Lt.toFixed(0)} m. ${this.mode==='pieces'?'Use ↗ / ↘ pieces to bring them level first.':'Start further away so it can climb.'}`;
-    const sm=vmode==='smooth'?{win:40,it:6}:null;if(sm)vmode='follow';
+    let sm=vmode==='smooth'?{win:40,it:6}:null;if(sm)vmode='follow';if(tgt&&vmode==='follow')sm={...(sm||{win:5,it:3}),tgt};/* a routed line follows the heights the search chose */
     if(snap){if(vmode==='follow'){if(!profileFollow(pieces,y0,snap.y,gmax,gIn,sm))bad=bad||tooSteep();}
       else{const avg=(snap.y-y0)/Lt;if(Math.abs(avg)>gmax*1.05)bad=bad||tooSteep();profileGrade(pieces,y0,snap.y,gIn!==null?clamp(gIn,-gmax,gmax):null,clamp(-snap.g,-gmax,gmax));}}
     else if(vmode==='follow')profileFollow(pieces,y0,null,gmax,gIn,sm);
@@ -337,7 +337,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     this.info('Looking for a route…');const t0=performance.now();
     const res=await planRoute(rt.a,rt.b,rt.prefer,(f,d)=>this.info(`Looking for a route… ${Math.round(f*100)}%`));rt.busy=false;
     if(!res){this.info(`No route found within the limits. Try ${rt.prefer==='direct'?'a closer destination':'Direct or Tunnels'}${rt.prefer==='surface'?' (Surface allows tunnels up to 50 m and bridges up to 100 m)':''}, or allow bridges and tunnels.`);this.ui();return;}
-    const st=rt.a.node?rt.a:{...rt.a,h:res.h0};this.plan=this.plan_(st,res.pieces,rt.b.node||null,rt.prefer==='tunnel'&&P.trackProfile==='follow'?'smooth':P.trackProfile);
+    const st=rt.a.node?rt.a:{...rt.a,h:res.h0};this.plan=this.plan_(st,res.pieces,rt.b.node||null,rt.prefer==='tunnel'&&P.trackProfile==='follow'?'smooth':P.trackProfile,res.tgt);
     this.preview(this.plan.pieces,this.plan.ok,this.plan.warn);
     let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of this.plan.pieces)for(let t=0;t<=p.L;t+=8){const q=segPoint(p,t);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
     this.camGoal={x:(x0+x1)/2,z:(z0+z1)/2,dist:clamp(Math.hypot(x1-x0,z1-z0)*1.1,120,2200),pitch:1.0};

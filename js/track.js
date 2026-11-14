@@ -60,8 +60,8 @@ const waterAt0=(x,z)=>sampleWater(R.world,x,z);
 
 // ---- vertical profile
 function profileFollow(pieces,y0,y1,gmax,gIn,sm){/* sm: {win,it} a wider smoothing (tunnel routes: through the hills, over the dips) */
-  const pts=[];pieces.forEach((p,pi)=>{const n=Math.max(2,Math.ceil(p.L/4));p.n=n;for(let k=pi?1:0;k<=n;k++){const q=segPoint(p,p.L*k/n);
-    let g=ground0(q[0],q[1])+FORMATION_DROP;const w=waterAt0(q[0],q[1]);if(w[1]>0)g=Math.max(g,w[0]+3);pts.push({g,ds:p.L/n});}});
+  const pts=[];let acc=0;pieces.forEach((p,pi)=>{const n=Math.max(2,Math.ceil(p.L/4));p.n=n;for(let k=pi?1:0;k<=n;k++){const q=segPoint(p,p.L*k/n);
+    let g=sm&&sm.tgt?sm.tgt(acc+p.L*k/n):ground0(q[0],q[1])+FORMATION_DROP;const w=waterAt0(q[0],q[1]);if(w[1]>0)g=Math.max(g,w[0]+3);pts.push({g,ds:p.L/n});}acc+=p.L;});
   const n=pts.length;let y=pts.map(p=>p.g);
   const SW=sm?sm.win:5;for(let it=0;it<(sm?sm.it:3);it++){const z=y.slice();for(let i=0;i<n;i++){let s=0,c=0;for(let j=Math.max(0,i-SW);j<=Math.min(n-1,i+SW);j++){s+=z[j];c++;}y[i]=s/c;}}
   const fwd=()=>{y[0]=y0;for(let i=1;i<n;i++){const m=gmax*pts[i].ds;y[i]=clamp(y[i],y[i-1]-m,y[i-1]+m);}};
