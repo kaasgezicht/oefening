@@ -15,21 +15,34 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   bestSpot(v){let best=null;for(let r of [350,650,950,1300,1700,2200])for(let k=0;k<24;k++){if(best&&best.score<4)break;const a=k/24*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<12;j++){const h=j/12*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
     return best||{x:v.x+400,z:v.z,h:0};},
   corners(a){const c=Math.cos(a.h),s=Math.sin(a.h),L=AIR.len/2,W=AIR.w/2;return{c,s,L,W,P:(u,w)=>[a.x+c*u-s*w,a.z+s*u+c*w]};},
-  check(a,quiet){a=a||this.pl;if(!a)return{ok:false};const T=App.T,{P,L,W}=this.corners(a);let lo=1e9,hi=-1e9,msg='',worst=0;
-    for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w);if(x<60||z<60||x>T.W-60||z>T.W-60){msg='Too close to the edge of the world';break;}
-      const g=R.sampleHr(T,x,z),wa=sampleWater(T,x,z);if(wa[1]>0&&wa[0]>g-0.1){msg='Water is in the way';break;}lo=Math.min(lo,g);hi=Math.max(hi,g);
-      if(w===0&&u>-L){const [x0,z0]=P(u-20,0),d=Math.abs(g-R.sampleHr(T,x0,z0))/20;worst=Math.max(worst,d);}}
-    if(!msg&&hi-lo>14)msg=`Too uneven: ${Math.round(hi-lo)} m between the highest and lowest point`;
-    if(!msg&&worst>0.08)msg='Too steep in places';
+  // the runway's grade line: a straight line fitted along the centre (slope at most 3%), raised over streams (they run under it in a
+  // culvert); null if a lake, the sea or a wide river is in the way
+  line(a){const T=App.T,{P,L}=this.corners(a);const U=[],Hs=[];let wet=0,lake=false,wmax=-1e9;
+    for(let u=-L-20;u<=L+20.1;u+=10){const [x,z]=P(u,0);const g=R.sampleHr(T,x,z),w=sampleWater(T,x,z);U.push(u);Hs.push(g);
+      if(w[1]>0&&w[0]>g-0.1){const N=T.N,ci=clamp(Math.floor(x/T.cs),0,N-1),cj=clamp(Math.floor(z/T.cs),0,N-1),kd=T.water[(cj*N+ci)*4+3];if(kd>0.75&&kd<1.5)lake=true;wet+=10;wmax=Math.max(wmax,w[0]);}}
+    const n=U.length,mu=U.reduce((p,q)=>p+q,0)/n,mh=Hs.reduce((p,q)=>p+q,0)/n;let sxy=0,sxx=0;for(let k=0;k<n;k++){sxy+=(U[k]-mu)*(Hs[k]-mh);sxx+=(U[k]-mu)*(U[k]-mu);}
+    const m=clamp(sxx?sxy/sxx:0,-0.03,0.03);let c=mh-m*mu;for(let k=0;k<n;k++){const [x,z]=P(U[k],0),w=sampleWater(T,x,z);if(w[1]>0&&w[0]>Hs[k]-0.1)c=Math.max(c,w[0]+0.6-m*U[k]);}
+    return{m,c,lake,wet,at:u=>c+m*u};},
+  check(a,quiet){a=a||this.pl;if(!a)return{ok:false};const T=App.T,{P,L,W}=this.corners(a);let msg='',dev=0;
+    for(let u=-L;u<=L+0.1;u+=25)for(const w of [-W,0,W]){const [x,z]=P(u,w);if(x<60||z<60||x>T.W-60||z>T.W-60){msg='Too close to the edge of the world';break;}}
+    const ln=msg?null:this.line(a);
+    if(!msg&&ln.lake)msg='A lake or the sea is in the way';else if(!msg&&ln.wet>50)msg='A wide river is in the way';
+    if(!msg){for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w);dev=Math.max(dev,Math.abs(R.sampleHr(T,x,z)-ln.at(u)));}if(dev>16)msg=`Too hilly: up to ${Math.round(dev)} m of earth to move`;}
     if(!msg&&Math.hypot(a.x-a.v.x,a.z-a.v.z)>AIR.maxDist)msg=`Too far from ${a.v.name} (at most ${AIR.maxDist/1000} km)`;
     if(!msg){for(const hs of Life.houses){if(hs.gone)continue;const dx=hs.x-a.x,dz=hs.z-a.z,u=dx*Math.cos(a.h)+dz*Math.sin(a.h),w=-dx*Math.sin(a.h)+dz*Math.cos(a.h);if(Math.abs(u)<L+15&&Math.abs(w)<W+18){msg='Houses are in the way';break;}}}
     if(!msg)for(let u=-L;u<=L;u+=15){const [x,z]=P(u,0);if(Net.nearestOnTrack(x,z,W+6)){msg='The railway is in the way';break;}}
     if(!msg)for(const o of this.list){if(Math.hypot(o.x-a.x,o.z-a.z)<AIR.len+80){msg='Too close to airstrip '+o.n;break;}}
-    const r={ok:!msg,msg,score:(hi-lo)+worst*200};if(!quiet&&a===this.pl){this.pl.chk=r;this.ghost=null;const el=$('#airMsg');if(el)el.textContent=r.ok?`${a.v.name} airstrip: ${(Math.hypot(a.x-a.v.x,a.z-a.v.z)/1000).toFixed(1)} km from the village, ${Math.round(hi-lo)} m fall. ✓ builds it for €${Money.fmt(AIR.price)}`:r.msg;const ok=$('#airOK');if(ok)ok.disabled=!r.ok;}return r;},
+    const r={ok:!msg,msg,score:dev+(ln?Math.abs(ln.m)*100+ln.wet*0.05:99)};if(!quiet&&a===this.pl){this.pl.chk=r;this.ghost=null;const el=$('#airMsg');if(el)el.textContent=r.ok?`${a.v.name} airstrip: ${(Math.hypot(a.x-a.v.x,a.z-a.v.z)/1000).toFixed(1)} km from the village, ${Math.round(dev)} m of grading${ln.wet?', a culvert for the stream':''}. ✓ builds it for €${Money.fmt(AIR.price)}`:r.msg;const ok=$('#airOK');if(ok)ok.disabled=!r.ok;}return r;},
+  // grade the ground: the runway, its shoulders and the hangar side follow the line; blended into the land over 25 m
+  grade(s){const T=App.T,N=T.N,cs=T.cs,ln=this.line(s),c=Math.cos(s.h),sn=Math.sin(s.h),L=AIR.len/2,W=AIR.w/2,M=25,u0=-L-12,u1=L+12,w0=-W-55,w1=W+18,R2=L+M+60;
+    const i0=Math.max(0,Math.floor((s.x-R2)/cs)),i1=Math.min(N-1,Math.ceil((s.x+R2)/cs)),j0=Math.max(0,Math.floor((s.z-R2)/cs)),j1=Math.min(N-1,Math.ceil((s.z+R2)/cs));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=i*cs,z=j*cs,dx=x-s.x,dz=z-s.z,u=dx*c+dz*sn,w=-dx*sn+dz*c,ou=Math.max(0,u0-u,u-u1),ow=Math.max(0,w0-w,w-w1),o=Math.hypot(ou,ow);if(o>M)continue;
+      const wt=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M),k=j*N+i,g=ln.at(clamp(u,-L,L));T.Hr[k]=T.Hr[k]+(g-T.Hr[k])*wt;}
+    R.patchTerrain(T,i0,j0,i1,j1);s.graded=true;},
   tap(sx,sy){if(!this.pl)return false;const h=Cam.pick(sx,sy);if(!h)return true;this.pl.x=h[0];this.pl.z=h[2];this.check();return true;},
   turn(d){if(!this.pl)return;this.pl.h=wrapPi(this.pl.h+d);this.check();},
   confirm(){const a=this.pl;if(!a||!this.check().ok)return;if(Money.on()){if(!Money.canBuild()){UI.toast('Out of money');return;}Money.spend(AIR.price,`airstrip in ${a.v.name}`);}
-    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.list.push(s);a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;this.ghost=null;this.ui(false);
+    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.grade(s);this.list.push(s);a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;this.ghost=null;this.ui(false);
     UI.toast(`Airstrip ${n} at ${a.v.name} is open. Fly cargo to another airstrip: land and stop to unload and get paid`);Log.info(`airstrip ${n} at ${a.v.name} (${a.x.toFixed(0)}, ${a.z.toFixed(0)}) heading ${(a.h*180/Math.PI).toFixed(0)}°`);},
   cancel(){this.pl=null;this.ghost=null;this.ui(false);},
   ui(on){let el=$('#airUI');if(!el){el=document.createElement('div');el.id='airUI';el.innerHTML='<div id="airMsg"></div><div class="air-b"><button data-a="l">⟲</button><button data-a="r">⟳</button><button data-a="x">✕ Cancel</button><button data-a="ok" id="airOK" class="go">✓ Build</button></div>';document.body.appendChild(el);
@@ -37,7 +50,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     el.hidden=!on;if(on)this.check();},
   // ---- saving: position, heading, village, number
   serialize(){return this.list.map(s=>({x:+s.x.toFixed(1),z:+s.z.toFixed(1),h:+s.h.toFixed(4),v:Life.villages.indexOf(s.v),n:s.n}));},
-  restore(){if(!this.pending||!Life.villages.length)return;this.list=this.pending.map(q=>({x:q.x,z:q.z,h:q.h,v:Life.villages[q.v]||Life.nearestVillage(q.x,q.z,1e9),n:q.n}));for(const s of this.list)if(s.v)s.v.airOwned=true;this.pending=null;this.meshes.clear();},
+  restore(){if(!this.pending||!Life.villages.length)return;this.list=this.pending.map(q=>({x:q.x,z:q.z,h:q.h,v:Life.villages[q.v]||Life.nearestVillage(q.x,q.z,1e9),n:q.n}));for(const s of this.list){if(s.v)s.v.airOwned=true;this.grade(s);}this.pending=null;this.meshes.clear();},
   // ---- meshes in world coordinates: the mown grass runway (draped on the ground), edge markers, threshold bars, the big number at
   // both ends in the airstrip's colour, a windsock, a hangar and a number board
   mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),g=(u,w)=>{const [x,z]=P(u,w);return[x,R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n);
@@ -62,7 +75,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     for(const e of [-1,1])q(g(e*L-0.75,-W),g(e*L+0.75,-W),g(e*L+0.75,W),g(e*L-0.75,W));return R.uploadVeh(M);},
   draw(p,pass){if(!App.T)return;if(this.pending)this.restore();if(!this.list.length&&!this.pl)return;const cp=Cam.pos||[0,0,0],I=M4.ident();
     const dm=m=>{if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,I);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};gl.uniform1f(p.u('uDist'),0);
-    for(const s of this.list){if(!s.cleared&&R.vegB){s.cleared=true;/* trees and rocks off the runway, the hangar and a margin */R.clearVegRect(App.T,{x:s.x,z:s.z,a:s.h,x0:-AIR.len/2-15,x1:AIR.len/2+15,z0:-AIR.w/2-48,z1:AIR.w/2+12},2);}
+    for(const s of this.list){if(!s.cleared&&R.vegB){s.cleared=true;/* trees and rocks off the runway, the hangar and a margin */R.clearVegRect(App.T,{x:s.x,z:s.z,a:s.h,x0:-AIR.len/2-30,x1:AIR.len/2+30,z0:-AIR.w/2-70,z1:AIR.w/2+35},2);}
       if(Math.hypot(s.x-cp[0],s.z-cp[2])>(pass===1?900:6000))continue;let m=this.meshes.get(s);if(!m){m=this.mesh(s);this.meshes.set(s,m);}dm(m);}
     if(this.pl&&pass!==1){if(!this.ghost)this.ghost=this.ghostMesh(this.pl);dm(this.ghost);}
     if(this.job&&this.cratesAt)dm(this.crateMesh());},
