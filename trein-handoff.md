@@ -23,9 +23,20 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   - Life.generate is now a generator, `genSteps(T)`, with `yield [frac,label]` at each stage (per village, per country road, fields, windmills, farms, mines, clearing). `generate(T)` still runs it in one go for the other callers.
   - App.generate steps through it and updates the bar every 40 ms. The stage weights changed: villages take 62–96% of the bar (they are about a third of the time on 16 km).
   - The bar has a sweeping highlight. It is a compositor animation, so it keeps moving even while one step holds the page.
-- Route modes (js/route.js, Build → Route): Scenic, Direct, plus two new ones (track only; roads keep Scenic and Direct):
-  - Tunnels: tunnels are cheap. The A* height lags the ground (×0.2 per step), and the profile is smoothed over about ±160 m (`profileFollow(...,sm)`, vmode 'smooth'), so the line cuts through hills and spans dips.
-  - Surface: earthworks are dear, so the line hugs the ground. The A* state carries the current tunnel and bridge run (`tr`, `br`, in the key as buckets): a tunnel may be at most 50 m, a bridge at most 100 m. Tunnels under 10 m are cuttings (classify's minimum).
+- Route planner (js/route.js), rebuilt for easy grades. The user asked for spiral climbs on big mountains and steep runs only as a last resort:
+  - Grade cost: free up to GC; above it each step costs `STEP*GW*((grade-GC)/GC)^2` (GW 2.5 scenic/surface, 1.8 tunnel, 1.0 direct).
+  - The heuristic is height-aware: `max(distance, |dy|/GC)`, weighted ×2 (greedy). A big climb therefore winds along the flank.
+  - Each step may end following the ground, or at the easy grade (cutting/bank/tunnel/bridge). Tunnel mode also has an even grade toward the destination's height.
+  - The key carries a 12 m height band (mod 4), so one spot can be crossed at two heights.
+  - The end join needs the height to be reachable.
+  - The profile follows the heights the search chose (`res.tgt` → `profileFollow(..., sm.tgt)`), not the bare ground. Tunnel mode smooths them over ±160 m. The smoothing window now shrinks at the ends; this removed a start spike of up to 87%.
+  - Ladder (`planRoute` → `planRouteOnce`): GC 5% (budget 90k + 300 per m of climb, up to 200k), then 9% (70k), then any grade (the old rule, 90k). `res.steep` > 0 adds "No line at easy grades was found, so this one climbs more steeply" to the message.
+  - Modes: Scenic, Direct, Tunnels (tunnels cheap; a tunnel mouth's cutting never costs more than the tunnel), Surface (earthworks dear; the A* state carries the tunnel/bridge run, at most 50 m of tunnel and 100 m of bridge). Tunnels and Surface are track only.
+  - Measured on a 4 km world with a 900 m big mountain (`RT_TUNE={dbg:1}` makes the search store its best partial path in `RT_PATH`/`RT_DBG`):
+    - Ridge, 900 m along the flank, level ends: the old planner peaked at 89% in every mode. Now every mode is at most 5.3%. Tunnels finds a 654 m tunnel.
+    - Climb, 300 m up within 800 m: the old planner made 812–873 m at 77–81%. Now Scenic and Surface wind 2.9 km at mostly 9% (peak 17–18%). Tunnels and Direct fall back to the last rung.
+    - A destination on a cliff-sided butte (140 m) finds no easy line and falls back: correct, as only a helix on viaducts would do.
+  - Search speed: about 45 µs per step without rendering (10.5k steps in 0.48 s). The worst case is all three rungs failing (about 290k steps).
 - Hold to route (Build.holdBegin/holdEnd/holdRoute, camera.js): in the Route tool, once a start is tapped, holding a spot for 0.55 s fills a ring (#holdRing, SVG stroke animation) and routes from the start to that spot. The start is kept, so you can try one destination after another. Moving more than 12 px, a second finger or an early release cancels it.
 
 ### Earlier (4.18.0, 14 Nov) — ocean swell, sea life, airstrip missions, roll on the left stick

@@ -341,7 +341,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     this.preview(this.plan.pieces,this.plan.ok,this.plan.warn);
     let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const p of this.plan.pieces)for(let t=0;t<=p.L;t+=8){const q=segPoint(p,t);x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);z0=Math.min(z0,q[1]);z1=Math.max(z1,q[1]);}
     this.camGoal={x:(x0+x1)/2,z:(z0+z1)/2,dist:clamp(Math.hypot(x1-x0,z1-z0)*1.1,120,2200),pitch:1.0};
-    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, ✕ to discard, or try another way of routing.`:''));this.ui();},
+    this.info(this.plan.msg+(this.plan.ok?`. Found in ${((performance.now()-t0)/1000).toFixed(1)} s. Build it, ✕ to discard, or try another way of routing.${res.steep?' No line at easy grades was found, so this one climbs more steeply.':''}`:''));this.ui();},
   setPrefer(p){this.rt.prefer=p;this.ui();if(this.rt.a&&this.rt.b)this.runRoute();},
   routeClear(){this.rt.a=this.rt.b=null;this.plan=null;this.preview(null);this.ui();this.hint();},
   // ---- pointer: Draw captures one finger; everything else is taps (one-finger drags pan)
