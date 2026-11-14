@@ -108,7 +108,7 @@ const RVMesh=(()=>{
     person(B,-0.25,1.08,-0.45,[0.92,0.92,0.9],[0.15,0.15,0.17]);
     return B;};
   // ================================================================ buses: decks 1 (the small cream-and-red bus) or 2 (the 1930s double-decker)
-  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.015,0.26,0.07],band:[0.98,0.8,0.28],up:[0.015,0.26,0.07],roof:[0.62,0.63,0.6],hood:[0.015,0.26,0.07]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
+  const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.01,0.3,0.08],band:[0.98,0.8,0.26],up:[0.01,0.3,0.08],roof:[0.6,0.61,0.58],hood:[0.01,0.3,0.08]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
     const L0=dd?-4.65:-4.4,Lc=dd?1.95:2.15,W=dd?1.2:1.18,yb=0.62,y1=2.28,y2=dd?3.82:2.75,ax=dd?[2.6,-2.4]:[2.3,-2.3];
     // ---- lower deck: a rounded box with the window band cut out; frames; the gold lining
     const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>(Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1)||(p[0]>Lc-0.06&&p[1]>1.68&&p[1]<2.12&&Math.abs(p[2])<W*0.86&&Math.abs(p[2])>0.05);/* side windows; the driver's windscreen in two panes */
@@ -117,13 +117,16 @@ const RVMesh=(()=>{
     rbox(B,[(L0+Lc)/2,(yb+y1)/2,0],[(Lc-L0)/2-0.04,(y1-yb)/2-0.04,W-0.04],0.12,null,null,()=>[[0.18,0.15,0.12],INT],40);
     for(const sd of [-1,1]){const z=sd*(W+0.006);for(const y of [1.32,2.11])quad(B,[L0+0.3,y,z],[Lc-0.3,y,z],[Lc-0.3,y+0.025,z],[L0+0.3,y+0.025,z],dd?C.band:[0.95,0.8,0.4],PAINT);
       for(const y of [0.98,1.02])quad(B,[L0+0.35,y,z],[Lc-0.35,y,z],[Lc-0.35,y+0.012,z],[L0+0.35,y+0.012,z],[0.95,0.75,0.3],PAINT);// gold lining
-      for(let x=L0+0.4;x<Lc-0.4;x+=0.82)box(B,[x+0.05,1.71,z],[0.05,0.37,0.012],dd?C.band:C.band,PAINT);}
+      for(let x=L0+0.4;x<Lc-0.4;x+=0.82)box(B,[x+0.05,1.71,z],[0.05,0.37,0.012],dd?C.low:C.band,PAINT);}/* lower-deck window pillars: green on the double-decker (photo), cream on the small bus */
     if(dd){// ---- upper deck: cream window frames on green, the long yellow side board for the lettering, a silver roof with an overhang
       const upH=[(Lc-0.1-L0)/2,(y2-y1)/2,W*0.99],uU=sqU(upH,0.12,110),uV=sqV(upH,0.12,34),upF=sq([(L0+Lc-0.1)/2,(y1+y2)/2,0],upH,0.12),winU=p=>(Math.abs(p[2])>W*0.93&&p[1]>2.86&&p[1]<3.52&&p[0]>L0+0.25&&p[0]<Lc-0.3&&((p[0]-L0-0.25)%0.78)>0.08)||(p[0]>Lc-0.25&&p[1]>2.86&&p[1]<3.52&&Math.abs(p[2])<W*0.85&&Math.abs(p[2])>0.04);
       surf(B,upF,uU,uV,(u,v)=>{const p=upF(u,v);if(winU(p))return null;if(p[1]>3.62)return[C.roof,PAINT];return[p[1]>2.8?C.band:C.up,PAINT];},{eu:2e-3,ev:2e-3});
       surf(B,upF,uU,uV,(u,v)=>winU(upF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
       rbox(B,[(L0+Lc-0.1)/2,(y1+y2)/2,0],[(Lc-0.1-L0)/2-0.04,(y2-y1)/2-0.04,W*0.99-0.04],0.12,null,null,()=>[[0.2,0.17,0.13],INT],40);
       rbox(B,[(L0+Lc)/2,y2+0.02,0],[(Lc-L0)/2+0.12,0.06,W+0.06],0.2,C.roof,PAINT,null,28);// roof with the overhang
+      // the two front panes of the upper deck in yellow frames (a broad centre pillar), and a yellow rail under the side windows
+      {const fx=Lc-0.085;for(const sd of [-1,1]){const z0=sd*0.07,z1=sd*W*0.84;for(const [a,b] of [[[fx,2.86,z0],[fx,2.86,z1]],[[fx,3.52,z0],[fx,3.52,z1]],[[fx,2.86,z0],[fx,3.52,z0]],[[fx,2.86,z1],[fx,3.52,z1]]])tube(B,a,b,0.03,0.03,6,C.band,PAINT);}
+        box(B,[fx,3.19,0],[0.02,0.36,0.07],C.band,PAINT);for(const sd of [-1,1])quad(B,[L0+0.2,2.83,sd*(W+0.004)],[Lc-0.3,2.83,sd*(W+0.004)],[Lc-0.3,2.86,sd*(W+0.004)],[L0+0.2,2.86,sd*(W+0.004)],C.band,PAINT);}
       for(const sd of [-1,1]){const z=sd*(W+0.01);quad(B,[L0+1.6,2.35,z],[Lc-0.8,2.35,z],[Lc-0.8,2.75,z],[L0+1.6,2.75,z],C.band,PAINT);for(const [a,b] of [[2.37,2.39],[2.71,2.73]])quad(B,[L0+1.65,a,z*1.001],[Lc-0.85,a,z*1.001],[Lc-0.85,b,z*1.001],[L0+1.65,b,z*1.001],C.low,PAINT);}}
     else rbox(B,[(L0+Lc)/2,y2-0.12,0],[(Lc-L0)/2,0.3,W],0.3,C.roof,PAINT,null,28);
     // ---- the driver's cab front and the bonnet with radiator (a conventional front, like the photo)
