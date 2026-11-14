@@ -1,8 +1,8 @@
-# Trein handoff 67 (14 Nov 2026): v4.10.1, 01 118 reworked from four more photos; next: plan step 7 (footbridge)
+# Trein handoff 68 (14 Nov 2026): v4.10.1 — plan steps 1–6 done; between steps: farm with grain tower, DB 01 118, HEA grain hopper; next: plan step 7 (footbridge)
 
 Upload **trein.html** with this file. The HTML is the only source of truth; `// ===== name.js` module markers are unchanged.
 
-## START HERE (restart brief, 7 Nov 2026)
+## START HERE (restart brief, updated 14 Nov 2026)
 **Project**: Trein, a toy train sim in one file, `trein.html` (WebGL2, about 6000 lines plus the embedded building kit). The user plays it on a Pixel 9a.
 - Repo `kaasgezicht/oefening`. Always work on, commit to and push to branch `claude/trein-village-growth-texture-lhhj3b` (`git push -u origin claude/trein-village-growth-texture-lhhj3b`; it continues from `claude/project-improvements-polish-enesc6`). No PR unless asked.
 - End commit messages with these two lines, and put no model names in code or commits:
@@ -11,6 +11,7 @@ Upload **trein.html** with this file. The HTML is the only source of truth; `// 
   Claude-Session: https://claude.ai/code/session_01XEFkHm1jcQJ6MRroWR8zg2
   ```
 - After each change, send the user `trein.html` and this file with SendUserFile. They test on the phone.
+- **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
 ### Latest (4.10.1, 14 Nov) — 01 118 reworked from the user's close-ups (cylinder, cab side, tender rear, front)
@@ -220,6 +221,57 @@ User asked: check stations in every situation and rotation, no mesh/texture glit
   - Village panel shows "(n being built)".
 - **Known**: the bakery/restaurant/bank-house assignment only takes houses with r ≤ 6.5 m, so no detailed house can become one (as in 3.1.x; the bank upgrade can't appear). Fix with the people/shops work.
 
+## Rolling stock and farm: reference (14 Nov 2026)
+**Locomotive kinds.** `LOCOS` (next to `VEH`) maps a kind to its vehicles, meshes and the loco-frame points the game needs:
+`std` = the green loco (meshes 0/1), `'01'` = DB 01 118 (meshes 34/35). Fields: `chim` (smoke), `drain` (cylinder cocks), `whistle`,
+`eye` (cab camera), `crew` + `crewY` (driver and fireman figures), `R` (driving wheel radius: 4 exhaust beats per turn), `te` (pull factor).
+`locoSpec(tr)` reads `tr.veh[0].lt` (undefined = std). `Trains.locoPair(lt)`, `Trains.setLoco(t,lt)` (refuses when the longer loco does
+not fit behind), `consist(n,livery,lt)`, `goodsConsist(n,lt)`; saves store `lt`. UI: "🚂 Green / 🚂 01" buttons in the selected train's
+row of the train list; `Drive.locoKind` is the kind a newly placed loco gets. Anything new that needs a loco position must go through
+`locoSpec`, never fixed numbers.
+
+**01 118 geometry** (loco frame: x forward, rail top y 0, front buffer +7.6): bogie axles 6.05 / 3.85 (wheels 1.0 m), drivers 2.3 / 0 / −2.3
+(2.0 m, main crank on the middle one), trailing axle −6.2 (1.25 m), boiler axis 3.05, running board 2.25, cab −5.2…−7.25, cab floor 2.05,
+smokebox 4.75…6.95, chimney 5.9, cylinders 4.32…5.62 at z ±1.13 (casing = `vhull` over the cylinder r 0.5 at y 1.02 and the valve chest
+r 0.36 at y 1.86). Tender: ±4.0, bogies at ±2.45 (axles ±0.95 from them), tank 1.45…3.3, upper part to 4.3 (z ±1.15).
+
+**Valve gear** (all in the vertex shader, VS_VEH; per-vertex `aAnim` = type, side 0/1, extra, driving wheel radius; uniforms uG1–uG3 from
+`G01`, set in `R.drawVehicles`): 1 turns with its wheel (wheels, crank bosses, return crank); 2/3 coupling rods (crank circle, ±quarter
+turn); 4 main rod (big end on the crank pin, small end on the crosshead line); 5 crosshead, piston rod, union link (slide by d1);
+6 eccentric rod (return crank to link foot); 7 expansion link (rocks about the pivot by φ); 8 radius rod (slides with the die, d2);
+9 combination lever (shear between d1 at the bottom and d2 at the top); 10 valve spindle (rigid, at the lever height `aAnim.z`).
+Rest geometry is built with every crank pin at its axle centre; the shader places it. The die flips with the last direction the wheels
+turned (`tr._gs`). Changing any position means changing `G01` and the mesh together.
+
+**Hopper and grain.** `hopperMesh()` is mesh 6 (the grain wagon kind keeps its id, so old saves load). Weathered rust paint is FS_VEH
+material 9 (noise patches by local position), grain is material 8 (kernel speckle). `grainHeapMesh()` (mesh 36) has smooth normals and
+is drawn in `drawTrains` like the ore heaps: base height `1.55+1.95·f`, height scale `0.12+0.4·f`, f = load/20.
+
+**Number plates**: `vplate(M,centre,face,'01 118',h,plate,figure)` draws seven-segment figures on a plate (faces 'x', '-x', 'z', '-z').
+Other lettering is suggested with lines (`vsign`).
+
+**Farm** (buildings/farm.js, 4.9.0): kit models `farmstead`, `grainTower`, `grainArm` (instanced per frame by `Life.armInst`: turned and
+stretched to the spout position), `farmAll` (render only). A farm is a fourth station-slot kind (`Life.slotInds`, 4 sides in
+`sawSlots(fm)`, `st.farm={mi,k}`); `Life.farmTower(fm)` stands the tower 11.7 m from that station's track. Loading: `Crane` kind 'farm'
+(`runGrain`, `grainWork`), `Crane.stopAt` brings the first two empty hoppers to the arm, the arm fills one then swings to the other, then
+`tr.grainMove` makes the train draw up two wagons; `tr.grainStuck` when the track ends. Grain now only comes from farm stations.
+
+## Findings and open questions (14 Nov 2026)
+- **Real proportions of the 01**: the first build (4.10.0) put the cab right behind the drivers; the user's station photo showed the cab
+  ~4 m behind the rear driver with a long firebox in between. Measured from that photo with the 2.0 m drivers as the scale; total length
+  kept at 23.9 m by making the tender 8.0 m. If the user sends a side drawing, recheck the bogie-to-driver gap (1.55 m now).
+- **Colours from the photos**: rods red (not steel) on 01 118; valve gear parts bare steel; boiler satin black (material 1 gives the sky
+  sheen); number plates gold on the cab and tender, white on the smokebox door.
+- **Cost**: loco ≈24.7k triangles, tender ≈9.4k, hopper ≈5.1k, grain heap 0.9k (green loco 2.8k). No LOD for vehicles yet: if the phone
+  slows with several 01 trains, add a far mesh (wheels as discs, no valve gear) chosen by distance in `drawTrains`.
+- **Not tested on the phone yet**: everything since 4.7.1 (ghost checks, step 6, farm, 01, hopper). Ask the user for a phone check of
+  frame rate near the farm and with an 01 train.
+- **Not done / ideas**: the arm still swings across the track (the picture had it along the track); hopper bottom doors don't open
+  (grain only leaves by Goods delivery); no lettering beyond plates; the 01's lamps follow the old lamp code (not checked at night);
+  the green loco and the 01 share chuff sound timing via `R`.
+- **Test camera trick**: `Cam.update` pulls the target height to the ground average; for close-up test shots override `Cam.ground`
+  (see `tools/rolling_views.js`), otherwise the camera sinks to rail level.
+
 ### How the user works
 - Ask clarifying questions before long code. Split big requests into steps; they test each step before the next.
 - Keep replies short. Be honest about what was and wasn't tested.
@@ -258,7 +310,7 @@ User asked: check stations in every situation and rotation, no mesh/texture glit
   - The front path starts at the gate (`KIT_GATE`); chimney smoke comes from `KIT_CHIM`. Street slots are every 8–12 m.
   - Villages hold fewer, roomier houses than before.
 
-### Still to do (in the order I'd suggest)
+### Still to do (older list from 7 Nov; the current order is trein-plan.md, steps 7–13)
 1. **Ink lines in the game.** The approved look has them, but only the offline renderer draws them.
    - Plan: stencil-mark the kit pixels in the main pass, then a full-screen edge pass on depth, plus normals or a part id if a second target is cheap.
    - Keep trees and terrain without ink.
@@ -282,6 +334,10 @@ User asked: check stations in every situation and rotation, no mesh/texture glit
   - `tools/e2e.js`, `crane_e2e.js` (WS=2048), `step1_checks.js` (2048), `step2_checks.js` (2048);
   - `signal_check.js`, `board_check.js` (2048), `ui_checks.js` (2048), `lake_check.js`.
 - **Meshes**: `node tools/meshcheck.js trein.html <out> [regex]` checks the old meshes.
+- **Rolling stock views**: `node tools/rolling_views.js <outdir> '[["front",7.2,0.35,0.08,14,2.5]]'` (01 + tender + 3 hoppers at 20/10/0 t;
+  NOHOP=1 without hoppers, CAB=1 adds cab views; a view named "gear" is rendered at four quarter turns of the wheels).
+- **Farm grain cycle**: `node tools/farm_grain_check.js <outdir> <side 0-3>` logs fill levels, arm phase and train status every 4 s.
+- **Building renders**: `node tools/render_building.js farmAll out.jpg` (also farmstead, grainTower, grainArm with '{"game":true,"lod":N}').
 - **Syntax check**: extract the biggest `<script>` and run `node --check` on it (a `//` comment once swallowed code on a one-line edit; use `/* */` inside lines).
 - **Pitfalls**:
   - headless frames are slow, so use `waitForTimeout` generously, set screenshot `timeout` to 180000, and use `deviceScaleFactor` 2 via a copy of boot.js for user-facing shots;

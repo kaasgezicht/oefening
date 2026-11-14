@@ -20,6 +20,9 @@ WebGL2). Desktop GPUs ignore that; the Mali GPU does not. The water reads the sc
 the phone those arrive rounded: depth in steps of metres (bands), flickering per screen row (stripes). Step 1 fixes and proves this.
 The square in the lake is a different thing: the edge of the finer wave mesh near the camera (step 8.4).
 
+
+> **Status 14 Nov 2026**: steps 1–6 done (4.2.0–4.8.0). Done between steps on request: benchmark world (4.4.0), camera/destination fixes (4.8.1), farm with grain tower and arm (4.9.0), DB 01 118 + HEA grain hopper (4.10.0/4.10.1). Next: step 7.
+
 ---
 
 ## Step 1 — DONE in 4.2.0 (waiting for the user's phone check of the lake spots)
