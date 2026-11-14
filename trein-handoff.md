@@ -16,7 +16,7 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 
 ### Latest (4.15.0, 14 Nov) — the Staggerwing rebuilt from three photos, game controller
 User's choices: controller throttle as a rate (stays where you leave it); right stick up = nose down; the proposed button map; a full rebuild.
-- **Model** (`planeMeshes` in js/plane.js; a source copy in tools/proto/plane_model.js may lag behind: plane.js is the truth):
+- **Model** (`planeMeshes` in js/plane.js, the only copy):
   - Parametric and smooth: `surf(M,f,us,vs,paint)` builds a grid surface with normals from central differences and one colour/material per
     quad. Fuselage = one loft of superellipse sections (tables `yT`, `yB`, `hW`, `eX`, `cowlR`, interpolated by `mono`, a monotone cubic)
     from the cowling lip (x 3.02) to the rudder hinge (x -4.62). Proportions measured from photo 1 (depth ~1.5 m at the cabin, cowl 1.28 m).
@@ -43,8 +43,17 @@ User's choices: controller throttle as a rate (stays where you leave it); right 
   (analog); A gear, B next camera, X flaps step, Y assists, D-pad down/up flaps out/in, D-pad left/right camera, RT held look back
   (`Plane.lookBack`), Start pause (`Plane.paused`), Back reset. The pad writes a control only while it is used and releases it once, so the
   touch controls still work. `PlaneUI` got `gear()`, `setFlaps(n)`, `nextCam(d)`, `easy()` shared by both.
+- **Cockpit view**: eye [0.45, 0.75, -0.27], looking ~3° down; the windscreen runs down to the cowling (`wsX` = 1.72 - 0.32 cos²θ), a
+  firewall at x 1.76 closes the fuselage ahead of the panel (the dark glare-shield area), the lining is open at the windows.
+- **Camera fix (all flying)**: the near plane grows with height (12% of the height above ground, up to 12 m), so at altitude it cut
+  into the plane the chase camera follows 12 m behind (wings vanished). `Cam.update` now caps it at (distance to the plane - 6) x 0.4.
+- **Controller test** (scratchpad pad.js): a fake standard gamepad through `navigator.getGamepads`; every mapping passed (hold buttons
+  longer than one headless frame, ~1 s, or they are missed).
 - Renders for checking: a persistent-profile harness posed like the photos (scratchpad plv.js; views photo1/photo2/photo3/rear/gearup/
-  cockpit). Pictures: checks/staggerwing-*.png.
+  front/top/below/cockpit). Pictures: checks/staggerwing-vs-photos.png (the user's photos left, the game right), staggerwing-views.png,
+  staggerwing-cockpit.png.
+- Remaining differences to the photos: the real cowling is a little larger relative to the fuselage, the gear legs are sturdier, the
+  registration is real lettering (here gold bars).
 
 ### Earlier (4.14.0, 14 Nov) — smoothness, performance settings, follow camera, slot ghosts, file split
 The user's M1 measurement: 599×338 render, 9.3 ms GPU in "Measure on this phone", but the game ran at 44 fps (22.5 ms). Causes found:
