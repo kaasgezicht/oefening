@@ -570,7 +570,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   // the lane: the road line rounded off once, then 0.9 m to the right; the last point pulls in at the stop
   // cross-country between two points: around water first (bridges only if there is no other way); the grid grows with the distance so a
   // long leg never ends in a straight line across lakes (4.17.0: stops left away from the roads drove straight through lakes)
-  cross(a,c){const d=Math.max(Math.abs(a[0]-c[0]),Math.abs(a[1]-c[1]));for(const [bridge,margin] of [[false,140],[false,700],[true,140],[true,700]]){const cs=Math.max(5,(d+2*margin)/270),p=Life.routePath(a,c,{cs,margin,wind:0,road:0.12,maxG:0.4,bridge});if(p)return p;}return null;},/* null: no dry way (or bridge) at all */
+  cross(a,c){const d=Math.max(Math.abs(a[0]-c[0]),Math.abs(a[1]-c[1]));for(const [bridge,margin] of [[false,140],[false,700],[true,140],[true,700]]){const cs=Math.max(5,(d+2*margin)/270),p=Life.routePath(a,c,{cs,margin,wind:0,road:0.12,maxG:0.4,bridge,clearEnds:40});if(p)return p;}return null;},/* null: no dry way (or bridge) at all */
   plan(b,t){let p=this.roadPath([b.x,b.z],[t.rx,t.rz]);b.onRoad=!!p;
     if(!p){// along the roads as far as they go: cross-country only from the vehicle to the nearest road and from the road to the stop
       const G=this.graph(),s0=G.nearest(b.x,b.z,900),s1=G.nearest(t.rx,t.rz,900),mid=s0>=0&&s1>=0?this.roadPath(G.N[s0],G.N[s1]):null;
