@@ -138,7 +138,7 @@ void main(){vec3 p=aPos,n=aNrm;int ty=int(aAnim.x+.5);
   vec4 w=uModel*vec4(p,1.);vW=w.xyz;vN=mat3(uModel)*n;vC=aCol;vMat=aMat;vL=p;gl_Position=(uPass==1?uLightVP:uViewProj)*w;
   // glass and solid parts are drawn in separate passes: the triangles of the other kind leave the view here (a material is per triangle),
   // so the fragment shader needs no discard and the GPU can reject hidden pixels early
-  int mm=int(aMat+.5);if(uPass==1?mm==2:((uGlass==2&&mm==2)||(uGlass==1&&mm!=2)))gl_Position=vec4(2.,2.,2.,1.);}`;
+  int mm=int(aMat+.5);bool gs=mm==2||mm==12;/* 12: the plane's propeller disc, see-through like glass */if(uPass==1?gs:((uGlass==2&&gs)||(uGlass==1&&!gs)))gl_Position=vec4(2.,2.,2.,1.);}`;
 const FS_VEH=GLSL_HEAD+GLSL_COMMON+`
 uniform int uPass;uniform int uGlass;uniform vec3 uLamp;uniform vec2 uOcc;in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;in vec3 vL;`+FS_OUT+`
 float person(vec2 q){return 1.-smoothstep(0.,.025,min(length(q-vec2(0.,.12))-.11,length(vec2(q.x/.22,(q.y+.24)/.17))*.17-.17));}
@@ -155,11 +155,16 @@ void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
   float onBoard=step(0.,vW.x)*step(vW.x,uWorld.x)*step(0.,vW.z)*step(vW.z,uWorld.x);
   float inside=smoothstep(2.5,4.5,terrainH(vW.xz)-vW.y)*onBoard;
   float sh=shadowAt(vW,N)*(1.-inside);
-  vec3 col=lightS(c,N,vW,1.-inside*.85,sh,m<=2?1.:.72);
+  vec3 col=lightS(c,N,vW,1.-inside*.85,sh,m<=2||m==11?1.:m==10?.3:.72);
   if(m==7)col=c*(ambient(N)*1.5+uSunCol.rgb*.22+vec3(1.,.82,.55)*uMisc.x*.9);// interiors: soft daylight through the windows, warm lamplight at night
   if(m<=2){vec3 R=reflect(-V,N);float F=pow(1.-max(dot(N,V),0.),4.)*(m==2?.7:.25);col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),clamp(R.y,0.,1.))*F*(.3+.7*uSunDir.w)*(1.-inside);
     float sp=pow(max(dot(R,uSunDir.xyz),0.),m==1?30.:60.)*sh;col+=uSunCol.rgb*sp*(m==2?.6:.35);}
+  {vec3 R=reflect(-V,N);float cv=max(dot(N,V),0.),sd=max(dot(R,uSunDir.xyz),0.),day=.3+.7*uSunDir.w;
+    vec3 env=mix(L(uSkyH.rgb),L(uSkyZ.rgb),clamp(R.y*1.4,0.,1.));env=mix(L(vec3(.20,.22,.14))*day*.6,env,smoothstep(-.2,.04,R.y));// sky above, the land below the horizon
+    if(m==11){float F=.04+.96*pow(1.-cv,5.);col+=env*(F*.85+.06)*day;col+=uSunCol.rgb*(pow(sd,160.)*2.2+pow(sd,18.)*.08)*sh;}// glossy paint: a clear coat over the colour
+    if(m==10){float F=.65+.35*pow(1.-cv,3.);col=col*.35+env*c*1.6*F*day+env*.25*day;col+=uSunCol.rgb*(pow(sd,90.)*3.+pow(sd,10.)*.15)*sh;}}// chrome: mostly the reflection, tinted by its colour
   if(m==2)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
+  if(m==12){float a=uOcc.x;o=vec4(fogc(col*.8,vW)*a,a);return;}
   if(m==4)em=vC*uLamp*(1.2+4.*uSunCol.w);
   if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=clamp(.14+.75*F+uMisc.x*.1,0.,.95);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
   o=vec4(fogc(col+em,vW),1.);}`;

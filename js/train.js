@@ -679,7 +679,7 @@ const Crane={S:new Map(),F:[],hold:new Map(),
 // ---- trains
 const Trains={list:[],sel:-1,parts:[],nextId:1,
   init(){const ms=[locoMesh(),tenderMesh(),coachMesh([0.72,0.20,0.17],[0.96,0.88,0.70]),coachMesh([0.20,0.48,0.34],[0.96,0.90,0.74]),signalMesh(),stationMesh(),hopperMesh(),wagonMesh(1),wagonMesh(2),wagonMesh(3),loadStageMesh(),gantryMesh(),trolleyMesh(),cableMesh(),hookMesh(),logRowMesh(0),logRowMesh(1),logRowMesh(2),logRowMesh(0,true),logRowMesh(1,true),logRowMesh(2,true),
-    oreWagonMesh(),...['gold','silver','diamond'].map(oreLoadMesh),...['gold','silver','diamond'].map(oreStreamMesh),...['gold','silver','diamond'].map(oreHeapMesh),oreYardMesh(),platPieceMesh(false),platPieceMesh(true),loco01Mesh(),tender01Mesh(),grainHeapMesh(),...planeMeshes()];R.buildVehicleMeshes(ms);R.planeMesh=R.veh.slice(37,46);
+    oreWagonMesh(),...['gold','silver','diamond'].map(oreLoadMesh),...['gold','silver','diamond'].map(oreStreamMesh),...['gold','silver','diamond'].map(oreHeapMesh),oreYardMesh(),platPieceMesh(false),platPieceMesh(true),loco01Mesh(),tender01Mesh(),grainHeapMesh(),...planeMeshes()];R.buildVehicleMeshes(ms);R.planeMesh=R.veh.slice(37);/* the plane's parts are the last meshes (PLANE_PARTS) */
     R.signalMesh=R.veh[4];R.stationMesh=R.veh[5];R.platMesh=[R.veh[32],R.veh[33]];},
   cur(){return this.list[this.sel]||null;},
   locoPair(lt){const S=LOCOS[lt]||LOCOS.std,k=lt&&LOCOS[lt]&&lt!=='std'?lt:undefined;return[{k:'loco',...VEH[S.loco],mesh:S.mesh[0],lt:k},{k:'tender',...VEH[S.tender],mesh:S.mesh[1]}];},
