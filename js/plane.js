@@ -157,7 +157,7 @@ function planeMeshes(){
   // ---------------------------------------------------------------- cabin interior (seen through the glass)
   {const xs=range(-1.0,1.58,26);surf(body,(x,th)=>{const s=sec(x),k=0.955;return[x,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])];},xs,range(0,Math.PI*2,40),(x,th)=>inWS(x,th)||sideWin(x,th)?null:Math.sin(th)<-0.55?[DK,MATTE]:[INT,INTM],{ev:1e-3,flip:true});/* open where the windows are */
     surf(body,(x,z)=>[x,-0.38,z],[-1.0,1.5],[-0.52,0.52],()=>[DK,MATTE]);// floor
-    {const xf=1.6,s=sec(xf);surf(body,(k,th)=>[xf,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])],[0,0.5,0.985],range(0,Math.PI*2,40),()=>[DK,MATTE]);}// firewall
+    {const xf=1.6,s=sec(xf);surf(body,(k,th)=>[xf,s[0]+s[1]*k*pw(Math.sin(th),s[3]),s[2]*k*pw(Math.cos(th),s[3])],[0,0.5,0.985],range(0,Math.PI*2,40),(k,th)=>s[0]+s[1]*k*pw(Math.sin(th),s[3])>0.38?null:[DK,MATTE]);}// firewall (below the panel top only)
     // instrument panel with gauges, glare shield, throw-over yoke
     surf(body,(z,y)=>[1.42-0.15*(y-0.1),y,z],[-0.55,0.55],[0.05,0.37],()=>[DK,MATTE]);
     for(const [z,y,r] of [[-0.42,0.29,0.04],[-0.31,0.29,0.04],[-0.42,0.18,0.036],[-0.31,0.18,0.036],[-0.19,0.24,0.032],[0.05,0.28,0.032],[0.17,0.28,0.032],[0.31,0.23,0.04]])
@@ -297,7 +297,7 @@ const Plane={on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:
   // tower (a fixed spot watching it pass, moved on when far), orbit (the free camera around the plane: drag to turn, pinch to zoom)
   camera(dt){const s=this.st,P0=s.p,F=Q.rot(s.q,[1,0,0]),U=Q.rot(s.q,[0,1,0]),Zr=Q.rot(s.q,[0,0,1]);let p,look,up=[0,1,0],cab=false;
     const lb=this.lookBack?-1:1;/* RT held on a controller: look back */
-    if(this.cam==='cockpit'){const e=Q.rot(s.q,PL.eye);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];look=[p[0]+F[0]*20*lb+U[0]*0.6,p[1]+F[1]*20*lb+U[1]*0.6,p[2]+F[2]*20*lb+U[2]*0.6];up=U;cab=true;}
+    if(this.cam==='cockpit'){const e=Q.rot(s.q,PL.eye);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];look=[p[0]+F[0]*20*lb-U[0]*1.2,p[1]+F[1]*20*lb-U[1]*1.2,p[2]+F[2]*20*lb-U[2]*1.2];up=U;cab=true;}/* a little down: panel, nose and horizon */
     else if(this.cam==='wing'){const e=Q.rot(s.q,[-2.6,2.6,-7.2]);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];look=[P0[0]+F[0]*1.5,P0[1]+F[1]*1.5,P0[2]+F[2]*1.5];up=U;cab=true;}
     else if(this.cam==='tower'){if(!this.tw||Math.hypot(this.tw[0]-P0[0],this.tw[2]-P0[2])>700){const v=s.v,vl=Math.hypot(v[0],v[2])||1,ax=P0[0]+v[0]/vl*350+(-v[2]/vl)*120,az=P0[2]+v[2]/vl*350+(v[0]/vl)*120;this.tw=[ax,this.groundAt(ax,az)+6,az];}p=this.tw.slice();look=P0.slice();}
     else{const hd=Math.hypot(F[0],F[2])>0.1?[F[0],0,F[2]]:[s.v[0],0,s.v[2]],hl=Math.hypot(hd[0],hd[2])||1,want=[P0[0]-hd[0]/hl*12*lb,P0[1]+3.2,P0[2]-hd[2]/hl*12*lb];if(!this.cp||Math.hypot(this.cp[0]-want[0],this.cp[1]-want[1],this.cp[2]-want[2])>40)this.cp=want.slice();const k=Math.min(1,dt*3.5);for(let i=0;i<3;i++)this.cp[i]+=(want[i]-this.cp[i])*k;p=this.cp.slice();look=[P0[0]+F[0]*4*lb,P0[1]+1,P0[2]+F[2]*4*lb];}
