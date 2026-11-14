@@ -1,4 +1,4 @@
-# Trein handoff 74 (14 Nov 2026): v4.16.0 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
+# Trein handoff 75 (14 Nov 2026): v4.16.1 — Opel Blitz lorry, double-decker, buses and lorries you can tap, follow, re-route and drive (suspension up close); next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,20 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.16.0, 14 Nov) — Opel Blitz, double-decker, tap/follow/drive buses and lorries, suspension
+### Latest (4.16.1, 14 Nov) — the user's phone screenshot of the plane controls
+- Plane and road-driving controls moved to the top left and made small (#plTop/#plHud, #rvTop/#rvHud in css/trein.css); while flying or
+  driving the game's own #hud (title, clock, stats), #money and the station chips (.ldchip) are hidden (body.flying / body.roaddrive).
+- Gear folds inward about the fore-aft axis (in line with the lower wing, toward the fuselage); the big outer fairing plate turns
+  underneath and closes the bay. Gear 4 s, flaps 2 s (were 6 s and 3 s).
+- Ailerons (upper wing) and flaps (lower wing) did move but were hard to see red on red: dark hinge seams on both faces, aileron travel
+  0.4 rad.
+- Money: flying under a bridge earns €1000 (`Plane.bridgeLines`: rail bridge spans sampled every <=6 m and road bridge deck polylines,
+  cached by Net.ver and the road bridge count; `bridgeCheck` each update: the plane's step crossing a deck line in 2D, below the deck at
+  the crossing, deck at least 3 m above the ground; 6 s / 40 m cool-down; a count per flight). A crash costs €1000.
+- Tested (scratchpad plt.js): gear button toggles, bridge fly-under +€1000 (count 1), crash -€1000, pictures of deflected surfaces and
+  of the gear half and fully folded.
+
+### Earlier (4.16.0, 14 Nov) — Opel Blitz, double-decker, tap/follow/drive buses and lorries, suspension
 User's choices: the double-decker is a second bus type (bought separately); lettering with names from the game world; manual driving
 anywhere (roads faster, grass slower, water stops it); touch driving with one joystick.
 - **New file js/roadveh.js** (loaded after plane.js; in sw.js, cache trein-v3):
