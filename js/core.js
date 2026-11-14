@@ -554,7 +554,8 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
     this.G={N,E,nearest};this.fixStops();return this.G;},
   // a stop whose road has gone (more than 25 m from any road) moves onto the nearest road within 250 m, so buses and lorries follow the
   // roads again instead of going cross-country (4.17.0: a removed station road left three stops in the fields)
-  fixStops(){const G=this.G;if(!G||!G.N.length)return;let moved=0;for(const s of this.stops){if(G.nearest(s.rx,s.rz,25)>=0)continue;const n=G.nearest(s.rx,s.rz,250);if(n<0)continue;
+  fixStops(){const G=this.G;if(!G||!G.N.length)return;let moved=0;const T=R.world,dry=i=>{if(!T)return true;const w=sampleWater(T,G.N[i][0],G.N[i][1]);return!(w[1]>0&&w[0]>R.sampleHr(T,G.N[i][0],G.N[i][1])+0.1);};
+    for(const s of this.stops){if(G.nearest(s.rx,s.rz,25)>=0)continue;let n=-1,bd=250;for(let i=0;i<G.N.length;i++){const d=Math.hypot(G.N[i][0]-s.rx,G.N[i][1]-s.rz);if(d<bd&&dry(i)){bd=d;n=i;}}if(n<0)continue;/* the nearest road point on dry land (not on a bridge) */
       const [nx,nz]=G.N[n],e=G.E[n][0],dx=e?G.N[e[0]][0]-nx:1,dz=e?G.N[e[0]][1]-nz:0,dl=Math.hypot(dx,dz)||1,ox=s.x-s.rx,oz=s.z-s.rz,d=Math.hypot(nx-s.rx,nz-s.rz);
       s.rx=nx;s.rz=nz;s.rot=Math.atan2(dz/dl,dx/dl);s.x=nx-dz/dl*3;s.z=nz+dx/dl*3;moved++;Log.info(`bus stop ${s.name} moved ${d.toFixed(0)} m onto the road (its road was gone)`);if(typeof UI!=='undefined')UI.toast(`Bus stop ${s.name} moved ${d.toFixed(0)} m onto the road`);}
     if(moved){this.legCache=null;for(const b of this.list)b.path=null;}},
