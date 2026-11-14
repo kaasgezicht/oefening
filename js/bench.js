@@ -143,7 +143,7 @@ function loop(ts){
   const dt=lastT?Math.min(raw,0.1):0.016,ff=App.ff||1,sdt=dt*ff;lastT=ts;if(!Bench.on)App.time+=sdt;// ff: fast forward (1, 2, 4 or 8 ×) speeds up the whole simulation
   if(!Bench.on&&P.timeSpeed>0){const nt=P.timeOfDay+sdt*P.timeSpeed/3600;if(nt>=24)Weather.newDay();P.timeOfDay=nt%24;if((frameAcc+=dt)>0.5){frameAcc=0;UI.refresh('timeOfDay');Sky.refresh();}}
   const c0=performance.now();
-  resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(Bench.on)Bench.sim(sdt);else{if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}Plane.update(sdt);}Weather.update(sdt);if(App.T)Life.update(sdt);}if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
+  resizeCanvas();keyMove(dt);Input.tick();TouchLog.tick(dt);if(Bench.on)Bench.sim(sdt);else{if(App.T){const n=Math.min(16,Math.ceil(sdt/0.05-1e-6)),h=sdt/n;for(let k=0;k<n;k++){Trains.update(h);Crane.update(h);}Plane.update(sdt);RoadVeh.update(sdt);}Weather.update(sdt);if(App.T)Life.update(sdt);}if(Build.active)Build.edgePan(dt);Cam.update(dt);Sfx.update(dt);Drive.tick();
   R.ensureTargets(R.rtW||gl.canvas.width,R.rtH||gl.canvas.height);
   try{R.frame(Cam,App.time);}catch(e){Log.err('frame: '+(e.stack||e));throw e;}
   if(MapView.on)MapView.draw();if(Plane.on)PlaneUI.hud();
@@ -165,7 +165,7 @@ async function boot(){
   $('#btnMap').onclick=()=>MapView.open();PlaneUI.bind();$('#btnHome').onclick=()=>MainMenu.show('home');$('#mapClose').onclick=()=>MapView.close();
   $('#btnBuild').onclick=()=>{if(!Sfx.on)Sfx.start();Sfx.syncBtn();Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
   const on=(sel,fn)=>{for(const b of document.querySelectorAll(sel))b.onclick=()=>fn(b);};
-  on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-btab]',b=>Build.setTab(b.dataset.btab));on('#buildBar [data-rtool]',b=>{Build.discard(true);Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rAddBus').onclick=()=>Buses.add();$('#rAddLorry').onclick=()=>Buses.add(true);$('#rBusList').onclick=()=>BusUI.toggle();on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
+  on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-btab]',b=>Build.setTab(b.dataset.btab));on('#buildBar [data-rtool]',b=>{Build.discard(true);Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rAddBus').onclick=()=>Buses.add();$('#rAddLorry').onclick=()=>Buses.add(true);$('#rAddDD').onclick=()=>Buses.add(false,'dd');$('#rBusList').onclick=()=>BusUI.toggle();on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
   on('#buildBar [data-dir]',b=>Build.setDir(+b.dataset.dir));on('#buildBar [data-slope]',b=>Build.setSlope(b.dataset.slope));on('#buildBar [data-prefer]',b=>Build.setPrefer(b.dataset.prefer));
   $('#pLenMinus').onclick=()=>Build.addLen(-10);$('#pLenPlus').onclick=()=>Build.addLen(10);$('#pRotL').onclick=()=>Build.rotStart(1);$('#pRotR').onclick=()=>Build.rotStart(-1);
   $('#pNew').onclick=()=>Build.newLine();$('#pBranch').onclick=()=>Build.branchMode();$('#pDemolish').onclick=()=>Build.demolish();$('#pPlace').onclick=()=>Build.place();$('#rClear').onclick=()=>Build.routeClear();

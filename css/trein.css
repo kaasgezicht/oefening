@@ -166,3 +166,15 @@ button.ic.add{position:relative}button.ic.add::after{content:'+';position:absolu
 @media (prefers-reduced-motion:reduce){.trip,.trip .tm.pop,.trip .lv{animation:none}.trip .sp{display:none}}
 #cine{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:11}#cine[hidden]{display:none}#cine button{min-height:44px;min-width:56px;background:#1e3b30b3;backdrop-filter:blur(4px)}
 #hud,#bar,#buildBar,#driveBar{z-index:10}#btnSound,#btnSky,#btnFF{z-index:11}#skySheet{z-index:12}#vPanel{z-index:20}#panel{z-index:30}#prog,#toast{z-index:40}#err{z-index:50}
+
+/* buses and lorries: the panel of the selected vehicle, and the driving controls (4.16.0) */
+#rvPanel{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:16;width:min(94vw,420px);background:#15191aeb;border:1px solid #c9a14a88;border-radius:14px;padding:9px 12px;color:#f1e7d0;font:13px system-ui;box-shadow:0 6px 18px #000a}
+#rvPanel[hidden]{display:none}.rv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.rv-h b{font:600 16px Georgia,serif;display:block}.rv-h span{font-size:12px;color:#c9bfa8}
+.rv-r{margin-top:4px}.rv-b{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}#rvPanel button{font:600 13px system-ui;padding:8px 10px;border-radius:10px;border:1px solid #c9a14a90;background:#22292a;color:#f1e7d0}#rvPanel button.go{background:var(--brass);color:var(--coal)}
+#rvUI{position:fixed;inset:0;pointer-events:none;z-index:15}#rvUI[hidden]{display:none}#rvUI button{pointer-events:auto;font:600 13px system-ui;padding:9px 11px;border-radius:11px;border:1px solid #c9a14a90;background:#15191ad9;color:#f1e7d0}#rvUI button.go{background:var(--brass);color:var(--coal)}
+#rvHud{position:absolute;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top));background:#15191ac0;padding:5px 12px;border-radius:10px;font:500 14px system-ui;color:#fff;white-space:nowrap}
+#rvTop{position:absolute;left:8px;right:8px;top:calc(100px + env(safe-area-inset-top));display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+#rvStickWrap{position:absolute;right:calc(16px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
+#rvStick{width:min(46vw,200px);height:min(46vw,200px);border-radius:50%;background:radial-gradient(circle,#ffffff22,#15191aa0);border:2px solid #c9a14a90;pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center}
+#rvKnob{width:60px;height:60px;border-radius:50%;background:#c9a14a;box-shadow:0 2px 8px #000a;pointer-events:none}
+body.roaddrive #bar,body.roaddrive .vlabel,body.roaddrive .ilabel,body.roaddrive #upNotes{display:none!important}body.roaddrive #rvPanel{bottom:auto;top:calc(150px + env(safe-area-inset-top))}

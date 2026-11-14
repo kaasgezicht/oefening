@@ -40,6 +40,7 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
         p=this.ts?this.ts.slice():[L.c[0]+20,L.c[1]+8,L.c[2]];look=[L.c[0],L.c[1]+2,L.c[2]];}
       this.target=look.slice();}
     else{const cp=Math.cos(this.pitch);p=[this.target[0]+this.dist*cp*Math.sin(this.yaw),this.target[1]+this.dist*Math.sin(this.pitch),this.target[2]+this.dist*cp*Math.cos(this.yaw)];}
+    if(this.mode==='road'){const c=RoadVeh.camera(dt);if(c){p=c.p;look=c.look;cab=c.cab;}}/* a bus or lorry: behind it, the driver's seat or beside a wheel */
     this.up=null;if(this.mode==='plane'&&Plane.on&&Plane.st){const c=Plane.camera(dt);p=c.p;look=c.look;cab=c.cab;this.up=c.up;}
     const gh=this.ground(p[0],p[2])+1.5;if(!cab){const need=Math.max(0,gh-p[1]);this.lift=(this.lift||0)+(need-(this.lift||0))*Math.min(1,dt*6);p[1]=Math.max(p[1]+this.lift,gh-1.2);}
     this.pos=p;const f=[look[0]-p[0],look[1]-p[1],look[2]-p[2]],fl=Math.hypot(...f)||1;this.fwd=f.map(v=>v/fl);this.right=[-this.fwd[2],0,this.fwd[0]].map(v=>v/(Math.hypot(this.fwd[0],this.fwd[2])||1));
@@ -108,7 +109,7 @@ function initInput(cv){
     if(MapView.on){if(pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup')MapView.tap(e.clientX,e.clientY);return;}
     if(pts.size===0&&moved<12&&now-downAt<300){
       if(now-lastTap<320&&Math.hypot(e.clientX-lastTapPos[0],e.clientY-lastTapPos[1])<30){const h=Cam.pick(e.clientX,e.clientY);if(h){Cam.flyTo(h);Log.info(`fly to ${h.map(v=>v.toFixed(0)).join(',')}`);}lastTap=0;}
-      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}}}};
+      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}}}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('wheel',e=>{e.preventDefault();Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});

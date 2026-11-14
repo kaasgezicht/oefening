@@ -71,7 +71,7 @@
     <div class="chips" id="pSlope"><span class="seg slope"><button data-slope="down2" title="Steep down">⇊</button><button data-slope="down" title="Down">↘</button><button data-slope="level" title="Level">→</button><button data-slope="auto" data-ic="follow">Follow the ground</button><button data-slope="up" title="Up">↗</button><button data-slope="up2" title="Steep up">⇈</button></span></div>
     <div class="tools"><button id="pNew" data-ic="newLine">New line</button><button id="pBranch" data-ic="junction">Junction</button><button id="pDemolish" data-ic="demolish">Demolish</button><button id="pPlace" class="go big keepcap" data-ic="place">Place</button></div>
   </div>
-  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="build" data-ic="roads">Build road</button><button data-rtool="stop" data-ic="busStop">Bus stop</button><button data-rtool="remove" data-ic="eraser">Remove road or stop</button></span></div><div class="tools"><button id="rAddBus" class="go add" data-ic="bus">Add bus</button><button id="rAddLorry" class="add" data-ic="lorry">Add lorry</button><button id="rBusList" data-ic="list">Bus list</button></div></div>
+  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="build" data-ic="roads">Build road</button><button data-rtool="stop" data-ic="busStop">Bus stop</button><button data-rtool="remove" data-ic="eraser">Remove road or stop</button></span></div><div class="tools"><button id="rAddBus" class="go add" data-ic="bus">Add bus</button><button id="rAddDD" class="add" data-ic="bus">Add double-decker</button><button id="rAddLorry" class="add" data-ic="lorry">Add lorry (Opel Blitz)</button><button id="rBusList" data-ic="list">Bus list</button></div></div>
   <div id="mSignals" hidden><div class="chips"><span class="seg"><button data-sig="signal" data-ic="signals">Signal</button><button data-sig="station" data-ic="station">Station</button><button data-sig="longer" data-ic="longer">Longer platform</button><button data-sig="shorter" data-ic="shorter">Shorter platform</button><button data-sig="remove" data-ic="eraser">Remove signal or station</button></span></div></div>
   <div class="tools" id="bChoice" hidden><button id="cA" class="go">A</button><button id="cB">B</button><button id="cC">C</button></div>
   <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic" data-ic="roadBend">Scenic (hug the land)</button><button data-prefer="direct" data-ic="direct">Direct</button></span><button id="rClear" class="tog" data-ic="restart">Start the route over</button></div></div>
@@ -132,6 +132,7 @@
 <script src="js/render.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/plane.js"></script>
+<script src="js/roadveh.js"></script>
 <script src="js/main.js"></script>
 <script src="js/bench.js"></script>
 <script>/* installable app: register the service worker when served over http(s) (GitHub Pages); a file:// or content:// page cannot */
