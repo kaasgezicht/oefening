@@ -44,6 +44,8 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
     const gh=this.ground(p[0],p[2])+1.5;if(!cab){const need=Math.max(0,gh-p[1]);this.lift=(this.lift||0)+(need-(this.lift||0))*Math.min(1,dt*6);p[1]=Math.max(p[1]+this.lift,gh-1.2);}
     this.pos=p;const f=[look[0]-p[0],look[1]-p[1],look[2]-p[2]],fl=Math.hypot(...f)||1;this.fwd=f.map(v=>v/fl);this.right=[-this.fwd[2],0,this.fwd[0]].map(v=>v/(Math.hypot(this.fwd[0],this.fwd[2])||1));
     const agl=Math.max(p[1]-gh+1.2,0.5);this.near=cab?0.12:clamp(agl*0.12,0.2,12);this.far=26000;
+    /* a flying plane: the near plane (which grows with height) must not cut into it; the chase camera is only ~12 m away */
+    if(Plane.on&&Plane.st&&!cab){const q=Plane.st.p,d=Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);this.near=Math.min(this.near,Math.max(0.2,(d-6)*0.4));}
     this.view=M4.lookAt(p,look,this.up||[0,1,0]);this.proj=M4.persp(this.fovy,this.aspect,this.near,this.far);
     this.vp=M4.mul(this.proj,this.view);this.invVP=M4.inv(this.vp);this.planes=frustumPlanes(this.vp);
     this.planesWide=frustumPlanes(M4.mul(M4.persp(Math.min(this.fovy*1.5,2.6),this.aspect*1.2,this.near,this.far),this.view));
