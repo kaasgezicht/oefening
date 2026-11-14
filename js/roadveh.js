@@ -80,13 +80,13 @@ const RVMesh=(()=>{
       tube(B,[2.62,0.62,sd*1.02],[2.62,1.55,sd*1.02],0.012,0.012,6,BK,MATTE,true);}// marker posts (thin black rods)
     box(B,[2.6,0.62,0],[0.06,0.09,1.05],BK,PAINT);
     // ---- cab: a rounded box; windscreen (two panes), door windows and the rear window cut out with glass; door, handle, hinges, mirror
-    const cab=(u,v)=>sq([-0.15,1.6,0],[0.75,0.62,0.92],0.18)(u,v);const win=p=>{const [x,y,z]=p;
+    const cab=(u,v)=>sq([-0.15,1.48,0],[0.75,0.74,0.92],0.16)(u,v);/* the cab body down to the running boards (front panel beside the bonnet, full-height doors) */const win=p=>{const [x,y,z]=p;
       if(x>0.5&&y>1.55&&y<2.06&&Math.abs(z)<0.82&&Math.abs(z)>0.025)return'ws';if(Math.abs(z)>0.85&&y>1.55&&y<2.0&&x>-0.55&&x<0.42)return'side';if(x<-0.82&&y>1.62&&y<1.95&&Math.abs(z)<0.5)return'rear';return null;};
-    const cU=sqU([0.75,0.62,0.92],0.18,64),cV=sqV([0.75,0.62,0.92],0.18,30);surf(B,cab,cU,cV,(u,v)=>{const p=cab(u,v);if(p[1]<1.0)return null;return win(p)?null:[RD,PAINT];},{eu:2e-3,ev:2e-3});
+    const cU=sqU([0.75,0.74,0.92],0.16,64),cV=sqV([0.75,0.74,0.92],0.16,36);surf(B,cab,cU,cV,(u,v)=>{const p=cab(u,v);return win(p)?null:[RD,PAINT];},{eu:2e-3,ev:2e-3});
     surf(B,cab,cU,cV,(u,v)=>{const p=cab(u,v);return win(p)?[GLs,GLASS]:null;},{eu:2e-3,ev:2e-3});
-    rbox(B,[-0.15,1.6,0],[0.72,0.59,0.89],0.18,DK,INT,p=>{if(p[1]<1.05)return[DK,MATTE];return[[0.16,0.13,0.11],INT];},28);// inside
+    rbox(B,[-0.15,1.48,0],[0.72,0.71,0.89],0.16,DK,INT,p=>{if(p[1]<1.05)return[DK,MATTE];return[[0.16,0.13,0.11],INT];},28);// inside
     box(B,[-0.15,1.0,0],[0.75,0.05,0.92],BK,MATTE);// cab floor
-    for(const sd of [-1,1]){const zz=sd*0.93;quad(B,[0.47,1.02,zz],[-0.62,1.02,zz],[-0.62,1.03,zz],[0.47,1.03,zz],RDd,PAINT);quad(B,[0.47,1.02,zz],[0.47,2.12,zz],[0.48,2.12,zz],[0.48,1.02,zz],RDd,PAINT);quad(B,[-0.62,1.02,zz],[-0.62,2.1,zz],[-0.63,2.1,zz],[-0.63,1.02,zz],RDd,PAINT);// door shut lines
+    for(const sd of [-1,1]){const zz=sd*0.93;quad(B,[0.47,0.8,zz],[-0.62,0.8,zz],[-0.62,0.81,zz],[0.47,0.81,zz],RDd,PAINT);quad(B,[0.47,0.8,zz],[0.47,2.12,zz],[0.48,2.12,zz],[0.48,0.8,zz],RDd,PAINT);quad(B,[-0.62,0.8,zz],[-0.62,2.1,zz],[-0.63,2.1,zz],[-0.63,0.8,zz],RDd,PAINT);// door shut lines
       tube(B,[0.3,1.5,zz*1.005],[0.38,1.5,zz*1.005],0.012,0.012,6,CH,CHROME,true);for(const y of [1.2,1.85])box(B,[0.48,y,zz],[0.03,0.05,0.012],CH,CHROME);
       // window frames (chrome strip around the door glass) and the rear-view mirror on its arm
       for(const [a,b] of [[[-0.55,1.55],[0.42,1.55]],[[0.42,1.55],[0.42,2.0]],[[0.42,2.0],[-0.55,2.0]],[[-0.55,2.0],[-0.55,1.55]]])tube(B,[a[0],a[1],sd*0.935],[b[0],b[1],sd*0.935],0.012,0.012,5,CH,CHROME);
@@ -111,7 +111,7 @@ const RVMesh=(()=>{
   const bus=(decks)=>{const B=vmesh(),dd=decks===2;const C=dd?{low:[0.015,0.26,0.07],band:[0.98,0.8,0.28],up:[0.015,0.26,0.07],roof:[0.62,0.63,0.6],hood:[0.015,0.26,0.07]}:{low:[0.74,0.12,0.09],band:[0.93,0.87,0.7],up:[0.93,0.87,0.7],roof:[0.93,0.87,0.7],hood:[0.74,0.12,0.09]};
     const L0=dd?-4.65:-4.4,Lc=dd?1.95:2.15,W=dd?1.2:1.18,yb=0.62,y1=2.28,y2=dd?3.82:2.75,ax=dd?[2.6,-2.4]:[2.3,-2.3];
     // ---- lower deck: a rounded box with the window band cut out; frames; the gold lining
-    const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1;
+    const lowH=[(Lc-L0)/2,(y1-yb)/2,W],lU=sqU(lowH,0.12,110),lV=sqV(lowH,0.12,34),lowF=sq([(L0+Lc)/2,(yb+y1)/2,0],lowH,0.12),winL=p=>(Math.abs(p[2])>W*0.95&&p[1]>1.35&&p[1]<2.08&&p[0]>L0+0.4&&p[0]<Lc-0.45&&((p[0]-L0-0.4)%0.82)>0.1)||(p[0]>Lc-0.06&&p[1]>1.68&&p[1]<2.12&&Math.abs(p[2])<W*0.86&&Math.abs(p[2])>0.05);/* side windows; the driver's windscreen in two panes */
     surf(B,lowF,lU,lV,(u,v)=>{const p=lowF(u,v);if(winL(p))return null;return[p[1]>2.12?C.band:C.low,PAINT];},{eu:2e-3,ev:2e-3});
     surf(B,lowF,lU,lV,(u,v)=>winL(lowF(u,v))?[GLs,GLASS]:null,{eu:2e-3,ev:2e-3});
     rbox(B,[(L0+Lc)/2,(yb+y1)/2,0],[(Lc-L0)/2-0.04,(y1-yb)/2-0.04,W-0.04],0.12,null,null,()=>[[0.18,0.15,0.12],INT],40);
