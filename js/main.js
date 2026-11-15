@@ -12,12 +12,12 @@ const MainMenu={np:null,pt:0,
   hide(){$('#mainMenu').hidden=true;},
   page(p){for(const e of document.querySelectorAll('.mm-page'))e.hidden=e.dataset.p!==p;if(p==='new')this.initNew();if(p==='saves')this.saveInfo();if(p==='quality')this.initQ();},
   KEYS:['maxHeight','mountains','landShare','bigMtns','bigMtnHeight','bigMtnBase','bigMtnLong','villages'],
-  initNew(){const np=this.np={...P};$('#mmSize').value=String(np.worldSize);$('#mmSeed').value=np.seed;for(const k of this.KEYS)$('#mm_'+k).value=np[k];this.sync();this.preview();},
+  initNew(){const np=this.np={...P};$('#mmExplore').checked=!!+P.exploreMode;$('#mmSize').value=String(np.worldSize);$('#mmSeed').value=np.seed;for(const k of this.KEYS)$('#mm_'+k).value=np[k];this.sync();this.preview();},
   sync(){const np=this.np;for(const b of document.querySelectorAll('#mmStyle button'))b.classList.toggle('on',b.dataset.v===np.mapStyle);for(const e of document.querySelectorAll('.mm-grid .isl'))e.style.display=np.mapStyle==='land'?'none':'';
     for(const e of document.querySelectorAll('.mm-grid .bm'))e.style.opacity=np.bigMtns>0?1:0.4;},
   preview(){clearTimeout(this.pt);this.pt=setTimeout(async()=>{const np=this.np,t0=performance.now();try{const L=await previewLand(np,160);drawPreview($('#mmPrev'),L,np);$('#mmPrevNote').textContent=`Preview without rivers and lakes · ${np.worldSize/1000} km · seed ${np.seed}`;}catch(e){Log.warn('preview: '+e.message);}},120);},
   start(){const np=this.np;if(!np)return;if(Bench.on){UI.toast('Leave the benchmark world first');return;}
-    for(const k of ['worldSize','seed','mapStyle',...this.KEYS])P[k]=np[k];paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
+    for(const k of ['worldSize','seed','mapStyle',...this.KEYS])P[k]=np[k];P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
     Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
     App.camLoaded=false;App.placedCam=false;UI.refreshAll();this.hide();App.generate(0);},
   saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes';},
@@ -59,7 +59,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     for(const tr of Trains.list){const p=tr.poses&&tr.poses[0];if(!p)continue;const q=S(p.c[0],p.c[2],p.c[1]);if(q){g.fillStyle='#fff';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],5,0,6.283);g.fill();g.stroke();}}
     for(const b of Buses.list){const q=S(b.x,b.z);if(q){g.fillStyle=b.goods?'#ffb340':'#4fb4ff';g.strokeStyle='#000';g.lineWidth=1.5;g.beginPath();g.arc(q[0],q[1],4,0,6.283);g.fill();g.stroke();}}
     // symbols with names
-    const boxes=[],sym=(x,z,icon,name,size,col,obj)=>{const q=S(x,z);if(!q||q[0]<-40||q[1]<-40||q[0]>W+40||q[1]>H+40)return;const r=size/2+5;g.fillStyle='#15191ae6';g.strokeStyle=col||'#c9a14a';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],r,0,6.283);g.fill();g.stroke();
+    const boxes=[],sym=(x,z,icon,name,size,col,obj)=>{if(!Explore.seen(x,z))return;/* exploration: nothing shows in the mist */const q=S(x,z);if(!q||q[0]<-40||q[1]<-40||q[0]>W+40||q[1]>H+40)return;const r=size/2+5;g.fillStyle='#15191ae6';g.strokeStyle=col||'#c9a14a';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],r,0,6.283);g.fill();g.stroke();
       g.font=`${size}px system-ui`;g.textAlign='center';g.textBaseline='middle';g.fillText(icon,q[0],q[1]+1);if(name){g.font=`600 ${size>20?14:12}px system-ui`;const tw=g.measureText(name).width/2+3,bx=[q[0]-tw,q[1]+r+2,q[0]+tw,q[1]+r+17];if(boxes.some(o=>o[0]<bx[2]&&o[2]>bx[0]&&o[1]<bx[3]&&o[3]>bx[1]))name='';else boxes.push(bx);}if(name){g.lineWidth=3;g.strokeStyle='#000c';g.strokeText(name,q[0],q[1]+r+9);g.fillStyle='#fff';g.fillText(name,q[0],q[1]+r+9);}
       this.hits.push({x:q[0],y:q[1],r:r+6,wx:x,wz:z});};
     const LV=Life.LEVELS||[];for(const v of Life.villages){const lv=v.level|0,big=lv>=LV.length-1,mid=lv>=1;sym(v.x,v.z,big?'🏰':mid?'🏘️':'🏡',`${v.name} · ${(LV[lv]&&LV[lv].name)||''}`,big?26:mid?22:18,big?'#ffd36a':'#c9a14a',v);}
@@ -95,7 +95,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   async generate(from){
     if(this.busy){this.pendingFrom=Math.min(this.pendingFrom,from);return;}
     if(from>0&&!this.eroded)from=0;
-    if(from===4&&this.T){this.busy=true;try{const T=this.T;Life.generate(T);R.refreshGround(T);if(R.buildStreams)R.buildStreams(T);Weather.setWorld(T);}catch(e){Log.err('villages failed: '+(e.stack||e));}this.busy=false;
+    if(from===4&&this.T){this.busy=true;try{const T=this.T;Life.generate(T);R.refreshGround(T);if(R.buildStreams)R.buildStreams(T);Weather.setWorld(T);try{Explore.worldReady(T);}catch(e){Log.err('explore: '+(e.stack||e));}}catch(e){Log.err('villages failed: '+(e.stack||e));}this.busy=false;
       if(this.pendingFrom<99){const f=this.pendingFrom;this.pendingFrom=99;this.generate(f);}return;}
     this.busy=true;const t0=performance.now(),show=from<=2;const times=[];
     const W={0:[0,0.08],1:[0.08,0.36],2:[0.44,0.1],3:[0.54,0.08]};/* the villages take the rest (0.62-0.96): on a 16 km map they are a third of the time */let st=W[from];
@@ -119,7 +119,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
       {const g=Life.genSteps(T);let r,last=Date.now();while(!(r=g.next()).done){const [f,l]=r.value;if(show&&Date.now()-last>40){UI.progress(true,0.62+f*0.34,l);await new Promise(q=>setTimeout(q,0));last=Date.now();}}}
       if(show){UI.progress(true,0.97,'Building the 3D world');await new Promise(q=>setTimeout(q,0));}
       times.push('villages '+(performance.now()-t).toFixed(0));
-      this.T=T;R.uploadWorld(T);Weather.setWorld(T);if(this.pendingTrains){Trains.load(this.pendingTrains);this.pendingTrains=null;}else Trains.trackChanged();
+      this.T=T;R.uploadWorld(T);Weather.setWorld(T);try{Explore.worldReady(T);}catch(e){Log.err('explore: '+(e.stack||e));}if(this.pendingTrains){Trains.load(this.pendingTrains);this.pendingTrains=null;}else Trains.trackChanged();
       const s=T.stats;Log.info(`generate(from ${from}) ${(performance.now()-t0).toFixed(0)} ms [${times.join(', ')}] seed ${P.seed} ${T.W}m/${T.N}px lakes ${s.lakes} riverCells ${s.riverCells} falls ${s.fallCells} gorgeCells ${s.carvedCells||0} trees ${s.trees} bushes ${s.bushes} rocks ${s.rocks}`);
       $('#worldinfo').textContent=`Seed ${P.seed}: ${T.W/1000} km world, ${s.lakes} lakes, ${s.villages} villages with ${s.houses} houses, ${s.fields} fields, ${s.mills} windmills, ${s.trees.toLocaleString()} trees.`;
       if(from===0){Pending.world=false;UI.markGenerate(false);}
@@ -159,7 +159,8 @@ const Sky={bind(){$('#btnSky').onclick=()=>{const s=$('#skySheet');s.hidden=!s.h
     for(const b of document.querySelectorAll('#skySheet [data-season]'))b.onclick=()=>{P.season=b.dataset.season;UI.refresh('season');this.refresh();};
     for(const b of document.querySelectorAll('#skySheet [data-wx]'))b.onclick=()=>{P.weather=b.dataset.wx;UI.refresh('weather');if(P.weather==='auto')Weather.autoT=0;this.refresh();};
     $('#skyMusic').onclick=()=>{P.music=P.music?0:1;UI.refresh('music');if(P.music&&!Sfx.on){Sfx.start();Sfx.syncBtn();}this.refresh();};
-    $('#skyClose').onclick=()=>{$('#skySheet').hidden=true;};},
+    $('#skyClose').onclick=()=>{$('#skySheet').hidden=true;};
+    {const mb=$('#skyMusic');if(mb&&!$('#skyMusicMgr')){const b=document.createElement('button');b.id='skyMusicMgr';b.textContent='♪ Music…';b.className=mb.className.replace(/\bon\b/,'');b.onclick=()=>{$('#skySheet').hidden=true;MusicMgr.open();};mb.after(b);}}},
   refresh(){const s=$('#skySheet');if(!s||s.hidden)return;$('#skyTime').value=P.timeOfDay;
     for(const b of s.querySelectorAll('[data-speed]'))b.classList.toggle('on',+b.dataset.speed===P.timeSpeed);
     for(const b of s.querySelectorAll('[data-season]'))b.classList.toggle('on',b.dataset.season===P.season);

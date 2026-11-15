@@ -23,13 +23,15 @@ const Music={ctx:null,bus:null,started:false,nextT:0,step:0,bar:0,style:'pastora
     this.bus=c.createGain();this.bus.gain.value=0;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=9000;this.lp=lp;this.bus.connect(lp);lp.connect(Sfx.master);
     this.rev=c.createConvolver();this.rev.buffer=this.impulse(2.9);this.revG=c.createGain();this.revG.gain.value=0.35;this.send=c.createGain();this.send.gain.value=1;
     this.send.connect(this.rev);this.rev.connect(this.revG);this.revG.connect(lp);
-    this.nextT=c.currentTime+0.2;this.timer=setInterval(()=>this.tick(),60);Log.info('music started');},
+    this.nextT=c.currentTime+0.2;this.timer=setInterval(()=>this.tick(),60);Classical.genUntil=c.currentTime+45;Log.info('music started');},
   impulse(sec){const c=this.ctx,n=Math.floor(c.sampleRate*sec),b=c.createBuffer(2,n,c.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<n;i++){const t=i/n;d[i]=(Math.random()*2-1)*Math.pow(1-t,2.4)*(t<0.01?t/0.01:1);}}return b;},
   mood(){const h=P.timeOfDay,E=Weather.eff(),S=P.season;const tod=h<5||h>=21.5?'night':h<8.5?'dawn':h<17.5?'day':'dusk';
     const wx=E.storm>0.5?'storm':E.rain>0.3?'rain':E.snow>0.3?'snow':E.mist>0.7?'mist':'fair';
     let st;if(P.musicStyle!=='auto')st=P.musicStyle;else if(wx==='storm')st='ambient';else if(tod==='night')st=S==='winter'?'musicbox':'ambient';
     else if(wx==='rain')st='piano';else if(wx==='snow')st='musicbox';else if(wx==='mist')st='ambient';else if(tod==='dawn')st='pastoral';
     else if(tod==='dusk')st=S==='autumn'||S==='winter'?'piano':'pastoral';else st={spring:'pastoral',summer:'waltz',autumn:'piano',winter:'musicbox'}[S];
+    if(this.pin&&this.ctx&&this.ctx.currentTime<this.pin.until)st=this.pin.st;/* chosen in the music manager */
+    if(!Classical.genAllowed(st)){const alt=['pastoral','waltz','piano','musicbox','ambient'].find(k=>Classical.genAllowed(k));if(alt)st=alt;}/* blocked in the music manager */
     return{st,dark:wx==='storm'||(tod==='night'&&wx!=='fair'),tod,wx};},
   stepDur(){const s=MSTYLES[this.style];return 60/(s.bpm*P.musicTempo)/2;},
   tick(){const c=this.ctx;if(!c)return;let duck=1;if(P.musicDuck){let wh=false,near=0;const cp=Cam.pos||[0,0,0];
@@ -37,10 +39,11 @@ const Music={ctx:null,bus:null,started:false,nextT:0,step:0,bar:0,style:'pastora
       duck=(wh?0.5:1)*(1-0.35*near)*(R.A&&R.A.night>0.5?0.85:1);}
     const want=P.music&&Sfx.on?P.musicVol*0.42*duck:0;this.bus.gain.setTargetAtTime(want,c.currentTime,0.6);
     if(want<=0){this.nextT=c.currentTime+0.2;return;}
+    if(Classical.active){Classical.tick(c.currentTime);return;}/* a classical piece is playing */
     if(this.nextT<c.currentTime-0.5)this.nextT=c.currentTime+0.05;
-    while(this.nextT<c.currentTime+0.3){this.playStep(this.nextT);this.nextT+=this.stepDur();}},
+    while(this.nextT<c.currentTime+0.3){this.playStep(this.nextT);if(Classical.active)return;this.nextT+=this.stepDur();}},
   newPhrase(){const m=this.mood();const S=MSTYLES[m.st];
-    if(m.st!==this.style||!this.prog||Math.random()<0.15){this.style=m.st;this.mode=m.dark?(Math.random()<0.5?'phrygian':'aeolian'):S.modes[Math.floor(Math.random()*S.modes.length)];
+    if(m.st!==this.style||!this.prog||Math.random()<0.15||this.forceNew){this.forceNew=false;this.style=m.st;this.mode=m.dark?(Math.random()<0.5?'phrygian':'aeolian'):S.modes[Math.floor(Math.random()*S.modes.length)];
       if(m.st!==this.lastStyle||Math.random()<0.3)this.key=[0,2,5,7,-3,-5,3][Math.floor(Math.random()*7)];this.lastStyle=m.st;Log.info(`music: ${m.st} in ${this.mode} (${m.tod}, ${m.wx}, ${P.season})`);}
     this.dark=m.dark;this.prog=S.prog[Math.floor(Math.random()*S.prog.length)];this.revG.gain.setTargetAtTime(S.rev*(m.dark?1.3:1),this.ctx.currentTime,1);
     this.lp.frequency.setTargetAtTime(m.wx==='rain'||m.wx==='storm'?2600:m.tod==='night'?4200:9000,this.ctx.currentTime,2);
@@ -50,7 +53,7 @@ const Music={ctx:null,bus:null,started:false,nextT:0,step:0,bar:0,style:'pastora
     this.phrase=[motif,Math.random()<0.5?motif.map(n=>({s:n.s,mv:n.mv+(Math.random()<0.4?1:0)})):alt,motif,[{s:0,mv:0,long:true}]];this.mel=this.mel||2;},
   deg(d,oct){const sc=MODES[this.mode];const o=Math.floor(d/7),i=((d%7)+7)%7;return this.key+sc[i]+12*o+(oct||60);},
   hz(m){return 440*Math.pow(2,(m-69)/12);},
-  playStep(t){const S=MSTYLES[this.style],spb=S.meter*2;if(this.step%spb===0){if(this.bar%4===0)this.newPhrase();}
+  playStep(t){const S=MSTYLES[this.style],spb=S.meter*2;if(this.step%spb===0){if(this.bar%4===0){if(Classical.want(this.ctx.currentTime)&&Classical.start(null,t+0.2))return;this.newPhrase();MusicMgr.refresh();}}
     const bpc=S.barsPerChord||1,chordDeg=this.prog[Math.floor(this.bar/bpc)%this.prog.length],st=this.step%spb,beat=st/2;
     const ch=[chordDeg,chordDeg+2,chordDeg+4],d=this.stepDur(),acc=S.acc;const vel=this.dark?0.7:1;
     // bass and accompaniment

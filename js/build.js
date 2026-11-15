@@ -362,7 +362,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     this.plan=this.make(st);if(!this.plan||!this.plan.pieces){this.plan=null;this.preview(null);this.ui();this.drawTrail();return;}
     this.plan.stroke=st;this.show();this.ui();this.drawTrail();},
   cancel(){if(this.stDrag){this.stDrag=false;this.ui();return;}const st=this.stroke;this.stroke=null;this.lastXY=null;if(st&&this.plan&&this.plan.pieces){this.plan.stroke=st;this.show();}else{this.plan=null;this.preview(null);}this.ui();this.drawTrail();},
-  tap(e){const h=Cam.pick(e.clientX,e.clientY);
+  tap(e){const h=Cam.pick(e.clientX,e.clientY);if(h&&!Explore.seen(h[0],h[2])&&!this.remove){this.info('That is still in the mist: explore it first (drive a bus or lorry there).');return;}
     if(this.mode==='signals'&&!this.remove){if(!h)return;
       if(this.sigTool==='remove'){let best=null,bd=15,list=null;for(const L of [Track.sigs,Track.stations])for(const o of L){const s=segById(o.sid);if(!s)continue;const q=segPoint(s,o.t),d=Math.hypot(q[0]-h[0],q[1]-h[2]);if(d<bd){bd=d;best=o;list=L;}}
         if(best){list.splice(list.indexOf(best),1);Net.changed();App.trackChanged();this.info('Removed.');}else this.info('Nothing there to remove.');return;}
@@ -410,7 +410,7 @@ const Build={sigTool:'signal',choice:null,hold:null,active:false,mode:'pieces',r
     el.style.left=e.clientX+'px';el.style.top=e.clientY+'px';el.classList.remove('go','done');void el.offsetWidth;el.classList.add('go');el.hidden=false;
     const x=e.clientX,y=e.clientY;this.holdT=setTimeout(()=>{this.holdT=null;el.classList.add('done');setTimeout(()=>{el.hidden=true;},260);this.holdRoute(x,y);},550);},
   holdEnd(){if(this.holdT){clearTimeout(this.holdT);this.holdT=null;const el=document.getElementById('holdRing');if(el)el.hidden=true;}},
-  holdRoute(cx,cy){const rt=this.rt;if(!Build.active||this.mode!=='route'||!rt.a)return;const h=Cam.pick(cx,cy);const n=this.endNear(cx,cy);if(!h&&!n)return;
+  holdRoute(cx,cy){const rt=this.rt;if(!Build.active||this.mode!=='route'||!rt.a)return;const h=Cam.pick(cx,cy);if(h&&!Explore.seen(h[0],h[2])){this.info('That is still in the mist: explore it first.');return;}const n=this.endNear(cx,cy);if(!h&&!n)return;
     if(n&&rt.a.node&&n.id===rt.a.node.id)return;
     let b=n?{node:n,x:n.x,z:n.z}:{x:h[0],z:h[2]};if(this.road()&&!n){const q=Roads.nearestRoad(h[0],h[2],Math.max(6,Cam.dist*0.02));if(q)b={x:q.x,z:q.z,road:q.road};}
     this.plan=null;this.preview(null);rt.b=b;this.buzz();this.runRoute();},

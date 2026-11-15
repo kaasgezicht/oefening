@@ -610,7 +610,7 @@ const FS_BLUR=`#version 300 es
 precision highp float;uniform sampler2D uBSrc;uniform vec2 uDir;in vec2 vUV;out vec4 o;
 void main(){vec3 c=texture(uBSrc,vUV).rgb*.227;c+=(texture(uBSrc,vUV+uDir*1.385).rgb+texture(uBSrc,vUV-uDir*1.385).rgb)*.316;c+=(texture(uBSrc,vUV+uDir*3.231).rgb+texture(uBSrc,vUV-uDir*3.231).rgb)*.07;o=vec4(c,1.);}`;
 const FS_TONEMAP=`#version 300 es
-precision highp float;uniform sampler2D uSrc;uniform sampler2D uBloom;uniform sampler2D uDof;uniform sampler2D uDepth;uniform sampler2D uRays;uniform vec4 uRayC;
+precision highp float;uniform sampler2D uSrc;uniform sampler2D uBloom;uniform sampler2D uDof;uniform sampler2D uDepth;uniform sampler2D uRays;uniform vec4 uRayC;precision highp sampler3D;uniform sampler2D uExplore;uniform sampler3D uNoise3;uniform vec4 uExp;uniform mat4 uInvVPt;uniform vec3 uMistC;
 uniform vec4 uFocus;uniform float uExpo;uniform float uSat;uniform float uBloomAmt;uniform vec4 uGrade0;uniform vec4 uGrade1;uniform vec4 uGrade2;uniform vec4 uGrade3;uniform float uVig;
 uniform vec4 uUp;// sharper upscaling: xy source texel size, z sharpening, w on
 in vec2 vUV;out vec4 o;
@@ -638,6 +638,10 @@ void main(){vec3 c=uUp.w>.5?bicubic(vUV,uUp.xy):texture(uSrc,vUV).rgb;vec3 sharp
   float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,uSat);
   vec3 g=c*uGrade1.rgb*uGrade0.w+uGrade0.rgb;g=pow(max(g,0.),uGrade2.rgb);float gl=dot(g,vec3(.2126,.7152,.0722));g=mix(vec3(gl),g,uGrade1.w);g*=uGrade3.rgb;
   c=mix(c,g,uGrade2.w);
+  // exploration: unexplored ground (its world position from the depth buffer) lies under drifting mist
+  if(uExp.x>0.){float dz=texture(uDepth,vUV).r;if(dz<.99999){vec4 w4=uInvVPt*vec4(vUV*2.-1.,dz*2.-1.,1.);vec3 pw=w4.xyz/w4.w;float e=texture(uExplore,pw.xz*uExp.y).r;
+    float n1=texture(uNoise3,vec3(pw.xz*.0032,uExp.z*.012)).r,n2=texture(uNoise3,vec3(pw.xz*.011+3.1,uExp.z*.03)).r;
+    float m=smoothstep(0.,1.,clamp((1.-e)*1.35-(n1-.5)*.7-(n2-.5)*.3,0.,1.));float bil=smoothstep(.3,.75,n1)*.3+smoothstep(.35,.8,n2)*.18;c=mix(c,uMistC*(.72+bil+.12*(1.-e)),m*.97);}}/* billows: lit tops, darker folds */
   vec2 v=vUV-.5;c*=1.-dot(v,v)*(uVig+uGrade3.w)*1.1;
   c=pow(max(c,0.),vec3(1./2.2));c+=(fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)-.5)/255.;
   o=vec4(c,1.);}`;

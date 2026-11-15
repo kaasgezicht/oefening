@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.19.0 (island sea fixed on big maps; tunnel and surface routing; hold to route; loading bar keeps moving)';
+const VERSION='4.20.0 (exploration mode, UI layout editor, moon and God rays, classical music, rudder on the left stick)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -23,8 +23,8 @@ window.addEventListener('unhandledrejection',e=>Log.err('unhandled rejection: '+
 // apply: live = read every frame | world = needs Generate | water/veg = auto-rebuild that stage
 //        tex = regenerate ground textures | shadow = rebuild shadow maps | trees = rebuild tree models
 const P={},PDEF={},PORDER=[];
-const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['file','File']];
-const TAB_HINT={world:'Changes here rebuild the whole landscape when you press Generate.',erosion:'Erosion runs when you press Generate. Turn it off to compare with raw noise.',
+const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['ui','UI'],['file','File']];
+const TAB_HINT={ui:'Move and size the on-screen controls, with separate layouts for portrait and landscape. Edit layout lets you drag them on the screen; text grows with each control, and Text size changes all of it.',world:'Changes here rebuild the whole landscape when you press Generate.',erosion:'Erosion runs when you press Generate. Turn it off to compare with raw noise.',
   water:'Lake and river shape rebuild automatically (a second or two). Look settings are live.',trees:'Placement sliders replant automatically. Distances are live.',
   track:'Lay track with the Build button. Bed width and slopes reshape existing track straight away.',look:'How the diorama looks. Everything here is live.',
   sky:'Time, seasons and weather. Weather on Auto changes by itself; seasons can roll on with the days.',life:'Villages, windmills, animals and people. Changes here rebuild the villages straight away.',
@@ -270,7 +270,7 @@ let pendTimer=0;
 function paramChanged(id,fromPreset){
   const d=PDEF[id];if(!d)return;
   if(d.q&&!fromPreset&&P.preset!=='custom'){P.preset='custom';UI.refresh('preset');}
-  if(id==='btnCaps')UI.caps();
+  if(id==='btnCaps')UI.caps();if(id==='uiText'||id.startsWith('ui_'))UILayout.apply();
   /* an ocean gets sea-like water: long fetch, bigger waves and whitecaps; back to the lake values on land */
   if(id==='mapStyle'){const sea=P.mapStyle!=='land';const set=(k,v)=>{P[k]=v;UI.refresh&&UI.refresh(k);};set('lakeFetch',sea?40:PDEF.lakeFetch.def);set('lakeWaves',sea?1.7:PDEF.lakeWaves.def);set('lakeFoam',sea?1.4:PDEF.lakeFoam.def);set('lakeChop',sea?1.1:PDEF.lakeChop.def);}
   switch(d.apply){
@@ -394,7 +394,7 @@ const UI=(()=>{
       else if(d.kind==='select'){inp=document.createElement('select');for(const [v,l] of d.options){const o=document.createElement('option');o.value=v;o.textContent=l;inp.appendChild(o);}
         inp.onchange=()=>{const v=inp.value;P[id]=isNaN(+v)?v:+v;val.textContent='';paramChanged(id);};r.classList.add('sel');}
       else{inp=document.createElement('input');inp.type='checkbox';inp.onchange=()=>{P[id]=inp.checked?1:0;val.textContent=fmt(d,P[id]);paramChanged(id);};r.classList.add('chk');}
-      inp.id='p_'+id;r.appendChild(inp);sec.appendChild(r);rows[id]={inp,val,d};}
+      inp.id='p_'+id;r.appendChild(inp);if(d.head){const h=document.createElement('h4');h.className='phead';h.textContent=d.head;sec.appendChild(h);}sec.appendChild(r);rows[id]={inp,val,d};}
     // extra actions
     const w=secs.querySelector('.sec[data-tab="world"]');w.insertBefore(actions([['New random seed',()=>{P.seed=1+Math.floor(Math.random()*99998);refresh('seed');paramChanged('seed');App.generate(0);}],['Reset world sliders',()=>resetTab('world')]]),w.children[1]);
     const f=secs.querySelector('.sec[data-tab="file"]');
@@ -403,6 +403,8 @@ const UI=(()=>{
     {const tr=secs.querySelector('.sec[data-tab="trains"]');if(tr)tr.insertBefore(actions([['Fly the Staggerwing (biplane)',()=>{$('#panel').classList.remove('open');$('#bar').classList.remove('hide');Plane.spawn();}]]),tr.firstChild);}
     {const ex=secs.querySelector('.sec[data-tab="exp"]');if(ex){ex.insertBefore(actions([['Enter benchmark world',()=>Bench.enter()],['Measure on this phone',()=>PhoneBench.run()],['Copy results',()=>PhoneBench.copy()]]),ex.firstChild);const pre=document.createElement('pre');pre.id='benchOut';pre.className='hint';pre.style.whiteSpace='pre-wrap';pre.style.fontSize='11px';
       pre.textContent='Benchmark world: the same fixed world, town, station, trains and people every time, on a fixed clock, playable; there you can also note problems and measure fixed views. Measure: GPU time of the current view with each switch, about 30 s. Take a screenshot of the result for the developer.';ex.insertBefore(pre,ex.children[1]);}}
+    {const so=secs.querySelector('.sec[data-tab="sound"]');if(so)so.insertBefore(actions([['Music manager: pieces and presets…',()=>{$('#panel').classList.remove('open');MusicMgr.open();}]]),so.children[1]||null);}
+    {const u=secs.querySelector('.sec[data-tab="ui"]');if(u)u.insertBefore(actions([['Edit layout (drag on the screen)',()=>UILayout.edit()],['Reset portrait layout',()=>{for(const id of PORDER)if(/^ui_.*_p[xys]$/.test(id)){P[id]=PDEF[id].def;refresh(id);}UILayout.apply();}],['Reset landscape layout',()=>{for(const id of PORDER)if(/^ui_.*_l[xys]$/.test(id)){P[id]=PDEF[id].def;refresh(id);}UILayout.apply();}]]),u.children[1]);}
     $('#file').onchange=e=>{const fl=e.target.files[0];if(fl)App.importJSON(fl);e.target.value='';};
     refreshAll();show('world');
   }
@@ -445,7 +447,7 @@ const Money={cash:200000,loan:0,inited:false,paid:new Map(),paidSt:new Set(),pai
   borrow(){if(this.loan>=this.maxLoan){UI.toast('The bank will not lend more');return;}const b=Math.min(50000,this.maxLoan-this.loan);this.loan+=b;this.cash+=b;this.hud();},
   repay(){const r=Math.min(50000,this.loan,Math.max(0,this.cash));if(r<=0){UI.toast(this.loan?'Not enough cash to repay':'No loan');return;}this.loan-=r;this.cash-=r;this.hud();},
   note(v,txt,x,y,z){this.flo.push({v,txt,x,y,z,t:0});if(this.flo.length>6){const o=this.flo.shift();if(o.el)o.el.remove();}},
-  hud(){let el=document.getElementById('money');if(!el){el=document.createElement('div');el.id='money';el.style.cssText='margin-top:4px;font:600 14px system-ui;color:#fff;text-shadow:0 1px 2px #000;pointer-events:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+  hud(){let el=document.getElementById('money');if(!el){el=document.createElement('div');el.id='money';el.style.cssText='margin-top:4px;font:600 calc(14px*var(--txt,1)) system-ui;color:#fff;text-shadow:0 1px 2px #000;pointer-events:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap';
       const hud=document.getElementById('hud');if(!hud)return;hud.appendChild(el);el.innerHTML='<span id="mCash" role="button" title="Tap for the bank: borrow or repay" style="cursor:pointer"></span><button id="mBor" hidden style="font-size:12px;padding:2px 8px">Borrow</button><button id="mRep" hidden style="font-size:12px;padding:2px 8px">Repay</button><div id="mLog" style="width:100%;font-weight:500;font-size:12px"></div>';
       /* the bank's buttons show only after a tap on the money, and hide again after a while */
       const bank=on=>{el.querySelector('#mBor').hidden=!on;el.querySelector('#mRep').hidden=!on;clearTimeout(this.bankT);if(on)this.bankT=setTimeout(()=>bank(false),8000);};
@@ -515,7 +517,7 @@ const Roads={list:[],tool:'build',a:null,undoL:[],nid:0,ver:0,
         const nr=this.nearestRoad(sl.p[0],sl.p[1],400);if(nr&&Math.hypot(nr.x-sl.p[0],nr.z-sl.p[1])>4){const pts=Life.routePath([sl.p[0],sl.p[1]],[nr.x,nr.z],{cs:5,margin:60,bridge:true,wind:0.1,road:0.6,maxG:0.32});if(pts){this.list.push({p:pts.flat(),w:1.4,kind:1,player:true});}}
         this.list.push({p:[sl.p[0]-dx*10,sl.p[1]-dz*10,sl.p[0]+dx*10,sl.p[1]+dz*10],w:2.2,kind:1,player:true});Life.roadsDirty=true;
         Buses.stops.push({id:Buses.nextId++,x:sl.p[0],z:sl.p[1],rx:sl.p[0],rz:sl.p[1],rot:sl.t,v:sw.m.v,name:Life.indName(sw),waiting:0,[sw.kind]:{mi:sw.mi,k:sw.k}});Buses.stopAdded(Buses.stops[Buses.stops.length-1]);if(Money.on())Money.spend(12000,'loading bay');Build.info(`Lorry loading bay at the ${sw.kind==='sawmill'?'sawmill':'wood workshop'} placed.`);return;}
-      const q=this.nearestRoad(h[0],h[2],14);if(!q){UI.toast('Tap on a road to place a bus stop');return;}if(!Money.canBuild()){UI.toast('Out of money');return;}
+      if(!Explore.seen(h[0],h[2])){UI.toast('That is still in the mist: explore it first');return;}const q=this.nearestRoad(h[0],h[2],14);if(!q){UI.toast('Tap on a road to place a bus stop');return;}if(!Money.canBuild()){UI.toast('Out of money');return;}
       const v=Life.nearestVillage(q.x,q.z,500),side=1,n=Buses.stops.filter(s=>s.v===v).length,cs=Life.castleList().find(c=>Math.hypot(c.x-q.x,c.z-q.z)<450);Buses.stops.push({id:Buses.nextId++,x:q.x-q.dz*(q.w+1.6)*side,z:q.z+q.dx*(q.w+1.6)*side,rx:q.x,rz:q.z,rot:Math.atan2(q.dz,q.dx),v,name:cs?(cs.name||'Castle')+' gate':v?v.name+(n?' '+(n+1):''):'Halte',waiting:0});if(cs)Build.info('Castle bus stop: visitors from the villages on the line ride here; their villages grow.');
       Buses.stopAdded(Buses.stops[Buses.stops.length-1]);if(Money.on())Money.spend(8000,'bus stop');Sfx.clunk&&Sfx.clunk();Build.info(`Bus stop ${Buses.stops[Buses.stops.length-1].name} placed.`);return;}
     if(this.tool==='remove'){let bi=-1,bd=10;Buses.stops.forEach((s,i)=>{const d=Math.hypot(s.x-h[0],s.z-h[2]);if(d<bd){bd=d;bi=i;}});if(bi>=0){const rs=Buses.stops.splice(bi,1)[0];Buses.stopRemoved(rs);Build.info('Bus stop removed.');return;}
@@ -539,8 +541,9 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
     const r0=s0?s0.rot:0,kq=s0?this.list.filter(q=>Math.hypot(q.x-s0.rx,q.z-s0.rz)<12+10*this.list.length).length:0,x0=s0?s0.rx-Math.sin(r0)*1.15-Math.cos(r0)*10*kq:0,z0=s0?s0.rz+Math.cos(r0)*1.15-Math.sin(r0)*10*kq:0;
     return{id:this.nextId++,goods:!!goods,type:goods?'blitz':'bus',earned:0,trips:0,cargo:{},name:name||(goods?`Lorry ${nb}`:`Bus ${nb}`),stops:S,allStops:!stops,leg:0,x:x0,z:z0,rot:r0,v:0,st:'dwell',wait:4+(k||0)*5,pax:[],hash:Math.random()};},
   add(goods,type){if(!Money.canBuild()){UI.toast('Out of money');return;}const b=this.make(goods);if(type==='dd'){b.type='dd';const nd=this.list.filter(q=>q.type==='dd').length+1;b.name=`Double-decker ${nd}`;}
-    if(b.stops.length<2){UI.toast(goods?'Place at least two stops first (Build → Roads → Bus stop)':'Place at least two bus stops first (Build → Roads → Bus stop)');return;}
-    b.wait=4+6*this.list.filter(q=>q.st==='dwell'&&Math.hypot(q.x-b.x,q.z-b.z)<10).length;this.list.push(b);if(Money.on())Money.spend(RV[RoadVeh.type(b)].price,goods?'lorry':'bus');UI.toast(`${b.name} serves ${b.stops.length} stops`);BusUI.refresh();},
+    if(b.stops.length<2&&Explore.on()&&b.stops.length===1){b.explorer=true;}
+    else if(b.stops.length<2){UI.toast(goods?'Place at least two stops first (Build → Roads → Bus stop)':'Place at least two bus stops first (Build → Roads → Bus stop)');return;}
+    b.wait=4+6*this.list.filter(q=>q.st==='dwell'&&Math.hypot(q.x-b.x,q.z-b.z)<10).length;this.list.push(b);if(Money.on())Money.spend(RV[RoadVeh.type(b)].price,goods?'lorry':'bus');UI.toast(b.explorer?`${b.name} waits at ${(Buses.stopById(b.stops[0])||{}).name||'the stop'}: tap it and choose Drive to explore`:`${b.name} serves ${b.stops.length} stops`);BusUI.refresh();},
   remove(b){this.list=this.list.filter(q=>q!==b);if(RoadVeh.sel===b||RoadVeh.drv===b)RoadVeh.close();BusUI.refresh();},
   stopAdded(s){for(const b of this.list)if(b.allStops&&(b.goods||!this.isCargo(s)))b.stops.push(s.id);this.legCache=null;BusUI.refresh();},
   stopRemoved(s){for(const b of this.list){const i=b.stops.indexOf(s.id);if(i>=0){b.stops.splice(i,1);if(b.leg>i||b.leg>=b.stops.length)b.leg=Math.max(0,b.leg-1);b.path=null;}}this.legCache=null;BusUI.refresh();},
@@ -689,7 +692,7 @@ function alongD(st,x,z){const s=segById(st.sid);if(!s)return 0;const q=segPoint(
 // opens its panel with a short explanation of the upgrade; the card goes when it is tapped, closed, or the upgrade is bought.
 const UpgNotes={L:[],seen:new Set(),t:0,
   tick(dt){this.t-=dt;if(this.t>0||!App.T)return;this.t=1;const box=$('#upNotes');if(!box)return;
-    for(const v of Life.villages||[])for(const k of Object.keys(Life.UPG)){const key=v.name+'|'+k,st=Life.upgState(v,k);if(st==='available'&&!this.seen.has(key)){this.seen.add(key);this.add(v,k);}}
+    for(const v of Life.villages||[])for(const k of Object.keys(Life.UPG)){const key=v.name+'|'+k,st=Life.upgState(v,k);if(st==='available'&&!this.seen.has(key)&&Explore.vKnown(v)){this.seen.add(key);this.add(v,k);}}
     for(const q of this.L.slice())if(Life.upgState(q.v,q.k)!=='available')this.drop(q);box.hidden=!!Build.active;},
   add(v,k){const box=$('#upNotes'),el=document.createElement('div');el.className='un';el.setAttribute('role','button');
     el.innerHTML=`<em>${Life.upgIcon(v,k)}</em><span>${esc(Life.upgName(v,k))} available<small>${esc(v.name)} · tap to see</small></span><button aria-label="Dismiss">✕</button>`;
@@ -771,7 +774,7 @@ const IndUI={els:new Map(),
 const VillageUI={els:new Map(),panel:null,cur:null,
   tick(){const show=App.T&&!Build.active;for(const v of Life.villages||[]){let el=this.els.get(v);if(!el){el=document.createElement('div');el.className='vlabel';document.body.appendChild(el);this.els.set(v,el);this.bind(el,v);}
       const y=R.world?R.sampleHr(R.world,v.x,v.z)+28+(v.level|0)*6:0,p=show?Cam.toScreen(v.x,y,v.z):null,d=Cam.pos?Math.hypot(v.x-Cam.pos[0],v.z-Cam.pos[2]):0;
-      if(!p||d>3200){el.style.display='none';continue;}el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';el.style.opacity=String(clamp(1.6-d/2400,0.35,1));
+      if(!p||d>3200||!Explore.vKnown(v)){el.style.display='none';continue;}el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';el.style.opacity=String(clamp(1.6-d/2400,0.35,1));
       const ks=Object.keys(Life.UPG),own=ks.filter(k=>Life.upgState(v,k)==='owned').map(k=>Life.upgIcon(v,k)).join(''),av=ks.filter(k=>Life.upgState(v,k)==='available'),nu=this.nextUpg(v),t=`<b>${v.name}</b><span>${Life.LEVELS[v.level|0].name}${own?' · '+own:''}</span>${nu?`<div class="vl-up${nu.f>=1?' ready':''}" title="${esc(nu.title)}"><em>${nu.icon}</em><i><s style="width:${(nu.f*100).toFixed(0)}%"></s></i></div>`:''}${av.length?`<i class="vl-farm" title="Upgrade available">${Life.upgIcon(v,av[0])}${av.length>1?'<sup>'+av.length+'</sup>':''}</i>`:''}`;if(el._t!==t){el.innerHTML=t;el._t=t;}}
     for(const [v,el] of this.els)if(!(Life.villages||[]).includes(v)){el.remove();this.els.delete(v);if(this.cur===v&&this.panel)this.panel.hidden=true;}},
   // progress toward the next upgrade the village can buy: half size (growth toward the size it needs), half passengers carried;
@@ -796,7 +799,7 @@ const VillageUI={els:new Map(),panel:null,cur:null,
     p.querySelector('#vpX').onclick=()=>{p.hidden=true;this.why=null;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
 function snapshot(){
   return{app:'Trein',saveVersion:SAVE_VERSION,build:VERSION,savedAt:new Date().toISOString(),params:{...P},camera:Cam.state(),
-    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
+    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),explore:Explore.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
 }
 function applySnapshot(s){
   if(!s||s.app!=='Trein')throw new Error('Not a Trein save file');
@@ -808,7 +811,7 @@ function applySnapshot(s){
   if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
-  Air.list=[];Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;
+  Air.list=[];Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
   Life.pendingV=s.villages||null;
   if(s.money){Money.cash=s.money.cash;Money.loan=s.money.loan;Money.paid=new Map(s.money.paid||[]);Money.inited=false;Money.paidSt=new Set(Track.stations.map(q=>q.id));Money.paidTr=new Set();Money.loadedTrains=true;}

@@ -40,13 +40,14 @@
   <label class="bm">Peak → ridge<input type="range" id="mm_bigMtnLong" min="0" max="1" step="0.01"></label>
   <label>Villages<input type="range" id="mm_villages" min="0" max="12" step="1"></label>
  </div>
+ <label class="mm-chk"><input type="checkbox" id="mmExplore"><span><b>Exploration mode</b><small>Start in one village; the rest of the world is hidden in mist until your vehicles explore it.</small></span></label>
  <div class="mm-row"><button class="mm-b" id="mmBack1">Back</button><button class="mm-b go" id="mmStart">Start</button></div></div>
 <div class="mm-page" data-p="saves" hidden><div class="mm-h">Saves</div><div class="mm-note" id="mmSaveInfo"></div><button class="mm-b" id="mmSaveNow">Save now</button><button class="mm-b" id="mmLoad">Load the last save</button><button class="mm-b" id="mmExport">Export save file</button><button class="mm-b" id="mmImport">Import save file</button><button class="mm-b" id="mmLog">Export debug log</button><button class="mm-b" id="mmBack2">Back</button></div>
 <div class="mm-page" data-p="quality" hidden><div class="mm-h">Quality</div><div class="mm-row mm-chips" id="mmPreset"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
  <div class="mm-grid"><label>Building detail distance<input type="range" id="mmq_kitLod" min="0.1" max="2" step="0.05"></label><label>Render scale<input type="range" id="mmq_renderScale" min="0.3" max="1" step="0.05"></label></div>
  <div class="mm-note">More in All settings › Quality.</div><button class="mm-b" id="mmBack3">Back</button></div>
 </div></div><div id="mapBar" hidden><span id="mapTitle">Map</span><span id="mapLegend"></span><button id="mapClose">✕ Close map</button></div>
-<button id="btnSound" class="corner" data-ic="soundOff">Sound off</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button><button id="btnFF" class="corner" aria-label="Fast forward">1×</button>
+<div id="cornerBox"><button id="btnFF" class="corner" aria-label="Fast forward">1×</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button><button id="btnSound" class="corner" data-ic="soundOff">Sound off</button></div>
 <div id="skySheet" hidden>
   <h4>Time of day</h4><input type="range" id="skyTime" min="0" max="24" step="0.05">
   <div class="row2"><button data-speed="0" data-ic="pause">Paused</button><button data-speed="30" data-ic="play">Slow</button><button data-speed="120" data-ic="fast">Fast</button><button data-speed="400" data-ic="faster">Very fast</button></div>
@@ -104,6 +105,8 @@
 <!-- the game: classic scripts, loaded in this order; they share one global scope (a top-level const in one file is visible in the files after it).
      Code that runs while a file loads may only use what earlier files define. See trein-handoff.md for what is where. -->
 <script src="js/core.js"></script>
+<script src="js/uilayout.js"></script>
+<script src="js/explore.js"></script>
 <script src="js/gen.js"></script>
 <script src="js/gl.js"></script>
 <script src="js/shaders.js"></script>
@@ -129,6 +132,7 @@
 <script src="js/weather.js"></script>
 <script src="js/life.js"></script>
 <script src="js/music.js"></script>
+<script src="js/classical.js"></script>
 <script src="js/render.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/plane.js"></script>
