@@ -644,36 +644,42 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
           if(f){const [ya,yb]=r.sy[i];Y.push(ya+(yb-ya)*t);K.push(f);F.push(1);}else{const wt=wetAt(x,z);Y.push(sampleH(T,x,z,H));K.push(wt?5:0);F.push(0);}}}
       X.push(P[2*n-2]);Z.push(P[2*n-1]);Y.push(sampleH(T,P[2*n-2],P[2*n-1],H));K.push(0);F.push(1);SI.push(n-2);SU.push(0);F[0]=1;
       const m=X.length;
-      // where it runs along a road already profiled (a shared stretch), it takes that road's heights
-      for(let i=0;i<m;i++){if(F[i]||K[i])continue;let bd=2.6,by=null;const cx=Math.floor(X[i]/4),cz=Math.floor(Z[i]/4);for(let a=-1;a<=1;a++)for(let c=-1;c<=1;c++)for(const q of SH.get((cx+a)+','+(cz+c))||[]){const d=Math.hypot(q[0]-X[i],q[1]-Z[i]);if(d<bd){bd=d;by=q[2];}}if(by!==null){Y[i]=by;F[i]=1;}}
       // smooth the open stretches (fixed samples stay), then hold the grade, forward and back
       for(let it=0;it<3;it++){const Y0=Y.slice();for(let i=0;i<m;i++){if(F[i])continue;let a=0,c=0;for(let j=Math.max(0,i-10);j<=Math.min(m-1,i+10);j++){a+=Y0[j];c++;}Y[i]=a/c;}}
-      const G=0.11*2;for(let pass=0;pass<2;pass++){for(let i=1;i<m;i++)if(!F[i])Y[i]=clamp(Y[i],Y[i-1]-G,Y[i-1]+G);for(let i=m-2;i>=0;i--)if(!F[i])Y[i]=clamp(Y[i],Y[i+1]-G,Y[i+1]+G);}
+      const G=0.11*2,hold=()=>{for(let pass=0;pass<2;pass++){for(let i=1;i<m;i++)if(!F[i])Y[i]=clamp(Y[i],Y[i-1]-G,Y[i-1]+G);for(let i=m-2;i>=0;i--)if(!F[i])Y[i]=clamp(Y[i],Y[i+1]-G,Y[i+1]+G);}};hold();
+      // where it runs along a road already profiled at about the same height (a shared stretch), it takes that road's heights exactly
+      {let ch=false;for(let i=0;i<m;i++){if(F[i]||K[i])continue;let bd=2.6,by=null;const cx=Math.floor(X[i]/4),cz=Math.floor(Z[i]/4);for(let a=-1;a<=1;a++)for(let c=-1;c<=1;c++)for(const q of SH.get((cx+a)+','+(cz+c))||[]){const d=Math.hypot(q[0]-X[i],q[1]-Z[i]);if(d<bd&&Math.abs(q[2]-Y[i])<2.5){bd=d;by=q[2];}}if(by!==null){Y[i]=by;F[i]=1;ch=true;}}if(ch)hold();}
       // tunnels: portals where the hill stands 8 m over the road; before them an open cutting
       for(let i=0;i<m;){if(K[i]!==2){i++;continue;}let j=i;while(j<m&&K[j]===2)j++;const cover=TUN_ROAD.crown+2.5,gh=q=>sampleH(T,X[q],Z[q],H)-Y[q];let a=i,b=j-1;while(a<b&&gh(a)<cover)a++;while(b>a&&gh(b)<cover)b--;
-        if(b-a<10){a=i;b=j-1;}for(let q=i;q<a;q++)K[q]=0;for(let q=b+1;q<j;q++)K[q]=0;const L=Math.hypot(X[b]-X[a],Z[b]-Z[a])||1;
+        /* too short a tube between portals (under 4 terrain cells, 40 m at least) is not worth a tunnel: the whole span is an open cutting */
+        if((b-a)*2<Math.max(40,cs*4)){for(let q=i;q<j;q++)K[q]=0;i=j;continue;}for(let q=i;q<a;q++)K[q]=0;for(let q=b+1;q<j;q++)K[q]=0;const L=Math.hypot(X[b]-X[a],Z[b]-Z[a])||1;
         if(!TN.some(t=>(Math.hypot(t.ax-X[a],t.az-Z[a])<4&&Math.hypot(t.bx-X[b],t.bz-Z[b])<4)||(Math.hypot(t.ax-X[b],t.az-Z[b])<4&&Math.hypot(t.bx-X[a],t.bz-Z[a])<4)))TN.push({ax:X[a],az:Z[a],ay:Y[a],bx:X[b],bz:Z[b],by:Y[b],dx:(X[b]-X[a])/L,dz:(Z[b]-Z[a])/L,L,w:r.w});r.tcut[SI[i]]=[SU[a],SU[b]];i=j;}
       for(let i=0;i<m;i++){const k=shk(X[i],Z[i]);if(!SH.has(k))SH.set(k,[]);SH.get(k).push([X[i],Z[i],Y[i]]);}
       RC.push({X,Z,Y,K,hw:r.w});r.prof={X,Z,Y,K};}
-    this.rc={roads:RC,tunnels:TN};this.tunnels=TN;this.carveRoads(T,flat);},
+    this.rc={roads:RC,tunnels:TN};this.tunnels=TN;this.rhash=new Map();RC.forEach((r,ri)=>{for(let s=0;s<r.X.length-1;s++){if(r.K[s]!==0||r.K[s+1]!==0)continue;const key=Math.floor(r.X[s]/8)+','+Math.floor(r.Z[s]/8);if(!this.rhash.has(key))this.rhash.set(key,[]);this.rhash.get(key).push(ri,s);}});
+    this.carveRoads(T,flat);},
+  /* the height of a country road's surface at x,z (null off them); where two run on top of each other, the one nearest ref */
+  roadY(x,z,ref){const H=this.rhash;if(!H)return null;const RC=this.rc.roads,cx=Math.floor(x/8),cz=Math.floor(z/8);let best=null,bd=1e18;
+    for(let a=-1;a<=1;a++)for(let c=-1;c<=1;c++){const L=H.get((cx+a)+','+(cz+c));if(!L)continue;for(let q=0;q<L.length;q+=2){const r=RC[L[q]],s=L[q+1],ax=r.X[s],az=r.Z[s],ex=r.X[s+1]-ax,ez=r.Z[s+1]-az,ll=ex*ex+ez*ez||1e-9,t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1);
+        if(Math.hypot(x-ax-ex*t,z-az-ez*t)>r.hw+0.5)continue;const y=r.Y[s]+(r.Y[s+1]-r.Y[s])*t+0.08,sc=ref==null?-y:Math.abs(y-ref);if(sc<bd){bd=sc;best=y;}}}return best;},
   /* the parts of road segment i that lie on the ground (fractions 0..1): all of an ordinary segment, none of a bridge, and the open
      cuttings at both ends of a tunnel span (the tube between the portals is not painted, cleared or counted as road) */
   roadParts(r,i){const f=r.sf?r.sf[i]:0;if(!f)return[[0,1]];if(f===1)return[];const c=r.tcut&&r.tcut[i];if(!c)return[];const L=Math.hypot(r.p[2*i+2]-r.p[2*i],r.p[2*i+3]-r.p[2*i+1])||1,a=c[0]/L,b=c[1]/L,o=[];if(a>0.01)o.push([0,a]);if(b<0.99)o.push([b,1]);return o;},
   carveRoads(T,flat){const rc=this.rc;if(!rc)return;const N=T.N,cs=T.cs,H=T.H,W=T.water;flat=flat||T.flatMask;
     const RM=T.roadMask&&T.roadMask.length===N*N?T.roadMask.fill(0):(T.roadMask=new Uint8Array(N*N));const CM=this.carvedM&&this.carvedM.length===N*N?this.carvedM.fill(0):(this.carvedM=new Uint8Array(N*N));
     const hole=T.hole||(T.hole=new Uint8Array(N*N)),tun=T.tunMask||(T.tunMask=new Uint8Array(N*N));
-    const best=new Map();
+    const best=new Map(),low=new Map();
     for(const r of rc.roads){const core=r.hw+1.5+cs*0.75,reach=core+30,ri=Math.ceil(reach/cs);for(let s=0;s<r.X.length;s++){if(r.K[s]!==0)continue;const x=r.X[s],z=r.Z[s],y=r.Y[s],ci=Math.floor(x/cs),cj=Math.floor(z/cs);
-        for(let j=cj-ri;j<=cj+ri;j++)for(let i=ci-ri;i<=ci+ri;i++){if(i<0||j<0||i>=N||j>=N)continue;const d=Math.hypot((i+0.5)*cs-x,(j+0.5)*cs-z);if(d>reach)continue;const k=j*N+i,o=best.get(k);if(!o||d<o.d)best.set(k,{d,y,core});}}}
+        for(let j=cj-ri;j<=cj+ri;j++)for(let i=ci-ri;i<=ci+ri;i++){if(i<0||j<0||i>=N||j>=N)continue;const d=Math.hypot((i+0.5)*cs-x,(j+0.5)*cs-z);if(d>reach)continue;const k=j*N+i,o=best.get(k);if(!o||d<o.d)best.set(k,{d,y,core});if(d<=core){const l=low.get(k);if(l===undefined||y<l)low.set(k,y);}}}}
     for(const [k,o] of best){if(W[k*4+3]>0||(flat&&flat[k]))continue;const h0=H[k];
-      if(o.d<=o.core){H[k]=o.y;RM[k]=255;}else{const dd=o.d-o.core;H[k]=clamp(H[k],o.y-dd*0.7,o.y+dd*1.25);const v=Math.round(255*clamp(1-dd/5,0,1));if(v>RM[k])RM[k]=v;}
+      const lw=low.get(k);if(lw!==undefined){H[k]=lw;RM[k]=255;}else{const dd=o.d-o.core;H[k]=clamp(H[k],o.y-dd*0.7,o.y+dd*1.25);const v=Math.round(255*clamp(1-dd/5,0,1));if(v>RM[k])RM[k]=v;}
       if(Math.abs(H[k]-h0)>0.3||o.d<=o.core)CM[k]=1;}
     const ow=TUN_ROAD.ow,cr=TUN_ROAD.crown;
     for(const t of rc.tunnels){const pad=30,x0=Math.min(t.ax,t.bx)-pad,x1=Math.max(t.ax,t.bx)+pad,z0=Math.min(t.az,t.bz)-pad,z1=Math.max(t.az,t.bz)+pad;
       for(let j=Math.max(0,Math.floor(z0/cs));j<=Math.min(N-1,Math.ceil(z1/cs));j++)for(let i=Math.max(0,Math.floor(x0/cs));i<=Math.min(N-1,Math.ceil(x1/cs));i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,u=(x-t.ax)*t.dx+(z-t.az)*t.dz,v=Math.abs(-(x-t.ax)*t.dz+(z-t.az)*t.dx);
         if(u<-cs||u>t.L+cs||v>26)continue;const k=j*N+i,e=Math.min(u,t.L-u),y=t.ay+(t.by-t.ay)*clamp(u/t.L,0,1);
-        if(e<cs+1.5&&e>-1&&v<ow+1.5){hole[k]=1;H[k]=Math.min(H[k],y-0.6);RM[k]=255;CM[k]=1;continue;}
-        if(e>=cs*1.5){const pt=e<9+cs,yc=y+(pt?cr+3.4:cr+2)-Math.max(0,v-(pt?ow+5:ow+2))*0.75;if(yc>H[k]){const w=clamp((26-v)/(26-(pt?ow+5:ow+2)),0,1);H[k]+=Math.min(yc-H[k],18)*w*w*(3-2*w);CM[k]=1;}
+        if(e<cs*1.5+2&&e>-1&&v<ow+1.5){hole[k]=1;H[k]=Math.min(H[k],y-0.6);RM[k]=255;CM[k]=1;continue;}
+        if(e>=cs*2){const pt=e<9+cs*2,yc=y+(pt?cr+3.4:cr+2)-Math.max(0,v-(pt?ow+5:ow+2))*0.75;if(yc>H[k]){const w=clamp((26-v)/(26-(pt?ow+5:ow+2)),0,1);H[k]+=Math.min(yc-H[k],18)*w*w*(3-2*w);CM[k]=1;}
           const tv=Math.round(255*clamp(1-(v-12)/10,0,1));if(tv>tun[k])tun[k]=tv;}}}},
   // bridges wherever a road crosses a river (wet run) or a mountain stream (segment intersection); deck humps over the water
   findBridges(roads){const T=this.T,B=[],H=(x,z)=>R.sampleHr(T,x,z),wetAt=(x,z)=>{const w=sampleWater(T,x,z);return w[1]>0&&w[0]>H(x,z)-0.15?w[0]:null;};
@@ -720,7 +726,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const w=sampleWater(this.T,x,z);if(!(w[1]>0&&w[0]>R.sampleHr(this.T,x,z)-0.3))this.lamps.push({x,z,y:R.sampleHr(this.T,x,z),hash:Math.random(),road:k});}}
     for(const r of Roads.list){L.push(r);const p=r.p;for(let i=0;i+3<p.length;i+=2)this.stampRoad(p[i],p[i+1],p[i+2],p[i+3],r.w);}
     for(const s of Buses.stops){if(!s.v)s.v=this.nearestVillage(s.x,s.z,500);}Buses.restore();
-    this.roads=L;Buses.G=null;Buses.legCache=null;this.uploaded=false;const ta=performance.now();R.buildRoads(this.T);const tb=performance.now();R.buildDocks((this.docks||[]).filter(d=>d.v&&d.v.docksOwned));this.bridges=this.findBridges();const tc=performance.now();R.buildBridges(this.bridges);R.buildPortals(this.tunnels);const td=performance.now();this.rebuildCrossings();
+    this.roads=L;Buses.G=null;Buses.legCache=null;this.uploaded=false;const ta=performance.now();R.buildRoads(this.T);const tb=performance.now();R.buildDocks((this.docks||[]).filter(d=>d.v&&d.v.docksOwned));this.bridges=this.findBridges();const tc=performance.now();R.buildBridges(this.bridges);R.buildPortals(this.tunnels);R.buildRoadRibbons(this.rc);const td=performance.now();this.rebuildCrossings();
     Log.info(`roads rebuilt in ${(performance.now()-tR).toFixed(0)} ms (gather ${(ta-tR).toFixed(0)}, distance field ${(tb-ta).toFixed(0)}, find bridges ${(tc-tb).toFixed(0)}, bridges ${(td-tc).toFixed(0)}, crossings ${(performance.now()-td).toFixed(0)})`);},
   // ---------------- skating on frozen lakes: groups glide along chained cubic Bézier curves
   iceOK(x,z,m){if(this.T&&this.T.sea!=null&&Math.abs(sampleWater(this.T,x,z)[0]-this.T.sea)<1)return false;/* the ocean does not freeze */return this.isLake(x,z)&&this.isLake(x+m,z)&&this.isLake(x-m,z)&&this.isLake(x,z+m)&&this.isLake(x,z-m);},

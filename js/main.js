@@ -137,7 +137,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     else if(Pending.veg){Pending.veg=false;Pending.life=Pending.smooth=false;this.generate(3);}
     else if(Pending.life||Pending.smooth){Pending.life=Pending.smooth=false;this.generate(4);}
   },
-  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now();T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T);
+  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now();T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T);if(Life.rc)R.buildRoadRibbons(Life.rc);
     Log.info(`track earthworks rebuilt in ${(performance.now()-t0).toFixed(0)} ms (${Track.segs.length} pieces, ${Track.length().toFixed(0)} m)`);},
   /* a recent compact save is always there: every 3 minutes of play and whenever the page is hidden (app switched, screen off) */
   autosave(){if(Bench.on||!App.T||App.busy)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));}catch(e){}},

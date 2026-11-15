@@ -370,6 +370,24 @@ R.buildBridges=function(BL){if(R.bridgeKit){gl.deleteBuffer(R.bridgeKit.vao.vbo)
    every 20 m), and at each portal a dressed-stone block: a face 2 m wider than the cutting with the arched opening, a voussoir ring, a
    cornice, the block running 4 m into the hill over the mouth (the ground there is opened, see Life.carveRoads), and wing walls splaying
    out along the cutting. Faces are emitted both ways round so no winding can hide them. */
+/* country roads as built surfaces (on their own levels, not only painted on the ground): the carriageway along the profile, and stone walls
+   along each edge where the drawn ground is not at road level: a retaining wall up to the hillside, a wall down to the ground below with a
+   parapet where the drop is over 2 m. In 1 km tiles, drawn within 2.6 km; further away the painted road shows. Rebuilt with the roads and
+   after the ground changes (track earthworks). */
+R.buildRoadRibbons=function(rc){if(R.ribbons){for(const t of R.ribbons)R.freeMesh(t.m);R.ribbons=null;}if(!rc||!rc.roads.length)return;const T=R.world,tiles=new Map(),SA=[0.6,0.52,0.39],SB=[0.55,0.48,0.36],VG=[0.45,0.43,0.3],WL=[0.55,0.53,0.48],WC=[0.64,0.61,0.55];
+  const tile=(x,z)=>{const k=Math.floor(x/1024)+','+Math.floor(z/1024);let t=tiles.get(k);if(!t){t={M:vmesh(),cx:(Math.floor(x/1024)+0.5)*1024,cz:(Math.floor(z/1024)+0.5)*1024};tiles.set(k,t);}return t.M;};
+  const q2=(M,a,b,c,d,n,col)=>{vq(M,a,b,c,d,n,col,0);vq(M,d,c,b,a,n.map(v=>-v),col,0);};let walls=0;
+  for(const r of rc.roads){const X=r.X,Z=r.Z,Y=r.Y,K=r.K,m=X.length,hw=r.hw,dir=s=>{const a=Math.max(0,s-1),b=Math.min(m-1,s+1),dx=X[b]-X[a],dz=Z[b]-Z[a],l=Math.hypot(dx,dz)||1;return[dx/l,dz/l];};
+    for(let s=0;s<m-1;s++){if(K[s]!==0||K[s+1]!==0)continue;const M=tile(X[s],Z[s]),d0=dir(s),d1=dir(s+1),n0=[-d0[1],d0[0]],n1=[-d1[1],d1[0]],y0=Y[s]+0.08,y1=Y[s+1]+0.08,col=s%2?SA:SB;
+      const P=(i,n,o,y)=>[X[i]+n[0]*o,y,Z[i]+n[1]*o];
+      vq(M,P(s,n0,-hw,y0),P(s+1,n1,-hw,y1),P(s+1,n1,hw,y1),P(s,n0,hw,y0),[0,1,0],col,0);
+      for(const e of [-1,1]){vq(M,P(s,n0,e*hw,y0),P(s+1,n1,e*hw,y1),P(s+1,n1,e*(hw+0.45),y1-0.03),P(s,n0,e*(hw+0.45),y0-0.03),[0,1,0],VG,0);// verge
+        const eo=hw+0.5,t0=R.drawnH(T,X[s]+n0[0]*e*eo,Z[s]+n0[1]*e*eo),t1=R.drawnH(T,X[s+1]+n1[0]*e*eo,Z[s+1]+n1[1]*e*eo),nn=[n0[0]*e,0,n0[1]*e];
+        if(Math.max(t0-y0,t1-y1)>0.35){q2(M,P(s,n0,e*eo,y0-0.3),P(s+1,n1,e*eo,y1-0.3),P(s+1,n1,e*eo,Math.max(t1,y1)+0.3),P(s,n0,e*eo,Math.max(t0,y0)+0.3),nn,WL);walls++;}// retaining wall up to the hillside
+        if(Math.min(t0-y0,t1-y1)<-0.35){q2(M,P(s,n0,e*eo,y0),P(s+1,n1,e*eo,y1),P(s+1,n1,e*eo,Math.min(t1,y1)-0.8),P(s,n0,e*eo,Math.min(t0,y0)-0.8),nn,WL);walls++;
+          if(Math.min(t0-y0,t1-y1)<-2){q2(M,P(s,n0,e*eo,y0),P(s+1,n1,e*eo,y1),P(s+1,n1,e*eo,y1+0.75),P(s,n0,e*eo,y0+0.75),nn,WL);q2(M,P(s,n0,e*(eo-0.3),y0),P(s+1,n1,e*(eo-0.3),y1),P(s+1,n1,e*(eo-0.3),y1+0.75),P(s,n0,e*(eo-0.3),y0+0.75),nn,WL);
+            q2(M,P(s,n0,e*(eo-0.32),y0+0.75),P(s+1,n1,e*(eo-0.32),y1+0.75),P(s+1,n1,e*(eo+0.02),y1+0.75),P(s,n0,e*(eo+0.02),y0+0.75),[0,1,0],WC);}}}}}// parapet
+  R.ribbons=[...tiles.values()].filter(t=>t.M.n).map(t=>({cx:t.cx,cz:t.cz,m:R.uploadVeh(t.M)}));Log.info(`road surfaces: ${R.ribbons.length} tiles, ${R.ribbons.reduce((a,t)=>a+t.m.count/3,0)} triangles, ${walls} wall pieces`);};
 R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMesh=null;}if(!TL||!TL.length)return;const M=vmesh(),TR=TUN_ROAD,ow=TR.ow,wl=TR.wall,cr=TR.crown;
   const ST=[0.58,0.56,0.51],ST2=[0.5,0.48,0.44],DR=[0.68,0.65,0.58],CON=[0.56,0.55,0.52],ARC=[0.44,0.44,0.42],ASP=[0.2,0.2,0.21],WH=[0.9,0.9,0.86],KB=[0.62,0.61,0.58],LMP=[1.7,1.45,0.95];
   const q2=(a,b,c,d,n,col,m)=>{vq(M,a,b,c,d,n,col,m||0);vq(M,d,c,b,a,n.map(v=>-v),col,m||0);};
@@ -712,6 +730,7 @@ R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1
   if(part==='g')return R.drawVehGlass(p);
   if(P.tableOn&&R.tableMesh&&pass===0){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh,R.portalMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
+  if(R.ribbons){const cp=Cam.pos||[0,0,0],lim=pass===1?700:2600;gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());for(const t of R.ribbons){const dx=Math.max(0,Math.abs(cp[0]-t.cx)-512),dz=Math.max(0,Math.abs(cp[2]-t.cz)-512);if(Math.hypot(dx,dz)>lim)continue;gl.bindVertexArray(t.m.vao);gl.drawElements(gl.TRIANGLES,t.m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=t.m.count/3;}}
   R.pm('v-static');Net.draw(pass);Crane.draw(pass);R.pm('v-net+crane');if(!R.veh)return;gl.useProgram(p.p);gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);
   gl.uniform4f(p.u('uG1'),G01.cx,G01.cy,G01.r,G01.L);gl.uniform4f(p.u('uG2'),G01.e,G01.off,G01.piv[0],G01.piv[1]);
   const drawTrains=()=>{for(const tr of Trains.list){if(!tr.poses)continue;gl.uniform1f(p.u('uDist'),tr.dist+(tr.slip?App.time*12*Math.sign(tr.throttle*tr.rev||1):0));

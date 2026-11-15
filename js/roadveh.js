@@ -161,9 +161,9 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
   /* the height a wheel stands at. Over a tunnel there are two levels (the road in the tube, the ground above): ref, the vehicle's own last
      height, picks the nearer one; without it, the tube only when the point is inside a tunnel's mouth zone is not known, so the surface wins */
-  gy(x,z,ref){const T=R.world,g=R.drawnH(T,x,z),tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9;let y=Math.max(g,dk);
-    /* stacked levels (a bridge over a road, a road over a tunnel): the one nearest the vehicle's own height */
-    if(ref!=null){let bd=Math.abs(ref-g);y=g;if(dk>g-0.5&&Math.abs(ref-dk)<bd){bd=Math.abs(ref-dk);y=dk;}if(tu!=null&&Math.abs(ref-tu)<bd){y=tu;}}
+  gy(x,z,ref){const T=R.world,g=R.drawnH(T,x,z),tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9,rd=Life.roadY?Life.roadY(x,z,ref):null;let y=Math.max(g,dk,rd==null?-1e9:rd);
+    /* stacked levels (a bridge over a road, a road on its wall over the ground, a road over a tunnel): the one nearest the vehicle's own height */
+    if(ref!=null){let bd=Math.abs(ref-g);y=g;for(const c of [dk>g-0.5?dk:null,rd,tu]){if(c!=null&&Math.abs(ref-c)<bd){bd=Math.abs(ref-c);y=c;}}}
     const d=this.drv;if(d&&d.swim&&Math.abs(x-d.x)<10&&Math.abs(z-d.z)<10){const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));if(w[1]>0)y=Math.max(y,w[0]-0.9);}/* the driven vehicle floats in the water */return y;},
   // meshes are made once (after the GL context): a body per type (two reds for the lorry), wheels per type and side, and a far version
   // with the wheels merged in (one draw call)
