@@ -249,7 +249,7 @@ R.makeAux=function(T){const N=T.N,Hr=T.Hr;if(!R.auxData||R.auxData.length!==N*N*
   for(let i=0;i<N;i++){let acc=0;for(let j=-r;j<=r;j++)acc+=tmp[clamp(j,0,N-1)*N+i];for(let j=0;j<N;j++){bl[j*N+i]=acc/(2*r+1);acc+=tmp[Math.min(j+r+1,N-1)*N+i]-tmp[Math.max(j-r,0)*N+i];}}
   const fid=T.fieldId,path=T.pathMask,M=T.trackMask,hole=T.hole;
   for(let n=0;n<N*N;n++){A[n*4]=Math.round(clamp(0.625+(Hr[n]-bl[n])*0.011,0.3,1)*255);A[n*4+1]=fid?fid[n]:0;A[n*4+2]=path?path[n]:0;
-    A[n*4+3]=hole&&hole[n]?255:Math.round((M?M[n]:0)*0.9);}
+    A[n*4+3]=hole&&hole[n]?(hole[n]===2?254:255):Math.round((M?M[n]:0)*0.9);}
   return A;};
 R.uploadWorld=function(T){const t0=performance.now();R.world=T;const N=T.N;
   if(!T.Hr)R.computeRenderHeights(T);
@@ -401,15 +401,24 @@ R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMe
       for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1],nx=-(a[0]+b[0])/2,ny=-((a[1]+b[1])/2-wl);const l=Math.hypot(nx,ny)||1;q2(P(u0,a[0],a[1]),P(u1,a[0],a[1]),P(u1,b[0],b[1]),P(u0,b[0],b[1]),[rx*nx/l,ny/l,rz*nx/l],k%2?ARC:CON);}
       for(let u=u0;u<u1-0.5;u+=4){if((Math.floor(u/4))%2)continue;const ue=Math.min(u+2,u1);q2(P(u,-0.08,0.02),P(ue,-0.08,0.02),P(ue,0.08,0.02),P(u,0.08,0.02),[0,1,0],WH);}}// dashed centre line
     for(let u=10;u<t.L-5;u+=20)for(const e of [-1,1]){const a=ring[e<0?10:2];q2(P(u-0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.93,a[1]-0.25),P(u-0.35,a[0]*0.93,a[1]-0.25),[0,-1,0],LMP,7);}// lamps
-    // the portal blocks
-    for(const end of [0,1]){const u0=end?t.L:0,sg=end?1:-1,fw=ow+6.5,top=cr+4.2,dep=Math.max(8,App.T.cs*2+1),F=(v,h,d)=>P(u0+sg*d,v,h),nO=[dx*sg,0,dz*sg];
+    // the portals: a stone headwall with the arch, a block behind it buried in the hill (it closes the ground left open round the mouth),
+    // and a walled apron in front, down at road level, the side walls stepping down with the cutting's slopes (roadPortalDims)
+    const D=roadPortalDims(App.T.cs),fw=D.fw,top=D.top,dep=D.dep,A=D.A,GR=[0.42,0.4,0.33],crTop=top-0.05;
+    for(const end of [0,1]){const u0=end?t.L:0,sg=end?1:-1,F=(v,h,d)=>P(u0+sg*d,v,h),nO=[dx*sg,0,dz*sg],y0=t.ay+(t.by-t.ay)*(end?1:0);
       for(const e of [-1,1]){q2(F(e*ow,-1.5,0),F(e*fw,-1.5,0),F(e*fw,top,0),F(e*ow,top,0),nO,ST);// face beside the opening
-        q2(F(e*fw,-1.5,0),F(e*fw,-1.5,-dep),F(e*fw,top,-dep),F(e*fw,top,0),[e*rx,0,e*rz],ST2);}// block sides
-      for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1];q2(F(a[0],a[1],0),F(b[0],b[1],0),F(b[0],top,0),F(a[0],top,0),nO,k%2?ST:ST2);// spandrel over the arch
-        q2(F(a[0]*1.0,a[1],0.03),F(b[0],b[1],0.03),F(b[0]*1.13,b[1]+(b[1]-wl)*0.13+0.12,0.03),F(a[0]*1.13,a[1]+(a[1]-wl)*0.13+0.12,0.03),nO,DR);}// voussoir ring
-      q2(F(-fw-0.4,top,0.4),F(fw+0.4,top,0.4),F(fw+0.4,top+0.45,0.4),F(-fw-0.4,top+0.45,0.4),nO,DR);q2(F(-fw-0.4,top+0.45,0.4),F(fw+0.4,top+0.45,0.4),F(fw+0.4,top+0.45,-dep),F(-fw-0.4,top+0.45,-dep),[0,1,0],DR);// cornice and top
-      q2(F(-fw,top,0),F(fw,top,0),F(fw,top,-dep),F(-fw,top,-dep),[0,1,0],ST2);
-      for(const e of [-1,1]){const a=F(e*fw,-1.5,0),b=F(e*(fw+5),-1.5,9),c=F(e*(fw+5),1.0,9),d=F(e*fw,top,0);q2(a,b,c,d,[e*rx,0,e*rz],ST2);q2([d[0],d[1],d[2]],[c[0],c[1],c[2]],F(e*(fw+5.6),1.0,9),F(e*(fw+0.6),top,0),[0,1,0],DR);}}}
+        q2(F(e*(ow+0.6),-0.2,0.05),F(e*(ow+1.4),-0.2,0.05),F(e*(ow+1.4),wl+0.4,0.05),F(e*(ow+0.6),wl+0.4,0.05),nO,DR);// dressed jambs
+        q2(F(e*(fw-1.2),-1.5,0.25),F(e*fw,-1.5,0.25),F(e*fw,top,0.25),F(e*(fw-1.2),top,0.25),nO,DR);q2(F(e*(fw-1.2),-1.5,0),F(e*(fw-1.2),-1.5,0.25),F(e*(fw-1.2),top,0.25),F(e*(fw-1.2),top,0),[-e*rx,0,-e*rz],DR);// pilasters
+        q2(F(e*fw,-1.5,0),F(e*fw,-1.5,-dep),F(e*fw,top,-dep),F(e*fw,top,0),[e*rx,0,e*rz],ST2);}// block sides (in the earth)
+      for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1];q2(F(a[0],a[1],0),F(b[0],b[1],0),F(b[0],top,0),F(a[0],top,0),nO,ST);// spandrel over the arch
+        q2(F(a[0],a[1],0.06),F(b[0],b[1],0.06),F(b[0]*1.14,b[1]+(b[1]-wl)*0.14+0.15,0.06),F(a[0]*1.14,a[1]+(a[1]-wl)*0.14+0.15,0.06),nO,k%2?DR:KB);}// voussoirs
+      q2(F(-fw-0.4,top,0.45),F(fw+0.4,top,0.45),F(fw+0.4,top+0.5,0.45),F(-fw-0.4,top+0.5,0.45),nO,DR);q2(F(-fw-0.4,top+0.5,0.45),F(fw+0.4,top+0.5,0.45),F(fw+0.4,top+0.5,-0.6),F(-fw-0.4,top+0.5,-0.6),[0,1,0],DR);// cornice
+      q2(F(-fw,crTop,-0.6),F(fw,crTop,-0.6),F(fw,crTop,-dep),F(-fw,crTop,-dep),[0,1,0],GR);// block top, under the turf of the collar
+      q2(F(-fw,-0.06,0),F(fw,-0.06,0),F(fw,-0.06,A),F(-fw,-0.06,A),[0,1,0],CON);// apron
+      // the apron's side walls, each step up to the ground outside it (never under it) with a coping
+      const n=Math.max(2,Math.ceil(A/3));for(const e of [-1,1]){let pd=0,ph=top;for(let k=1;k<=n;k++){const d=A*k/n,o1=F(e*(fw+0.3),0,d),o2=F(e*(fw+1.5),0,d),h=clamp(Math.max(R.drawnH(App.T,o1[0],o1[2]),R.drawnH(App.T,o2[0],o2[2]))-o1[1]+0.6,1.1,top);
+          q2(F(e*fw,-1.5,pd),F(e*fw,-1.5,d),F(e*fw,h,d),F(e*fw,ph,pd),[-e*rx,0,-e*rz],ST2);q2(F(e*fw,ph,pd),F(e*fw,h,d),F(e*(fw+0.7),h,d),F(e*(fw+0.7),ph,pd),[0,1,0],DR);
+          q2(F(e*(fw+0.7),-1.5,pd),F(e*(fw+0.7),-1.5,d),F(e*(fw+0.7),h,d),F(e*(fw+0.7),ph,pd),[e*rx,0,e*rz],ST2);pd=d;ph=h;}
+        q2(F(e*fw,-1.5,A),F(e*(fw+0.7),-1.5,A),F(e*(fw+0.7),ph,A),F(e*fw,ph,A),nO,ST2);}}}
   R.portalMesh=R.uploadVeh(M);Log.info(`road tunnels: ${TL.length} (${TL.map(t=>t.L.toFixed(0)+' m').join(', ')})`);};
 R.buildCrossings=function(XL){if(R.xingMesh){R.freeMesh(R.xingMesh);R.xingMesh=null;}if(!XL||!XL.length)return;const M=vmesh(),wd=[0.42,0.32,0.22],wd2=[0.36,0.27,0.19];
   for(const q of XL){const rx=Math.cos(q.rh),rz=Math.sin(q.rh),nx=-rz,nz=rx,hw=q.w+0.3,hl=2.9,top=q.y+0.1,bot=q.y-0.45;

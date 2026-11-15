@@ -10,6 +10,11 @@
 const GAUGE=1.435,FORMATION_DROP=0.72,TUN_R=3.3,TUN_CY=1.7,TUN_PORTAL=TUN_CY+TUN_R+3.5;
 /* road tunnels: 7 m between the walls (two lorries pass), walls 2.4 m, a round arch over them: 5.9 m to the crown */
 const TUN_ROAD={ow:3.5,wall:2.4,crown:5.9};
+/* the footprint of a road tunnel portal, from the terrain cell size (Life.carveRoads opens and shapes the ground to it, R.buildPortals
+   covers it): the ground is drawn in cell-wide triangles from corner means, so the cells round the mouth are left out of the drawn ground
+   (exactly, cell by cell) and a headwall block behind the face and a walled apron in front close what they leave open. c is the reach of a
+   cell's square (half its diagonal); e is the distance into the hill from the face, v from the centre line */
+function roadPortalDims(cs){const ow=TUN_ROAD.ow,c=0.71*cs,Vh=ow+1+c,fw=Vh+c+0.4;return{ow,c,top:TUN_ROAD.crown+3,Vh,fw,eF:-2*c-0.1,eB:2*c+0.1,A:3*c+0.4,dep:3*c+0.6};}
 const wrapPi=a=>{a=(a+Math.PI)%(2*Math.PI);if(a<0)a+=2*Math.PI;return a-Math.PI;};
 const Track={nodes:[],segs:[],sigs:[],stations:[],nextId:1,undo:[],
   serialize(){const keep=this.segs.filter(s=>!s.pend),ids=new Set(),sids=new Set(keep.map(s=>s.id));keep.forEach(s=>{ids.add(s.a);ids.add(s.b);});

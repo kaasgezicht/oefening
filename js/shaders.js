@@ -120,6 +120,8 @@ void main(){vec3 W=vW;
   // a cell replaced by a finer patch (a culvert trench): the full-detail terrain leaves it open, the patch fills it exactly
   if(uChunk.w==0.&&texelFetch(uPatch,clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1)),0).r>.5)discard;
   vec3 N=normalize(cross(dFdx(W),dFdy(W)));if(N.y<0.)N=-N;
+  // a road tunnel mouth: its cells are left out exactly (the portal block and apron close them)
+  if(uChunk.w==0.&&abs(texelFetch(uAux,clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1)),0).a-254./255.)<.002)discard;
   vec2 uv=W.xz/uWorld.x;vec4 aux=texture(uAux,uv);if(aux.a>.95)discard;vec4 dat=texture(uData,uv);
   float wet=dat.r,shore=dat.b,forest=dat.a,tm=aux.a/.9;
   vec2 cg=W.xz/uStep;vec2 ci=floor(cg);vec2 cf=cg-ci;float tri=step(1.,cf.x+cf.y);float fj=hash12(ci*1.37+tri*17.1)-.5;

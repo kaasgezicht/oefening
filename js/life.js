@@ -130,12 +130,16 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       /* two spans (bridge or tunnel) of the network that cross or run within 8 m of each other at heights more than 3 m apart are a clash
          (a bridge over a bridge along a gorge): such a link is planned again with no new span starting near the clash, twice at most */
       const segD=(a,b,c,d)=>{const f=(p,q,r)=>{const ex=r[0]-q[0],ez=r[1]-q[1],ll=ex*ex+ez*ez||1e-9,t=clamp(((p[0]-q[0])*ex+(p[1]-q[1])*ez)/ll,0,1);return Math.hypot(p[0]-q[0]-ex*t,p[1]-q[1]-ez*t);};const o1=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);if(o1(a,b,c)*o1(a,b,d)<0&&o1(c,d,a)*o1(c,d,b)<0)return 0;return Math.min(f(a,c,d),f(b,c,d),f(c,a,b),f(d,a,b));};
-      const spansOf=r=>{const o=[];if(!r.sf)return o;for(let i=0;i<r.sf.length;i++)if(r.sf[i])o.push({a:[r.p[2*i],r.p[2*i+1]],b:[r.p[2*i+2],r.p[2*i+3]],y:(r.sy[i][0]+r.sy[i][1])/2,f:r.sf[i]});return o;};
+      const spansOf=r=>{const o=[];if(!r.sf)return o;for(let i=0;i<r.sf.length;i++)if(r.sf[i])o.push({a:[r.p[2*i],r.p[2*i+1]],b:[r.p[2*i+2],r.p[2*i+3]],y:(r.sy[i][0]+r.sy[i][1])/2,ya:r.sy[i][0],yb:r.sy[i][1],f:r.sf[i]});return o;};
       /* how far apart two spans must stay: tunnels 30 m (each keeps an earth cover 25 m wide), anything else 10 m */
       const gap=(u,v)=>u.f===2&&v.f===2?30:10,joined=(u,v)=>[u.a,u.b].some(p=>[v.a,v.b].some(q=>Math.hypot(p[0]-q[0],p[1]-q[1])<1.5));/* end to end (a bridge into a tunnel) is no clash */
-      const clash=(pts,sf,sy)=>{const mine=spansOf({p:pts.flat(),sf,sy}),other=this.vRoads.filter(q=>q.link).flatMap(spansOf);for(let i=0;i<mine.length;i++){for(let j=i+1;j<mine.length;j++)if(!joined(mine[i],mine[j])&&segD(mine[i].a,mine[i].b,mine[j].a,mine[j].b)<gap(mine[i],mine[j]))return[mine[i].a,mine[i].b,mine[j].a,mine[j].b];
-          for(const q of other){const same=Math.hypot(q.a[0]-mine[i].a[0],q.a[1]-mine[i].a[1])+Math.hypot(q.b[0]-mine[i].b[0],q.b[1]-mine[i].b[1])<2||Math.hypot(q.a[0]-mine[i].b[0],q.a[1]-mine[i].b[1])+Math.hypot(q.b[0]-mine[i].a[0],q.b[1]-mine[i].a[1])<2;if(!same&&!joined(mine[i],q)&&segD(mine[i].a,mine[i].b,q.a,q.b)<gap(mine[i],q))return[mine[i].a,mine[i].b];}}return null;};
-      const lay=(A,B)=>{const e2=ends(A,B);if(!e2)return false;const ban=[];let r2=null;let keep=null;for(let att=0;att<6;att++){r2=this.roadPlan(e2[0],e2[1],{net:this.vRoads.filter(q=>q.link),ban,nospan:att===5});if(!r2){r2=keep;break;}keep=keep||r2;const c=clash(r2.pts,r2.sf,r2.sy);if(!c)break;ban.push(...c);if(att===5)Log.info(`country road ${A.name} – ${B.name}: a span still crosses another`);}tried++;if(!r2){failed++;Log.warn(`country road ${A.name} – ${B.name} (${Math.hypot(A.x-B.x,A.z-B.z).toFixed(0)} m): no way found`);return false;}
+      const clash=(pts,sf,sy)=>{const hits=[],mine=spansOf({p:pts.flat(),sf,sy}),other=this.vRoads.filter(q=>q.link).flatMap(spansOf);for(let i=0;i<mine.length;i++){for(let j=i+1;j<mine.length;j++)if(!joined(mine[i],mine[j])&&segD(mine[i].a,mine[i].b,mine[j].a,mine[j].b)<gap(mine[i],mine[j])){hits.push(mine[i].a,mine[i].b,mine[j].a,mine[j].b);}
+          if(mine[i].f===2){const t=mine[i],L=Math.hypot(t.b[0]-t.a[0],t.b[1]-t.a[1]),dx=(t.b[0]-t.a[0])/L,dz=(t.b[1]-t.a[1])/L;
+            for(const rr of [{p:pts.flat(),sf},...this.vRoads.filter(q=>q.link)]){const P=rr.p;for(let k=0;k+3<P.length;k+=2){if(rr.sf&&rr.sf[k>>1])continue;const sx=P[k],sz=P[k+1],ex=P[k+2],ez=P[k+3],l=Math.hypot(ex-sx,ez-sz);
+                for(let w=0;w<=l;w+=4){const x=sx+(ex-sx)*w/l,z=sz+(ez-sz)*w/l,u=(x-t.a[0])*dx+(z-t.a[1])*dz,v=Math.abs(-(x-t.a[0])*dz+(z-t.a[1])*dx);if(u<-40||u>L+40||v>24)continue;
+                  const dh=R.sampleHr(this.T,x,z)-(t.ya+(t.yb-t.ya)*clamp(u/L,0,1)),tol=4+0.15*Math.max(0,-u,u-L);if(dh<-tol||(dh>tol&&dh<18)){hits.push(t.a,t.b);k=P.length;break;}}}}}
+          for(const q of other){const same=Math.hypot(q.a[0]-mine[i].a[0],q.a[1]-mine[i].a[1])+Math.hypot(q.b[0]-mine[i].b[0],q.b[1]-mine[i].b[1])<2||Math.hypot(q.a[0]-mine[i].b[0],q.a[1]-mine[i].b[1])+Math.hypot(q.b[0]-mine[i].a[0],q.b[1]-mine[i].a[1])<2;if(!same&&!joined(mine[i],q)&&segD(mine[i].a,mine[i].b,q.a,q.b)<gap(mine[i],q)){hits.push(mine[i].a,mine[i].b);break;}}}return hits.length?hits:null;};
+      const lay=(A,B)=>{const e2=ends(A,B);if(!e2)return false;const ban=[];let r2=null,keep=null,kc=1e9;for(let att=0;att<9;att++){const q=this.roadPlan(e2[0],e2[1],{net:this.vRoads.filter(q=>q.link),ban,nospan:att===8});if(!q)continue;const c=clash(q.pts,q.sf,q.sy),nc=c?c.length:0;if(nc<kc){kc=nc;keep=q;}if(!c)break;ban.push(...c);}/* every clash point is banned for the next try; the plan with the fewest clashes is kept */r2=keep;if(r2&&kc>0)Log.info(`country road ${A.name} – ${B.name}: ${kc/2} span ends still too close to another span or road`);tried++;if(!r2){failed++;Log.warn(`country road ${A.name} – ${B.name} (${Math.hypot(A.x-B.x,A.z-B.z).toFixed(0)} m): no way found`);return false;}
         const road={p:r2.pts.flat(),w:ROAD_HW,link:true,sf:r2.sf,sy:r2.sy,tun:r2.sf.map(f=>f===2),span:r2.sf.map(f=>f>0)};nb+=r2.sf.filter(f=>f===1).length;nt+=r2.sf.filter(f=>f===2).length;this.vRoads.push(road);this.links.push(r2.pts);return true;};
       let k=0;for(const [d,a,b] of E){const ra=fd(a),rb=fd(b);if(ra===rb)continue;yield [0.4+0.33*Math.min(1,k++/(V.length-1)),'Country roads'];if(lay(V[a],V[b]))par[fd(a)]=fd(b);}
       if(+P.countryRoads>1){let extra=0;for(const [d,a,b] of E){if(extra>=Math.max(2,Math.round(V.length/6)))break;if(d>1400)break;if(this.links.some(L=>{const p0=L[0],p1=L[L.length-1];const near=(v,p)=>Math.hypot(v.x-p[0],v.z-p[1])<v.R+200;return(near(V[a],p0)&&near(V[b],p1))||(near(V[b],p0)&&near(V[a],p1));}))continue;if(lay(V[a],V[b]))extra++;}}
@@ -604,6 +608,12 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         if(!f){for(let u=0;u<=L;u+=cs*0.5){const x=ax+(bx-ax)*u/L,z=az+(bz-az)*u/L;if(inG(x,z)){const k=id(x,z);if(kind[k]===0)dsc[k]=1;}}continue;}
         if(!inG(ax,az)||!inG(bx,bz))continue;const ka=id(ax,az),kb=id(bx,bz),[ya,yb]=r.sy[i>>1];
         const e1={to:kb,f,L,A:[ax,az],B:[bx,bz],sy:[ya,yb]},e2={to:ka,f,L,A:[bx,bz],B:[ax,az],sy:[yb,ya]};if(!SE.has(ka))SE.set(ka,[]);if(!SE.has(kb))SE.set(kb,[]);SE.get(ka).push(e1);SE.get(kb).push(e2);if(kind[ka]>0)kind[ka]=0;if(kind[kb]>0)kind[kb]=0;}}
+    /* round every tunnel of the network, along its line and 40 m past each end, no road at another level: the cutting, the apron and the
+       earth collar of a portal would bury it or undercut it (Life.carveRoads). Cells well above the tube (18 m and more) are fine */
+    for(const r of o.net||[]){if(!r.sf)continue;const P=r.p;for(let i=0;i<r.sf.length;i++){if(r.sf[i]!==2)continue;const ax=P[2*i],az=P[2*i+1],bx=P[2*i+2],bz=P[2*i+3],L=Math.hypot(bx-ax,bz-az),dx=(bx-ax)/L,dz=(bz-az)/L,[ya,yb]=r.sy[i];
+        const i0=Math.max(0,Math.floor((Math.min(ax,bx)-70-x0)/cs)),i1=Math.min(nx-1,Math.floor((Math.max(ax,bx)+70-x0)/cs)),j0=Math.max(0,Math.floor((Math.min(az,bz)-70-z0)/cs)),j1=Math.min(nz-1,Math.floor((Math.max(az,bz)+70-z0)/cs));
+        for(let j=j0;j<=j1;j++)for(let i2=i0;i2<=i1;i2++){const k=j*nx+i2;if(kind[k]!==0)continue;const x=x0+(i2+0.5)*cs,z=z0+(j+0.5)*cs,u=(x-ax)*dx+(z-az)*dz,v=Math.abs(-(x-ax)*dz+(z-az)*dx);if(u<-40||u>L+40||v>24)continue;
+          const dh=hh[k]-(ya+(yb-ya)*clamp(u/L,0,1)),tol=4+0.15*Math.max(0,-u,u-L);if(dh<-tol||(dh>tol&&dh<18))kind[k]=2;}}}
     {const rr=Math.max(1,Math.ceil(40/cs));for(const sx of [s0,s1]){const ci=sx%nx,cj=(sx/nx)|0;for(let dj=-rr;dj<=rr;dj++)for(let di=-rr;di<=rr;di++){const ii=ci+di,jj=cj+dj;if(ii>=0&&jj>=0&&ii<nx&&jj<nz&&kind[jj*nx+ii]===2)kind[jj*nx+ii]=0;}}if(kind[s0]>0)kind[s0]=0;if(kind[s1]>0)kind[s1]=0;}
     const GMAX=o.gmax||0.13,DIR=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1],[2,1],[1,2],[-1,2],[-2,1],[-2,-1],[-1,-2],[1,-2],[2,-1]];
     const g=new Float32Array(n).fill(1e30),from=new Int32Array(n).fill(-1),mt=new Int8Array(n),din=new Int8Array(n).fill(-1),sref=new Map(),heap=new MinHeap(n*6),ex=s1%nx,ez=(s1/nx)|0,hx=k=>Math.hypot((k%nx)-ex,((k/nx)|0)-ez)*cs;
@@ -620,12 +630,12 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         if(ok){relax(k,m,L*(1+noise[m]*0.4+(gr>0.05?110*(gr-0.05)*(gr-0.05):0))*(dsc[m]?0.45:1),0,q);if(gr<0.09)continue;}
         if(q>=8||km<0||o.nospan)continue;/* bridges and tunnels: straight, in the 8 main directions, where the next step is water, a house or steep */
         if((mt[k]!==0&&din[k]<0)||(din[k]>=0&&Math.abs(wrapPi(ANG[din[k]]-ANG[q]))>(mt[k]!==0?Math.PI/4+0.01:Math.PI/2)))continue;/* a span may follow a span only straight on (a bridge into a tunnel), and none turns back: those made loops, a bridge out and a tunnel back under it */
-        let bridged=false,tunneled=false;const step=L,jmax=Math.floor(400/step);
+        let bridged=false,tunneled=false;const step=L,jmax=Math.floor(400/step);/* no span starts or ends near a banned point */const banned=(ai,aj,bi,bj)=>!!o.ban&&o.ban.some(bp=>Math.hypot(bp[0]-(x0+(ai+0.5)*cs),bp[1]-(z0+(aj+0.5)*cs))<45||Math.hypot(bp[0]-(x0+(bi+0.5)*cs),bp[1]-(z0+(bj+0.5)*cs))<45);
         for(let s=3;s<=jmax&&!(bridged&&tunneled);s++){const ei=ki+di*s,ej=kj+dj*s;if(ei<0||ej<0||ei>=nx||ej>=nz)break;const e=ej*nx+ei;if(kind[e]!==0)continue;const span=s*step,he=hh[e];if(Math.abs(he-hk)/span>0.07)continue;
           let below=true,above=true,dmin=0,dmax=0,wet=false,q1=-1e9,q3=-1e9,mid=1e9;for(let t=1;t<s;t++){const c=(kj+dj*t)*nx+ki+di*t,y=hk+(he-hk)*t/s;if(kind[c]===-1){below=above=false;break;}let gd=hh[c]-y;if(kind[c]===1){wet=true;gd=Math.max(gd,wl[c]+2-y);}const f=t/s;if(f<0.25)q1=Math.max(q1,hh[c]);else if(f>0.75)q3=Math.max(q3,hh[c]);else mid=Math.min(mid,kind[c]===1?wl[c]:hh[c]);
             if(kind[c]===2)above=false;if(gd>0.5)below=false;if(gd<-1)above=false;dmin=Math.min(dmin,gd);dmax=Math.max(dmax,gd);if(!below&&!above)break;}
-          const vee=Math.max(q1,hk)>mid+3&&Math.max(q3,he)>mid+3;/* across a valley, not along one */if(!bridged&&below&&span<=260&&dmin>-70&&(dmin<-4||wet)&&(vee||wet)&&!(o.ban&&o.ban.some(bp=>Math.hypot(bp[0]-(x0+(ki+0.5)*cs),bp[1]-(z0+(kj+0.5)*cs))<45))){/* at most 70 m high */bridged=true;relax(k,e,span*6+50,1,q);}
-          if(!tunneled&&above&&!wet&&dmax>12&&span>=60&&!(o.ban&&o.ban.some(bp=>Math.hypot(bp[0]-(x0+(ki+0.5)*cs),bp[1]-(z0+(kj+0.5)*cs))<45))){tunneled=true;relax(k,e,span*14+300,2,q);}}}}
+          const vee=Math.max(q1,hk)>mid+3&&Math.max(q3,he)>mid+3;/* across a valley, not along one */if(!bridged&&below&&span<=260&&dmin>-70&&(dmin<-4||wet)&&(vee||wet)&&!banned(ki,kj,ei,ej)){/* at most 70 m high */bridged=true;relax(k,e,span*6+50,1,q);}
+          if(!tunneled&&above&&!wet&&dmax>12&&span>=60&&!banned(ki,kj,ei,ej)){tunneled=true;relax(k,e,span*14+300,2,q);}}}}
     if(from[s1]<0&&s1!==s0)return null;
     // back to points; bridges and tunnels stay one straight segment, the road between them is rounded off (Chaikin) with its ends kept
     const cells=[];for(let k=s1;k>=0;k=from[k]){cells.push(k);if(k===s0)break;}cells.reverse();
@@ -677,13 +687,20 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     for(const [k,o] of best){if(W[k*4+3]>0||(flat&&flat[k]))continue;const h0=H[k];
       const lw=low.get(k);if(lw!==undefined){H[k]=lw;RM[k]=255;}else{const dd=o.d-o.core;H[k]=clamp(H[k],o.y-dd*0.7,o.y+dd*1.25);const v=Math.round(255*clamp(1-dd/5,0,1));if(v>RM[k])RM[k]=v;}
       if(Math.abs(H[k]-h0)>0.3||o.d<=o.core)CM[k]=1;}
-    const ow=TUN_ROAD.ow,cr=TUN_ROAD.crown;
-    for(const t of rc.tunnels){const pad=30,x0=Math.min(t.ax,t.bx)-pad,x1=Math.max(t.ax,t.bx)+pad,z0=Math.min(t.az,t.bz)-pad,z1=Math.max(t.az,t.bz)+pad;
+    const ow=TUN_ROAD.ow,cr=TUN_ROAD.crown,D=roadPortalDims(cs),each=fn=>{for(const t of rc.tunnels){const pad=D.A+D.c*2+cs,x0=Math.min(t.ax,t.bx)-pad,x1=Math.max(t.ax,t.bx)+pad,z0=Math.min(t.az,t.bz)-pad,z1=Math.max(t.az,t.bz)+pad;
       for(let j=Math.max(0,Math.floor(z0/cs));j<=Math.min(N-1,Math.ceil(z1/cs));j++)for(let i=Math.max(0,Math.floor(x0/cs));i<=Math.min(N-1,Math.ceil(x1/cs));i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,u=(x-t.ax)*t.dx+(z-t.az)*t.dz,v=Math.abs(-(x-t.ax)*t.dz+(z-t.az)*t.dx);
-        if(u<-cs||u>t.L+cs||v>26)continue;const k=j*N+i,e=Math.min(u,t.L-u),y=t.ay+(t.by-t.ay)*clamp(u/t.L,0,1);
-        if(e<cs*1.5+2&&e>-1&&v<ow+1.5){hole[k]=1;H[k]=Math.min(H[k],y-0.6);RM[k]=255;CM[k]=1;continue;}
-        if(e>=cs*2){const pt=e<9+cs*2,yc=y+(pt?cr+3.4:cr+2)-Math.max(0,v-(pt?ow+5:ow+2))*0.75;if(yc>H[k]){const w=clamp((26-v)/(26-(pt?ow+5:ow+2)),0,1);H[k]+=Math.min(yc-H[k],18)*w*w*(3-2*w);CM[k]=1;}
-          const tv=Math.round(255*clamp(1-(v-12)/10,0,1));if(tv>tun[k])tun[k]=tv;}}}},
+        if(u<-pad||u>t.L+pad||v>D.fw+30)continue;fn(j*N+i,u<t.L/2?u:t.L-u,v,t.ay+(t.by-t.ay)*clamp(u/t.L,0,1),t);}}};
+    /* in this order, so that nothing undoes what matters more: the earth cover over every tube, the walled apron in front of each mouth cut
+       to road level, the collar of earth round each headwall block, then the cells round the mouth left out of the drawn ground (low in
+       front of the face, at the block top behind it, so that no drawn triangle next to them leans into the opening); open roads are cut
+       back to their own level last, except through a collar or a hole of their own tunnel */
+    const pk=new Map();
+    each((k,e,v,y)=>{if(e<D.dep-D.c)return;const pt=e<D.dep+12,yc=y+(pt?D.top+0.4:cr+2)-Math.max(0,v-(pt?D.fw:ow+2))*0.75;if(yc>H[k]){const w=clamp((D.fw+30-v)/30,0,1);H[k]+=Math.min(yc-H[k],18)*w*w*(3-2*w);CM[k]=1;}
+      const tv=Math.round(255*clamp(1-(v-D.fw-6)/10,0,1));if(tv>tun[k])tun[k]=tv;});
+    each((k,e,v,y)=>{if(e<0&&e>=-D.A-D.c*0.5&&v<=D.fw+D.c*0.5){H[k]=Math.min(H[k],y-0.15);RM[k]=255;CM[k]=1;tun[k]=255;pk.set(k,y);}
+      else if(e>=0&&e<D.dep+D.c&&v<=D.fw+D.c){H[k]=Math.max(H[k],y+D.top);CM[k]=1;tun[k]=255;pk.set(k,y);}});
+    each((k,e,v,y)=>{if(e>=D.eF&&e<=D.eB&&v<=D.Vh){hole[k]=2;H[k]=e<0?y-0.15:y+D.top;RM[k]=255;CM[k]=1;tun[k]=255;pk.set(k,y);}});
+    for(const [k,lw] of low){if(W[k*4+3]>0||(flat&&flat[k])||hole[k])continue;const py=pk.get(k);if(py!==undefined&&Math.abs(py-lw)<3)continue;if(H[k]>lw){H[k]=lw;CM[k]=1;}}},
   // bridges wherever a road crosses a river (wet run) or a mountain stream (segment intersection); deck humps over the water
   findBridges(roads){const T=this.T,B=[],H=(x,z)=>R.sampleHr(T,x,z),wetAt=(x,z)=>{const w=sampleWater(T,x,z);return w[1]>0&&w[0]>H(x,z)-0.15?w[0]:null;};
     const SG=new Map(),key=(x,z)=>Math.floor(x/16)+','+Math.floor(z/16);for(const st of T.streams||[])for(let i=0;i+5<st.length;i+=3){if(st[i+2]<=0)continue;const k=key((st[i]+st[i+3])/2,(st[i+1]+st[i+4])/2);if(!SG.has(k))SG.set(k,[]);SG.get(k).push([st[i],st[i+1],st[i+3],st[i+4],st[i+2]]);}
