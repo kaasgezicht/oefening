@@ -72,7 +72,7 @@ async function probeEnvironment(){
 
 // ---- shaders
 // Texture unit plan (bound once, shared by every program)
-const TU={uPatch:28,uCloudMap:14,uNoise3:15,uCldTex:16,uMistMap:17,uSceneCol:18,uWDisp:19,uWDeriv:21,uRoad:25,uTrackClear:26,uLampMap:27,uShadowRaw:13,uNorm:12,uHeight:0,uAux:1,uData:2,uWaterTex:3,uShadow:4,uFields:5,uDepthCopy:6,uSrc:7,uBloom:8,uDof:9,uDepth:10,uBSrc:11};
+const TU={uRays:29,uPatch:28,uCloudMap:14,uNoise3:15,uCldTex:16,uMistMap:17,uSceneCol:18,uWDisp:19,uWDeriv:21,uRoad:25,uTrackClear:26,uLampMap:27,uShadowRaw:13,uNorm:12,uHeight:0,uAux:1,uData:2,uWaterTex:3,uShadow:4,uFields:5,uDepthCopy:6,uSrc:7,uBloom:8,uDof:9,uDepth:10,uBSrc:11};
 const PROGS=[];
 // Texture reads at full precision in every shader. WebGL2 gives sampler2D LOW precision unless told otherwise; desktop GPUs ignore that,
 // phone GPUs (Mali) do not: the scene depth, terrain heights and water levels then arrive rounded to about 3 digits (bands in the lakes,

@@ -345,12 +345,12 @@ const PlaneUI={show(on){$('#planeUI').hidden=!on;document.body.classList.toggle(
 const PlanePad={prev:[],act:{},seen:false,
   pad(){if(!navigator.getGamepads)return null;let any=null;for(const q of navigator.getGamepads()){if(!q||!q.connected)continue;if(q.mapping==='standard')return q;any=any||q;}return any;},
   poll(dt){const g=this.pad();if(!g)return;const c=Plane.ctl;
-    if(!this.seen){this.seen=true;UI.toast('Controller ready: left stick throttle, right stick pitch and roll, LB/RB rudder, A gear, B camera. Start shows the menu');}
+    if(!this.seen){this.seen=true;UI.toast('Controller ready: left stick throttle (up/down) and rudder (sideways), right stick pitch and roll, LB/RB rudder too, A gear, B camera. Start shows the menu');}
     document.body.classList.add('padfly');/* the touch controls are hidden while a controller flies; Start pauses and shows them */
     const ax=i=>{const v=g.axes[i]||0;return Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;},bt=i=>{const b=g.buttons[i];return b?(typeof b==='object'?(b.value||(b.pressed?1:0)):+b):0;},pr=i=>bt(i)>0.5,ed=i=>pr(i)&&!this.prev[i];
     const ly=ax(1);if(ly){c.thr=clamp(c.thr-ly*dt*0.7,0,1);const th=$('#plThr');if(th)th.value=Math.round(c.thr*100);}
-    const ex=v=>v*(0.5+0.5*v*v),rx=ax(0),ry=ax(3);/* roll: left stick sideways; pitch: right stick up/down (4.18.0) */if(rx||ry){c.roll=ex(rx);c.pitch=ex(ry);this.act.stick=true;}else if(this.act.stick){c.roll=c.pitch=0;this.act.stick=false;}
-    const yw=(pr(5)?1:0)-(pr(4)?1:0);if(yw){c.yaw=yw;this.act.yaw=true;}else if(this.act.yaw){c.yaw=0;this.act.yaw=false;}
+    const ex=v=>v*(0.5+0.5*v*v),rx=ax(2),ry=ax(3);/* the right stick: roll sideways, pitch up/down (4.20.0) */if(rx||ry){c.roll=ex(rx);c.pitch=ex(ry);this.act.stick=true;}else if(this.act.stick){c.roll=c.pitch=0;this.act.stick=false;}
+    const yw=clamp(ex(ax(0))+(pr(5)?1:0)-(pr(4)?1:0),-1,1);/* rudder: left stick sideways, or LB / RB */if(yw){c.yaw=yw;this.act.yaw=true;}else if(this.act.yaw){c.yaw=0;this.act.yaw=false;}
     const br=bt(6);if(br>0.05){c.brake=br;this.act.br=true;}else if(this.act.br){c.brake=0;this.act.br=false;}
     Plane.lookBack=pr(7);
     if(ed(0))PlaneUI.gear();if(ed(1))PlaneUI.nextCam(1);if(ed(2))PlaneUI.setFlaps((Plane.flaps+1)%3);if(ed(3))PlaneUI.easy();

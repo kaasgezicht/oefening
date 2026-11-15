@@ -195,16 +195,22 @@ void main(){if(uPass==1){o=vec4(0);return;}
 
 // ---------------- sky: gradient, sun, moon, stars, rainbow, lightning glow
 const FS_SKY=GLSL_HEAD+`
-uniform mat4 uInvVP;in vec2 vUV;`+FS_OUT+`
+uniform mat4 uInvVP;uniform vec2 uMoonPh;in vec2 vUV;`+FS_OUT+`
 vec3 L(vec3 c){return c*c*(c*.31+.69);}
 float h12(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h12(i),h12(i+vec2(1,0)),f.x),mix(h12(i+vec2(0,1)),h12(i+1.),f.x),f.y);}
 void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 d=normalize(a.xyz/a.w-uCamPos.xyz);float h=d.y;
   float hz=max(h,0.);vec3 c=mix(L(uSkyH.rgb),L(uSkyZ.rgb),pow(clamp(hz*1.25,0.,1.),.5));
   float haze=exp(-hz*9.);c=mix(c,uFogCol.rgb,haze*.6);c=mix(c,uFogCol.rgb,smoothstep(.02,-.25,h));
   float sd=dot(d,uSunTrue.xyz),ms=max(sd,0.);c+=uFogCol2.rgb*(pow(ms,5.)*.3+pow(ms,48.)*.5)*uSunTrue.w*(.5+.5*haze)*(1.-uWx2.w*.6);
   c+=vec3(1.,.92,.75)*smoothstep(.99955,.9998,sd)*14.*uSunTrue.w*(1.-uWx2.w*.9);
-  float md=dot(d,uMoon.xyz);float disc=smoothstep(.99935,.99965,md);float ph=smoothstep(.99935,.99965,dot(d,normalize(uMoon.xyz+vec3(.012,.004,0))));
-  c+=vec3(.95,.95,.88)*disc*(1.-ph*.75)*3.*uMoon.w+vec3(.25,.3,.45)*pow(max(md,0.),40.)*.25*uMoon.w;
+  // the moon: a lit sphere (phase from uMoonPh.x: 0 new, pi full), grey seas from noise, a faint earthshine on the dark part, and a halo
+  float md=dot(d,uMoon.xyz),mDisc=0.;vec3 mCol=vec3(0);
+  if(uMoon.w>0.&&md>.998){vec3 m=uMoon.xyz,r=normalize(cross(m,vec3(0,1,0))),u=cross(r,m);vec2 q=vec2(dot(d,r),dot(d,u))/.0195;float rr=dot(q,q);
+    if(rr<1.08){float z=sqrt(max(1.-rr,0.));vec3 n=r*q.x+u*q.y-m*z,l=m*cos(uMoonPh.x)+r*sin(uMoonPh.x);float lit=smoothstep(-.06,.14,dot(n,l));/* l points from the moon to the sun */
+      float sea=smoothstep(.5,.72,vn(q*2.3+vec2(3.1,1.7))*.65+vn(q*5.1+7.)*.35),cr=vn(q*11.)*.12;float alb=.95-sea*.33-cr;
+      mDisc=smoothstep(1.06,.96,rr);mCol=vec3(1.,.98,.92)*alb*(lit*2.8+.07)*(.8+.2*z);}}
+  c=mix(c,mCol*uMoon.w,mDisc*uMoon.w);c+=vec3(.3,.36,.52)*(pow(max(md,0.),3000.)*.5+pow(max(md,0.),120.)*.14)*uMoon.w*(.3+.7*uMoonPh.y)*(1.-mDisc);
   if(uSkyZ.w>0.&&h>0.){vec3 q=floor(d*260.);float s=h12(q.xy*.71+q.z*3.17);float st=step(.9972,s)*(.6+.4*sin(uCamPos.w*3.+s*400.));c+=vec3(.9,.92,1.)*st*uSkyZ.w*smoothstep(0.,.15,h)*1.5;}
   if(uMisc.w>0.){float ang=acos(clamp(dot(d,-uSunTrue.xyz),-1.,1.));float x=(ang-.733)/.045;if(abs(x)<1.&&h>0.){vec3 rb=clamp(vec3(1.3-abs(x*2.-1.),1.-abs(x)*1.2,1.3-abs(x*2.+1.)),0.,1.);
     c=mix(c,c+L(rb)*.5,uMisc.w*(1.-abs(x))*smoothstep(0.,.08,h));}}
@@ -587,6 +593,16 @@ const FS_BLOOMDOWN=`#version 300 es
 precision highp float;uniform sampler2D uBSrc;uniform vec2 uTexel;uniform float uThr;in vec2 vUV;out vec4 o;
 void main(){vec3 c=vec3(0);for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++)c+=texture(uBSrc,vUV+vec2(i,j)*uTexel*1.5).rgb;c/=9.;
   float l=max(c.r,max(c.g,c.b));o=vec4(c*max(l-uThr,0.)/max(l,1e-4),1.);}`;
+// God rays: the bright sky round the sun (or moon) is masked at quarter size (anything in front, or a cloud, blocks it), then smeared out
+// from the light's spot on the screen in 48 steps that fade, and added in the tone-map pass
+const FS_RAYMASK=`#version 300 es
+precision highp float;uniform sampler2D uBSrc;uniform sampler2D uDepth;uniform vec4 uRayL;uniform vec2 uAsp;in vec2 vUV;out vec4 o;
+void main(){vec3 c=vec3(0);float sky=0.;for(int j=0;j<2;j++)for(int i=0;i<2;i++){vec2 q=vUV+(vec2(i,j)-.5)*uAsp.y*vec2(1.,uAsp.x)*.5;sky+=step(.99999,texture(uDepth,q).r);c+=texture(uBSrc,q).rgb;}
+  sky*=.25;c*=.25;vec2 d=(vUV-uRayL.xy)*vec2(uAsp.x,1.);float f=exp(-dot(d,d)*28.);float l=dot(c,vec3(.2126,.7152,.0722));
+  o=vec4(vec3(sky*f*clamp((l-.7)*.9,0.,3.)),1.);}`;
+const FS_RAYBLUR=`#version 300 es
+precision highp float;uniform sampler2D uBSrc;uniform vec4 uRayL;in vec2 vUV;out vec4 o;
+void main(){vec2 st=(uRayL.xy-vUV)*uRayL.z/48.;vec2 q=vUV;float w=1.,a=0.,ws=0.;for(int i=0;i<48;i++){a+=texture(uBSrc,q).r*w;ws+=w;w*=.97;q+=st;}o=vec4(vec3(a/ws*2.),1.);}`;
 const FS_DOWN=`#version 300 es
 precision highp float;uniform sampler2D uBSrc;uniform vec2 uTexel;in vec2 vUV;out vec4 o;
 void main(){vec3 c=texture(uBSrc,vUV+uTexel*vec2(-1,-1)).rgb+texture(uBSrc,vUV+uTexel*vec2(1,-1)).rgb+texture(uBSrc,vUV+uTexel*vec2(-1,1)).rgb+texture(uBSrc,vUV+uTexel*vec2(1,1)).rgb;o=vec4(c*.25,1.);}`;
@@ -594,7 +610,7 @@ const FS_BLUR=`#version 300 es
 precision highp float;uniform sampler2D uBSrc;uniform vec2 uDir;in vec2 vUV;out vec4 o;
 void main(){vec3 c=texture(uBSrc,vUV).rgb*.227;c+=(texture(uBSrc,vUV+uDir*1.385).rgb+texture(uBSrc,vUV-uDir*1.385).rgb)*.316;c+=(texture(uBSrc,vUV+uDir*3.231).rgb+texture(uBSrc,vUV-uDir*3.231).rgb)*.07;o=vec4(c,1.);}`;
 const FS_TONEMAP=`#version 300 es
-precision highp float;uniform sampler2D uSrc;uniform sampler2D uBloom;uniform sampler2D uDof;uniform sampler2D uDepth;
+precision highp float;uniform sampler2D uSrc;uniform sampler2D uBloom;uniform sampler2D uDof;uniform sampler2D uDepth;uniform sampler2D uRays;uniform vec4 uRayC;
 uniform vec4 uFocus;uniform float uExpo;uniform float uSat;uniform float uBloomAmt;uniform vec4 uGrade0;uniform vec4 uGrade1;uniform vec4 uGrade2;uniform vec4 uGrade3;uniform float uVig;
 uniform vec4 uUp;// sharper upscaling: xy source texel size, z sharpening, w on
 in vec2 vUV;out vec4 o;
@@ -617,6 +633,7 @@ void main(){vec3 c=uUp.w>.5?bicubic(vUV,uUp.xy):texture(uSrc,vUV).rgb;vec3 sharp
   if(uFocus.w>0.){float z=lin(texture(uDepth,vUV).r);float coc=clamp(abs(z-uFocus.z)/max(z,1.)*1.25-.18,0.,1.);
     coc=max(coc,smoothstep(.3,.5,abs(vUV.y-.5))*.55);coc*=uFocus.w;c=mix(c,texture(uDof,vUV).rgb,clamp(coc,0.,.8));}
   if(uBloomAmt>0.)c+=texture(uBloom,vUV).rgb*uBloomAmt;
+  if(uRayC.w>0.)c+=texture(uRays,vUV).r*uRayC.rgb*uRayC.w;
   c*=uExpo;c=aces(c);c=clamp(c+sharp,0.,1.);
   float l=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(l),c,uSat);
   vec3 g=c*uGrade1.rgb*uGrade0.w+uGrade0.rgb;g=pow(max(g,0.),uGrade2.rgb);float gl=dot(g,vec3(.2126,.7152,.0722));g=mix(vec3(gl),g,uGrade1.w);g*=uGrade3.rgb;

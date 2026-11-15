@@ -101,6 +101,7 @@ def('grade',{tab:'look',label:'Colour look',kind:'select',options:[['story','Sto
 def('gradeAmt',{tab:'look',label:'Colour look strength',min:0,max:1,step:0.01,def:1,apply:'live'});
 def('bokeh',{tab:'look',label:'Diorama blur (tilt-shift)',min:0,max:1,step:0.01,def:0.45,apply:'live'});
 def('bloom',{tab:'look',label:'Glow around lights',min:0,max:1,step:0.01,def:0.45,apply:'live',q:1});
+def('godRays',{tab:'look',label:'God rays (sun and moon beams)',min:0,max:1.5,step:0.05,def:0,apply:'live',q:1});
 def('vignette',{tab:'look',label:'Dark corners',min:0,max:1,step:0.01,def:0.3,apply:'live'});
 def('fogDensity',{tab:'look',label:'Haze in the distance',min:0,max:2,step:0.05,def:0.6,apply:'live'});
 def('aoStrength',{tab:'look',label:'Valley shading',min:0,max:2,step:0.05,def:1,apply:'live'});

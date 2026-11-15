@@ -21,14 +21,16 @@ function sunState(){const S=seasonW(),t=P.timeOfDay;
   const el=u<=1?elMax*Math.sin(Math.PI*u):-0.45*Math.sin(Math.PI*(u-1));
   const az=(u<=1?u:u-1)*Math.PI+P.sunRotate*Math.PI/180+(u>1?Math.PI:0);
   const sun=[Math.cos(az)*Math.cos(el),Math.sin(el),Math.sin(az)*Math.cos(el)];
-  const mel=u>1?0.25+0.55*Math.sin(Math.PI*(u-1)):-0.3,maz=az+Math.PI*(u>1?0:1)+0.6;
+  const mel=u>1?0.1+0.42*Math.sin(Math.PI*(u-1)):-0.3,maz=az+Math.PI*(u>1?0:1)+0.6;/* low over the land (6-30 degrees), so it is in the picture */
   const moon=[Math.cos(maz)*Math.cos(mel),Math.sin(mel),Math.sin(maz)*Math.cos(mel)];
   return{sun,moon,u};}
+/* the moon's phase: an eight-day cycle (0 new, 0.5 full); a new game starts at a waxing gibbous moon */
+R.moonPhase=function(){return(((Weather.days||0)+P.timeOfDay/24)/8+0.36)%1;};
 R.atmos=function(){const st=sunState(),E=Weather.eff(),sy=st.sun[1],oc=clamp(E.overcast,0,1);
   const day=smooth(-0.06,0.22,sy),gold=smooth(-0.08,0.04,sy)*(1-smooth(0.08,0.4,sy)),night=1-smooth(-0.14,0.02,sy);
   const dim=1-oc*0.62-E.storm*0.15;
   let sunC=mixv([1.0,0.95,0.86],[1.0,0.62,0.36],gold).map(v=>v*1.45*smooth(-0.04,0.1,sy)*dim);
-  const moonUp=smooth(-0.05,0.15,st.moon[1])*night;const moonC=[0.40,0.50,0.80].map(v=>v*0.42*moonUp*(1-oc*0.6));
+  const moonUp=smooth(-0.05,0.15,st.moon[1])*night;const ph=R.moonPhase(),illum=(1-Math.cos(ph*2*Math.PI))/2;const moonC=[0.52,0.62,0.95].map(v=>v*0.62*(0.25+0.75*illum)*moonUp*(1-oc*0.7));/* silvery moonlight, by the phase */
   const useMoon=sy<0.02;const key=useMoon?st.moon:st.sun;const keyC=useMoon?moonC:sunC;
   const flash=E.flash;
   let skyA=mixv([0.60,0.70,0.92],[0.72,0.58,0.64],gold).map(v=>v*(0.52*day+0.04));
@@ -40,7 +42,7 @@ R.atmos=function(){const st=sunState(),E=Weather.eff(),sy=st.sun[1],oc=clamp(E.o
   zen=mixv(zen,[0.03,0.05,0.13],night);hor=mixv(hor,[0.10,0.14,0.27],night);
   if(E.storm>0.01){zen=mixv(zen,[0.25,0.27,0.32],E.storm*0.7);hor=mixv(hor,[0.40,0.42,0.46],E.storm*0.6);}
   const fog=srgb(mixv(hor,[0.80,0.86,0.92],0.35*(1-night))).map(v=>v*0.97),fog2=srgb(mixv(hor,[1.0,0.82,0.62],0.5*(gold+0.25*day)));
-  return{st,E,day,gold,night,key,keyC,skyA,gndA,zen,hor,fog,fog2,moonUp};};
+  return{st,E,day,gold,night,key,keyC,skyA,gndA,zen,hor,fog,fog2,moonUp,moonPh:ph,illum};};
 
 // ---------------- init
 R.init=function(){
@@ -50,7 +52,7 @@ R.init=function(){
   R.pObj=mp('objects',VS_OBJ,FS_OBJ);R.pKit=mp('kit',VS_KIT,FS_KIT(false));R.pKitF=mp('kit-fade',VS_KIT,FS_KIT(true));R.pVeh=mp('vehicles',VS_VEH,FS_VEH);R.pTrack=mp('track',VS_TRACK,FS_TRACK);R.tcTex=tex2D(256,256,gl.R8,gl.RED,gl.UNSIGNED_BYTE,null,gl.LINEAR);bindTU(26,gl.TEXTURE_2D,R.tcTex);
   R.pSky=mp('sky',VS_FS,FS_SKY);R.pWater=mp('water',VS_WATER,FS_WATER);R.pLake=mp('lake-near',VS_LAKE,FS_WATER);Waves.initGL();R.pCloud=mp('clouds',VS_CLOUD,FS_CLOUD);R.pMist=mp('mist',VS_MIST,FS_MIST);
   R.pPart=mp('smoke',VS_PART,FS_PART);R.pPrecip=mp('precipitation',VS_PRECIP,FS_PRECIP);R.pBolt=mp('lightning',VS_BOLT,FS_BOLT);R.pMark=mp('markers',VS_MARK,FS_MARK);
-  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
+  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pRayMask=mp('ray-mask',VS_FS,FS_RAYMASK);R.pRayBlur=mp('ray-blur',VS_FS,FS_RAYBLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
   R.ubo=gl.createBuffer();gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferData(gl.UNIFORM_BUFFER,R.U.byteLength,gl.DYNAMIC_DRAW);gl.bindBufferBase(gl.UNIFORM_BUFFER,0,R.ubo);
   R.hdr=CAPS.halfRT?{i:gl.RGBA16F,t:gl.HALF_FLOAT}:{i:gl.RGBA8,t:gl.UNSIGNED_BYTE};
   const f1=new Float32Array([0]),f4=new Float32Array([0,0,0,0]),u4=new Uint8Array([160,0,0,0]);
@@ -529,7 +531,7 @@ R.ensureTargets=function(w,h){const ms=Math.min(+P.msaa||0,CAPS.maxSamples||0);i
   R.colTex=tex2D(w,h,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R.colFb=fbo([R.colTex]);
   if(R.sceneTex){gl.deleteTexture(R.sceneTex);gl.deleteFramebuffer(R.sceneFb);}R.sceneTex=tex2D(w,h,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R.sceneFb=fbo([R.sceneTex]);
   R.depTex=R.makeDepthTex(w,h,false);R.depFb=fbo([],{isTex:true,t:R.depTex});
-  const qw=Math.max(16,w>>2),qh=Math.max(16,h>>2);for(const k of ['bA','bB','dA','dB']){if(R[k]){gl.deleteTexture(R[k]);gl.deleteFramebuffer(R[k+'f']);}R[k]=tex2D(qw,qh,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R[k+'f']=fbo([R[k]]);}
+  const qw=Math.max(16,w>>2),qh=Math.max(16,h>>2);for(const k of ['bA','bB','dA','dB','gA','gB']){if(R[k]){gl.deleteTexture(R[k]);gl.deleteFramebuffer(R[k+'f']);}R[k]=tex2D(qw,qh,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R[k+'f']=fbo([R[k]]);}
   R.qw=qw;R.qh=qh;Log.info(`render target ${w}×${h}, MSAA ${ms||'off'}`);};
 
 // ---------------- frame
@@ -559,7 +561,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
     if(!ord)terr();if(!S.vehicles)R.drawVehicles(0,ord?'o':undefined);R.pm('vehicles');
     gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),0);gl.bindVertexArray(R.objVao);if(!S.kit&&ord)R.drawKit(0);R.pm('kit');if(!S.life)Life.draw(0);R.pm('life');if(!S.veg)R.drawVeg(0);R.pm('veg');if(!S.kit&&!ord)R.drawKit(0);R.pm('kit');gl.bindVertexArray(null);
     if(ord){terr();if(!S.vehicles)R.drawVehicles(0,'g');gl.useProgram(R.pObj.p);gl.bindVertexArray(null);}}
-  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');if(T&&R.ghost)R.drawGhost();
+  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);gl.uniform2f(R.pSky.u('uMoonPh'),(R.A?R.A.moonPh:0.5)*2*Math.PI,R.A?R.A.illum:1);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');if(T&&R.ghost)R.drawGhost();
   // depth copy for soft water, clouds, mist and smoke
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.depFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.DEPTH_BUFFER_BIT,gl.NEAREST);
   if(T&&P.waterOn&&+P.reflQuality>0&&R.waterChunks.length){gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.sceneFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);bindTU(TU.uSceneCol,gl.TEXTURE_2D,R.sceneTex);}
@@ -784,11 +786,18 @@ R.post=function(cam,A){const qw=R.qw,qh=R.qh;gl.disable(gl.DEPTH_TEST);
   const bok=P.bokeh*(Cam.mode==='cab'||Cam.mode==='coach'?0.25:1);
   if(bok>0.001){pass(R.dAf,R.pDown,R.colTex,p=>gl.uniform2f(p.u('uTexel'),1/R.tw,1/R.th));
     for(let it=0;it<2;it++){pass(R.dBf,R.pBlur,R.dA,p=>gl.uniform2f(p.u('uDir'),(0.8+it*0.7)/qw,0));pass(R.dAf,R.pBlur,R.dB,p=>gl.uniform2f(p.u('uDir'),0,(0.8+it*0.7)/qh));}dof=R.dA;}
+  // God rays from the key light (sun by day, moon at night) when it is in front of the camera and not far off the screen
+  let rays=0,rayC=[0,0,0];if(+P.godRays>0.001&&A.keyUp){const k=A.key,cp=cam.pos,X=cp[0]+k[0]*1e4,Y=cp[1]+k[1]*1e4,Z=cp[2]+k[2]*1e4,m=cam.vp;
+    const cw=m[3]*X+m[7]*Y+m[11]*Z+m[15];if(cw>0){const sx=(m[0]*X+m[4]*Y+m[8]*Z+m[12])/cw*0.5+0.5,sy=(m[1]*X+m[5]*Y+m[9]*Z+m[13])/cw*0.5+0.5,off=Math.max(0,Math.abs(sx-0.5)-0.5,Math.abs(sy-0.5)-0.5);
+      const day=A.day>0.05,b=(day?1:0.7)*(1-smooth(0.05,0.6,off))*(1-clamp(A.E.overcast,0,1)*0.85);if(b>0.01){rays=+P.godRays*b;rayC=day?[1,0.82,0.6].map((v,i)=>v*0.55*(0.6+0.4*A.gold)):[0.55,0.65,1.0].map(v=>v*0.5);
+        const L=[sx,sy,0.92,0];pass(R.gAf,R.pRayMask,R.colTex,p=>{bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);gl.uniform4fv(p.u('uRayL'),L);gl.uniform2f(p.u('uAsp'),qw/qh,1/qh);});
+        pass(R.gBf,R.pRayBlur,R.gA,p=>gl.uniform4fv(p.u('uRayL'),L));pass(R.gAf,R.pRayBlur,R.gB,p=>gl.uniform4fv(p.u('uRayL'),[sx,sy,0.35,0]));}}}
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,gl.canvas.width,gl.canvas.height);bindTU(TU.uBSrc,gl.TEXTURE_2D,R.blackTex);
+  bindTU(TU.uRays,gl.TEXTURE_2D,rays>0?R.gA:R.blackTex);
   const p=R.pTone;gl.useProgram(p.p);bindTU(TU.uSrc,gl.TEXTURE_2D,R.colTex);bindTU(TU.uBloom,gl.TEXTURE_2D,bl);bindTU(TU.uDof,gl.TEXTURE_2D,dof);bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);
   gl.uniform4f(p.u('uFocus'),cam.near,cam.far,R.focusDist,bok*0.85);const G=gradeParams();
   gl.uniform4fv(p.u('uGrade0'),G[0]);gl.uniform4fv(p.u('uGrade1'),G[1]);gl.uniform4fv(p.u('uGrade2'),G[2]);gl.uniform4fv(p.u('uGrade3'),G[3]);
   const lum=c=>0.2126*c[0]+0.7152*c[1]+0.0722*c[2],now=performance.now(),dtE=Math.min(0.5,(now-(R.lastE||now))/1000);R.lastE=now;
   const tgt=P.autoExpo?clamp(1.36/(lum(A.keyC)*Math.max(A.key[1],0)*0.9+lum(A.skyA)+0.02),0.75,1+0.6*P.nightBright):(1+A.night*0.55*P.nightBright);R.expo=R.expo?R.expo+(tgt-R.expo)*Math.min(1,dtE*1.2):tgt;
-  {const up=gl.canvas.width>R.tw+1;gl.uniform4f(p.u('uUp'),1/R.tw,1/R.th,0.35,up?1:0);}gl.uniform1f(p.u('uExpo'),0.78*Math.pow(2,P.exposure)*R.expo);gl.uniform1f(p.u('uSat'),P.saturation);gl.uniform1f(p.u('uBloomAmt'),P.bloom*0.6);gl.uniform1f(p.u('uVig'),P.vignette*0.6);fsTri();
+  {const up=gl.canvas.width>R.tw+1;gl.uniform4f(p.u('uUp'),1/R.tw,1/R.th,0.35,up?1:0);}gl.uniform1f(p.u('uExpo'),0.78*Math.pow(2,P.exposure)*R.expo);gl.uniform1f(p.u('uSat'),P.saturation);gl.uniform1f(p.u('uBloomAmt'),P.bloom*0.6);gl.uniform1f(p.u('uVig'),P.vignette*0.6);gl.uniform4f(p.u('uRayC'),rayC[0],rayC[1],rayC[2],rays);fsTri();bindTU(TU.uRays,gl.TEXTURE_2D,R.blackTex);
   bindTU(TU.uDepth,gl.TEXTURE_2D,R.dummyDepth);bindTU(TU.uSrc,gl.TEXTURE_2D,R.blackTex);};
