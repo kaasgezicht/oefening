@@ -37,7 +37,7 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   - Start: village 0 is known and gets an automatic bus stop. The intro banner shows the loop.
   - "Add bus" with one stop makes an explorer bus (b.explorer) that waits.
   - Discovery: a village is discovered when its centre is uncovered. It is stamped clear, gets a bus stop (all-stops buses pick it up), a banner with "Show me", and a log line.
-  - Hidden in the mist: village labels, map symbols, upgrade notes. Building and bus stops are refused there.
+  - Hidden in the mist: village labels, industry markers, map symbols, upgrade notes. Building and bus stops are refused there.
   - Saved as `snapshot.explore = {N, rle, known}`, a few hundred bytes. Switching it on mid-game makes a fresh mask round village 0.
   - Also: New game now clears airstrips (it did not before).
 - Classical music (js/classical.js, after music.js):
