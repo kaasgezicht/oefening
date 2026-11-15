@@ -288,5 +288,9 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     const ahead=[nx+Math.cos(nr)*S.len*k*0.5*Math.sign(v||1),nz+Math.sin(nr)*S.len*k*0.5*Math.sign(v||1)];
     // driven by hand it may go into the water: it floats like an amphibian (slow, the body half under), throwing spray; only the edge of the world stops it
     const inW=water(b.x,b.z);b.swim=inW;if(!inW&&!water(ahead[0],ahead[1]))b.wetToast=false;if(inW){const vw=5.2*k;if(Math.abs(v)>vw)v-=Math.sign(v)*Math.min(Math.abs(v)-vw,6*dt);if(Math.abs(v)>0.8&&Math.random()<dt*25){const w=sampleWater(T,b.x,b.z);Particles.spawn(b.x+(Math.random()-0.5)*2,w[0]+0.2,b.z+(Math.random()-0.5)*2,-Math.cos(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.5+Math.random()*1.5,-Math.sin(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.4,0.7,2.2,0);}}
-    if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(!inW&&water(ahead[0],ahead[1])&&Math.abs(v)>2&&!b.wetToast){b.wetToast=true;UI.toast('Into the water: it floats, slowly');}b.x=nx;b.z=nz;b.rot=nr;}
+    /* parapets and tunnel walls: from a bridge deck, a tunnel or a road on its wall, a move that would drop the vehicle more than 1.5 m (over
+       the side) is not made; it scrapes along and slows. Off the structures, or in the air after a hop, nothing holds it */
+    const yNow=b._gy,yNew=this.gy(nx,nz,yNow),onStruct=yNow!=null&&(Life.deckY(b.x,b.z,yNow)>-1e8&&Math.abs(Life.deckY(b.x,b.z,yNow)-yNow)<0.6||(Life.tunY(b.x,b.z)!=null&&Math.abs(Life.tunY(b.x,b.z)-yNow)<0.6)||(Life.roadY(b.x,b.z,yNow)!=null&&R.drawnH(T,b.x,b.z)<yNow-1.5));
+    if(onStruct&&!air&&yNew<yNow-1.5){v*=0.6;b.rot=nr;if(Math.abs(v)>2&&!b.railToast){b.railToast=true;UI.toast('The parapet holds you');setTimeout(()=>b.railToast=false,3000);}}
+    else if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(!inW&&water(ahead[0],ahead[1])&&Math.abs(v)>2&&!b.wetToast){b.wetToast=true;UI.toast('Into the water: it floats, slowly');}b.x=nx;b.z=nz;b.rot=nr;}
     b.mv=v;b.v=Math.abs(v);b._gy=this.gy(b.x,b.z,b._gy);}};
