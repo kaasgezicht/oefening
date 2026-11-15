@@ -159,7 +159,8 @@ function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=docu
 // ---------------------------------------------------------------- the road vehicles in the game: drawing, suspension, selection, cameras, driving
 const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pad:{prev:[],act:false},
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
-  gy(x,z){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;if(tu!=null)return tu;/* in a road tunnel */return Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);},
+  gy(x,z){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;if(tu!=null)return tu;/* in a road tunnel */let y=Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);
+    const d=this.drv;if(d&&d.swim&&Math.abs(x-d.x)<10&&Math.abs(z-d.z)<10){const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));if(w[1]>0)y=Math.max(y,w[0]-0.9);}/* the driven vehicle floats in the water */return y;},
   // meshes are made once (after the GL context): a body per type (two reds for the lorry), wheels per type and side, and a far version
   // with the wheels merged in (one draw call)
   build(){const U=m=>R.uploadVeh(m),cat=(...ms)=>{const M=vmesh();for(const [m,off] of ms){const b=M.n;for(let k=0;k<m.n;k++){const o=k*14;M.v.push(m.v[o]+off[0],m.v[o+1]+off[1],m.v[o+2]+off[2],...m.v.slice(o+3,o+14));}for(const i of m.i)M.i.push(i+b);M.n+=m.n;}return M;};
@@ -278,5 +279,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     const nr=b.rot+v/wb*Math.tan(b._steer)*dt,nx=b.x+Math.cos(nr)*v*dt,nz=b.z+Math.sin(nr)*v*dt;
     const water=(x,z)=>{const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0&&w[0]>R.sampleHr(T,x,z)+0.25;};
     const ahead=[nx+Math.cos(nr)*S.len*k*0.5*Math.sign(v||1),nz+Math.sin(nr)*S.len*k*0.5*Math.sign(v||1)];
-    if(water(ahead[0],ahead[1])||ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast(water(ahead[0],ahead[1])?'Water ahead':'The edge of the world');v=0;}else{b.x=nx;b.z=nz;b.rot=nr;}
+    // driven by hand it may go into the water: it floats like an amphibian (slow, the body half under), throwing spray; only the edge of the world stops it
+    const inW=water(b.x,b.z);b.swim=inW;if(!inW&&!water(ahead[0],ahead[1]))b.wetToast=false;if(inW){const vw=5.2*k;if(Math.abs(v)>vw)v-=Math.sign(v)*Math.min(Math.abs(v)-vw,6*dt);if(Math.abs(v)>0.8&&Math.random()<dt*25){const w=sampleWater(T,b.x,b.z);Particles.spawn(b.x+(Math.random()-0.5)*2,w[0]+0.2,b.z+(Math.random()-0.5)*2,-Math.cos(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.5+Math.random()*1.5,-Math.sin(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.4,0.7,2.2,0);}}
+    if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(!inW&&water(ahead[0],ahead[1])&&Math.abs(v)>2&&!b.wetToast){b.wetToast=true;UI.toast('Into the water: it floats, slowly');}b.x=nx;b.z=nz;b.rot=nr;}
     b.mv=v;b.v=Math.abs(v);}};

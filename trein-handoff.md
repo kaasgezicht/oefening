@@ -47,7 +47,9 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - Wildlife (js/wild.js): deer (stags with antlers), wild boar, foxes, rabbits (field edges) and crow flocks (circle over woods, land on fields, lift off).
   - Graze, wander, and flee from buses, lorries, trains and a low plane. Simulated within 1.5 km, drawn within 900 m (rabbits 350 m) with the vehicle shader.
   - Counts scale with map area (4 km: 26 deer, 18 boar, 6 foxes, 20 rabbits, 4 flocks).
-- Pictures: checks/roads-viaduct-tunnel.png, checks/airstrip-concrete.png, checks/wildlife.png, checks/roads-16km.png.
+- Driving by hand into water (js/roadveh.js driveStep, gy): no longer stopped. The vehicle floats like an amphibian (`b.swim`): its body 0.9 m under the surface, at most 5.2 × 0.75 m/s, throwing spray particles. Tested: a lorry crossing a lake keeps y = water − 0.9 while the bed falls from 29 to 19 m.
+- The user's 16 km island (seed 99719): 48 villages with 48 unique names. One road network of 55 links (55/55 routed), 71 bridges and 9 tunnels (61–364 m). The villages step takes 40 s (it was 42 s). Wildlife: 172 deer, 157 boar, 40 foxes, 112 rabbits, 20 flocks. Roads show solid with hairpin switchbacks up hillsides (checks/roads-16km.png).
+- Pictures: checks/roads-viaduct-tunnel.png, checks/airstrip-concrete.png, checks/wildlife.png, checks/roads-16km.png, checks/drive-through-water.png.
 
 ### Earlier (4.20.0, 15 Nov) — exploration mode, UI layout, moon, God rays, classical music, controller
 - Controller (js/plane.js PlanePad): left stick X = rudder (added to LB/RB), right stick X = roll, right Y = pitch, left Y = throttle. The other buttons are unchanged.
