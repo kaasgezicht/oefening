@@ -159,7 +159,9 @@ function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=docu
 // ---------------------------------------------------------------- the road vehicles in the game: drawing, suspension, selection, cameras, driving
 const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pad:{prev:[],act:false},
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
-  gy(x,z){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;if(tu!=null)return tu;/* in a road tunnel */let y=Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);
+  /* the height a wheel stands at. Over a tunnel there are two levels (the road in the tube, the ground above): ref, the vehicle's own last
+     height, picks the nearer one; without it, the tube only when the point is inside a tunnel's mouth zone is not known, so the surface wins */
+  gy(x,z,ref){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;let y=Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);if(tu!=null&&ref!=null&&Math.abs(ref-tu)<Math.abs(ref-y))return tu;
     const d=this.drv;if(d&&d.swim&&Math.abs(x-d.x)<10&&Math.abs(z-d.z)<10){const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));if(w[1]>0)y=Math.max(y,w[0]-0.9);}/* the driven vehicle floats in the water */return y;},
   // meshes are made once (after the GL context): a body per type (two reds for the lorry), wheels per type and side, and a far version
   // with the wheels merged in (one draw call)
@@ -179,7 +181,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     else for(const sd of [-1,1])rvText(M,[{t:`${w.town.toUpperCase()} AUTOBUSDIENST`,font:'bold PX Georgia',h:0.13}],{x:-1.0,y:1.26,z:sd*1.187,col:[0.98,0.88,0.6],px:90});
     return M.n?R.uploadVeh(M):null;},
   // ---- the frame of a vehicle: chassis on the ground under its wheels, the body on its springs (heave h, pitch p, roll r)
-  frame(b){const S=this.spec(b),k=RV_SCALE,h=b.rot,c=Math.cos(h),s=Math.sin(h),zx=-s,zz=c,P=(ax,tr)=>this.gy(b.x+c*ax*k+zx*tr*k,b.z+s*ax*k+zz*tr*k);
+  frame(b){const S=this.spec(b),k=RV_SCALE,h=b.rot,c=Math.cos(h),s=Math.sin(h),zx=-s,zz=c,P=(ax,tr)=>this.gy(b.x+c*ax*k+zx*tr*k,b.z+s*ax*k+zz*tr*k,b._gy);
     const tr=S.trF,fl=P(S.axF,-tr),fr=P(S.axF,tr),rl=P(S.axR,-tr),rr=P(S.axR,tr),wb=(S.axF-S.axR)*k,pitch=Math.atan2((fl+fr)/2-(rl+rr)/2,wb),roll=Math.atan2((fl+rl)/2-(fr+rr)/2,2*tr*k);
     const y=(fl+fr+rl+rr)/4+(b.hz||0),q=Q.mul(Q.mul(Q.axis([0,1,0],-h),Q.axis([0,0,1],pitch)),Q.axis([1,0,0],roll)),sp=b._s||{h:0,p:0,r:0};
     const qb=Q.mul(Q.mul(q,Q.axis([0,0,1],sp.p)),Q.axis([1,0,0],sp.r)),cg=[0,1.1,0],oc=[b.x,y,b.z],a=Q.rot(q,cg),bb=Q.rot(qb,cg),hv=Q.rot(q,[0,sp.h,0]);
@@ -190,7 +192,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     const dm=(m,mat)=>{if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     gl.uniform1f(p.u('uDist'),0);
     for(const b of Buses.list){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d>(pass===1?400:1800))continue;const S=this.spec(b),Lh=S.len*RV_SCALE/2+1;
-      if(pl&&!boxVisible(pl,b.x-Lh,this.gy(b.x,b.z)-2,b.z-Lh,b.x+Lh,this.gy(b.x,b.z)+5,b.z+Lh))continue;
+      const gyb=this.gy(b.x,b.z,b._gy);if(pl&&!boxVisible(pl,b.x-Lh,gyb-2,b.z-Lh,b.x+Lh,gyb+5,b.z+Lh))continue;
       const ty=this.type(b),MS=this.M[ty],vi=ty==='blitz'?((b.hash*7.3)%1<0.5?0:1):0,F=this.frame(b),k=F.k;
       if(d>140&&b!==this.sel&&b!==this.drv){dm(MS.far[vi],this.mat(F.q,F.oc,k));continue;}
       dm(MS.body[vi],this.mat(F.qb,F.ob,k));
@@ -202,7 +204,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   // ---- suspension and wheels, every frame: near vehicles (or the one followed or driven) bounce on their springs
   update(dt){if(!App.T)return;const cp=Cam.pos||[0,0,0];
     if(this.drv)this.driveStep(dt);
-    for(const b of Buses.list){const S=this.spec(b),k=RV_SCALE,v=b.manual?(b.mv||0):(b.st==='drive'?b.v:0);
+    for(const b of Buses.list){const S=this.spec(b),k=RV_SCALE,v=b.manual?(b.mv||0):(b.st==='drive'?b.v:0);b._gy=this.gy(b.x,b.z,b._gy);
       b._spin=((b._spin||0)+v*dt/(S.r*k))%(Math.PI*2);
       const near=b===this.sel||b===this.drv||Math.hypot(b.x-cp[0],b.z-cp[2])<160;
       const yr=b._pr===undefined?0:wrapPi(b.rot-b._pr)/Math.max(dt,1e-3);b._pr=b.rot;const al=b._pv===undefined?0:(v-b._pv)/Math.max(dt,1e-3);b._pv=v;
@@ -220,7 +222,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
         s.p+=s.pv*h;s.r+=s.rv*h;s.h+=s.hv*h;}
       s.p=clamp(s.p,-0.09,0.09);s.r=clamp(s.r,-0.12,0.12);s.h=clamp(s.h,-0.08,0.08);}
     if(this.sel&&!Buses.list.includes(this.sel))this.close();
-    if(this.sel&&this.cam==='follow'){const b=this.sel,y=this.gy(b.x,b.z)+1.5;Cam.mode='free';Cam.target[0]+=(b.x-Cam.target[0])*Math.min(1,dt*6);Cam.target[2]+=(b.z-Cam.target[2])*Math.min(1,dt*6);Cam.target[1]=y;}
+    if(this.sel&&this.cam==='follow'){const b=this.sel,y=this.gy(b.x,b.z,b._gy)+1.5;Cam.mode='free';Cam.target[0]+=(b.x-Cam.target[0])*Math.min(1,dt*6);Cam.target[2]+=(b.z-Cam.target[2])*Math.min(1,dt*6);Cam.target[1]=y;}
     this.tick();},
   // ---- picking a vehicle with a tap: the nearest on screen within a radius that grows as it comes closer
   pick(sx,sy){let best=null,bd=1e9;const cp=Cam.pos||[0,0,0];for(const b of Buses.list){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d>1500)continue;const q=Cam.toScreen(b.x,this.gy(b.x,b.z)+1.4*RV_SCALE,b.z);if(!q)continue;
@@ -234,7 +236,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     if(this.cam==='cab'){const e=b.goods?[0.1,1.95,-0.45]:b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
     else if(this.cam==='wheel'){p=P([S.axF+2.8,0.75,S.trF+2.3]);look=P([S.axR-0.5,0.7,S.trF]);cab=true;}/* low beside the front wheel, looking back along the side: the springs at work */
     else{const fw=[Math.cos(b.rot),0,Math.sin(b.rot)],back=(b.manual&&(b.mv||0)<-0.5)?-1:1,want=[b.x-fw[0]*11*back,F.oc[1]+4.2,b.z-fw[2]*11*back];if(!this.cp||Math.hypot(this.cp[0]-want[0],this.cp[2]-want[2])>40)this.cp=want.slice();const a=Math.min(1,dt*3);for(let i=0;i<3;i++)this.cp[i]+=(want[i]-this.cp[i])*a;p=this.cp.slice();look=[b.x+fw[0]*3,F.oc[1]+1.2,b.z+fw[2]*3];}
-    const gh=this.gy(p[0],p[2])+0.4;if(p[1]<gh)p[1]=gh;return{p,look,cab};},
+    const gh=this.gy(p[0],p[2],F.oc[1])+0.4;if(p[1]<gh)p[1]=gh;return{p,look,cab};},
   panel(on){let el=$('#rvPanel');if(!el){el=document.createElement('div');el.id='rvPanel';document.body.appendChild(el);el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const a=t.dataset.a,b=this.sel;if(!b&&a!=='x')return;
         if(a==='x')this.close();else if(a==='cam')this.nextCam();else if(a==='stops'){BusUI.open=true;BusUI.ed=b;BusUI.refresh();}else if(a==='drive')this.startDriving(b);else if(a==='back')this.stopDriving();else if(a==='fly'){Cam.setMode('free');Cam.flyTo([b.x,this.gy(b.x,b.z),b.z],30);}});}
     el.hidden=!on;},
@@ -272,7 +274,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     const S=this.spec(b),k=RV_SCALE,T=App.T,I=this.inp,wb=(S.axF-S.axR)*k;let v=b.mv||0;
     // on a road? (the road mask used by the routing), and the slope along the heading
     const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci]);b.offRoad=!onRoad;
-    const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2),slope=Math.atan2(h1-h0,4);
+    const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2,b._gy),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2,b._gy),slope=Math.atan2(h1-h0,4);
     const amax=b.goods?3.0:2.0,vmax=(b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road */roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
     const air=(b.hz||0)>0.02;if(b.hz>0||b.hvz){b.hvz=(b.hvz||0)-9.81*dt;b.hz=(b.hz||0)+b.hvz*dt;if(b.hz<=0){if(b.hvz<-2.5&&b._s){b._s.hv+=b.hvz*0.06;b._s.pv+=(Math.random()-0.5)*0.4;}b.hz=0;b.hvz=0;}}
     let a=0;if(I.gas>0.02&&!air)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02&&!air){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
