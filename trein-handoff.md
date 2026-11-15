@@ -1,4 +1,4 @@
-# Trein handoff 79 (15 Nov 2026): v4.20.0 — exploration mode, UI layout editor, moon and God rays, classical music with a music manager, rudder on the left stick; next: plan step 7 (footbridge)
+# Trein handoff 80 (15 Nov 2026): v4.21.0 — country roads that connect every village (switchbacks, viaducts, tunnels), solid roads on big maps, airstrips on concrete, wildlife, sound modes, GPU leak fixes; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,42 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.20.0, 15 Nov) — exploration mode, UI layout, moon, God rays, classical music, controller
+### Latest (4.21.0, 15 Nov) — the user's phone log (16 km island, exploration): roads, airstrips, crash, sound
+- Sound (js/audio.js):
+  - The speaker cycles: sound and music → sound only → off. The choice is kept in localStorage `trein.sound`.
+  - Build, Drive and the whistle call `Sfx.autoStart()`, which does nothing when the choice is off. Before, those buttons called `Sfx.start()` and so the music came back.
+  - The music checks `Sfx.pref()!=='sfx'` too, so a save's `music:1` cannot override "sound only".
+- WebGL crash (context lost right after a second 16 km world in one session):
+  - Leaks fixed: `R.uploadVeh` meshes freed by `R.freeMesh` (the VAO does not own its buffers): crossings, docks, the table, airstrip meshes, the ghost and the crates.
+  - `uploadWorld` deletes the old world's six big textures before making the new ones (about 130 MB on 16 km; both used to exist at once).
+  - The existing recovery (save on loss, reload on restore) is unchanged.
+- Village names: 64 names plus Groot-/Klein-/Oud-/Nieuw-/Hoog-/Laag- variants (`villageName(i)`). The 48 villages on 16 km used to repeat names, which broke exploration (known by name).
+- Lorry: top speed 26 m/s × 0.75 (about 70 km/h) on the road, acceleration 3.0. The exploration intro now explains the lorry → find villages → earn loop, and the first discovery says to tap Back so the lorry earns.
+- Country roads (js/life.js `roadPlan`, the link loop in genSteps):
+  - Kruskal over all pairs within 6 km, shortest first. A failed route tries the next pair, so the network stays connected (the log line "country roads: … separate networks").
+  - The planner is grid A* (cell 6–18 m, ≤ 95k cells, margin 300–900 m) with 16 move directions (knight moves let a road climb at a shallow angle, so switchbacks form). Grade is free to 5%, cost 110·(g−0.05)², hard limit 13%. Houses and water are blocked.
+  - Where a step meets water, a house or a grade above 9%, straight jumps are tried in the 8 main directions:
+    - bridge: ≤ 260 m, ≤ 70 m high, deck grade ≤ 7%, ground below all the way; cost 6/m + 50;
+    - tunnel: ≥ 50 m, ≤ 400 m, cover > 10 m; cost 14/m + 300.
+  - Road objects carry `sf` (per segment: 0 road, 1 bridge, 2 tunnel), `sy` (end heights), and `span`/`tun` flags.
+  - `findBridges` makes planned bridges (`planned:true`, `via` = height) and `Life.tunnels`. Spans are not painted on the ground (coarse or fine field) and nothing is cleared over a tunnel.
+  - Vehicles use `Life.tunY` in tunnels (`RoadVeh.gy`, bus drawing).
+  - buildings/bridge.js: `via > 8` makes a viaduct (13 m spans springing high, piers 1.8–4.2 m).
+  - `R.buildPortals`: a stone face, arch ring, dark tube, cornice and wing walls.
+  - Tested: 8 km with big mountains, 16 villages on one network (15/15 links); 14 bridges up to 69 m; 3 tunnels (71/197/134 m).
+- Roads on big maps: the coarse road field is 5.3 m/texel on 16 km, coarser than a road, so roads showed as dashes. `R.updateRoadFine` adds a fine field (2048² at 1.25 m, 2.56 km) round the camera: rebuilt when the view moves 600 m or roads change, TU 31, `uRoadFW`, blended in FS_TERRAIN.
+- Airstrips (js/air.js):
+  - The line stays straight (≤ 3%). Higher ground is cut; lower ground is filled up to `AIR.fill` (6 m); deeper, the runway stands on a concrete deck with a fascia and square piers every 15 m.
+  - Refused only for cuttings over 60 m, piers over 45 m, lakes or the sea.
+  - `Air.deckAt` is ground for the plane (`Plane.groundAt`).
+  - `R.dryWater` pushes stored water surfaces under cut ground (water showed on a cut slope).
+  - Tested: a spot with 56 m relief is accepted, 40% of the runway on piers up to 33 m, the plane on the deck.
+- Wildlife (js/wild.js): deer (stags with antlers), wild boar, foxes, rabbits (field edges) and crow flocks (circle over woods, land on fields, lift off).
+  - Graze, wander, and flee from buses, lorries, trains and a low plane. Simulated within 1.5 km, drawn within 900 m (rabbits 350 m) with the vehicle shader.
+  - Counts scale with map area (4 km: 26 deer, 18 boar, 6 foxes, 20 rabbits, 4 flocks).
+- Pictures: checks/roads-viaduct-tunnel.png, checks/airstrip-concrete.png, checks/wildlife.png, checks/roads-16km.png.
+
+### Earlier (4.20.0, 15 Nov) — exploration mode, UI layout, moon, God rays, classical music, controller
 - Controller (js/plane.js PlanePad): left stick X = rudder (added to LB/RB), right stick X = roll, right Y = pitch, left Y = throttle. The other buttons are unchanged.
 - Moon (js/render.js sunState/atmos, FS_SKY):
   - Lower arc: 6–30° at night.
