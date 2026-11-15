@@ -161,7 +161,9 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
   /* the height a wheel stands at. Over a tunnel there are two levels (the road in the tube, the ground above): ref, the vehicle's own last
      height, picks the nearer one; without it, the tube only when the point is inside a tunnel's mouth zone is not known, so the surface wins */
-  gy(x,z,ref){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;let y=Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);if(tu!=null&&ref!=null&&Math.abs(ref-tu)<Math.abs(ref-y))return tu;
+  gy(x,z,ref){const T=R.world,g=R.drawnH(T,x,z),tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9;let y=Math.max(g,dk);
+    /* stacked levels (a bridge over a road, a road over a tunnel): the one nearest the vehicle's own height */
+    if(ref!=null){let bd=Math.abs(ref-g);y=g;if(dk>g-0.5&&Math.abs(ref-dk)<bd){bd=Math.abs(ref-dk);y=dk;}if(tu!=null&&Math.abs(ref-tu)<bd){y=tu;}}
     const d=this.drv;if(d&&d.swim&&Math.abs(x-d.x)<10&&Math.abs(z-d.z)<10){const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));if(w[1]>0)y=Math.max(y,w[0]-0.9);}/* the driven vehicle floats in the water */return y;},
   // meshes are made once (after the GL context): a body per type (two reds for the lorry), wheels per type and side, and a far version
   // with the wheels merged in (one draw call)
@@ -287,4 +289,4 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     // driven by hand it may go into the water: it floats like an amphibian (slow, the body half under), throwing spray; only the edge of the world stops it
     const inW=water(b.x,b.z);b.swim=inW;if(!inW&&!water(ahead[0],ahead[1]))b.wetToast=false;if(inW){const vw=5.2*k;if(Math.abs(v)>vw)v-=Math.sign(v)*Math.min(Math.abs(v)-vw,6*dt);if(Math.abs(v)>0.8&&Math.random()<dt*25){const w=sampleWater(T,b.x,b.z);Particles.spawn(b.x+(Math.random()-0.5)*2,w[0]+0.2,b.z+(Math.random()-0.5)*2,-Math.cos(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.5+Math.random()*1.5,-Math.sin(b.rot)*Math.sign(v)*1.5+(Math.random()-0.5),1.4,0.7,2.2,0);}}
     if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(!inW&&water(ahead[0],ahead[1])&&Math.abs(v)>2&&!b.wetToast){b.wetToast=true;UI.toast('Into the water: it floats, slowly');}b.x=nx;b.z=nz;b.rot=nr;}
-    b.mv=v;b.v=Math.abs(v);}};
+    b.mv=v;b.v=Math.abs(v);b._gy=this.gy(b.x,b.z,b._gy);}};

@@ -384,7 +384,7 @@ R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMe
       for(let u=u0;u<u1-0.5;u+=4){if((Math.floor(u/4))%2)continue;const ue=Math.min(u+2,u1);q2(P(u,-0.08,0.02),P(ue,-0.08,0.02),P(ue,0.08,0.02),P(u,0.08,0.02),[0,1,0],WH);}}// dashed centre line
     for(let u=10;u<t.L-5;u+=20)for(const e of [-1,1]){const a=ring[e<0?10:2];q2(P(u-0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.93,a[1]-0.25),P(u-0.35,a[0]*0.93,a[1]-0.25),[0,-1,0],LMP,7);}// lamps
     // the portal blocks
-    for(const end of [0,1]){const u0=end?t.L:0,sg=end?1:-1,fw=ow+6.5,top=cr+4.2,dep=8,F=(v,h,d)=>P(u0+sg*d,v,h),nO=[dx*sg,0,dz*sg];
+    for(const end of [0,1]){const u0=end?t.L:0,sg=end?1:-1,fw=ow+6.5,top=cr+4.2,dep=Math.max(8,App.T.cs*2+1),F=(v,h,d)=>P(u0+sg*d,v,h),nO=[dx*sg,0,dz*sg];
       for(const e of [-1,1]){q2(F(e*ow,-1.5,0),F(e*fw,-1.5,0),F(e*fw,top,0),F(e*ow,top,0),nO,ST);// face beside the opening
         q2(F(e*fw,-1.5,0),F(e*fw,-1.5,-dep),F(e*fw,top,-dep),F(e*fw,top,0),[e*rx,0,e*rz],ST2);}// block sides
       for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1];q2(F(a[0],a[1],0),F(b[0],b[1],0),F(b[0],top,0),F(a[0],top,0),nO,k%2?ST:ST2);// spandrel over the arch
