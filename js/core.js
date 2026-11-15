@@ -764,7 +764,7 @@ const StationUI={ghostHandle:null,ghostPoly:null,drawn:false,els:new Map(),STEP:
 const IndUI={els:new Map(),
   tick(){const show=App.T&&!(Build.active&&Build.mode!=='signals'&&Build.target!=='road');const all=[];for(const [kind,L] of Life.inds())L.forEach((m,i)=>{if(Life.indOn(kind,m))all.push([kind,m,i]);});const live=new Set();
     for(const [kind,m,mi] of all){live.add(m);let el=this.els.get(m);if(!el){el=document.createElement('div');el.className='ilabel';el.innerHTML=kind==='sawmill'?'🪚':kind==='mine'?'⛏️':'🪑';document.body.appendChild(el);this.els.set(m,el);el.onclick=e=>{e.stopPropagation();this.info(kind,m,mi);};}
-      const p=show?Cam.toScreen(m.x,m.y+16,m.z):null,d=Cam.pos?Math.hypot(m.x-Cam.pos[0],m.z-Cam.pos[2]):0;if(!p||d>2600){el.style.display='none';continue;}el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';}
+      const p=show&&Explore.seen(m.x,m.z)?Cam.toScreen(m.x,m.y+16,m.z):null,d=Cam.pos?Math.hypot(m.x-Cam.pos[0],m.z-Cam.pos[2]):0;if(!p||d>2600){el.style.display='none';continue;}/* industries in the mist stay hidden */el.style.display='';el.style.left=p[0]+'px';el.style.top=p[1]+'px';}
     for(const [m,el] of this.els)if(!live.has(m)){el.remove();this.els.delete(m);}},
   info(kind,m,mi){const att=[...Track.stations.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚂 '+esc(q.name)),...Buses.stops.filter(q=>q[kind]&&q[kind].mi===mi).map(q=>'🚚 '+esc(q.name))];
     let p=VillageUI.panel;if(!p){p=VillageUI.panel=document.createElement('div');p.id='vPanel';document.body.appendChild(p);}VillageUI.cur=null;p.hidden=false;
