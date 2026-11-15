@@ -37,7 +37,7 @@ const Drive={locoKind:"std",placing:false,ghost:null,listOpen:false,
     if(!Trains.list.length)el.innerHTML='<p class="hint">No trains yet. Tap the add-locomotive button and drag it onto the track, then add wagons here.</p>';},
   active:false,
   enter(){this.active=true;if(!Trains.list.length)this.startPlace();$('#bar').classList.add('hide');$('#driveBar').hidden=false;
-    if(!Sfx.on)Sfx.start();Sfx.syncBtn();this.refresh();},
+    Sfx.autoStart();this.refresh();},
   exit(){this.active=false;this.cinema(false);$('#driveBar').hidden=true;$('#bar').classList.remove('hide');const t=Trains.cur();if(t){t.whistle=false;Sfx.whistle(t,false);}Cam.setMode('free');},
   refresh(){if(!this.active)return;$('#trainList').hidden=!this.listOpen;$('#dList').classList.toggle('on',this.listOpen);if(this.listOpen)this.list();$('#dAdd').classList.toggle('on',this.placing);
     const t=Trains.cur();$('#driveCtl').hidden=!t;if(!t)return;
@@ -57,7 +57,7 @@ const Drive={locoKind:"std",placing:false,ghost:null,listOpen:false,
     $('#dThrottle').oninput=e=>{const t=Trains.cur();if(t){t.throttle=e.target.value/100;t.auto=false;this.refresh();}};
     $('#dBrake').oninput=e=>{const t=Trains.cur();if(t){t.brake=e.target.value/100;t.auto=false;this.refresh();}};
     for(const b of document.querySelectorAll('#driveBar [data-rev]'))b.onclick=()=>this.setRev(+b.dataset.rev);
-    const w=$('#dWhistle'),on=v=>{const t=Trains.cur();if(!t)return;if(!Sfx.on)Sfx.start();t.whistle=v;Sfx.whistle(t,v);w.classList.toggle('on',v);};
+    const w=$('#dWhistle'),on=v=>{const t=Trains.cur();if(!t)return;Sfx.autoStart();t.whistle=v;Sfx.whistle(t,v);w.classList.toggle('on',v);};
     w.addEventListener('pointerdown',e=>{e.preventDefault();w.setPointerCapture(e.pointerId);on(true);});for(const ev of ['pointerup','pointercancel'])w.addEventListener(ev,()=>on(false));
     $('#dAuto').onclick=()=>{const t=Trains.cur();if(!t)return;t.auto=!t.auto;t.autoKmh=P.autoSpeed;if(t.auto&&t.rev===0)t.rev=1;this.refresh();};
     // tap: next camera; hold 500 ms: hide the controls and keep this camera (a small camera / exit pair stays on screen)

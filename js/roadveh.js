@@ -159,7 +159,7 @@ function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=docu
 // ---------------------------------------------------------------- the road vehicles in the game: drawing, suspension, selection, cameras, driving
 const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pad:{prev:[],act:false},
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
-  gy(x,z){const T=R.world;return Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);},
+  gy(x,z){const T=R.world,tu=Life.tunY?Life.tunY(x,z):null;if(tu!=null)return tu;/* in a road tunnel */return Math.max(R.sampleHr(T,x,z),Life.deckY?Life.deckY(x,z):-1e9);},
   // meshes are made once (after the GL context): a body per type (two reds for the lorry), wheels per type and side, and a far version
   // with the wheels merged in (one draw call)
   build(){const U=m=>R.uploadVeh(m),cat=(...ms)=>{const M=vmesh();for(const [m,off] of ms){const b=M.n;for(let k=0;k<m.n;k++){const o=k*14;M.v.push(m.v[o]+off[0],m.v[o+1]+off[1],m.v[o+2]+off[2],...m.v.slice(o+3,o+14));}for(const i of m.i)M.i.push(i+b);M.n+=m.n;}return M;};
@@ -270,7 +270,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     // on a road? (the road mask used by the routing), and the slope along the heading
     const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci]);b.offRoad=!onRoad;
     const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2),slope=Math.atan2(h1-h0,4);
-    const amax=b.goods?2.4:2.0,vmax=(onRoad?17:8)*k,roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
+    const amax=b.goods?3.0:2.0,vmax=(b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road */roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
     let a=0;if(I.gas>0.02)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
     a-=Math.sign(v)*Math.min(Math.abs(v)/dt,roll)+9.81*Math.sin(slope)*0.6;if(Math.abs(v)<0.05&&I.gas<0.02&&I.brake<0.02&&Math.abs(slope)<0.25){a=0;v=0;}
     v+=a*dt;if(v>vmax&&I.gas<0.02)v-=Math.min(v-vmax,3*dt);

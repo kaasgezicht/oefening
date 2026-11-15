@@ -163,7 +163,7 @@ async function boot(){
   $('#btnClose').onclick=()=>{$('#panel').classList.remove('open');$('#bar').classList.remove('hide');};
   $('#btnGen').onclick=()=>App.generate(0);$('#btnSave').onclick=()=>App.save();
   $('#btnMap').onclick=()=>MapView.open();PlaneUI.bind();$('#btnHome').onclick=()=>MainMenu.show('home');$('#mapClose').onclick=()=>MapView.close();
-  $('#btnBuild').onclick=()=>{if(!Sfx.on)Sfx.start();Sfx.syncBtn();Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
+  $('#btnBuild').onclick=()=>{Sfx.autoStart();Build.enter();};$('#btnDone').onclick=()=>Build.exit();$('#btnUndo').onclick=()=>Build.undo();
   const on=(sel,fn)=>{for(const b of document.querySelectorAll(sel))b.onclick=()=>fn(b);};
   on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-btab]',b=>Build.setTab(b.dataset.btab));on('#buildBar [data-rtool]',b=>{Build.discard(true);Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rAddBus').onclick=()=>Buses.add();$('#rAddLorry').onclick=()=>Buses.add(true);$('#rAddDD').onclick=()=>Buses.add(false,'dd');$('#rAirstrip').onclick=()=>Air.buildButton();$('#rBusList').onclick=()=>BusUI.toggle();on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
   on('#buildBar [data-dir]',b=>Build.setDir(+b.dataset.dir));on('#buildBar [data-slope]',b=>Build.setSlope(b.dataset.slope));on('#buildBar [data-prefer]',b=>Build.setPrefer(b.dataset.prefer));

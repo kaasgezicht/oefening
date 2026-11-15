@@ -16,8 +16,15 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
     w.connect(wl);wl.connect(this.windG);this.windG.connect(this.master);w.start();
     Log.info(`audio started at ${c.sampleRate} Hz`);Music.start();},
   stop(){if(this.ctx)this.ctx.suspend();this.on=false;},
-  toggle(){if(this.on)this.stop();else this.start();this.syncBtn();},
-  syncBtn(){const b=$('#btnSound');if(!b)return;setIcon(b,this.on?'soundOn':'soundOff');setCap(b,this.on?'Sound on':'Sound off');b.setAttribute('aria-pressed',this.on?'true':'false');},
+  /* the speaker cycles: sound and music → sound only → off. The choice is kept on this device; buttons that wake the audio up
+     (Build, Drive, the whistle) only do so when it is not off, and never bring the music back by themselves */
+  pref(){if(this._pref)return this._pref;try{this._pref=localStorage.getItem('trein.sound')||'all';}catch(e){this._pref='all';}return this._pref;},
+  setPref(m){this._pref=m;try{localStorage.setItem('trein.sound',m);}catch(e){}},
+  mode(){return!this.on?'off':P.music?'all':'sfx';},
+  toggle(){const m=this.mode();if(m==='all'){P.music=0;this.setPref('sfx');UI.toast('Sound on, music off');}else if(m==='sfx'){this.stop();this.setPref('off');UI.toast('Sound off');}
+    else{P.music=1;this.setPref('all');this.start();UI.toast('Sound and music on');}UI.refresh&&UI.refresh('music');this.syncBtn();},
+  autoStart(){if(this.on||this.pref()==='off')return;if(this.pref()==='sfx')P.music=0;this.start();this.syncBtn();},
+  syncBtn(){const b=$('#btnSound');if(!b)return;const m=this.mode();setIcon(b,m==='off'?'soundOff':m==='sfx'?'musicOff':'soundOn');setCap(b,m==='off'?'Sound off':m==='sfx'?'Sound, no music':'Sound and music');b.setAttribute('aria-pressed',m!=='off'?'true':'false');b.title=m==='off'?'Sound off (tap: sound and music)':m==='sfx'?'Sound without music (tap: off)':'Sound and music (tap: sound only)';},
   // distance and pan relative to the camera
   spatial(p){if(!p)return[0,0];const dx=p[0]-Cam.pos[0],dy=p[1]-Cam.pos[1],dz=p[2]-Cam.pos[2],d=Math.hypot(dx,dy,dz);
     const r=Cam.right||[1,0,0];const pan=clamp((dx*r[0]+dz*r[2])/Math.max(d,1),-1,1)*0.8;return[1/(1+d/35),pan];},

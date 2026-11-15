@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.20.0 (exploration mode, UI layout editor, moon and God rays, classical music, rudder on the left stick)';
+const VERSION='4.21.0 (country roads with bridges and tunnels, airstrips on concrete, wildlife, sound modes, WebGL memory fixes)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -543,7 +543,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   add(goods,type){if(!Money.canBuild()){UI.toast('Out of money');return;}const b=this.make(goods);if(type==='dd'){b.type='dd';const nd=this.list.filter(q=>q.type==='dd').length+1;b.name=`Double-decker ${nd}`;}
     if(b.stops.length<2&&Explore.on()&&b.stops.length===1){b.explorer=true;}
     else if(b.stops.length<2){UI.toast(goods?'Place at least two stops first (Build → Roads → Bus stop)':'Place at least two bus stops first (Build → Roads → Bus stop)');return;}
-    b.wait=4+6*this.list.filter(q=>q.st==='dwell'&&Math.hypot(q.x-b.x,q.z-b.z)<10).length;this.list.push(b);if(Money.on())Money.spend(RV[RoadVeh.type(b)].price,goods?'lorry':'bus');UI.toast(b.explorer?`${b.name} waits at ${(Buses.stopById(b.stops[0])||{}).name||'the stop'}: tap it and choose Drive to explore`:`${b.name} serves ${b.stops.length} stops`);BusUI.refresh();},
+    b.wait=4+6*this.list.filter(q=>q.st==='dwell'&&Math.hypot(q.x-b.x,q.z-b.z)<10).length;this.list.push(b);if(Money.on())Money.spend(RV[RoadVeh.type(b)].price,goods?'lorry':'bus');UI.toast(b.explorer?`${b.name} waits at ${(Buses.stopById(b.stops[0])||{}).name||'the stop'}: tap it, choose Drive and follow the road into the mist to find another village`:`${b.name} serves ${b.stops.length} stops`);BusUI.refresh();},
   remove(b){this.list=this.list.filter(q=>q!==b);if(RoadVeh.sel===b||RoadVeh.drv===b)RoadVeh.close();BusUI.refresh();},
   stopAdded(s){for(const b of this.list)if(b.allStops&&(b.goods||!this.isCargo(s)))b.stops.push(s.id);this.legCache=null;BusUI.refresh();},
   stopRemoved(s){for(const b of this.list){const i=b.stops.indexOf(s.id);if(i>=0){b.stops.splice(i,1);if(b.leg>i||b.leg>=b.stops.length)b.leg=Math.max(0,b.leg-1);b.path=null;}}this.legCache=null;BusUI.refresh();},
@@ -811,7 +811,7 @@ function applySnapshot(s){
   if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
-  Air.list=[];Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;
+  Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
   Life.pendingV=s.villages||null;
   if(s.money){Money.cash=s.money.cash;Money.loan=s.money.loan;Money.paid=new Map(s.money.paid||[]);Money.inited=false;Money.paidSt=new Set(Track.stations.map(q=>q.id));Money.paidTr=new Set();Money.loadedTrains=true;}

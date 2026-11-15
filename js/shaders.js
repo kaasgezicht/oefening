@@ -112,7 +112,7 @@ vec3 fieldCol(vec4 b,vec2 lp,vec4 a,float fj){vec3 base=cropCol(b.y,lp,a,fj,b.z)
 `;
 /* FS_TERRAIN_LO (Ground detail: Simple) is the same shader with TLO defined: no grass tufts, flowers, pebbles, ruts or puddles, a plain forest edge */
 const FS_TERRAIN=GLSL_HEAD+GLSL_COMMON+GLSL_FIELDS+GLSL_FIELDWORK+`
-uniform sampler2D uRoad;uniform float uRoadClear;uniform float uGrassVar;
+uniform sampler2D uRoad;uniform sampler2D uRoadF;uniform vec4 uRoadFW;uniform float uRoadClear;uniform float uGrassVar;
 vec3 setts(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.,id=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){vec2 o2=vec2(x,y);vec2 h=fract(sin(vec2(dot(i+o2,vec2(127.1,311.7)),dot(i+o2,vec2(269.5,183.3))))*43758.5453);vec2 r=o2+.08+h*.84-f;float d=dot(r,r);if(d<d1){d2=d1;d1=d;id=h.x;}else if(d<d2)d2=d;}return vec3(sqrt(d2)-sqrt(d1),id,sqrt(d1));}
 in vec3 vW;uniform float uStep;uniform vec4 uChunk;uniform sampler2D uPatch;`+FS_OUT+`
 float rn(vec2 p,float a){float c=cos(a),s=sin(a);return vnoise(mat2(c,-s,s,c)*p);}// value noise turned, so no octave lines up with the 8 m grid
@@ -173,7 +173,9 @@ void main(){vec3 W=vW;
     for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1);vec4 w=texelFetch(uWaterTex,clamp(c0+o2,ivec2(0),ivec2(NM)),0);float wg=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);pr+=step(.5,w.a)*wg;lv+=w.r*wg;}
     float under=smoothstep(0.,.5,lv-W.y);c=mix(c,L(vec3(.50,.50,.38))*(1.+fj*.05),smoothstep(.15,.7,pr)*under*.65);c*=1.-.16*smoothstep(.05,.5,pr)*(1.-under)*(1.-rk);}
   // cobbled roads: signed distance to the road edge from a world texture, so roads lie in the ground and merge cleanly
-  float rcov=0.,rdd=4.;{vec2 rdv=texture(uRoad,W.xz/uWorld.x).rg;float rd=rdv.r;rdd=rd;if(rd<.5&&rdv.g>.5){// gravel: pebbly, two wheel ruts, a little grass on the crown
+  float rcov=0.,rdd=4.;{vec2 rdv=texture(uRoad,W.xz/uWorld.x).rg;
+  // big maps: a fine road field (1.25 m) round the camera, so narrow roads do not break up into dashes; it fades to the coarse one at its edge
+  if(uRoadFW.w>0.){vec2 q=(W.xz-uRoadFW.xy)/uRoadFW.z;float e=min(min(q.x,q.y),min(1.-q.x,1.-q.y));if(e>0.){vec2 f=texture(uRoadF,q).rg;rdv=e>.04?f:vec2(mix(rdv.r,f.r,e/.04),e>.02?f.g:rdv.g);}}float rd=rdv.r;rdd=rd;if(rd<.5&&rdv.g>.5){// gravel: pebbly, two wheel ruts, a little grass on the crown
     float fw=fwidth(rd)+.03,cov=1.-smoothstep(-fw,fw,rd),pb=vnoise(W.xz*6.)*.6+vnoise(W.xz*17.)*.4;vec3 gv=L(mix(vec3(.50,.45,.37),vec3(.66,.60,.50),pb));
     gv*=1.-.22*smoothstep(.18,0.,abs(rd+.42));gv=mix(gv,L(vec3(.36,.46,.22)),smoothstep(-1.15,-1.35,rd)*.55);gv*=1.-uWx.z*.25;c=mix(c,gv,cov);rcov=cov*.5;}
 

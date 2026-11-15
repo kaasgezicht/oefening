@@ -7,7 +7,10 @@
 // ===================================================================
 const bzP=(s,t)=>{const u=1-t,a=u*u*u,b=3*u*u*t,c=3*u*t*t,d=t*t*t;return[a*s[0]+b*s[2]+c*s[4]+d*s[6],a*s[1]+b*s[3]+c*s[5]+d*s[7]];};
 const bzD=(s,t)=>{const u=1-t;return[3*u*u*(s[2]-s[0])+6*u*t*(s[4]-s[2])+3*t*t*(s[6]-s[4]),3*u*u*(s[3]-s[1])+6*u*t*(s[5]-s[3])+3*t*t*(s[7]-s[5])];};
-const VILLAGE_NAMES=['Dalwijk','Hoogveld','Meerhaven','Dennenburg','Steenrijk','Valkendal','Wolkentop','Rietmeer','Molendorp','Beekhuizen','Lindeloo','Zonnedal','Eikenrode','Klaverveen','Hazelbroek','Bergen','Wilgendaal','Heidegoor','Ganzenmeer','Rozendaal','Mosveld','Elzenhoek','Kievitsdal','Berkelhout','Vossenberg','Sterrenwoud','Duivenrode','Lisserbroek'];
+const VILLAGE_NAMES=['Dalwijk','Hoogveld','Meerhaven','Dennenburg','Steenrijk','Valkendal','Wolkentop','Rietmeer','Molendorp','Beekhuizen','Lindeloo','Zonnedal','Eikenrode','Klaverveen','Hazelbroek','Bergen','Wilgendaal','Heidegoor','Ganzenmeer','Rozendaal','Mosveld','Elzenhoek','Kievitsdal','Berkelhout','Vossenberg','Sterrenwoud','Duivenrode','Lisserbroek',
+  'Akkerwoude','Brakel','Dorrewaard','Eemhoven','Haverkamp','Holtrijk','Iependal','Kraaienhorst','Leeuwenrade','Moerkerke','Nijenstede','Olmenhof','Paddeveld','Reigersbos','Schoonloo','Tolhuizen','Uilenburg','Veenhuizen','Wezelrade','Zwanenwater','Appelscha','Bosdorp','Distelrode','Esdonk','Hertenkamp','Lariksveld','Meidoorn','Notendaal','Ossenwaard','Spechtenrade','Vinkeveld'];
+/* a name for village i that no other village on the map has: the list, then Groot-/Klein-/Oud-/Nieuw- variants */
+function villageName(i){const L=VILLAGE_NAMES.length,base=VILLAGE_NAMES[(i+(P.seed|0))%L],r=Math.floor(i/L);return r?['Groot-','Klein-','Oud-','Nieuw-','Hoog-','Laag-'][(r-1)%6]+base:base;}
 const HOUSE_W=[[0,0.3],[1,0.22],[2,0.14],[4,0.08],[5,0.26]];
 // plot rectangles (local x0..x1 / z0..z1 around x,z turned by a; front = -z) and segment distance, shared by generation and growth
 const VG={rectOf(x,z,a,def){const p=def.plot||{x0:-def.r,x1:def.r,z0:-def.r,z1:def.r};return{x,z,a,x0:p.x0,x1:p.x1,z0:p.z0,z1:p.z1};},
@@ -46,7 +49,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       cand.push({x,z,s:(11-(mx-mn))/11+nearW*0.7+nearBig*1.4+(1-h/P.maxHeight)*0.6+rng()*0.7});}
     cand.sort((a,b)=>b.s-a.s);const spacing=320*Math.sqrt(P.villageSize);
     const vWant=Math.round(P.villages*Math.max(1,T.W/4096));for(const c of cand){if(this.villages.length>=vWant)break;if(this.villages.some(v=>Math.hypot(v.x-c.x,v.z-c.z)<spacing))continue;
-      this.villages.push({x:c.x,z:c.z,dir:rng()*Math.PI,name:VILLAGE_NAMES[(this.villages.length+(P.seed|0))%VILLAGE_NAMES.length],houses:[],R:(42+rng()*30)*P.villageSize});}
+      this.villages.push({x:c.x,z:c.z,dir:rng()*Math.PI,name:villageName(this.villages.length),houses:[],R:(42+rng()*30)*P.villageSize});}
     // the biggest lake gets at least two lakeside villages: shore sites replace the villages that crowd them, or the last one
     {const BL=(this.lakes||[]).slice().sort((a,b)=>b.area-a.area)[0];if(BL&&BL.area>150000&&P.villages>0){const onL=(x,z)=>{for(let a=0;a<16;a++)for(const r of [110,190]){const xx=x+Math.cos(a*0.39)*r,zz=z+Math.sin(a*0.39)*r;if(this.lakeComp[clamp((zz/cs)|0,0,N-1)*N+clamp((xx/cs)|0,0,N-1)]===BL.id)return true;}return false;};
       // candidates all round the shore: march out from the lake centre to dry land, then 80-200 m further, on flat ground
@@ -55,7 +58,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
           if(ok&&mx-mn<12&&onL(x,z)){shore.push({x,z,s:(12-(mx-mn))/12+rng()*0.3});break;}}}
       shore.sort((a,b)=>b.s-a.s);let nL=this.villages.filter(v=>onL(v.x,v.z)).length,moved=0;const ext=rng();for(const c of [...shore,...cand.filter(c=>onL(c.x,c.z))]){if(nL>=2)break;if(this.villages.some(v=>onL(v.x,v.z)&&Math.hypot(v.x-c.x,v.z-c.z)<spacing*0.7))continue;const crowd=this.villages.filter(v=>!onL(v.x,v.z)&&Math.hypot(v.x-c.x,v.z-c.z)<spacing);
         this.villages=this.villages.filter(v=>!crowd.includes(v));if(this.villages.length>=vWant)this.villages.pop();this.villages.push({x:c.x,z:c.z,dir:ext*Math.PI,name:'',houses:[],R:(42+((c.s*977)%1)*30)*P.villageSize});nL++;moved++;}
-      if(moved){this.villages.forEach((v,i)=>v.name=VILLAGE_NAMES[(i+(P.seed|0))%VILLAGE_NAMES.length]);Log.info(`${moved} village${moved>1?'s':''} moved to the shore of the biggest lake (${(BL.area/10000).toFixed(0)} ha)`);}}}
+      if(moved){this.villages.forEach((v,i)=>v.name=villageName(i));Log.info(`${moved} village${moved>1?'s':''} moved to the shore of the biggest lake (${(BL.area/10000).toFixed(0)} ha)`);}}}
     // beach sites: the nearest gently sloping lake shore within 450 m of a village
     for(const v of this.villages){if(rng()>P.beaches)continue;let best=null;for(let a=0;a<36;a++){const dx=Math.cos(a*0.1745),dz=Math.sin(a*0.1745);let px=null,pz=null;
         for(let r=v.R*0.6;r<450;r+=4){const x=v.x+dx*r,z=v.z+dz*r;if(x<20||z<20||x>W-20||z>W-20)break;const c=this.lakeComp[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)];
@@ -116,15 +119,18 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     // --- country roads: minimum spanning tree over nearby villages (+ a few scenic loops), A* routed, winding, with bridges
     const roadKill=new Uint8Array(N*N),killSeg=(x0,z0,x1,z1,w)=>{const L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.ceil(L/2));for(let k=0;k<=n;k++){const x=x0+(x1-x0)*k/n,z=z0+(z1-z0)*k/n,r=w+2;
       for(let j=Math.floor((z-r)/cs);j<=Math.floor((z+r)/cs);j++)for(let i=Math.floor((x-r)/cs);i<=Math.floor((x+r)/cs);i++)if(i>=0&&j>=0&&i<N&&j<N&&Math.hypot((i+0.5)*cs-x,(j+0.5)*cs-z)<r)roadKill[j*N+i]=1;}};
-    this.links=[];if(+P.countryRoads>0&&this.villages.length>1){const V=this.villages,E=[];for(let a=0;a<V.length;a++)for(let b=a+1;b<V.length;b++){const d=Math.hypot(V[a].x-V[b].x,V[a].z-V[b].z);if(d<2600)E.push([d,a,b]);}
-      E.sort((p,q)=>p[0]-q[0]);const par=V.map((_,i)=>i),fd=i=>par[i]===i?i:(par[i]=fd(par[i])),pick=[],rest=[];for(const e of E){const ra=fd(e[1]),rb=fd(e[2]);if(ra!==rb){par[ra]=rb;pick.push(e);}else rest.push(e);}
-      if(+P.countryRoads>1)pick.push(...rest.filter(e=>e[0]<1100).slice(0,2));
-      for(const [pi,[,a,b]] of pick.entries()){yield [0.4+0.35*pi/pick.length,'Country roads'];const A=V[a],B=V[b];let best=null,bd=1e9;for(const sa of A.streets)for(const ea of [[sa[0],sa[1]],[sa[2],sa[3]]])for(const sb of B.streets)for(const eb of [[sb[0],sb[1]],[sb[2],sb[3]]]){const d=Math.hypot(ea[0]-eb[0],ea[1]-eb[1]);if(d<bd){bd=d;best=[ea,eb];}}
-        if(!best)continue;let pts=this.routePath(best[0],best[1],{cs:Math.max(7,(bd+320)/270),margin:160,bridge:true,wind:0.6});if(!pts)pts=this.routePath(best[0],best[1],{cs:Math.max(10,(bd+640)/270),margin:320,bridge:true,wind:0.2,maxG:0.55});
-        if(!pts)pts=this.routePath(best[0],best[1],{cs:Math.max(12,(bd+1400)/270),margin:700,bridge:true,wind:0.1,maxG:0.6});// long way round a lake
-        if(!pts&&bd<500){const a=best[0],b=best[1],n=Math.ceil(bd/4);let ok=true;for(let q=0;q<=n&&ok;q++){const x=a[0]+(b[0]-a[0])*q/n,z=a[1]+(b[1]-a[1])*q/n,c=clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1);if(T.water[c*4+3]>0&&T.shore[c]>=0.99)ok=false;}if(ok)pts=[a,b];}
-        if(!pts)Log.warn(`country road ${A.name} – ${B.name} (${bd.toFixed(0)} m) found no route`);if(pts){this.vRoads.push({p:pts.flat(),w:1.55,link:true});this.links.push(pts);}}}
-    for(const r of this.vRoads){if(r.disc){killSeg(r.disc[0],r.disc[1],r.disc[0],r.disc[1],r.disc[2]);continue;}for(let i=0;i+3<r.p.length;i+=2)killSeg(r.p[i],r.p[i+1],r.p[i+2],r.p[i+3],r.w);}
+    // ---- country roads (Kruskal): every pair of villages within 6 km, shortest first; a pair is routed when it joins two parts not yet
+    // linked, and when its route fails the next pair is tried, so all villages that can be reached end up on one network. A few short
+    // extra links make loops. Each road keeps which of its segments are bridges (1) or tunnels (2), with their end heights.
+    this.links=[];if(+P.countryRoads>0&&this.villages.length>1){const V=this.villages,E=[];for(let a=0;a<V.length;a++)for(let b=a+1;b<V.length;b++){const d=Math.hypot(V[a].x-V[b].x,V[a].z-V[b].z);if(d<6000)E.push([d,a,b]);}
+      E.sort((p,q)=>p[0]-q[0]);const par=V.map((_,i)=>i),fd=i=>par[i]===i?i:(par[i]=fd(par[i]));let tried=0,failed=0,nb=0,nt=0;
+      const ends=(A,B)=>{let best=null,bd=1e9;for(const sa of A.streets)for(const ea of [[sa[0],sa[1]],[sa[2],sa[3]]])for(const sb of B.streets)for(const eb of [[sb[0],sb[1]],[sb[2],sb[3]]]){const d=Math.hypot(ea[0]-eb[0],ea[1]-eb[1]);if(d<bd){bd=d;best=[ea,eb];}}return best;};
+      const lay=(A,B)=>{const e2=ends(A,B);if(!e2)return false;const r2=this.roadPlan(e2[0],e2[1]);tried++;if(!r2){failed++;Log.warn(`country road ${A.name} – ${B.name} (${Math.hypot(A.x-B.x,A.z-B.z).toFixed(0)} m): no way found`);return false;}
+        const road={p:r2.pts.flat(),w:1.55,link:true,sf:r2.sf,sy:r2.sy,tun:r2.sf.map(f=>f===2),span:r2.sf.map(f=>f>0)};nb+=r2.sf.filter(f=>f===1).length;nt+=r2.sf.filter(f=>f===2).length;this.vRoads.push(road);this.links.push(r2.pts);return true;};
+      let k=0;for(const [d,a,b] of E){const ra=fd(a),rb=fd(b);if(ra===rb)continue;yield [0.4+0.33*Math.min(1,k++/(V.length-1)),'Country roads'];if(lay(V[a],V[b]))par[fd(a)]=fd(b);}
+      if(+P.countryRoads>1){let extra=0;for(const [d,a,b] of E){if(extra>=Math.max(2,Math.round(V.length/6)))break;if(d>1400)break;if(this.links.some(L=>{const p0=L[0],p1=L[L.length-1];const near=(v,p)=>Math.hypot(v.x-p[0],v.z-p[1])<v.R+200;return(near(V[a],p0)&&near(V[b],p1))||(near(V[b],p0)&&near(V[a],p1));}))continue;if(lay(V[a],V[b]))extra++;}}
+      const parts=new Set(V.map((_,i)=>fd(i))).size;Log.info(`country roads: ${this.links.length} links (${tried} tried, ${failed} without a way), ${nb} bridges and ${nt} tunnels on them, ${parts} separate network${parts>1?'s':''}`);}
+    for(const r of this.vRoads){if(r.disc){killSeg(r.disc[0],r.disc[1],r.disc[0],r.disc[1],r.disc[2]);continue;}for(let i=0;i+3<r.p.length;i+=2){if(r.tun&&r.tun[i>>1])continue;/* nothing to clear over a tunnel */killSeg(r.p[i],r.p[i+1],r.p[i+2],r.p[i+3],r.w);}}
     const onRoad=(x,z)=>roadKill[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)]===1;this.roadKill=roadKill;
     yield [0.75,'Fields'];
     // --- farm fields around the villages
@@ -567,18 +573,64 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     pts=pts.filter((p,i)=>i===0||i===pts.length-1||i%2===0);for(let it2=0;it2<3;it2++){const q=[pts[0]];for(let i=0;i<pts.length-1;i++){const p0=pts[i],p1=pts[i+1];q.push([p0[0]*.75+p1[0]*.25,p0[1]*.75+p1[1]*.25],[p0[0]*.25+p1[0]*.75,p0[1]*.25+p1[1]*.75]);}q.push(pts[pts.length-1]);pts=q;}
     for(let i=1;i<pts.length-1;i++)pts[i]=this.awayFromLake(pts[i]);
     return pts;},
+  /* ---- country roads as a road engineer would lay them: follow the land at an easy grade (free up to 5%, dearer up to the 13% limit), cross
+     slopes at an angle and switch back on steep ones (16 move directions, so a road can climb a slope at a shallow angle), and where the
+     land drops away (a valley, a river, a narrow lake) or rises too steeply (a ridge), try a straight bridge (≤ 260 m, deck grade ≤ 7%, the
+     ground below the deck all the way) or tunnel (≤ 400 m, real cover over it). Bridges cost 6 per metre, tunnels 14 per metre plus the
+     portals, so a long way round is taken when it is not much longer. Returns {pts, sf (per segment: 0 road, 1 bridge, 2 tunnel), sy
+     (per segment: [y at start, y at end] for bridges and tunnels)} or null. */
+  roadPlan(a,b,o){o=o||{};const T=this.T,N=T.N,d0=Math.hypot(b[0]-a[0],b[1]-a[1]),M=clamp(d0*0.35+250,300,900);
+    const x0=Math.min(a[0],b[0])-M,z0=Math.min(a[1],b[1])-M,W=Math.abs(a[0]-b[0])+2*M,Hh=Math.abs(a[1]-b[1])+2*M,cs=clamp(Math.sqrt(W*Hh/95000),6,18),nx=Math.ceil(W/cs),nz=Math.ceil(Hh/cs),n=nx*nz;
+    const hh=new Float32Array(n),kind=new Int8Array(n),wl=new Float32Array(n),noise=new Float32Array(n);const seed=(P.seed|0)*0.013,vn=(x,z)=>{const xi=Math.floor(x),zi=Math.floor(z),fx=x-xi,fz=z-zi,h=(i,j)=>{const q=Math.sin(i*127.1+j*311.7+seed)*43758.5453;return q-Math.floor(q);},u=fx*fx*(3-2*fx),w=fz*fz*(3-2*fz);return h(xi,zi)*(1-u)*(1-w)+h(xi+1,zi)*u*(1-w)+h(xi,zi+1)*(1-u)*w+h(xi+1,zi+1)*u*w;};
+    for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const x=x0+(i+0.5)*cs,z=z0+(j+0.5)*cs,k=j*nx+i;if(x<8||z<8||x>T.W-8||z>T.W-8){kind[k]=-1;continue;}hh[k]=R.sampleHr(T,x,z);noise[k]=vn(x/90,z/90)*0.5;
+      const w=sampleWater(T,x,z);if(w[1]>0&&w[0]>hh[k]+0.15){kind[k]=1;wl[k]=w[0];}}/* 0 land, 1 water, 2 house, -1 off the board */
+    for(const h of this.houses){if(h.gone)continue;const r=h.r+1.5;for(let j=Math.floor((h.z-r-z0)/cs);j<=Math.floor((h.z+r-z0)/cs);j++)for(let i=Math.floor((h.x-r-x0)/cs);i<=Math.floor((h.x+r-x0)/cs);i++)if(i>=0&&j>=0&&i<nx&&j<nz&&kind[j*nx+i]===0)kind[j*nx+i]=2;}
+    const id=(x,z)=>clamp(Math.floor((z-z0)/cs),0,nz-1)*nx+clamp(Math.floor((x-x0)/cs),0,nx-1),s0=id(a[0],a[1]),s1=id(b[0],b[1]);
+    {const rr=Math.max(1,Math.ceil(40/cs));for(const sx of [s0,s1]){const ci=sx%nx,cj=(sx/nx)|0;for(let dj=-rr;dj<=rr;dj++)for(let di=-rr;di<=rr;di++){const ii=ci+di,jj=cj+dj;if(ii>=0&&jj>=0&&ii<nx&&jj<nz&&kind[jj*nx+ii]===2)kind[jj*nx+ii]=0;}}if(kind[s0]>0)kind[s0]=0;if(kind[s1]>0)kind[s1]=0;}
+    const GMAX=o.gmax||0.13,DIR=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1],[2,1],[1,2],[-1,2],[-2,1],[-2,-1],[-1,-2],[1,-2],[2,-1]];
+    const g=new Float32Array(n).fill(1e30),from=new Int32Array(n).fill(-1),mt=new Int8Array(n),heap=new MinHeap(n*6),ex=s1%nx,ez=(s1/nx)|0,hx=k=>Math.hypot((k%nx)-ex,((k/nx)|0)-ez)*cs;
+    const relax=(k,m,cost,t)=>{const ng=g[k]+cost;if(ng<g[m]){g[m]=ng;from[m]=k;mt[m]=t;if(heap.n<heap.i.length)heap.push(m,ng+hx(m)*1.05);}};
+    g[s0]=0;heap.push(s0,hx(s0));let it=0;const closed=new Uint8Array(n);
+    while(heap.n&&it++<420000){const k=heap.pop();if(closed[k])continue;closed[k]=1;if(k===s1)break;const ki=k%nx,kj=(k/nx)|0,hk=hh[k];
+      for(let q=0;q<16;q++){const [di,dj]=DIR[q],ii=ki+di,jj=kj+dj;if(ii<0||jj<0||ii>=nx||jj>=nz)continue;const m=jj*nx+ii,km=kind[m];const L=Math.hypot(di,dj)*cs;let ok=km===0,gr=0;
+        if(ok&&q>=8){const mi=ki+Math.round(di/2),mj=kj+Math.round(dj/2);if(kind[mj*nx+mi]!==0)ok=false;}/* a knight move must not jump a house or water */
+        if(ok){gr=Math.abs(hh[m]-hk)/L;if(gr>GMAX)ok=false;}
+        if(ok){relax(k,m,L*(1+noise[m]+(gr>0.05?110*(gr-0.05)*(gr-0.05):0)),0);if(gr<0.09)continue;}
+        if(q>=8||km<0)continue;/* bridges and tunnels: straight, in the 8 main directions, where the next step is water, a house or steep */
+        let bridged=false,tunneled=false;const step=L,jmax=Math.floor(400/step);
+        for(let s=3;s<=jmax&&!(bridged&&tunneled);s++){const ei=ki+di*s,ej=kj+dj*s;if(ei<0||ej<0||ei>=nx||ej>=nz)break;const e=ej*nx+ei;if(kind[e]!==0)continue;const span=s*step,he=hh[e];if(Math.abs(he-hk)/span>0.07)continue;
+          let below=true,above=true,dmin=0,dmax=0,wet=false;for(let t=1;t<s;t++){const c=(kj+dj*t)*nx+ki+di*t,y=hk+(he-hk)*t/s;if(kind[c]===-1){below=above=false;break;}let gd=hh[c]-y;if(kind[c]===1){wet=true;gd=Math.max(gd,wl[c]+2-y);}
+            if(kind[c]===2)above=false;if(gd>0.5)below=false;if(gd<-1)above=false;dmin=Math.min(dmin,gd);dmax=Math.max(dmax,gd);if(!below&&!above)break;}
+          if(!bridged&&below&&span<=260&&dmin>-70&&(dmin<-4||wet)){/* at most 70 m high */bridged=true;relax(k,e,span*6+50,1);}
+          if(!tunneled&&above&&!wet&&dmax>10&&span>=50){tunneled=true;relax(k,e,span*14+300,2);}}}}
+    if(from[s1]<0&&s1!==s0)return null;
+    // back to points; bridges and tunnels stay one straight segment, the road between them is rounded off (Chaikin) with its ends kept
+    const cells=[];for(let k=s1;k>=0;k=from[k]){cells.push(k);if(k===s0)break;}cells.reverse();
+    const P0=cells.map(k=>[x0+((k%nx)+0.5)*cs,z0+(((k/nx)|0)+0.5)*cs]);P0[0]=[a[0],a[1]];P0[P0.length-1]=[b[0],b[1]];const MT=cells.map(k=>mt[k]);
+    const out=[],sf=[],sy=[];let run=[P0[0]];const flush=()=>{let q=run;if(q.length>2){q=q.filter((p,i)=>i===0||i===q.length-1||i%2===0);for(let r2=0;r2<3;r2++){const z=[q[0]];for(let i=0;i<q.length-1;i++){const p0=q[i],p1=q[i+1];z.push([p0[0]*.75+p1[0]*.25,p0[1]*.75+p1[1]*.25],[p0[0]*.25+p1[0]*.75,p0[1]*.25+p1[1]*.75]);}z.push(q[q.length-1]);q=z;}}
+      for(let i=0;i<q.length;i++){if(out.length&&i===0)continue;if(out.length)sf.push(0),sy.push(null);out.push(i>0&&i<q.length-1?this.awayFromLake(q[i]):q[i]);}};
+    for(let i=1;i<P0.length;i++){if(MT[i]===0){run.push(P0[i]);continue;}flush();const A=out[out.length-1],B=P0[i];sf.push(MT[i]);sy.push([R.sampleHr(T,A[0],A[1])+0.12,R.sampleHr(T,B[0],B[1])+0.12]);out.push(B);run=[B];}
+    flush();return{pts:out,sf,sy,cs,it};},
   // bridges wherever a road crosses a river (wet run) or a mountain stream (segment intersection); deck humps over the water
   findBridges(roads){const T=this.T,B=[],H=(x,z)=>R.sampleHr(T,x,z),wetAt=(x,z)=>{const w=sampleWater(T,x,z);return w[1]>0&&w[0]>H(x,z)-0.15?w[0]:null;};
     const SG=new Map(),key=(x,z)=>Math.floor(x/16)+','+Math.floor(z/16);for(const st of T.streams||[])for(let i=0;i+5<st.length;i+=3){if(st[i+2]<=0)continue;const k=key((st[i]+st[i+3])/2,(st[i+1]+st[i+4])/2);if(!SG.has(k))SG.set(k,[]);SG.get(k).push([st[i],st[i+1],st[i+3],st[i+4],st[i+2]]);}
     const add=(cx,cz,dx,dz,len,w,lvl,sw)=>{if(B.some(b=>Math.hypot(b.cx-cx,b.cz-cz)<b.len*0.5+3))return;const pts=[],n=Math.max(4,Math.ceil(len/1.5)),ya=H(cx-dx*len/2,cz-dz*len/2)+0.12,yb=H(cx+dx*len/2,cz+dz*len/2)+0.12;
       for(let k=0;k<=n;k++){const u=k/n,x=cx+dx*len*(u-0.5),z=cz+dz*len*(u-0.5),base=ya+(yb-ya)*u,need=lvl+(lvl>-1e8?2.0:0),hump=Math.max(0,need-base,lvl>-1e8?0.35*len/8:1.0);pts.push([x,base+Math.max(0,hump)*Math.sin(Math.PI*u),z]);}B.push({cx,cz,len,w,pts,lvl,sw:sw||0});};
-    for(const r of roads||this.roads){if(r.disc)continue;const p=r.p,S=[];for(let i=0;i+3<p.length;i+=2){const x0=p[i],z0=p[i+1],x1=p[i+2],z1=p[i+3],L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.ceil(L));for(let k=(i?1:0);k<=n;k++)S.push([x0+(x1-x0)*k/n,z0+(z1-z0)*k/n]);}
+    const TN=[];
+    for(const r of roads||this.roads){if(r.disc)continue;const p=r.p,S=[];
+      // the planned bridges (viaducts) and tunnels of a country road: one straight span each, the deck or tube on the line between its ends
+      if(r.sf)for(let i=0;i+3<p.length;i+=2){const f=r.sf[i>>1];if(!f)continue;const ax=p[i],az=p[i+1],bx=p[i+2],bz=p[i+3],[ya,yb]=r.sy[i>>1],L=Math.hypot(bx-ax,bz-az),dx=(bx-ax)/L,dz=(bz-az)/L;
+        if(f===2){TN.push({ax,az,ay:ya,bx,bz,by:yb,dx,dz,L,w:r.w});continue;}
+        const ext=2,n=Math.max(4,Math.ceil((L+2*ext)/1.5)),pts=[];let lvl=-1e9,hmax=0;for(let k=0;k<=n;k++){const u=k/n,t=-ext/L+u*(1+2*ext/L),x=ax+(bx-ax)*t,z=az+(bz-az)*t,y=ya+(yb-ya)*clamp(t,0,1);pts.push([x,y,z]);
+          const w=sampleWater(T,x,z);if(w[1]>0&&w[0]>H(x,z)-0.15)lvl=Math.max(lvl,w[0]);hmax=Math.max(hmax,y-Math.max(H(x,z),w[1]>0?w[0]:-1e9));}
+        B.push({cx:(ax+bx)/2,cz:(az+bz)/2,len:L+2*ext,w:r.w+0.35,pts,lvl,sw:0,via:hmax,planned:true});}
+      for(let i=0;i+3<p.length;i+=2){if(r.sf&&r.sf[i>>1])continue;/* inside a planned span: no little bridges as well */const x0=p[i],z0=p[i+1],x1=p[i+2],z1=p[i+3],L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.ceil(L));for(let k=(i?1:0);k<=n;k++)S.push([x0+(x1-x0)*k/n,z0+(z1-z0)*k/n]);}
       let run=-1,lv=-1e9;for(let i=0;i<S.length;i++){const wl=wetAt(S[i][0],S[i][1]);if(wl!==null){if(run<0)run=i;lv=Math.max(lv,wl);}
         if((wl===null||i===S.length-1)&&run>=0){const a=S[Math.max(0,run-2)],b=S[Math.min(S.length-1,i+1)],L=Math.hypot(b[0]-a[0],b[1]-a[1]),mid=S[(run+i)>>1];if(L>2&&L<70&&!this.lakeAt(mid[0],mid[1]))add((a[0]+b[0])/2,(a[1]+b[1])/2,(b[0]-a[0])/L,(b[1]-a[1])/L,L+2,r.w+0.35,lv);run=-1;lv=-1e9;}}
       if(!r.h)for(let i=0;i+1<S.length;i+=3){const a=S[i],b=S[Math.min(S.length-1,i+3)],cand=SG.get(key((a[0]+b[0])/2,(a[1]+b[1])/2));if(!cand)continue;
         for(const c of cand){const d1x=b[0]-a[0],d1z=b[1]-a[1],d2x=c[2]-c[0],d2z=c[3]-c[1],den=d1x*d2z-d1z*d2x;if(Math.abs(den)<1e-6)continue;const t=((c[0]-a[0])*d2z-(c[1]-a[1])*d2x)/den,u=((c[0]-a[0])*d1z-(c[1]-a[1])*d1x)/den;
           if(t<0||t>1||u<0||u>1)continue;const L=Math.hypot(d1x,d1z)||1,sw=clamp(P.riverWidth*6.5*Math.sqrt(c[4]),0.7,3.2);add(a[0]+d1x*t,a[1]+d1z*t,d1x/L,d1z/L,clamp(sw*1.8+5,7,12),r.w+0.35,-1e9,sw);}}}
-    return B;},
+    if(!roads)this.tunnels=TN;return B;},
   findCrossings(){const X=[],TS=new Map(),key=(x,z)=>Math.floor(x/16)+','+Math.floor(z/16),T=this.T;
     for(const sg of Track.segs){if(sg.pend)continue;const n=Math.max(2,Math.ceil(sg.L/2));let prev=null;for(let k=0;k<=n;k++){const t=sg.L*k/n,p=segPoint(sg,t),q=[p[0],p[1],segY(sg,t),p[2]];
         if(prev){const kk=key((prev[0]+q[0])/2,(prev[1]+q[1])/2);if(!TS.has(kk))TS.set(kk,[]);TS.get(kk).push([prev,q]);}prev=q;}}
@@ -592,6 +644,8 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   rebuildCrossings(){this.crossings=this.findCrossings();R.buildCrossings(this.crossings);this.uploaded=false;},
   updateCrossings(dt){const XS=this.crossings;if(!XS||!XS.length)return;for(const q of XS){let near=false;for(const tr of Trains.list){if(!tr.poses)continue;for(const ps of [tr.poses[0],tr.poses[tr.poses.length-1]]){if(ps&&Math.hypot(ps.c[0]-q.x,ps.c[2]-q.z)<110){near=true;break;}}if(near)break;}
       const tg=near?0:1;q.ang+=clamp(tg-q.ang,-dt*0.8,dt*0.8);}},
+  /* inside a road tunnel: the height of the road in the tube (null outside), so vehicles go through the hill, not over it */
+  tunY(x,z){for(const t of this.tunnels||[]){const u=(x-t.ax)*t.dx+(z-t.az)*t.dz;if(u<-0.5||u>t.L+0.5)continue;const v=Math.abs(-(x-t.ax)*t.dz+(z-t.az)*t.dx);if(v>t.w+1.5)continue;return t.ay+(t.by-t.ay)*clamp(u/t.L,0,1);}return null;},
   deckY(x,z){for(const b of this.bridges||[]){if(Math.hypot(b.cx-x,b.cz-z)>b.len*0.5+b.w+1)continue;const p=b.pts;for(let i=0;i<p.length-1;i++){const ax=p[i][0],az=p[i][2],ex=p[i+1][0]-ax,ez=p[i+1][2]-az,ll=ex*ex+ez*ez||1e-6,t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1);
       if(Math.hypot(x-ax-ex*t,z-az-ez*t)<b.w)return p[i][1]+(p[i+1][1]-p[i][1])*t+0.05;}}return -1e9;},
   stampRoad(x0,z0,x1,z1,w){const T=this.T,N=T.N,cs=T.cs,K=this.roadKill;if(!K)return;const L=Math.hypot(x1-x0,z1-z0),n=Math.max(1,Math.ceil(L/2));for(let k=0;k<=n;k++){const x=x0+(x1-x0)*k/n,z=z0+(z1-z0)*k/n,r=w+2;
@@ -602,7 +656,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const w=sampleWater(this.T,x,z);if(!(w[1]>0&&w[0]>R.sampleHr(this.T,x,z)-0.3))this.lamps.push({x,z,y:R.sampleHr(this.T,x,z),hash:Math.random(),road:k});}}
     for(const r of Roads.list){L.push(r);const p=r.p;for(let i=0;i+3<p.length;i+=2)this.stampRoad(p[i],p[i+1],p[i+2],p[i+3],r.w);}
     for(const s of Buses.stops){if(!s.v)s.v=this.nearestVillage(s.x,s.z,500);}Buses.restore();
-    this.roads=L;Buses.G=null;Buses.legCache=null;this.uploaded=false;const ta=performance.now();R.buildRoads(this.T);const tb=performance.now();R.buildDocks((this.docks||[]).filter(d=>d.v&&d.v.docksOwned));this.bridges=this.findBridges();const tc=performance.now();R.buildBridges(this.bridges);const td=performance.now();this.rebuildCrossings();
+    this.roads=L;Buses.G=null;Buses.legCache=null;this.uploaded=false;const ta=performance.now();R.buildRoads(this.T);const tb=performance.now();R.buildDocks((this.docks||[]).filter(d=>d.v&&d.v.docksOwned));this.bridges=this.findBridges();const tc=performance.now();R.buildBridges(this.bridges);R.buildPortals(this.tunnels);const td=performance.now();this.rebuildCrossings();
     Log.info(`roads rebuilt in ${(performance.now()-tR).toFixed(0)} ms (gather ${(ta-tR).toFixed(0)}, distance field ${(tb-ta).toFixed(0)}, find bridges ${(tc-tb).toFixed(0)}, bridges ${(td-tc).toFixed(0)}, crossings ${(performance.now()-td).toFixed(0)})`);},
   // ---------------- skating on frozen lakes: groups glide along chained cubic Bézier curves
   iceOK(x,z,m){if(this.T&&this.T.sea!=null&&Math.abs(sampleWater(this.T,x,z)[0]-this.T.sea)<1)return false;/* the ocean does not freeze */return this.isLake(x,z)&&this.isLake(x+m,z)&&this.isLake(x-m,z)&&this.isLake(x,z+m)&&this.isLake(x,z-m);},
@@ -1199,7 +1253,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       {const SM=[];const showSlots=Build.active&&((Build.mode==='signals'&&Build.sigTool==='station')||(Build.target==='road'&&Roads.tool==='stop'));if(showSlots)for(const [kind,LST] of this.slotInds())LST.forEach((m,mi)=>{if(!m||(kind==='farm'&&Build.target==='road'))return;if(!near(m.x,m.z,1500)||!this.indOn(kind,m))return;for(const sl of this.sawSlots(m)){
           const rs=Track.stations.find(st=>st[kind]&&st[kind].mi===mi&&st[kind].k===sl.k),bs=Buses.stops.find(q=>q[kind]&&q[kind].mi===mi&&q[kind].k===sl.k);if(!rs&&!bs)SM.push([sl.p[0],Hr(sl.p[0],sl.p[1]),sl.p[1],1,sl.t,0.5,0.5,0]);}});
         const b=B(SM.length);SM.forEach((r,i)=>b.set(r,i*8));R.inst('slotmarks',b,SM.length);}
-      {const BL=Buses.list.filter(b=>near(b.x,b.z,1500)),bb=B(BL.length),lb=B(BL.length);let nB=0,nL=0;BL.forEach((b,i)=>{const y=Math.max(Hr(b.x,b.z),this.deckY(b.x,b.z)),a=Hr(b.x+Math.cos(b.rot)*3,b.z+Math.sin(b.rot)*3),c=Hr(b.x-Math.cos(b.rot)*3,b.z-Math.sin(b.rot)*3);const row=[b.x,y,b.z,0.75,b.rot,clamp(0.5+Math.atan((a-c)/6)/2,0,1),b.hash,0];if(b.goods)lb.set(row,(nL++)*8);else bb.set(row,(nB++)*8);});/* buses and lorries are drawn by RoadVeh (4.16.0) */R.inst('buses',bb,0);R.inst('lorries',lb,0);
+      {const BL=Buses.list.filter(b=>near(b.x,b.z,1500)),bb=B(BL.length),lb=B(BL.length);let nB=0,nL=0;BL.forEach((b,i)=>{const y=RoadVeh.gy(b.x,b.z),a=Hr(b.x+Math.cos(b.rot)*3,b.z+Math.sin(b.rot)*3),c=Hr(b.x-Math.cos(b.rot)*3,b.z-Math.sin(b.rot)*3);const row=[b.x,y,b.z,0.75,b.rot,clamp(0.5+Math.atan((a-c)/6)/2,0,1),b.hash,0];if(b.goods)lb.set(row,(nL++)*8);else bb.set(row,(nB++)*8);});/* buses and lorries are drawn by RoadVeh (4.16.0) */R.inst('buses',bb,0);R.inst('lorries',lb,0);
         const SS=Buses.stops,sb2=B(SS.length);SS.forEach((s,i)=>sb2.set([s.x,Hr(s.x,s.z),s.z,1,s.rot,0.5,0.5,0],i*8));R.inst('busstops',sb2,SS.length);
         const BW=[];for(const s of SS){if(!near(s.x,s.z,600))continue;const n=Math.min(6,Math.floor(s.waiting));for(let k=0;k<n;k++){const u=0.6+k*0.55,x=s.x+Math.cos(s.rot)*u-Math.sin(s.rot)*0.3,z=s.z+Math.sin(s.rot)*u+Math.cos(s.rot)*0.3;BW.push({x,z,y:Hr(x,z)-0.05,rot:s.rot-Math.PI/2,hash:(s.id*0.37+k*0.21)%1,k:'stand'});}}this.busWait=BW;}
       {const SHL=[],hb=B(SHL.length);SHL.forEach((si,i)=>{const x=si.x+si.nx*9.6,z=si.z+si.nz*9.6;hb.set([x,si.y,z,1,Math.atan2(si.dz,si.dx)+Math.PI,0.5,0.5,0],i*8);});R.inst('stationhalls',hb,SHL.length);}

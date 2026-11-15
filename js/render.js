@@ -52,7 +52,7 @@ R.init=function(){
   R.pObj=mp('objects',VS_OBJ,FS_OBJ);R.pKit=mp('kit',VS_KIT,FS_KIT(false));R.pKitF=mp('kit-fade',VS_KIT,FS_KIT(true));R.pVeh=mp('vehicles',VS_VEH,FS_VEH);R.pTrack=mp('track',VS_TRACK,FS_TRACK);R.tcTex=tex2D(256,256,gl.R8,gl.RED,gl.UNSIGNED_BYTE,null,gl.LINEAR);bindTU(26,gl.TEXTURE_2D,R.tcTex);
   R.pSky=mp('sky',VS_FS,FS_SKY);R.pWater=mp('water',VS_WATER,FS_WATER);R.pLake=mp('lake-near',VS_LAKE,FS_WATER);Waves.initGL();R.pCloud=mp('clouds',VS_CLOUD,FS_CLOUD);R.pMist=mp('mist',VS_MIST,FS_MIST);
   R.pPart=mp('smoke',VS_PART,FS_PART);R.pPrecip=mp('precipitation',VS_PRECIP,FS_PRECIP);R.pBolt=mp('lightning',VS_BOLT,FS_BOLT);R.pMark=mp('markers',VS_MARK,FS_MARK);
-  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pRayMask=mp('ray-mask',VS_FS,FS_RAYMASK);R.pRayBlur=mp('ray-blur',VS_FS,FS_RAYBLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
+  R.pVCloud=mp('volumetric-clouds',VS_FS,FS_VCLOUD);R.pCComp=mp('cloud-composite',VS_FS,FS_CCOMP);R.pVMist=mp('volumetric-mist',VS_FS,FS_VMIST);R.pStream=mp('streams',VS_STREAM,FS_STREAM);bindTU(TU.uRoad,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));bindTU(TU.uRoadF,gl.TEXTURE_2D,tex2D(1,1,gl.RG16F,gl.RG,gl.FLOAT,new Float32Array([4,0]),gl.LINEAR));R.pMComp=mp('mist-composite',VS_FS,FS_MCOMP);R.pBloomDown=mp('bloom-down',VS_FS,FS_BLOOMDOWN);R.pDown=mp('down',VS_FS,FS_DOWN);R.pBlur=mp('blur',VS_FS,FS_BLUR);R.pRayMask=mp('ray-mask',VS_FS,FS_RAYMASK);R.pRayBlur=mp('ray-blur',VS_FS,FS_RAYBLUR);R.pTone=mp('tonemap',VS_FS,FS_TONEMAP);
   R.ubo=gl.createBuffer();gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferData(gl.UNIFORM_BUFFER,R.U.byteLength,gl.DYNAMIC_DRAW);gl.bindBufferBase(gl.UNIFORM_BUFFER,0,R.ubo);
   R.hdr=CAPS.halfRT?{i:gl.RGBA16F,t:gl.HALF_FLOAT}:{i:gl.RGBA8,t:gl.UNSIGNED_BYTE};
   const f1=new Float32Array([0]),f4=new Float32Array([0,0,0,0]),u4=new Uint8Array([160,0,0,0]);
@@ -253,6 +253,8 @@ R.makeAux=function(T){const N=T.N,Hr=T.Hr;if(!R.auxData||R.auxData.length!==N*N*
   return A;};
 R.uploadWorld=function(T){const t0=performance.now();R.world=T;const N=T.N;
   if(!T.Hr)R.computeRenderHeights(T);
+  /* the old world's textures go first: on a 16 km map they are about 130 MB, and holding both worlds at once is what made phones drop the context */
+  for(const k of ['hTex','aTex','pTex','nTex','dTex','wTex'])if(R[k]){gl.deleteTexture(R[k]);R[k]=null;}gl.flush();
   const rep=(unit,old,t)=>{if(old)gl.deleteTexture(old);bindTU(unit,gl.TEXTURE_2D,t);return t;};
   R.hTex=rep(TU.uHeight,R.hTex,tex2D(N,N,gl.R32F,gl.RED,gl.FLOAT,T.Hr,gl.NEAREST));
   R.aTex=rep(TU.uAux,R.aTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T),gl.LINEAR));R.patchMask=new Uint8Array(N*N);R.patches=null;R.pTex=rep(TU.uPatch,R.pTex,tex2D(N,N,gl.R8,gl.RED,gl.UNSIGNED_BYTE,R.patchMask,gl.NEAREST));R.nTex=rep(TU.uNorm,R.nTex,tex2D(N,N,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,R.makeNorm(T),gl.LINEAR));
@@ -311,10 +313,10 @@ R.setStreamHidden=function(list){if(!list.length||!R.stVb)return;const V=R.stV;l
   for(const [k,h] of list){V[(k*2)*8+7]=h;V[(k*2+1)*8+7]=h;v0=Math.min(v0,k*2);v1=Math.max(v1,k*2+1);}
   gl.bindBuffer(gl.ARRAY_BUFFER,R.stVb);gl.bufferSubData(gl.ARRAY_BUFFER,v0*32,V.subarray(v0*8,(v1+1)*8));};
 // the arrays are kept and refilled (allocating ~50 MB on every rebuild caused second-long garbage-collection stalls)
-R.buildRoads=function(T){const RS=T.W>4096?3072:2048,W=T.W,px=W/RS,same=R.roadD&&R.roadRS===RS,D=same?R.roadD.fill(4):new Float32Array(RS*RS).fill(4),KD=same?R.roadK.fill(0):new Uint8Array(RS*RS),RL=Life.roads||[];let kind=0;R.roadD=D;R.roadK=KD;R.roadRS=RS;
+R.buildRoads=function(T){R.roadFineDirty=true;const RS=T.W>4096?3072:2048,W=T.W,px=W/RS,same=R.roadD&&R.roadRS===RS,D=same?R.roadD.fill(4):new Float32Array(RS*RS).fill(4),KD=same?R.roadK.fill(0):new Uint8Array(RS*RS),RL=Life.roads||[];let kind=0;R.roadD=D;R.roadK=KD;R.roadRS=RS;
   const seg=(x0,z0,x1,z1,w)=>{const m=w+4,i0=Math.max(0,Math.floor((Math.min(x0,x1)-m)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(x0,x1)+m)/px)),j0=Math.max(0,Math.floor((Math.min(z0,z1)-m)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(z0,z1)+m)/px));
     const ex=x1-x0,ez=z1-z0,ll=ex*ex+ez*ez||1e-6;for(let j=j0;j<=j1;j++){const z=(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=(i+0.5)*px,t=clamp(((x-x0)*ex+(z-z0)*ez)/ll,0,1),d=Math.hypot(x-x0-ex*t,z-z0-ez*t)-w,k=j*RS+i;if(d<D[k]){D[k]=d;KD[k]=kind;}}}};
-  for(const r of RL){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p;for(let i=0;i+3<p.length;i+=2)seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}
+  for(const r of RL){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p,sp=r.span;for(let i=0;i+3<p.length;i+=2){if(sp&&sp[i>>1])continue;/* bridges and tunnels are not painted on the ground */seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}}
   for(let k=0;k<D.length;k++){if(D[k]<0.5){const x=((k%RS)+0.5)*px,z=(((k/RS)|0)+0.5)*px,w=sampleWater(T,x,z);if(w[1]>0&&w[0]>R.sampleHr(T,x,z)-0.2)D[k]=4;}}
   // the upload buffer still holds what the texture has: note the rectangle that changed, and upload only that
   const fresh=!(R.roadH16&&R.roadH16.length===RS*RS*2),H16=fresh?(R.roadH16=new Float32Array(RS*RS*2)):R.roadH16;let ci0=RS,ci1=-1,cj0=RS,cj1=-1;
@@ -325,7 +327,22 @@ R.buildRoads=function(T){const RS=T.W>4096?3072:2048,W=T.W,px=W/RS,same=R.roadD&
     else{const S2=new Float32Array(w*h*2);for(let j=0;j<h;j++)S2.set(H16.subarray(((cj0+j)*RS+ci0)*2,((cj0+j)*RS+ci1+1)*2),j*w*2);gl.texSubImage2D(gl.TEXTURE_2D,0,ci0,cj0,w,h,gl.RG,gl.FLOAT,S2);}}
   bindTU(TU.uRoad,gl.TEXTURE_2D,R.roadTex);Log.info(`roads: ${RL.length} pieces in a ${RS}² distance field (${px.toFixed(2)} m/texel), upload ${(performance.now()-tu).toFixed(0)} ms`);};
 // a few new road pieces (garden paths) stamped into the kept distance field; only the touched patch is uploaded
-R.addRoadPieces=function(T,pieces){if(!R.roadD||!R.roadTex||R.roadRS!==(T.W>4096?3072:2048))return false;const RS=R.roadRS,px=T.W/RS,D=R.roadD,KD=R.roadK,H16=R.roadH16&&R.roadH16.length===RS*RS*2?R.roadH16:null;/* the full-upload buffer is kept in step with the texture */let bi0=RS,bi1=-1,bj0=RS,bj1=-1;
+/* big maps: the road field is 5 m a texel there, coarser than a road is wide, so near roads break into dashes. A second, fine field
+   (2048² at 1.25 m, 2.56 km) follows the camera: rebuilt when the view has moved 600 m from its centre, or when roads change */
+R.roadFine=null;R.roadFineDirty=true;
+R.updateRoadFine=function(){const T=R.world;if(!T||T.W<=4096||!Life.roads){if(R.roadFine)R.roadFine.on=false;return;}
+  const RS=2048,px=1.25,S=RS*px,c=Cam.target||[T.W/2,0,T.W/2];let F=R.roadFine;
+  if(F&&F.on&&!R.roadFineDirty&&Math.hypot(c[0]-(F.x0+S/2),c[2]-(F.z0+S/2))<600)return;
+  const t0=performance.now();if(!F)F=R.roadFine={D:new Float32Array(RS*RS),K:new Uint8Array(RS*RS),H:new Float32Array(RS*RS*2),tex:null,S,RS,px,on:false};
+  const x0=Math.round((c[0]-S/2)/64)*64,z0=Math.round((c[2]-S/2)/64)*64,D=F.D.fill(4),KD=F.K.fill(0);let kind=0;
+  const seg=(ax,az,bx,bz,w)=>{const m=w+4;if(Math.max(ax,bx)+m<x0||Math.min(ax,bx)-m>x0+S||Math.max(az,bz)+m<z0||Math.min(az,bz)-m>z0+S)return;
+    const i0=Math.max(0,Math.floor((Math.min(ax,bx)-m-x0)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(ax,bx)+m-x0)/px)),j0=Math.max(0,Math.floor((Math.min(az,bz)-m-z0)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(az,bz)+m-z0)/px));
+    const ex=bx-ax,ez=bz-az,ll=ex*ex+ez*ez||1e-6;for(let j=j0;j<=j1;j++){const z=z0+(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=x0+(i+0.5)*px,t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1),d=Math.hypot(x-ax-ex*t,z-az-ez*t)-w,k=j*RS+i;if(d<D[k]){D[k]=d;KD[k]=kind;}}}};
+  for(const r of Life.roads){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p,hid=r.span;for(let i=0;i+3<p.length;i+=2){if(hid&&hid[i>>1])continue;seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}}
+  const H=F.H;for(let k=0;k<D.length;k++){let d=D[k];if(d<0.5){const x=x0+((k%RS)+0.5)*px,z=z0+(((k/RS)|0)+0.5)*px,w=sampleWater(T,x,z);if(w[1]>0&&w[0]>R.sampleHr(T,x,z)-0.2)d=4;}H[k*2]=d;H[k*2+1]=KD[k];}
+  if(!F.tex){F.tex=tex2D(RS,RS,gl.RG16F,gl.RG,gl.FLOAT,H,gl.LINEAR);}else{scratch();gl.bindTexture(gl.TEXTURE_2D,F.tex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,RS,RS,gl.RG,gl.FLOAT,H);}
+  bindTU(TU.uRoadF,gl.TEXTURE_2D,F.tex);F.x0=x0;F.z0=z0;F.on=true;R.roadFineDirty=false;Log.info(`fine road field at ${x0},${z0} in ${(performance.now()-t0).toFixed(0)} ms`);};
+R.addRoadPieces=function(T,pieces){R.roadFineDirty=true;if(!R.roadD||!R.roadTex||R.roadRS!==(T.W>4096?3072:2048))return false;const RS=R.roadRS,px=T.W/RS,D=R.roadD,KD=R.roadK,H16=R.roadH16&&R.roadH16.length===RS*RS*2?R.roadH16:null;/* the full-upload buffer is kept in step with the texture */let bi0=RS,bi1=-1,bj0=RS,bj1=-1;
   const seg=(x0,z0,x1,z1,w,kind)=>{const m=w+4,i0=Math.max(0,Math.floor((Math.min(x0,x1)-m)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(x0,x1)+m)/px)),j0=Math.max(0,Math.floor((Math.min(z0,z1)-m)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(z0,z1)+m)/px));
     bi0=Math.min(bi0,i0);bi1=Math.max(bi1,i1);bj0=Math.min(bj0,j0);bj1=Math.max(bj1,j1);const ex=x1-x0,ez=z1-z0,ll=ex*ex+ez*ez||1e-6;
     for(let j=j0;j<=j1;j++){const z=(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=(i+0.5)*px,t=clamp(((x-x0)*ex+(z-z0)*ez)/ll,0,1),d=Math.hypot(x-x0-ex*t,z-z0-ez*t)-w,k=j*RS+i;if(d<D[k]){const wt=sampleWater(T,x,z);if(d<0.5&&wt[1]>0&&wt[0]>R.sampleHr(T,x,z)-0.2)continue;D[k]=d;KD[k]=kind;}}}};
@@ -342,21 +359,32 @@ R.buildBridges=function(BL){if(R.bridgeKit){gl.deleteBuffer(R.bridgeKit.vao.vbo)
     const gs=[];let y0=1e9;for(let u=-L/2-1;u<=L/2+1.01;u+=0.5){const y=R.sampleHr(T,cx+dx*u,cz+dz*u);gs.push([u,y]);y0=Math.min(y0,y);}y0-=0.2;
     const key=[cx,cz,L,b.w,y0,p[0][1],p[p.length>>1][1],dx].map(q=>q.toFixed(2)).join(',');used.add(key);let c=R.bridgeCache.get(key);
     if(!c){const deck=p.map(q=>[(q[0]-cx)*dx+(q[2]-cz)*dz,q[1]-y0]).sort((a,c2)=>a[0]-c2[0]),ground=gs.map(([u,y])=>[u,y-y0]);
-      const spec={L,w:b.w,deck,ground,water:b.lvl>-1e8?b.lvl-y0:null,sw:b.sw||0,seed:7+((cx*13+cz*7)|0)%997};c={lod:[]};
+      const spec={L,w:b.w,deck,ground,water:b.lvl>-1e8?b.lvl-y0:null,sw:b.sw||0,via:b.via||0,seed:7+((cx*13+cz*7)|0)%997};c={lod:[]};
       for(const lod of [0,2]){const a=KIT.bridge(spec,lod),n=a.length/16;c.lod.push({ab:R.packKit([a],n),n});}KIT.VB.length=0;R.bridgeCache.set(key,c);built++;}
     const e={x:cx,z:cz,r:L/2+3,lod:[]};for(const q of c.lod){parts.push(q.ab);e.lod.push({first:total,count:q.n});total+=q.n;}list.push(e);inst.set([cx,y0,cz,1,Math.atan2(dz,dx),0.5,(i*0.618)%1,0],i*8);});
   for(const k of [...R.bridgeCache.keys()])if(!used.has(k))R.bridgeCache.delete(k);
   const AB=new Uint8Array(total*32);let o=0;for(const ab of parts){AB.set(new Uint8Array(ab),o);o+=ab.byteLength;}
   const vao=R.kitVaoOf(AB.buffer),ib=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ib);gl.bufferData(gl.ARRAY_BUFFER,inst,gl.STATIC_DRAW);
   R.bridgeKit={vao,ib,list};Log.info(`bridges: ${BL.length} in stone (${built} new), ${(total/3/1000).toFixed(0)}k triangles, ${(performance.now()-t0).toFixed(0)} ms`);};
-R.buildCrossings=function(XL){if(R.xingMesh){gl.deleteVertexArray(R.xingMesh.vao);R.xingMesh=null;}if(!XL||!XL.length)return;const M=vmesh(),wd=[0.42,0.32,0.22],wd2=[0.36,0.27,0.19];
+/* road tunnel portals: a dressed-stone face with a round-arched opening, a dark tube behind it, a cornice and two wing walls along the approach */
+R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMesh=null;}if(!TL||!TL.length)return;const M=vmesh(),st=[0.56,0.54,0.5],st2=[0.5,0.48,0.44],dk=[0.015,0.015,0.018];
+  for(const t of TL)for(const end of [0,1]){const dx=end?-t.dx:t.dx,dz=end?-t.dz:t.dz,px=end?t.bx:t.ax,pz=end?t.bz:t.az,y0=(end?t.by:t.ay)-0.15,rx=-dz,rz=dx,ow=t.w+0.95,sp=3.0,fw=ow+2.4,fh=sp+ow+2.6;
+    const P=(u,y,d)=>[px+rx*u+dx*d,y0+y,pz+rz*u+dz*d],nO=[-dx,0,-dz],arch=k=>{const a=Math.PI*(1-k/10);return[Math.cos(a)*ow,sp+Math.sin(a)*ow];};
+    for(const sd of [-1,1]){vq(M,P(sd*ow,-0.6,0),P(sd*fw,-0.6,0),P(sd*fw,fh,0),P(sd*ow,fh,0),nO,st,0);}// the faces beside the opening
+    for(let k=0;k<10;k++){const a0=arch(k),a1=arch(k+1);vq(M,P(a0[0],a0[1],0),P(a1[0],a1[1],0),P(a1[0],fh,0),P(a0[0],fh,0),nO,k%2?st:st2,0);
+      vq(M,P(a1[0],a1[1],-0.02),P(a0[0],a0[1],-0.02),P(a0[0],a0[1]+0.45,-0.02),P(a1[0],a1[1]+0.45,-0.02),nO,[0.66,0.63,0.57],0);// voussoir ring
+      vq(M,P(a0[0],-0.6,0.35),P(a1[0],-0.6,0.35),P(a1[0],a1[1],0.35),P(a0[0],a0[1],0.35),nO,dk,0);}// the dark tube
+    vq(M,P(-fw-0.3,fh,-0.35),P(fw+0.3,fh,-0.35),P(fw+0.3,fh+0.4,-0.35),P(-fw-0.3,fh+0.4,-0.35),nO,st2,0);vq(M,P(-fw-0.3,fh+0.4,-0.35),P(fw+0.3,fh+0.4,-0.35),P(fw+0.3,fh+0.4,0.3),P(-fw-0.3,fh+0.4,0.3),[0,1,0],st2,0);// cornice
+    for(const sd of [-1,1]){const a=P(sd*fw,-0.6,0),b=P(sd*(fw+2.5),-0.6,-7),c=P(sd*(fw+2.5),0.8,-7),d=P(sd*fw,fh,0);vq(M,a,b,c,d,[rx*sd,0,rz*sd],st2,0);vq(M,b,a,d,c,[-rx*sd,0,-rz*sd],st2,0);}}
+  R.portalMesh=R.uploadVeh(M);Log.info(`road tunnels: ${TL.length} (${TL.map(t=>t.L.toFixed(0)+' m').join(', ')})`);};
+R.buildCrossings=function(XL){if(R.xingMesh){R.freeMesh(R.xingMesh);R.xingMesh=null;}if(!XL||!XL.length)return;const M=vmesh(),wd=[0.42,0.32,0.22],wd2=[0.36,0.27,0.19];
   for(const q of XL){const rx=Math.cos(q.rh),rz=Math.sin(q.rh),nx=-rz,nz=rx,hw=q.w+0.3,hl=2.9,top=q.y+0.1,bot=q.y-0.45;
     for(let k=0;k<8;k++){const u0=-hl+k*(2*hl/8)+0.03,u1=-hl+(k+1)*(2*hl/8)-0.03,P0=[q.x+rx*u0-nx*hw,top,q.z+rz*u0-nz*hw],P1=[q.x+rx*u1-nx*hw,top,q.z+rz*u1-nz*hw],P2=[q.x+rx*u1+nx*hw,top,q.z+rz*u1+nz*hw],P3=[q.x+rx*u0+nx*hw,top,q.z+rz*u0+nz*hw];
       vq(M,P0,P1,P2,P3,[0,1,0],k%2?wd:wd2,0);}
     const C=[[-hl,-hw],[hl,-hw],[hl,hw],[-hl,hw]].map(([u,w])=>[q.x+rx*u+nx*w,q.z+rz*u+nz*w]);for(let k=0;k<4;k++){const a=C[k],b=C[(k+1)%4],ex=b[0]-a[0],ez=b[1]-a[1],el=Math.hypot(ex,ez)||1;
       vq(M,[a[0],bot,a[1]],[b[0],bot,b[1]],[b[0],top,b[1]],[a[0],top,a[1]],[ez/el,0,-ex/el],wd2,0);}}
   R.xingMesh=R.uploadVeh(M);Log.info(`level crossings: ${XL.length}`);};
-R.buildDocks=function(DL){if(R.dockMesh){gl.deleteVertexArray(R.dockMesh.vao);R.dockMesh=null;}if(!DL||!DL.length)return;const M=vmesh(),T=R.world,wd=[0.52,0.38,0.25],wd2=[0.40,0.29,0.19],dk=[0.2,0.15,0.11],wh=[0.92,0.9,0.85],rd=[0.7,0.18,0.12];
+R.buildDocks=function(DL){if(R.dockMesh){R.freeMesh(R.dockMesh);R.dockMesh=null;}if(!DL||!DL.length)return;const M=vmesh(),T=R.world,wd=[0.52,0.38,0.25],wd2=[0.40,0.29,0.19],dk=[0.2,0.15,0.11],wh=[0.92,0.9,0.85],rd=[0.7,0.18,0.12];
   const nrm=(a,b,c)=>{const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];let x=uy*vz-uz*vy,y=uz*vx-ux*vz,z=ux*vy-uy*vx;const l=Math.hypot(x,y,z)||1;return[x/l,y/l,z/l];};
   const obox=(c,f,hl,hw,hh,col)=>{const l=[-f[1],f[0]],P=(a,b,d)=>[c[0]+f[0]*a*hl+l[0]*b*hw,c[1]+d*hh,c[2]+f[1]*a*hl+l[1]*b*hw],Q=(p,q,r,t)=>vq(M,p,q,r,t,nrm(p,q,r),col,0);
     const v=[P(-1,-1,-1),P(1,-1,-1),P(1,1,-1),P(-1,1,-1),P(-1,-1,1),P(1,-1,1),P(1,1,1),P(-1,1,1)];Q(v[4],v[5],v[6],v[7]);Q(v[3],v[2],v[1],v[0]);Q(v[0],v[1],v[5],v[4]);Q(v[1],v[2],v[6],v[5]);Q(v[2],v[3],v[7],v[6]);Q(v[3],v[0],v[4],v[7]);};
@@ -403,10 +431,12 @@ R.buildBoard=function(T){const N=T.N;
   vbox(M,[W/2,yb-th/2,W/2],[W+2*m,th,W+2*m],wood,5);vbox(M,[W/2,yb-th-1.5,W/2],[W+2*m-8,3,W+2*m-8],[0.36,0.24,0.16],5);
   for(const x of [-m+22,W+m-22])for(const z of [-m+22,W+m-22])vbox(M,[x,(yb-th+yF)/2,z],[34,yb-th-yF,34],[0.42,0.28,0.18],5);
   const F=30000;vq(M,[W/2-F,yF,W/2-F],[W/2-F,yF,W/2+F],[W/2+F,yF,W/2+F],[W/2+F,yF,W/2-F],[0,1,0],[0.56,0.42,0.30],6);
-  if(R.tableMesh){gl.deleteVertexArray(R.tableMesh.vao);}R.tableMesh=R.uploadVeh(M);};
+  if(R.tableMesh)R.freeMesh(R.tableMesh);R.tableMesh=R.uploadVeh(M);};
 R.uploadVeh=function(M){const vao=gl.createVertexArray();gl.bindVertexArray(vao);const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(M.v),gl.STATIC_DRAW);
   [[0,3,0],[1,3,12],[2,3,24],[3,4,36],[4,1,52]].forEach(([l,n,o])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,56,o);});
-  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(M.i),gl.STATIC_DRAW);gl.bindVertexArray(null);return{vao,count:M.i.length};};
+  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(M.i),gl.STATIC_DRAW);gl.bindVertexArray(null);return{vao,vb,ib,count:M.i.length};};
+/* a mesh from uploadVeh gone for good: the vertex array does not own its buffers, so they go too (else every rebuild leaks GPU memory) */
+R.freeMesh=function(m){if(!m)return;try{gl.deleteVertexArray(m.vao);if(m.vb)gl.deleteBuffer(m.vb);if(m.ib)gl.deleteBuffer(m.ib);}catch(e){}};
 R.buildVehicleMeshes=function(ms){R.veh=ms.map(M=>R.uploadVeh(M));Log.info(`rolling stock meshes: ${ms.map(m=>m.i.length/3).join(', ')} tris`);};
 
 // ---- vegetation: instances bucketed by chunk; near/far lists rebuilt when the view changes
@@ -535,7 +565,7 @@ R.ensureTargets=function(w,h){const ms=Math.min(+P.msaa||0,CAPS.maxSamples||0);i
   R.qw=qw;R.qh=qh;Log.info(`render target ${w}×${h}, MSAA ${ms||'off'}`);};
 
 // ---------------- frame
-R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=true;}Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world,S=R.skip;// S: categories left out (cost measurement by ablation, tools/bench.js)
+R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=true;}if(R.world)try{R.updateRoadFine();}catch(e){Log.err('fine roads: '+e);R.roadFine&&(R.roadFine.on=false);}Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world,S=R.skip;// S: categories left out (cost measurement by ablation, tools/bench.js)
   const tr=Trains.cur();const fp=Cam.mode!=='free'&&tr&&tr.poses&&tr.poses[0]?tr.poses[0].c:Cam.target;R.focus=[fp[0],fp[1],fp[2]];R.focusDist=Math.hypot(fp[0]-cam.pos[0],fp[1]-cam.pos[1],fp[2]-cam.pos[2]);
   const A=R.atmos();A.keyUp=A.key[1]>0.02&&(A.day>0.01||A.moonUp>0.05);R.sun={day:A.day,L:A.st.sun,night:A.night};R.A=A;
   // shadows every other frame (experimental): in between, the last shadow map is sampled with the light matrix it was drawn with
@@ -627,14 +657,14 @@ R.benchRead=function(){const pr=R.lastProf,X=R.tq;if(!pr||!X)return{};if(gl.getP
 R.chunkLod=function(c,cam){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
   const d=Math.hypot(dx,dz,dy);return d<P.terrainLod?0:d<P.terrainLod*2.2?1:d<P.terrainLod*5?2:3;};
 R.drawTerrain=function(cam,pass,pl){const T=R.world;const lo=pass!==1&&+P.terrainQ===0;if(lo&&!R.pTerrainLo){R.pTerrainLo=makeProgram('terrain-lo',VS_TERRAIN,FS_TERRAIN_LO);R.pPatchLo=makeProgram('terrain-patch-lo',VS_PATCH,FS_TERRAIN_LO);}/* Ground detail: Simple compiles the cheap variant the first time */
-  const p=pass===1?R.pTerrainSh:lo?R.pTerrainLo:R.pTerrain;gl.useProgram(p.p);if(pass!==1){gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
+  const p=pass===1?R.pTerrainSh:lo?R.pTerrainLo:R.pTerrain;gl.useProgram(p.p);if(pass!==1){const F=R.roadFine;gl.uniform4f(p.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
   const list=[];for(const c of R.chunks){if(!boxVisible(pl,c.x,c.y0,c.z,c.x+R.cw,c.y1,c.z+R.cw))continue;list.push([Math.hypot(c.x+R.cw/2-cam.pos[0],c.z+R.cw/2-cam.pos[2]),c]);}
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,c] of list){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
     const lod=R.chunkLod(c,cam);/* same detail in the shadow pass: a coarser shadow terrain lies above the ground in hollows and shadows it */
     const n=Math.max(2,R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);if(pass===0)gl.uniform1f(p.u('uStep'),T.cs*R.cells/n);
     gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.tris;Stats.chunks++;}
-  if(R.patches&&R.patches.length&&R.patchVao){const q=pass===1?R.pPatchSh:lo?R.pPatchLo:R.pPatch;gl.useProgram(q.p);if(pass!==1){gl.uniform1f(q.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(q.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);gl.uniform1f(q.u('uStep'),R.patchStep||1);}
+  if(R.patches&&R.patches.length&&R.patchVao){const q=pass===1?R.pPatchSh:lo?R.pPatchLo:R.pPatch;gl.useProgram(q.p);if(pass!==1){const F=R.roadFine;gl.uniform4f(q.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(q.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(q.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);gl.uniform1f(q.u('uStep'),R.patchStep||1);}
     gl.uniform4f(q.u('uChunk'),0,0,R.cells,-1);gl.bindVertexArray(R.patchVao);
     for(const pc of R.patches){const c=R.chunks[pc.chunk];if(!c||R.chunkLod(c,cam)!==0)continue;if(pl&&!boxVisible(pl,pc.b[0],pc.b[1],pc.b[2],pc.b[3],pc.b[4],pc.b[5]))continue;gl.drawArrays(gl.TRIANGLES,pc.first,pc.count);Stats.draws++;}}
   gl.bindVertexArray(null);};
@@ -660,7 +690,7 @@ R.drawWall=function(pass){if(!R.wallVao)return;const p=pass===1?R.pWallSh:R.pWal
 R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
   if(part==='g')return R.drawVehGlass(p);
   if(P.tableOn&&R.tableMesh&&pass===0){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
-  gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
+  gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh,R.portalMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   R.pm('v-static');Net.draw(pass);Crane.draw(pass);R.pm('v-net+crane');if(!R.veh)return;gl.useProgram(p.p);gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);
   gl.uniform4f(p.u('uG1'),G01.cx,G01.cy,G01.r,G01.L);gl.uniform4f(p.u('uG2'),G01.e,G01.off,G01.piv[0],G01.piv[1]);
   const drawTrains=()=>{for(const tr of Trains.list){if(!tr.poses)continue;gl.uniform1f(p.u('uDist'),tr.dist+(tr.slip?App.time*12*Math.sign(tr.throttle*tr.rev||1):0));

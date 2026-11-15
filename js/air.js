@@ -3,13 +3,13 @@
 // ✓ to build), each with a unique number and colour; flying cargo between them (land and stop: the crates are unloaded and paid by the
 // distance from the airstrip where they were loaded, then a new load goes on board); and the compass, a horizontal tape at the top that
 // shows N, E, S, W rolling past and coloured markers: the airstrips while flying, the next stop while driving a bus or lorry.
-const AIR={len:600,w:28,price:60000,rate:200,crates:8,maxDist:2500};// runway length and width (m), price, € per km, crates per load, max distance from the village
+const AIR={len:600,w:28,price:60000,rate:200,crates:8,maxDist:2500,fill:6};// runway length and width (m), price, € per km, crates per load, max distance from the village
 const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),ghost:null,
   // ---- a unique colour per airstrip number: hues spaced by the golden angle, alternating lightness, so no two are the same
   color(n){const h=((n-1)*137.508)%360,l=n%2?52:62,s=82;return`hsl(${h.toFixed(0)},${s}%,${l}%)`;},
   rgb(n){const h=((n-1)*137.508)%360/360,l=(n%2?52:62)/100,s=0.82,f=k=>{const a=s*Math.min(l,1-l),kk=(k+h*12)%12;return l-a*Math.max(-1,Math.min(kk-3,9-kk,1));};return[f(0),f(8),f(4)];},
   // ---- placement
-  startPlace(v){if(!App.T)return;if(Plane.on)Plane.exit();if(Build.active)Build.exit();const s=this.bestSpot(v);this.pl={v,x:s.x,z:s.z,h:s.h};this.ghost=null;this.check();this.ui(true);
+  startPlace(v){if(!App.T)return;if(Plane.on)Plane.exit();if(Build.active)Build.exit();const s=this.bestSpot(v);this.pl={v,x:s.x,z:s.z,h:s.h};(R.freeMesh(this.ghost),this.ghost=null);this.check();this.ui(true);
     Cam.mode='free';Cam.anim=null;Cam.flyTo([s.x,R.sampleHr(App.T,s.x,s.z),s.z],Math.max(Cam.dist,520));UI.toast(`Airstrip for ${v.name}: tap the ground to move it, ⟲ ⟳ to turn it, ✓ to build`);},
   // a first guess: the flattest dry stretch within reach of the village, in 8 directions and 3 distances
   bestSpot(v){let best=null;for(let r of [350,650,950,1300,1700,2200])for(let k=0;k<24;k++){if(best&&best.score<4)break;const a=k/24*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<12;j++){const h=j/12*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
@@ -26,25 +26,30 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   check(a,quiet){a=a||this.pl;if(!a)return{ok:false};const T=App.T,{P,L,W}=this.corners(a);let msg='',dev=0;
     for(let u=-L;u<=L+0.1;u+=25)for(const w of [-W,0,W]){const [x,z]=P(u,w);if(x<60||z<60||x>T.W-60||z>T.W-60){msg='Too close to the edge of the world';break;}}
     const ln=msg?null:this.line(a);
-    if(!msg&&ln.lake)msg='A lake or the sea is in the way';else if(!msg&&ln.wet>50)msg='A wide river is in the way';
-    if(!msg){for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w);dev=Math.max(dev,Math.abs(R.sampleHr(T,x,z)-ln.at(u)));}if(dev>16)msg=`Too hilly: up to ${Math.round(dev)} m of earth to move`;}
+    if(!msg&&ln.lake)msg='A lake or the sea is in the way';
+    /* the runway keeps its straight line: higher ground is cut away, lower ground filled up to 6 m, and deeper than that the runway stands on a
+       concrete deck on piers (streams and rivers run under it); only very deep cuttings or very tall piers are refused */
+    let cut=0,pier=0;if(!msg){for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w),gh=R.sampleHr(T,x,z),d=gh-ln.at(u);dev=Math.max(dev,Math.abs(d));cut=Math.max(cut,d);pier=Math.max(pier,-d-AIR.fill);}
+      if(cut>60)msg=`Too steep here: a ${Math.round(cut)} m cutting into the hill`;else if(pier>45)msg=`Too steep here: piers ${Math.round(pier)} m tall`;}a.cut=cut;a.pier=Math.max(0,pier);
     if(!msg&&Math.hypot(a.x-a.v.x,a.z-a.v.z)>AIR.maxDist)msg=`Too far from ${a.v.name} (at most ${AIR.maxDist/1000} km)`;
     if(!msg){for(const hs of Life.houses){if(hs.gone)continue;const dx=hs.x-a.x,dz=hs.z-a.z,u=dx*Math.cos(a.h)+dz*Math.sin(a.h),w=-dx*Math.sin(a.h)+dz*Math.cos(a.h);if(Math.abs(u)<L+15&&Math.abs(w)<W+18){msg='Houses are in the way';break;}}}
     if(!msg)for(let u=-L;u<=L;u+=15){const [x,z]=P(u,0);if(Net.nearestOnTrack(x,z,W+6)){msg='The railway is in the way';break;}}
     if(!msg)for(const o of this.list){if(Math.hypot(o.x-a.x,o.z-a.z)<AIR.len+80){msg='Too close to airstrip '+o.n;break;}}
-    const r={ok:!msg,msg,score:dev+(ln?Math.abs(ln.m)*100+ln.wet*0.05:99)};if(!quiet&&a===this.pl){this.pl.chk=r;this.ghost=null;const el=$('#airMsg');if(el)el.textContent=r.ok?`${a.v.name} airstrip: ${(Math.hypot(a.x-a.v.x,a.z-a.v.z)/1000).toFixed(1)} km from the village, ${Math.round(dev)} m of grading${ln.wet?', a culvert for the stream':''}. ✓ builds it for €${Money.fmt(AIR.price)}`:r.msg;const ok=$('#airOK');if(ok)ok.disabled=!r.ok;}return r;},
+    const r={ok:!msg,msg,score:dev+(ln?Math.abs(ln.m)*100+ln.wet*0.05:99)};if(!quiet&&a===this.pl){this.pl.chk=r;(R.freeMesh(this.ghost),this.ghost=null);const el=$('#airMsg');if(el)el.textContent=r.ok?`${a.v.name} airstrip: ${(Math.hypot(a.x-a.v.x,a.z-a.v.z)/1000).toFixed(1)} km from the village, ${Math.round(Math.min(dev,a.cut+AIR.fill))} m of grading${a.pier>0.5?`, a concrete deck on piers up to ${Math.round(a.pier)} m`:''}${ln.wet?', the water passes under it':''}. ✓ builds it for €${Money.fmt(AIR.price)}`:r.msg;const ok=$('#airOK');if(ok)ok.disabled=!r.ok;}return r;},
   // grade the ground: the runway, its shoulders and the hangar side follow the line; blended into the land over 25 m
   grade(s){const T=App.T,N=T.N,cs=T.cs,ln=this.line(s),c=Math.cos(s.h),sn=Math.sin(s.h),L=AIR.len/2,W=AIR.w/2,M=25,u0=-L-12,u1=L+12,w0=-W-55,w1=W+18,R2=L+M+60;
     const i0=Math.max(0,Math.floor((s.x-R2)/cs)),i1=Math.min(N-1,Math.ceil((s.x+R2)/cs)),j0=Math.max(0,Math.floor((s.z-R2)/cs)),j1=Math.min(N-1,Math.ceil((s.z+R2)/cs));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=i*cs,z=j*cs,dx=x-s.x,dz=z-s.z,u=dx*c+dz*sn,w=-dx*sn+dz*c,ou=Math.max(0,u0-u,u-u1),ow=Math.max(0,w0-w,w-w1),o=Math.hypot(ou,ow);if(o>M)continue;
-      const wt=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M),k=j*N+i,g=ln.at(clamp(u,-L,L));T.Hr[k]=T.Hr[k]+(g-T.Hr[k])*wt;}
-    R.patchTerrain(T,i0,j0,i1,j1);s.graded=true;},
+      const wt=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M),k=j*N+i,g=ln.at(clamp(u,-L,L)),h=T.Hr[k],tg=h>g?g:Math.min(g,h+AIR.fill);T.Hr[k]=h+(tg-h)*wt;}
+    R.patchTerrain(T,i0,j0,i1,j1);s.graded=true;s.ln={m:ln.m,c:ln.c};},
+  /* the runway surface where a plane stands on it: the line over the deck and the graded ground alike (null off the runways) */
+  deckAt(x,z){for(const s of this.list){if(!s.ln)continue;const dx=x-s.x,dz=z-s.z,c=Math.cos(s.h),sn=Math.sin(s.h),u=dx*c+dz*sn,w=-dx*sn+dz*c;if(Math.abs(u)<=AIR.len/2+2&&Math.abs(w)<=AIR.w/2+1)return s.ln.c+s.ln.m*u;}return null;},
   tap(sx,sy){if(!this.pl)return false;const h=Cam.pick(sx,sy);if(!h)return true;this.pl.x=h[0];this.pl.z=h[2];this.check();return true;},
   turn(d){if(!this.pl)return;this.pl.h=wrapPi(this.pl.h+d);this.check();},
   confirm(){const a=this.pl;if(!a||!this.check().ok)return;if(Money.on()){if(!Money.canBuild()){UI.toast('Out of money');return;}Money.spend(AIR.price,`airstrip in ${a.v.name}`);}
-    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.grade(s);this.list.push(s);a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;this.ghost=null;this.ui(false);
+    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.grade(s);this.list.push(s);a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;(R.freeMesh(this.ghost),this.ghost=null);this.ui(false);
     UI.toast(`Airstrip ${n} at ${a.v.name} is open. Fly cargo to another airstrip: land and stop to unload and get paid`);Log.info(`airstrip ${n} at ${a.v.name} (${a.x.toFixed(0)}, ${a.z.toFixed(0)}) heading ${(a.h*180/Math.PI).toFixed(0)}°`);},
-  cancel(){this.pl=null;this.ghost=null;this.ui(false);},
+  cancel(){this.pl=null;(R.freeMesh(this.ghost),this.ghost=null);this.ui(false);},
   ui(on){let el=$('#airUI');if(!el){el=document.createElement('div');el.id='airUI';el.innerHTML='<div id="airMsg"></div><div class="air-b"><button data-a="l">⟲</button><button data-a="r">⟳</button><button data-a="x">✕ Cancel</button><button data-a="ok" id="airOK" class="go">✓ Build</button></div>';document.body.appendChild(el);
       el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const a=t.dataset.a;if(a==='l')this.turn(-Math.PI/12);else if(a==='r')this.turn(Math.PI/12);else if(a==='x')this.cancel();else if(a==='ok')this.confirm();});}
     el.hidden=!on;if(on)this.check();},
@@ -53,9 +58,13 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   restore(){if(!this.pending||!Life.villages.length)return;this.list=this.pending.map(q=>({x:q.x,z:q.z,h:q.h,v:Life.villages[q.v]||Life.nearestVillage(q.x,q.z,1e9),n:q.n}));for(const s of this.list){if(s.v)s.v.airOwned=true;this.grade(s);}this.pending=null;this.meshes.clear();},
   // ---- meshes in world coordinates: the mown grass runway (draped on the ground), edge markers, threshold bars, the big number at
   // both ends in the airstrip's colour, a windsock, a hangar and a number board
-  mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),g=(u,w)=>{const [x,z]=P(u,w);return[x,R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n);
+  mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),ln=s.ln||{m:0,c:R.sampleHr(T,s.x,s.z)},lineY=u=>ln.c+ln.m*clamp(u,-L,L),g=(u,w)=>{const [x,z]=P(u,w);return[x,Math.abs(u)<=L+0.1&&Math.abs(w)<=W+0.1?Math.max(R.sampleHr(T,x,z),lineY(u))+0.12:R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n),onDeck=(u,w)=>{const [x,z]=P(u,w);return R.sampleHr(T,x,z)<lineY(u)-0.4;};
     const V=(p,n,cl,m)=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],cl[0],cl[1],cl[2],0,0,0,1,m);return M.n++;},q=(a,b,cc,d,cl,m)=>{const ix=[a,b,cc,d].map(p=>V(p,[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);};
-    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,edge=Math.abs(w)>=W-W/2-0.01&&(w===-W||w+W/2>=W-0.01),cl=stripe?[0.62,0.78,0.34]:[0.5,0.68,0.26];/* mown stripes, lighter than the meadow around */q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
+    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,edge=Math.abs(w)>=W-W/2-0.01&&(w===-W||w+W/2>=W-0.01),cl=onDeck(u+5,w+W/4)?(stripe?[0.66,0.66,0.63]:[0.6,0.6,0.58]):stripe?[0.62,0.78,0.34]:[0.5,0.68,0.26];/* mown stripes, lighter than the meadow around; concrete on the deck */q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
+    // the concrete deck: a fascia along both edges and square piers down to the ground every 15 m where the land falls away
+    {const cc=[0.58,0.58,0.56],cd=[0.48,0.48,0.47];for(const e of [-1,1])for(let u=-L;u<L-0.1;u+=5){if(!onDeck(u+2.5,e*W*0.9))continue;const a=P(u,e*(W+0.3)),b=P(u+5,e*(W+0.3)),ya=lineY(u)+0.12,yb=lineY(u+5)+0.12;q([a[0],ya-1.3,a[1]],[b[0],yb-1.3,b[1]],[b[0],yb,b[1]],[a[0],ya,a[1]],cd,0);}
+      for(let u=-L+6;u<=L-6;u+=15)for(const w of [-W+2,0,W-2]){const [x,z]=P(u,w),gy=R.sampleHr(T,x,z),top=lineY(u)-1.2;if(top-gy<0.6)continue;const hh=(top-gy+1)/2,T2=(a2,b2,d2)=>[x+c*a2-sn*d2,gy-1+hh+b2,z+sn*a2+c*d2];
+        for(const f of [[[-0.8,-hh,-0.8],[0.8,-hh,-0.8],[0.8,hh,-0.8],[-0.8,hh,-0.8]],[[0.8,-hh,0.8],[-0.8,-hh,0.8],[-0.8,hh,0.8],[0.8,hh,0.8]],[[-0.8,-hh,0.8],[-0.8,-hh,-0.8],[-0.8,hh,-0.8],[-0.8,hh,0.8]],[[0.8,-hh,-0.8],[0.8,-hh,0.8],[0.8,hh,0.8],[0.8,hh,-0.8]]])q(T2(...f[0]),T2(...f[1]),T2(...f[2]),T2(...f[3]),cc,0);}}
     const lift=(p,d)=>[p[0],p[1]+d,p[2]];
     for(const e of [-1,1]){for(let k=0;k<8;k++){const w=-W+3+k*(2*W-6)/7.5;q(lift(g(e*(L-4),w),0.02),lift(g(e*(L-14),w),0.02),lift(g(e*(L-14),w+1.4),0.02),lift(g(e*(L-4),w+1.4),0.02),[0.95,0.95,0.92],0);}
       // the number, painted big across the runway, readable when landing toward it
@@ -94,7 +103,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
       else if(this.cargo&&this.cargo.from!==here)this.job={kind:'unload',s:here,t:0,dur:5,shown:0};else if(!this.cargo)this.job={kind:'load',s:here,t:0,dur:5,shown:0};}},
   lost(){if(this.cargo){UI.toast(`The ${this.cargo.n} crates from airstrip ${this.cargo.from.n} are lost`);this.cargo=null;}this.job=null;this.cratesAt=null;},
   // crates stacked beside the plane while (un)loading: as many as are still on the ground
-  crateMesh(){const [x,z,f]=this.cratesAt,n=Math.round(f*AIR.crates),key=n+'|'+x.toFixed(0)+'|'+z.toFixed(0);if(this._ck===key)return this._cm;if(this._cm){gl.deleteVertexArray(this._cm.vao);}
+  crateMesh(){const [x,z,f]=this.cratesAt,n=Math.round(f*AIR.crates),key=n+'|'+x.toFixed(0)+'|'+z.toFixed(0);if(this._ck===key)return this._cm;if(this._cm)R.freeMesh(this._cm);
     const M=vmesh(),T=App.T,s=Plane.st,R2=Q.rot(s.q,[0,0,1]),F=Q.rot(s.q,[1,0,0]),bx=x+R2[0]*-6+F[0]*1.5,bz=z+R2[2]*-6+F[2]*1.5,y0=R.sampleHr(T,bx,bz);
     for(let k=0;k<n;k++){const cx=bx+(k%4)*1.0*F[0],cz=bz+(k%4)*1.0*F[2],cy=y0+0.42+Math.floor(k/4)*0.84,h=0.4;const P=[[-h,-h,-h],[h,-h,-h],[h,h,-h],[-h,h,-h],[-h,-h,h],[h,-h,h],[h,h,h],[-h,h,h]].map(v=>[cx+v[0],cy+v[1],cz+v[2]]);
       for(const [fc,nn] of [[[0,1,2,3],[0,0,-1]],[[5,4,7,6],[0,0,1]],[[4,0,3,7],[-1,0,0]],[[1,5,6,2],[1,0,0]],[[3,2,6,7],[0,1,0]]]){const ix=fc.map(i=>{M.v.push(P[i][0],P[i][1],P[i][2],nn[0],nn[1],nn[2],0.62,0.45,0.25,0,0,0,1,0);return M.n++;});M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}}

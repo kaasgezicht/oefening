@@ -10,8 +10,9 @@ K.bridgeGeo=function(s){const {box,B,beam,quad,ico,tuft,rr,pick}=K,{clamp,mix3}=
   const deck=u=>I(s.deck,u),gnd=u=>I(s.ground,u),wl=s.water==null?null:s.water;
   const st=[[0.6,0.58,0.53],[0.54,0.52,0.48],[0.64,0.61,0.55],[0.57,0.54,0.48],[0.59,0.56,0.51],[0.52,0.5,0.47]],wall=[0.58,0.55,0.5],dressed=[[0.7,0.66,0.58],[0.66,0.62,0.55],[0.73,0.69,0.6]];
   // arches
-  const A=[];const mk=(c,S)=>{let ys=Math.max(gnd(c)+0.15,wl!=null?wl+0.25:-1e9);const crown=deck(c)-0.55;let f=Math.min(S/2,crown-ys);if(f<0.55){f=0.55;ys=crown-0.55;}const R=(S*S/4+f*f)/(2*f);A.push({c,S,ys,f,R,yc:ys+f-R});};
-  if(s.sw>0)mk(0,clamp(s.sw*1.5+1.4,2.2,L-1.8));else{const n=Math.max(1,Math.round((L-3)/9)),pier=1.4,S=(L-3-(n-1)*pier)/n;for(let i=0;i<n;i++)mk(-L/2+1.5+S/2+i*(S+pier),S);}
+  /* a tall crossing (s.via: height of the deck over the ground) is a viaduct: wider arches springing high on tall piers */
+  const VIA=(s.via||0)>8;const A=[];const mk=(c,S)=>{let ys=Math.max(gnd(c)+0.15,wl!=null?wl+0.25:-1e9);const crown=deck(c)-0.55;if(VIA)ys=Math.max(ys,crown-S*0.62);let f=Math.min(S/2,crown-ys);if(f<0.55){f=0.55;ys=crown-0.55;}const R=(S*S/4+f*f)/(2*f);A.push({c,S,ys,f,R,yc:ys+f-R});};
+  if(s.sw>0)mk(0,clamp(s.sw*1.5+1.4,2.2,L-1.8));else{const span=VIA?13:9,n=Math.max(1,Math.round((L-3)/span)),pier=VIA?clamp(s.via*0.09,1.8,4.2):1.4,S=(L-3-(n-1)*pier)/n;for(let i=0;i<n;i++)mk(-L/2+1.5+S/2+i*(S+pier),S);}
   const archY=u=>{for(const a of A)if(Math.abs(u-a.c)<a.S/2)return a.yc+Math.sqrt(Math.max(0,a.R*a.R-(u-a.c)*(u-a.c)));return null;};
   const bot=u=>{const y=archY(u);return y!=null?y:Math.min(gnd(u)-0.9,(A[0]?A[0].ys:0)-0.3);};
   // spandrel and parapet outer faces, inner parapet faces, end faces

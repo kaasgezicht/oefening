@@ -37,7 +37,7 @@ const Music={ctx:null,bus:null,started:false,nextT:0,step:0,bar:0,style:'pastora
   tick(){const c=this.ctx;if(!c)return;let duck=1;if(P.musicDuck){let wh=false,near=0;const cp=Cam.pos||[0,0,0];
       for(const tr of Trains.list){if(tr.whistle)wh=true;const p0=tr.poses&&tr.poses[0];if(p0&&Math.abs(tr.v||0)>1)near=Math.max(near,1-clamp((Math.hypot(p0.c[0]-cp[0],p0.c[1]-cp[1],p0.c[2]-cp[2])-15)/60,0,1));}
       duck=(wh?0.5:1)*(1-0.35*near)*(R.A&&R.A.night>0.5?0.85:1);}
-    const want=P.music&&Sfx.on?P.musicVol*0.42*duck:0;this.bus.gain.setTargetAtTime(want,c.currentTime,0.6);
+    const want=P.music&&Sfx.on&&Sfx.pref()!=='sfx'?P.musicVol*0.42*duck:0;/* 'sound only' on this device wins over a save's music setting */this.bus.gain.setTargetAtTime(want,c.currentTime,0.6);
     if(want<=0){this.nextT=c.currentTime+0.2;return;}
     if(Classical.active){Classical.tick(c.currentTime);return;}/* a classical piece is playing */
     if(this.nextT<c.currentTime-0.5)this.nextT=c.currentTime+0.05;
