@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.21.0 (country roads with bridges and tunnels, airstrips on concrete, wildlife, sound modes, WebGL memory fixes)';
+const VERSION='4.22.0 (country roads planned in steps: route, shape, height profile, labels; tunnel portal kit; tunnel camera fixes)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

@@ -1,4 +1,4 @@
-# Trein handoff 80 (15 Nov 2026): v4.21.0 — country roads that connect every village (switchbacks, viaducts, tunnels), solid roads on big maps, airstrips on concrete, wildlife, sound modes, GPU leak fixes; next: plan step 7 (footbridge)
+# Trein handoff 81 (15 Nov 2026): v4.22.0 — country roads re-planned in separate steps (route, shape, height profile, labels), a fixed tunnel portal kit, tunnel camera fixes; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,51 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.21.0, 15 Nov) — the user's phone log (16 km island, exploration): roads, airstrips, crash, sound
+### Latest (4.22.0, 15 Nov) — country roads planned in steps (the user: the tunnels and bridges "don't look good, make sure they really work")
+The old planner chose the route, the bridges and tunnels and their heights in one A* search; later steps patched round its choices (portals
+moved inward, profiles shared, clash re-plans) and tangles followed (one road threading four tunnels through one hill, a lorry stuck at a
+junction). At the user's request it was rebuilt as separate steps in a new file, **js/roadplan.js** (`RoadPlan`, loaded after life.js;
+`Life.roadPlan` just calls `RoadPlan.plan`). Each step has its own output and can be checked alone:
+1. **route** (`RoadPlan.route`): grid A* (cell 6–18 m, 16 directions, turn cost for long legs). Cost per metre: 1 on easy ground, 110·(g−0.05)²
+   to 10%, steeper +4+30·(g−0.1) (what a structure or deep earthworks would cost), water +9, roads already laid ×0.45. Houses blocked; round
+   the tunnels already planned, cells at another level are blocked (portal areas). **Straight crossings**: where the next step is steep or
+   wet, straight legs up to 400 m are offered, costed as step 3 would cost them; the route only promises the leg stays straight.
+   `split`: where the route runs on the network nothing new is built; each new piece ends on the network at that road's height (a junction)
+   or at a village street end.
+2. **shape** (`shape`): the grid path simplified to straight legs (within 0.55 cell of the path, clear of houses), joined by circular
+   curves (radius up to 90 m, down to hairpins); a straight crossing is never simplified or eaten by a curve. Sampled every 2 m; each
+   sample knows its distance to the nearest curve (`SD`).
+3. **profile** (`profile`): dynamic programme every 4 m over heights 0.4 m apart (±150 m round the ground smoothed over ±200 m), grade ≤ 10%.
+   Per sample: open road costs 0.08·d² (fill) / 0.07·d² (cut); a bridge (d ≥ 6.5 m, or deep water) 6 + 0.04·d per m and 50 to start;
+   a tunnel (d ≤ −11 m) 14 per m and 350 for its portals; no bridge straight into a tunnel. Bridges only where SD ≥ 3 m, tunnels only where
+   SD ≥ apron + 8 m (straight approach). Where a structure is not allowed it stays open (embankment, ford over shallow water, causeway,
+   deep cutting). Then: structures straight between their ends, open road smoothed (±14 m) and held to 10.5%.
+4. **labels** (`cleanRuns`, `tunnelClash`): each 2 m sample is 0 open, 1 bridge, 2 tunnel. Tunnels under 40 m and dry bridges under 8 m
+   become open. A tunnel whose portal area holds an open road at another level (its own further on, or any road laid) or a bridge end closer
+   than the apron + 6 m is forbidden there and step 3 runs again (up to 6 times).
+- Output per piece: `p` (polyline; a structure is one straight segment), `sf`/`sy` (as before), and **`prof` {X,Z,Y,K,C}**: the 2 m profile
+  that everything downstream reads. `Life.buildRoadCarve` now only copies the profiles into `rc`, builds `Life.tunnels` from K = 2 runs
+  (`RoadPlan.tunnelsOf`) and calls `carveRoads`. Roads with no plan (the castle lane) get `RoadPlan.groundProfile`.
+- **Tunnel portal kit** (`roadPortalDims(cs)` in track.js, used by both `carveRoads` and `R.buildPortals`): a fixed footprint from the cell
+  size. The cells round the mouth are left out of the drawn ground exactly (T.hole = 2, aux alpha 254, `texelFetch` discard in FS_TERRAIN);
+  low in front of the face, at the block top behind it, so no drawn triangle leans into the opening. A headwall block (face with arch,
+  voussoirs, pilasters, cornice; buried in an earth collar) covers them behind; a gravel apron with stepped side walls in front. On 8 m cells
+  the face is 32 m wide, apron 17 m, block 18 m deep. Tube: 7 m wide (two lorries), pale tiled walls, lamps every 20 m.
+- Fixes found by the pictures: the camera was lifted above the hill inside a tunnel (`Cam` ground now the tube floor there); the lorry's cab
+  view sat inside the cargo box (now just ahead of the windscreen over the bonnet); bridges and tunnels counted as off the road for speed
+  and the HUD; `RoadVeh.gy` uses a mouth cell's own height (the drawn mean there is under the apron).
+- Tested (seeds 4242, 39536, 777, 1234; 4/8/16 km): every link routed (8 km: 15/15 and 22/22; 4 km 9/9; 16 km 33/33), no errors. Open road
+  cut/fill within about ±15 m (was up to 68 m at the start of this rewrite). Seed 39536 (8 km, 3 big mountains, 10 villages): 99 bridges
+  in all (8 planned, viaducts up to 314 m long and 165 m high), one 90 m tunnel; a lorry driven by the real driving code goes through it
+  and out (407/410 path points, top 94 km/h, largest height change per 0.05 s step 0.5 m); 0 samples of ground inside the tube; one
+  height step over 1 m on all country roads (2.75 m, a small stream bridge's hump). 16 km villages step 45 s (was 40 s).
+- Honest limits: tunnels are rare (detours are usually cheaper with these costs: 0–1 per 8 km map). The tunnel inside reads brownish dark
+  in the renderer's lighting. Ground still stands up to 1.1 m over the road edge beside some village plots (the road's retaining wall
+  covers it). The castle lane is unplanned and steep at the summit (a 3.8 m step there).
+- Pictures: checks/road-tunnel-portal.png, road-tunnel-portal-above.png, road-tunnel-cab.png, road-tunnel-chase.png, road-viaduct.png,
+  road-viaduct-drive.png, road-plan-map.png (all roads coloured: white open, red bridge, blue tunnel), road-plan-gorge.png.
+
+### Earlier (4.21.0, 15 Nov) — the user's phone log (16 km island, exploration): roads, airstrips, crash, sound
 - Sound (js/audio.js):
   - The speaker cycles: sound and music → sound only → off. The choice is kept in localStorage `trein.sound`.
   - Build, Drive and the whistle call `Sfx.autoStart()`, which does nothing when the choice is off. Before, those buttons called `Sfx.start()` and so the music came back.

@@ -161,7 +161,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
   /* the height a wheel stands at. Over a tunnel there are two levels (the road in the tube, the ground above): ref, the vehicle's own last
      height, picks the nearer one; without it, the tube only when the point is inside a tunnel's mouth zone is not known, so the surface wins */
-  gy(x,z,ref){const T=R.world,g=R.drawnH(T,x,z),tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9,rd=Life.roadY?Life.roadY(x,z,ref):null;let y=Math.max(g,dk,rd==null?-1e9:rd);
+  gy(x,z,ref){const T=R.world,hk=T.hole?clamp(Math.floor(z/T.cs),0,T.N-1)*T.N+clamp(Math.floor(x/T.cs),0,T.N-1):-1,g=hk>=0&&T.hole[hk]===2?(T.Hr||T.H)[hk]:R.drawnH(T,x,z),/* a tunnel mouth's cells are left out of the drawn ground: their own level (the apron, the block top) */tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9,rd=Life.roadY?Life.roadY(x,z,ref):null;let y=Math.max(g,dk,rd==null?-1e9:rd);
     /* stacked levels (a bridge over a road, a road on its wall over the ground, a road over a tunnel): the one nearest the vehicle's own height */
     if(ref!=null){let bd=Math.abs(ref-g);y=g;for(const c of [dk>g-0.5?dk:null,rd,tu]){if(c!=null&&Math.abs(ref-c)<bd){bd=Math.abs(ref-c);y=c;}}}
     const d=this.drv;if(d&&d.swim&&Math.abs(x-d.x)<10&&Math.abs(z-d.z)<10){const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));if(w[1]>0)y=Math.max(y,w[0]-0.9);}/* the driven vehicle floats in the water */return y;},
@@ -235,7 +235,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   setCam(c){this.cam=c;if(c==='off'){if(Cam.mode==='road'||Cam.mode==='free')Cam.mode='free';return;}if(c==='follow'){Cam.mode='free';Cam.anim=null;if(this.sel){Cam.dist=Math.min(Math.max(Cam.dist,14),45);Cam.pitch=Math.max(Cam.pitch,0.3);}}else{Cam.mode='road';Cam.anim=null;}this.refresh();},
   nextCam(){const L=this.drv?['chase','cab','wheel','follow']:['follow','chase','cab','wheel'];this.setCam(L[(L.indexOf(this.cam)+1)%L.length]);},
   camera(dt){const b=this.drv||this.sel;if(!b)return null;const F=this.frame(b),k=F.k,S=this.spec(b),P=v=>{const r=Q.rot(F.qb,v);return[F.ob[0]+r[0]*k,F.ob[1]+r[1]*k,F.ob[2]+r[2]*k];};let p,look,cab=false;
-    if(this.cam==='cab'){const e=b.goods?[0.1,1.95,-0.45]:b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
+    if(this.cam==='cab'){const e=b.goods?[0.68,1.92,-0.4]:/* the lorry: just ahead of the windscreen over the bonnet (the cab has no inside) */b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
     else if(this.cam==='wheel'){p=P([S.axF+2.8,0.75,S.trF+2.3]);look=P([S.axR-0.5,0.7,S.trF]);cab=true;}/* low beside the front wheel, looking back along the side: the springs at work */
     else{const fw=[Math.cos(b.rot),0,Math.sin(b.rot)],back=(b.manual&&(b.mv||0)<-0.5)?-1:1,want=[b.x-fw[0]*11*back,F.oc[1]+4.2,b.z-fw[2]*11*back];if(!this.cp||Math.hypot(this.cp[0]-want[0],this.cp[2]-want[2])>40)this.cp=want.slice();const a=Math.min(1,dt*3);for(let i=0;i<3;i++)this.cp[i]+=(want[i]-this.cp[i])*a;p=this.cp.slice();look=[b.x+fw[0]*3,F.oc[1]+1.2,b.z+fw[2]*3];}
     const gh=this.gy(p[0],p[2],F.oc[1])+0.4;if(p[1]<gh)p[1]=gh;return{p,look,cab};},
@@ -275,7 +275,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   driveStep(dt){const b=this.drv;if(!b||!Buses.list.includes(b)){this.drv=null;this.ui(false);return;}this.padPoll();if(!this.drv)return;
     const S=this.spec(b),k=RV_SCALE,T=App.T,I=this.inp,wb=(S.axF-S.axR)*k;let v=b.mv||0;
     // on a road? (the road mask used by the routing), and the slope along the heading
-    const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci]);b.offRoad=!onRoad;
+    const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci])||(b._gy!=null&&(Life.tunY(b.x,b.z)!=null||Math.abs(Life.deckY(b.x,b.z,b._gy)-b._gy)<0.8));/* a bridge deck or a tunnel is road too */b.offRoad=!onRoad;
     const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2,b._gy),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2,b._gy),slope=Math.atan2(h1-h0,4);
     const amax=b.goods?3.0:2.0,vmax=(b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road */roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
     const air=(b.hz||0)>0.02;if(b.hz>0||b.hvz){b.hvz=(b.hvz||0)-9.81*dt;b.hz=(b.hz||0)+b.hvz*dt;if(b.hz<=0){if(b.hvz<-2.5&&b._s){b._s.hv+=b.hvz*0.06;b._s.pv+=(Math.random()-0.5)*0.4;}b.hz=0;b.hvz=0;}}

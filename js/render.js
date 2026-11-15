@@ -389,7 +389,7 @@ R.buildRoadRibbons=function(rc){if(R.ribbons){for(const t of R.ribbons)R.freeMes
             q2(M,P(s,n0,e*(eo-0.32),y0+0.75),P(s+1,n1,e*(eo-0.32),y1+0.75),P(s+1,n1,e*(eo+0.02),y1+0.75),P(s,n0,e*(eo+0.02),y0+0.75),[0,1,0],WC);}}}}}// parapet
   R.ribbons=[...tiles.values()].filter(t=>t.M.n).map(t=>({cx:t.cx,cz:t.cz,m:R.uploadVeh(t.M)}));Log.info(`road surfaces: ${R.ribbons.length} tiles, ${R.ribbons.reduce((a,t)=>a+t.m.count/3,0)} triangles, ${walls} wall pieces`);};
 R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMesh=null;}if(!TL||!TL.length)return;const M=vmesh(),TR=TUN_ROAD,ow=TR.ow,wl=TR.wall,cr=TR.crown;
-  const ST=[0.58,0.56,0.51],ST2=[0.5,0.48,0.44],DR=[0.68,0.65,0.58],CON=[0.56,0.55,0.52],ARC=[0.44,0.44,0.42],ASP=[0.2,0.2,0.21],WH=[0.9,0.9,0.86],KB=[0.62,0.61,0.58],LMP=[1.7,1.45,0.95];
+  const TIL=[0.84,0.84,0.8],TIL2=[0.8,0.8,0.77],APR=[0.4,0.39,0.36],ST=[0.58,0.56,0.51],ST2=[0.5,0.48,0.44],DR=[0.68,0.65,0.58],CON=[0.56,0.55,0.52],ARC=[0.44,0.44,0.42],ASP=[0.2,0.2,0.21],WH=[0.9,0.9,0.86],KB=[0.62,0.61,0.58],LMP=[1.7,1.45,0.95];
   const q2=(a,b,c,d,n,col,m)=>{vq(M,a,b,c,d,n,col,m||0);vq(M,d,c,b,a,n.map(v=>-v),col,m||0);};
   const ring=[];for(let k=0;k<=12;k++){const a=Math.PI*k/12;ring.push([Math.cos(a)*ow,wl+Math.sin(a)*ow]);}// arch from the right wall top over to the left
   for(const t of TL){const dx=t.dx,dz=t.dz,rx=-dz,rz=dx,P=(u,v,h)=>[t.ax+dx*u+rx*v,t.ay+(t.by-t.ay)*clamp(u/t.L,0,1)+h,t.az+dz*u+rz*v],n=Math.max(1,Math.ceil(t.L/6));
@@ -397,7 +397,7 @@ R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMe
       q2(P(u0,-ow,-0.02),P(u1,-ow,-0.02),P(u1,ow,-0.02),P(u0,ow,-0.02),[0,1,0],ASP);
       for(const e of [-1,1]){q2(P(u0,e*(ow-0.15),0.02),P(u1,e*(ow-0.15),0.02),P(u1,e*(ow-0.3),0.02),P(u0,e*(ow-0.3),0.02),[0,1,0],WH);// edge lines
         q2(P(u0,e*ow,0),P(u1,e*ow,0),P(u1,e*(ow-0.1),0.18),P(u0,e*(ow-0.1),0.18),[-e*rx,0,-e*rz],KB);// kerb
-        q2(P(u0,e*ow,0.18),P(u1,e*ow,0.18),P(u1,e*ow,wl),P(u0,e*ow,wl),[-e*rx,0,-e*rz],CON);}// walls
+        q2(P(u0,e*ow,0.18),P(u1,e*ow,0.18),P(u1,e*ow,wl),P(u0,e*ow,wl),[-e*rx,0,-e*rz],s%2?TIL:TIL2);}// walls: pale tiles, easy to see by
       for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1],nx=-(a[0]+b[0])/2,ny=-((a[1]+b[1])/2-wl);const l=Math.hypot(nx,ny)||1;q2(P(u0,a[0],a[1]),P(u1,a[0],a[1]),P(u1,b[0],b[1]),P(u0,b[0],b[1]),[rx*nx/l,ny/l,rz*nx/l],k%2?ARC:CON);}
       for(let u=u0;u<u1-0.5;u+=4){if((Math.floor(u/4))%2)continue;const ue=Math.min(u+2,u1);q2(P(u,-0.08,0.02),P(ue,-0.08,0.02),P(ue,0.08,0.02),P(u,0.08,0.02),[0,1,0],WH);}}// dashed centre line
     for(let u=10;u<t.L-5;u+=20)for(const e of [-1,1]){const a=ring[e<0?10:2];q2(P(u-0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.93,a[1]-0.25),P(u-0.35,a[0]*0.93,a[1]-0.25),[0,-1,0],LMP,7);}// lamps
@@ -413,7 +413,7 @@ R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMe
         q2(F(a[0],a[1],0.06),F(b[0],b[1],0.06),F(b[0]*1.14,b[1]+(b[1]-wl)*0.14+0.15,0.06),F(a[0]*1.14,a[1]+(a[1]-wl)*0.14+0.15,0.06),nO,k%2?DR:KB);}// voussoirs
       q2(F(-fw-0.4,top,0.45),F(fw+0.4,top,0.45),F(fw+0.4,top+0.5,0.45),F(-fw-0.4,top+0.5,0.45),nO,DR);q2(F(-fw-0.4,top+0.5,0.45),F(fw+0.4,top+0.5,0.45),F(fw+0.4,top+0.5,-0.6),F(-fw-0.4,top+0.5,-0.6),[0,1,0],DR);// cornice
       q2(F(-fw,crTop,-0.6),F(fw,crTop,-0.6),F(fw,crTop,-dep),F(-fw,crTop,-dep),[0,1,0],GR);// block top, under the turf of the collar
-      q2(F(-fw,-0.06,0),F(fw,-0.06,0),F(fw,-0.06,A),F(-fw,-0.06,A),[0,1,0],CON);// apron
+      q2(F(-fw,-0.06,0),F(fw,-0.06,0),F(fw,-0.06,A),F(-fw,-0.06,A),[0,1,0],APR);// apron (gravel)
       // the apron's side walls, each step up to the ground outside it (never under it) with a coping
       const n=Math.max(2,Math.ceil(A/3));for(const e of [-1,1]){let pd=0,ph=top;for(let k=1;k<=n;k++){const d=A*k/n,o1=F(e*(fw+0.3),0,d),o2=F(e*(fw+1.5),0,d),h=clamp(Math.max(R.drawnH(App.T,o1[0],o1[2]),R.drawnH(App.T,o2[0],o2[2]))-o1[1]+0.6,1.1,top);
           q2(F(e*fw,-1.5,pd),F(e*fw,-1.5,d),F(e*fw,h,d),F(e*fw,ph,pd),[-e*rx,0,-e*rz],ST2);q2(F(e*fw,ph,pd),F(e*fw,h,d),F(e*(fw+0.7),h,d),F(e*(fw+0.7),ph,pd),[0,1,0],DR);
