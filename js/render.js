@@ -181,9 +181,9 @@ R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr|
   const blur=(src,r)=>{const A=new Float32Array(N*N),B=new Float32Array(N*N);
     for(let j=0;j<N;j++){let acc=0;const row=j*N;for(let i=-r;i<=r;i++)acc+=src[row+clamp(i,0,N-1)];for(let i=0;i<N;i++){A[row+i]=acc/(2*r+1);acc+=src[row+Math.min(i+r+1,N-1)]-src[row+Math.max(i-r,0)];}}
     for(let i=0;i<N;i++){let acc=0;for(let j=-r;j<=r;j++)acc+=A[clamp(j,0,N-1)*N+i];for(let j=0;j<N;j++){B[j*N+i]=acc/(2*r+1);acc+=A[Math.min(j+r+1,N-1)*N+i]-A[Math.max(j-r,0)*N+i];}}return B;};
-  const S=blur(blur(H,2),1);const keep=new Float32Array(N*N),M=T.trackMask,Wt=T.water,TM=T.tunMask;
+  const S=blur(blur(H,2),1);const keep=new Float32Array(N*N),M=T.trackMask,Wt=T.water,TM=T.tunMask,RMk=T.roadMask;
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){let k=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++){const ii=clamp(i+di,0,N-1),jj=clamp(j+dj,0,N-1),n=jj*N+ii;
-      if(M&&M[n]>0)k=Math.max(k,M[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.25));if(Wt&&Wt[n*4+3]>0)k=Math.max(k,1-Math.max(Math.abs(di),Math.abs(dj))*0.3);if(TM&&TM[n]>0)k=Math.max(k,TM[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.2));}
+      if(M&&M[n]>0)k=Math.max(k,M[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.25));if(Wt&&Wt[n*4+3]>0)k=Math.max(k,1-Math.max(Math.abs(di),Math.abs(dj))*0.3);if(TM&&TM[n]>0)k=Math.max(k,TM[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.2));if(RMk&&RMk[n]>0&&di===0&&dj===0)k=Math.max(k,RMk[n]/255);}/* a road shelf is drawn exactly as cut */
     keep[j*N+i]=k;}
   const flat=T.flatMask;for(let n=0;n<N*N;n++){const w=s*(1-keep[n]);T.Hr[n]=flat&&flat[n]&&keep[n]<0.05?T.flatH[n]:H[n]+(S[n]-H[n])*w;}
   R.clearTrackBed(T);
@@ -316,7 +316,7 @@ R.setStreamHidden=function(list){if(!list.length||!R.stVb)return;const V=R.stV;l
 R.buildRoads=function(T){R.roadFineDirty=true;const RS=T.W>4096?3072:2048,W=T.W,px=W/RS,same=R.roadD&&R.roadRS===RS,D=same?R.roadD.fill(4):new Float32Array(RS*RS).fill(4),KD=same?R.roadK.fill(0):new Uint8Array(RS*RS),RL=Life.roads||[];let kind=0;R.roadD=D;R.roadK=KD;R.roadRS=RS;
   const seg=(x0,z0,x1,z1,w)=>{const m=w+4,i0=Math.max(0,Math.floor((Math.min(x0,x1)-m)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(x0,x1)+m)/px)),j0=Math.max(0,Math.floor((Math.min(z0,z1)-m)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(z0,z1)+m)/px));
     const ex=x1-x0,ez=z1-z0,ll=ex*ex+ez*ez||1e-6;for(let j=j0;j<=j1;j++){const z=(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=(i+0.5)*px,t=clamp(((x-x0)*ex+(z-z0)*ez)/ll,0,1),d=Math.hypot(x-x0-ex*t,z-z0-ez*t)-w,k=j*RS+i;if(d<D[k]){D[k]=d;KD[k]=kind;}}}};
-  for(const r of RL){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p,sp=r.span;for(let i=0;i+3<p.length;i+=2){if(sp&&sp[i>>1])continue;/* bridges and tunnels are not painted on the ground */seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}}
+  for(const r of RL){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p;for(let i=0;i+3<p.length;i+=2)for(const [t0,t1] of Life.roadParts(r,i>>1))seg(p[i]+(p[i+2]-p[i])*t0,p[i+1]+(p[i+3]-p[i+1])*t0,p[i]+(p[i+2]-p[i])*t1,p[i+1]+(p[i+3]-p[i+1])*t1,r.w);}/* bridges and tunnels are not painted on the ground */
   for(let k=0;k<D.length;k++){if(D[k]<0.5){const x=((k%RS)+0.5)*px,z=(((k/RS)|0)+0.5)*px,w=sampleWater(T,x,z);if(w[1]>0&&w[0]>R.sampleHr(T,x,z)-0.2)D[k]=4;}}
   // the upload buffer still holds what the texture has: note the rectangle that changed, and upload only that
   const fresh=!(R.roadH16&&R.roadH16.length===RS*RS*2),H16=fresh?(R.roadH16=new Float32Array(RS*RS*2)):R.roadH16;let ci0=RS,ci1=-1,cj0=RS,cj1=-1;
@@ -338,7 +338,7 @@ R.updateRoadFine=function(){const T=R.world;if(!T||T.W<=4096||!Life.roads){if(R.
   const seg=(ax,az,bx,bz,w)=>{const m=w+4;if(Math.max(ax,bx)+m<x0||Math.min(ax,bx)-m>x0+S||Math.max(az,bz)+m<z0||Math.min(az,bz)-m>z0+S)return;
     const i0=Math.max(0,Math.floor((Math.min(ax,bx)-m-x0)/px)),i1=Math.min(RS-1,Math.ceil((Math.max(ax,bx)+m-x0)/px)),j0=Math.max(0,Math.floor((Math.min(az,bz)-m-z0)/px)),j1=Math.min(RS-1,Math.ceil((Math.max(az,bz)+m-z0)/px));
     const ex=bx-ax,ez=bz-az,ll=ex*ex+ez*ez||1e-6;for(let j=j0;j<=j1;j++){const z=z0+(j+0.5)*px;for(let i=i0;i<=i1;i++){const x=x0+(i+0.5)*px,t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1),d=Math.hypot(x-ax-ex*t,z-az-ez*t)-w,k=j*RS+i;if(d<D[k]){D[k]=d;KD[k]=kind;}}}};
-  for(const r of Life.roads){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p,hid=r.span;for(let i=0;i+3<p.length;i+=2){if(hid&&hid[i>>1])continue;seg(p[i],p[i+1],p[i+2],p[i+3],r.w);}}
+  for(const r of Life.roads){kind=r.kind|0;if(r.disc){const [cx,cz,rr]=r.disc;seg(cx,cz,cx,cz,rr);continue;}const p=r.p;for(let i=0;i+3<p.length;i+=2)for(const [t0,t1] of Life.roadParts(r,i>>1))seg(p[i]+(p[i+2]-p[i])*t0,p[i+1]+(p[i+3]-p[i+1])*t0,p[i]+(p[i+2]-p[i])*t1,p[i+1]+(p[i+3]-p[i+1])*t1,r.w);}
   const H=F.H;for(let k=0;k<D.length;k++){let d=D[k];if(d<0.5){const x=x0+((k%RS)+0.5)*px,z=z0+(((k/RS)|0)+0.5)*px,w=sampleWater(T,x,z);if(w[1]>0&&w[0]>R.sampleHr(T,x,z)-0.2)d=4;}H[k*2]=d;H[k*2+1]=KD[k];}
   if(!F.tex){F.tex=tex2D(RS,RS,gl.RG16F,gl.RG,gl.FLOAT,H,gl.LINEAR);}else{scratch();gl.bindTexture(gl.TEXTURE_2D,F.tex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,RS,RS,gl.RG,gl.FLOAT,H);}
   bindTU(TU.uRoadF,gl.TEXTURE_2D,F.tex);F.x0=x0;F.z0=z0;F.on=true;R.roadFineDirty=false;Log.info(`fine road field at ${x0},${z0} in ${(performance.now()-t0).toFixed(0)} ms`);};
@@ -366,16 +366,32 @@ R.buildBridges=function(BL){if(R.bridgeKit){gl.deleteBuffer(R.bridgeKit.vao.vbo)
   const AB=new Uint8Array(total*32);let o=0;for(const ab of parts){AB.set(new Uint8Array(ab),o);o+=ab.byteLength;}
   const vao=R.kitVaoOf(AB.buffer),ib=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ib);gl.bufferData(gl.ARRAY_BUFFER,inst,gl.STATIC_DRAW);
   R.bridgeKit={vao,ib,list};Log.info(`bridges: ${BL.length} in stone (${built} new), ${(total/3/1000).toFixed(0)}k triangles, ${(performance.now()-t0).toFixed(0)} ms`);};
-/* road tunnel portals: a dressed-stone face with a round-arched opening, a dark tube behind it, a cornice and two wing walls along the approach */
-R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMesh=null;}if(!TL||!TL.length)return;const M=vmesh(),st=[0.56,0.54,0.5],st2=[0.5,0.48,0.44],dk=[0.015,0.015,0.018];
-  for(const t of TL)for(const end of [0,1]){const dx=end?-t.dx:t.dx,dz=end?-t.dz:t.dz,px=end?t.bx:t.ax,pz=end?t.bz:t.az,y0=(end?t.by:t.ay)-0.15,rx=-dz,rz=dx,ow=t.w+0.95,sp=3.0,fw=ow+2.4,fh=sp+ow+2.6;
-    const P=(u,y,d)=>[px+rx*u+dx*d,y0+y,pz+rz*u+dz*d],nO=[-dx,0,-dz],arch=k=>{const a=Math.PI*(1-k/10);return[Math.cos(a)*ow,sp+Math.sin(a)*ow];};
-    for(const sd of [-1,1]){vq(M,P(sd*ow,-0.6,0),P(sd*fw,-0.6,0),P(sd*fw,fh,0),P(sd*ow,fh,0),nO,st,0);}// the faces beside the opening
-    for(let k=0;k<10;k++){const a0=arch(k),a1=arch(k+1);vq(M,P(a0[0],a0[1],0),P(a1[0],a1[1],0),P(a1[0],fh,0),P(a0[0],fh,0),nO,k%2?st:st2,0);
-      vq(M,P(a1[0],a1[1],-0.02),P(a0[0],a0[1],-0.02),P(a0[0],a0[1]+0.45,-0.02),P(a1[0],a1[1]+0.45,-0.02),nO,[0.66,0.63,0.57],0);// voussoir ring
-      vq(M,P(a0[0],-0.6,0.35),P(a1[0],-0.6,0.35),P(a1[0],a1[1],0.35),P(a0[0],a0[1],0.35),nO,dk,0);}// the dark tube
-    vq(M,P(-fw-0.3,fh,-0.35),P(fw+0.3,fh,-0.35),P(fw+0.3,fh+0.4,-0.35),P(-fw-0.3,fh+0.4,-0.35),nO,st2,0);vq(M,P(-fw-0.3,fh+0.4,-0.35),P(fw+0.3,fh+0.4,-0.35),P(fw+0.3,fh+0.4,0.3),P(-fw-0.3,fh+0.4,0.3),[0,1,0],st2,0);// cornice
-    for(const sd of [-1,1]){const a=P(sd*fw,-0.6,0),b=P(sd*(fw+2.5),-0.6,-7),c=P(sd*(fw+2.5),0.8,-7),d=P(sd*fw,fh,0);vq(M,a,b,c,d,[rx*sd,0,rz*sd],st2,0);vq(M,b,a,d,c,[-rx*sd,0,-rz*sd],st2,0);}}
+/* road tunnels: the lined tube from portal to portal (a two-lane floor with edge and centre lines, kerbs, walls, a round arch and lamps
+   every 20 m), and at each portal a dressed-stone block: a face 2 m wider than the cutting with the arched opening, a voussoir ring, a
+   cornice, the block running 4 m into the hill over the mouth (the ground there is opened, see Life.carveRoads), and wing walls splaying
+   out along the cutting. Faces are emitted both ways round so no winding can hide them. */
+R.buildPortals=function(TL){if(R.portalMesh){R.freeMesh(R.portalMesh);R.portalMesh=null;}if(!TL||!TL.length)return;const M=vmesh(),TR=TUN_ROAD,ow=TR.ow,wl=TR.wall,cr=TR.crown;
+  const ST=[0.58,0.56,0.51],ST2=[0.5,0.48,0.44],DR=[0.68,0.65,0.58],CON=[0.56,0.55,0.52],ARC=[0.44,0.44,0.42],ASP=[0.2,0.2,0.21],WH=[0.9,0.9,0.86],KB=[0.62,0.61,0.58],LMP=[1.7,1.45,0.95];
+  const q2=(a,b,c,d,n,col,m)=>{vq(M,a,b,c,d,n,col,m||0);vq(M,d,c,b,a,n.map(v=>-v),col,m||0);};
+  const ring=[];for(let k=0;k<=12;k++){const a=Math.PI*k/12;ring.push([Math.cos(a)*ow,wl+Math.sin(a)*ow]);}// arch from the right wall top over to the left
+  for(const t of TL){const dx=t.dx,dz=t.dz,rx=-dz,rz=dx,P=(u,v,h)=>[t.ax+dx*u+rx*v,t.ay+(t.by-t.ay)*clamp(u/t.L,0,1)+h,t.az+dz*u+rz*v],n=Math.max(1,Math.ceil(t.L/6));
+    for(let s=0;s<n;s++){const u0=t.L*s/n,u1=t.L*(s+1)/n;
+      q2(P(u0,-ow,-0.02),P(u1,-ow,-0.02),P(u1,ow,-0.02),P(u0,ow,-0.02),[0,1,0],ASP);
+      for(const e of [-1,1]){q2(P(u0,e*(ow-0.15),0.02),P(u1,e*(ow-0.15),0.02),P(u1,e*(ow-0.3),0.02),P(u0,e*(ow-0.3),0.02),[0,1,0],WH);// edge lines
+        q2(P(u0,e*ow,0),P(u1,e*ow,0),P(u1,e*(ow-0.1),0.18),P(u0,e*(ow-0.1),0.18),[-e*rx,0,-e*rz],KB);// kerb
+        q2(P(u0,e*ow,0.18),P(u1,e*ow,0.18),P(u1,e*ow,wl),P(u0,e*ow,wl),[-e*rx,0,-e*rz],CON);}// walls
+      for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1],nx=-(a[0]+b[0])/2,ny=-((a[1]+b[1])/2-wl);const l=Math.hypot(nx,ny)||1;q2(P(u0,a[0],a[1]),P(u1,a[0],a[1]),P(u1,b[0],b[1]),P(u0,b[0],b[1]),[rx*nx/l,ny/l,rz*nx/l],k%2?ARC:CON);}
+      for(let u=u0;u<u1-0.5;u+=4){if((Math.floor(u/4))%2)continue;const ue=Math.min(u+2,u1);q2(P(u,-0.08,0.02),P(ue,-0.08,0.02),P(ue,0.08,0.02),P(u,0.08,0.02),[0,1,0],WH);}}// dashed centre line
+    for(let u=10;u<t.L-5;u+=20)for(const e of [-1,1]){const a=ring[e<0?10:2];q2(P(u-0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.98,a[1]-0.1),P(u+0.35,a[0]*0.93,a[1]-0.25),P(u-0.35,a[0]*0.93,a[1]-0.25),[0,-1,0],LMP,7);}// lamps
+    // the portal blocks
+    for(const end of [0,1]){const u0=end?t.L:0,sg=end?1:-1,fw=ow+6.5,top=cr+4.2,dep=4.2,F=(v,h,d)=>P(u0+sg*d,v,h),nO=[dx*sg,0,dz*sg];
+      for(const e of [-1,1]){q2(F(e*ow,-1.5,0),F(e*fw,-1.5,0),F(e*fw,top,0),F(e*ow,top,0),nO,ST);// face beside the opening
+        q2(F(e*fw,-1.5,0),F(e*fw,-1.5,-dep),F(e*fw,top,-dep),F(e*fw,top,0),[e*rx,0,e*rz],ST2);}// block sides
+      for(let k=0;k<12;k++){const a=ring[k],b=ring[k+1];q2(F(a[0],a[1],0),F(b[0],b[1],0),F(b[0],top,0),F(a[0],top,0),nO,k%2?ST:ST2);// spandrel over the arch
+        q2(F(a[0]*1.0,a[1],0.03),F(b[0],b[1],0.03),F(b[0]*1.13,b[1]+(b[1]-wl)*0.13+0.12,0.03),F(a[0]*1.13,a[1]+(a[1]-wl)*0.13+0.12,0.03),nO,DR);}// voussoir ring
+      q2(F(-fw-0.4,top,0.4),F(fw+0.4,top,0.4),F(fw+0.4,top+0.45,0.4),F(-fw-0.4,top+0.45,0.4),nO,DR);q2(F(-fw-0.4,top+0.45,0.4),F(fw+0.4,top+0.45,0.4),F(fw+0.4,top+0.45,-dep),F(-fw-0.4,top+0.45,-dep),[0,1,0],DR);// cornice and top
+      q2(F(-fw,top,0),F(fw,top,0),F(fw,top,-dep),F(-fw,top,-dep),[0,1,0],ST2);
+      for(const e of [-1,1]){const a=F(e*fw,-1.5,0),b=F(e*(fw+5),-1.5,9),c=F(e*(fw+5),1.0,9),d=F(e*fw,top,0);q2(a,b,c,d,[e*rx,0,e*rz],ST2);q2([d[0],d[1],d[2]],[c[0],c[1],c[2]],F(e*(fw+5.6),1.0,9),F(e*(fw+0.6),top,0),[0,1,0],DR);}}}
   R.portalMesh=R.uploadVeh(M);Log.info(`road tunnels: ${TL.length} (${TL.map(t=>t.L.toFixed(0)+' m').join(', ')})`);};
 R.buildCrossings=function(XL){if(R.xingMesh){R.freeMesh(R.xingMesh);R.xingMesh=null;}if(!XL||!XL.length)return;const M=vmesh(),wd=[0.42,0.32,0.22],wd2=[0.36,0.27,0.19];
   for(const q of XL){const rx=Math.cos(q.rh),rz=Math.sin(q.rh),nx=-rz,nz=rx,hw=q.w+0.3,hl=2.9,top=q.y+0.1,bot=q.y-0.45;

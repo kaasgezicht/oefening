@@ -8,6 +8,8 @@
 // segs:  {id,a,b,x0,z0,h0,k,L,y0,y1,g0,g1,prof?,spans?}  spans: [[t0,t1,'b'|'t'],...]
 // ===================================================================
 const GAUGE=1.435,FORMATION_DROP=0.72,TUN_R=3.3,TUN_CY=1.7,TUN_PORTAL=TUN_CY+TUN_R+3.5;
+/* road tunnels: 7 m between the walls (two lorries pass), walls 2.4 m, a round arch over them: 5.9 m to the crown */
+const TUN_ROAD={ow:3.5,wall:2.4,crown:5.9};
 const wrapPi=a=>{a=(a+Math.PI)%(2*Math.PI);if(a<0)a+=2*Math.PI;return a-Math.PI;};
 const Track={nodes:[],segs:[],sigs:[],stations:[],nextId:1,undo:[],
   serialize(){const keep=this.segs.filter(s=>!s.pend),ids=new Set(),sids=new Set(keep.map(s=>s.id));keep.forEach(s=>{ids.add(s.a);ids.add(s.b);});
@@ -155,6 +157,7 @@ function carveTrack(T){
     const i0=clamp(Math.floor((c[0]-R2)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+R2)/cs),0,N-1),j0=clamp(Math.floor((c[1]-R2)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+R2)/cs),0,N-1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,[t,d]=segNearest(s,x,z),k=j*N+i;if(d<=hw)continue;const along=Math.abs(t-st.t);
       const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:st.farm?4:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
+  if(typeof Life!=='undefined'&&Life.rc&&Life.T===T)Life.carveRoads(T);/* the country roads' earthworks, again after every track change */
 }
 
 // ---- meshes: ballast, sleepers, rails, stone viaducts, tunnel tubes and portals

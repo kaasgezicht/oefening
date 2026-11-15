@@ -181,7 +181,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   // ---- the frame of a vehicle: chassis on the ground under its wheels, the body on its springs (heave h, pitch p, roll r)
   frame(b){const S=this.spec(b),k=RV_SCALE,h=b.rot,c=Math.cos(h),s=Math.sin(h),zx=-s,zz=c,P=(ax,tr)=>this.gy(b.x+c*ax*k+zx*tr*k,b.z+s*ax*k+zz*tr*k);
     const tr=S.trF,fl=P(S.axF,-tr),fr=P(S.axF,tr),rl=P(S.axR,-tr),rr=P(S.axR,tr),wb=(S.axF-S.axR)*k,pitch=Math.atan2((fl+fr)/2-(rl+rr)/2,wb),roll=Math.atan2((fl+rl)/2-(fr+rr)/2,2*tr*k);
-    const y=(fl+fr+rl+rr)/4,q=Q.mul(Q.mul(Q.axis([0,1,0],-h),Q.axis([0,0,1],pitch)),Q.axis([1,0,0],roll)),sp=b._s||{h:0,p:0,r:0};
+    const y=(fl+fr+rl+rr)/4+(b.hz||0),q=Q.mul(Q.mul(Q.axis([0,1,0],-h),Q.axis([0,0,1],pitch)),Q.axis([1,0,0],roll)),sp=b._s||{h:0,p:0,r:0};
     const qb=Q.mul(Q.mul(q,Q.axis([0,0,1],sp.p)),Q.axis([1,0,0],sp.r)),cg=[0,1.1,0],oc=[b.x,y,b.z],a=Q.rot(q,cg),bb=Q.rot(qb,cg),hv=Q.rot(q,[0,sp.h,0]);
     const ob=[oc[0]+(a[0]-bb[0]+hv[0])*k,oc[1]+(a[1]-bb[1]+hv[1])*k,oc[2]+(a[2]-bb[2]+hv[2])*k];return{q,qb,oc,ob,k};},
   mat(q,o,k,off,extra){const qq=extra?Q.mul(q,extra):q,X=Q.rot(qq,[k,0,0]),Y=Q.rot(qq,[0,k,0]),Z=Q.rot(qq,[0,0,k]),d=off?Q.rot(q,off):[0,0,0];
@@ -253,29 +253,32 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   startDriving(b){if(Plane.on)Plane.exit();if(Build.active)Build.exit();if(Drive.active)Drive.exit();this.drv=b;b.manual=true;b.mv=b.st==='drive'?b.v:0;b.st='drive';b.queued=null;this.sel=b;
     this.setCam('chase');this.ui(true);UI.toast('You drive '+b.name+': joystick to steer and drive, or a controller (left stick, RT, LT)');this.refresh();},
   stopDriving(){const b=this.drv;if(!b)return;b.manual=false;b.mv=0;b.v=0;b.path=null;b.st='drive';b.offRoad=false;this.drv=null;this.ui(false);if(this.sel)this.setCam('follow');UI.toast(b.name+' goes back to its route');this.refresh();},
-  ui(on){let el=$('#rvUI');if(!el){el=document.createElement('div');el.id='rvUI';el.innerHTML='<div id="rvHud"></div><div id="rvTop"><button data-a="min">🙈 Hide</button><button data-a="cam">📷 Camera</button><button data-a="horn">📯 Horn</button><button data-a="back" class="go">Back to the route</button></div><div id="rvStickWrap"><div id="rvStick"><div id="rvKnob"></div></div></div>';document.body.appendChild(el);
-      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='cam')this.nextCam();else if(t.dataset.a==='horn')this.horn();else if(t.dataset.a==='back')this.stopDriving();else if(t.dataset.a==='min'){const on=!document.body.classList.contains('rvmin');document.body.classList.toggle('rvmin',on);t.textContent=on?'👁 Show':'🙈 Hide';}});
+  ui(on){let el=$('#rvUI');if(!el){el=document.createElement('div');el.id='rvUI';el.innerHTML='<div id="rvHud"></div><div id="rvTop"><button data-a="min">🙈 Hide</button><button data-a="cam">📷 Camera</button><button data-a="horn">📯 Horn</button><button data-a="hop">⤒ Hop</button><button data-a="back" class="go">Back to the route</button></div><div id="rvStickWrap"><div id="rvStick"><div id="rvKnob"></div></div></div>';document.body.appendChild(el);
+      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='cam')this.nextCam();else if(t.dataset.a==='horn')this.horn();else if(t.dataset.a==='hop')this.hop();else if(t.dataset.a==='back')this.stopDriving();else if(t.dataset.a==='min'){const on=!document.body.classList.contains('rvmin');document.body.classList.toggle('rvmin',on);t.textContent=on?'👁 Show':'🙈 Hide';}});
       const st=el.querySelector('#rvStick'),kn=el.querySelector('#rvKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,Rr=r.width/2-14;let dx=(ev.clientX-cx)/Rr,dy=(ev.clientY-cy)/Rr;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}
         this.inp.steer=dx;this.inp.gas=Math.min(1,Math.max(0,-dy)*1.4);this.inp.brake=Math.min(1,Math.max(0,dy)*1.4);/* full gas before the edge of the ring */this.inp.touch=true;kn.style.transform=`translate(${dx*Rr}px,${dy*Rr}px)`;};
       st.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};st.onpointerup=st.onpointercancel=ev=>{if(ev.pointerId!==id)return;id=null;this.inp.steer=this.inp.gas=this.inp.brake=0;this.inp.touch=false;kn.style.transform='';};}
     el.hidden=!on;document.body.classList.toggle('roaddrive',on);if(!on)document.body.classList.remove('rvmin');},
   hud(){const b=this.drv,el=$('#rvHud');if(!el)return;el.innerHTML=`<b>${Math.round(Math.abs(b.mv||0)/RV_SCALE*3.6)}</b> km/h${(b.mv||0)<-0.3?' · reverse':''}${b.offRoad?' · off the road':''} · ${esc(b.name)}`;},
+  /* a hop: up it goes (about 1.2 m), no grip in the air (no throttle or brake, a little steering), and the springs take the landing */
+  hop(){const b=this.drv;if(!b||(b.hz||0)>0.02)return;b.hvz=4.9;b.hz=0.03;},
   horn(){const c=Sfx.ctx;if(!c||!Sfx.on)return;const t=c.currentTime,g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.03);g.gain.setValueAtTime(0.18,t+0.45);g.gain.linearRampToValueAtTime(0,t+0.55);g.connect(Sfx.master);
     for(const f of [392,494]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;o.connect(lp);lp.connect(g);o.start(t);o.stop(t+0.6);}},
   padPoll(){if(!navigator.getGamepads)return;let g=null;for(const q of navigator.getGamepads()){if(q&&q.connected){g=q;if(q.mapping==='standard')break;}}if(!g)return;
     const bt=i=>{const x=g.buttons[i];return x?(typeof x==='object'?(x.value||(x.pressed?1:0)):+x):0;},pr=i=>bt(i)>0.5,ed=i=>pr(i)&&!this.pad.prev[i],ax=v=>Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;
     const sx=ax(g.axes[0]||0),gas=bt(7),brk=bt(6);if(sx||gas>0.05||brk>0.05){this.inp.steer=sx;this.inp.gas=gas;this.inp.brake=brk;this.pad.act=true;}else if(this.pad.act&&!this.inp.touch){this.inp.steer=this.inp.gas=this.inp.brake=0;this.pad.act=false;}
-    if(ed(0))this.horn();if(ed(1))this.nextCam();if(ed(3))this.stopDriving();this.pad.prev=g.buttons.map((x,i)=>pr(i));},
+    if(ed(0))this.horn();if(ed(1))this.nextCam();if(ed(2))this.hop();if(ed(3))this.stopDriving();this.pad.prev=g.buttons.map((x,i)=>pr(i));},
   driveStep(dt){const b=this.drv;if(!b||!Buses.list.includes(b)){this.drv=null;this.ui(false);return;}this.padPoll();if(!this.drv)return;
     const S=this.spec(b),k=RV_SCALE,T=App.T,I=this.inp,wb=(S.axF-S.axR)*k;let v=b.mv||0;
     // on a road? (the road mask used by the routing), and the slope along the heading
     const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci]);b.offRoad=!onRoad;
     const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2),slope=Math.atan2(h1-h0,4);
     const amax=b.goods?3.0:2.0,vmax=(b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road */roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
-    let a=0;if(I.gas>0.02)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
+    const air=(b.hz||0)>0.02;if(b.hz>0||b.hvz){b.hvz=(b.hvz||0)-9.81*dt;b.hz=(b.hz||0)+b.hvz*dt;if(b.hz<=0){if(b.hvz<-2.5&&b._s){b._s.hv+=b.hvz*0.06;b._s.pv+=(Math.random()-0.5)*0.4;}b.hz=0;b.hvz=0;}}
+    let a=0;if(I.gas>0.02&&!air)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02&&!air){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
     a-=Math.sign(v)*Math.min(Math.abs(v)/dt,roll)+9.81*Math.sin(slope)*0.6;if(Math.abs(v)<0.05&&I.gas<0.02&&I.brake<0.02&&Math.abs(slope)<0.25){a=0;v=0;}
     v+=a*dt;if(v>vmax&&I.gas<0.02)v-=Math.min(v-vmax,3*dt);
-    const want=I.steer*0.6/(1+Math.abs(v)/(9*k));b._steer=(b._steer||0)+(want-(b._steer||0))*Math.min(1,dt*6);
+    const want=I.steer*0.6/(1+Math.abs(v)/(9*k))*(air?0.25:1);b._steer=(b._steer||0)+(want-(b._steer||0))*Math.min(1,dt*6);
     const nr=b.rot+v/wb*Math.tan(b._steer)*dt,nx=b.x+Math.cos(nr)*v*dt,nz=b.z+Math.sin(nr)*v*dt;
     const water=(x,z)=>{const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0&&w[0]>R.sampleHr(T,x,z)+0.25;};
     const ahead=[nx+Math.cos(nr)*S.len*k*0.5*Math.sign(v||1),nz+Math.sin(nr)*S.len*k*0.5*Math.sign(v||1)];
