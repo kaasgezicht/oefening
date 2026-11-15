@@ -619,7 +619,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         if(ok){gr=Math.abs(hh[m]-hk)/L;if(gr>GMAX)ok=false;}
         if(ok){relax(k,m,L*(1+noise[m]*0.4+(gr>0.05?110*(gr-0.05)*(gr-0.05):0))*(dsc[m]?0.45:1),0,q);if(gr<0.09)continue;}
         if(q>=8||km<0||o.nospan)continue;/* bridges and tunnels: straight, in the 8 main directions, where the next step is water, a house or steep */
-        if(mt[k]!==0||(din[k]>=0&&Math.abs(wrapPi(ANG[din[k]]-ANG[q]))>Math.PI/2))continue;/* never two spans in a row, never one that turns back: those make loops (a bridge out and a tunnel back under it) */
+        if((mt[k]!==0&&din[k]<0)||(din[k]>=0&&Math.abs(wrapPi(ANG[din[k]]-ANG[q]))>(mt[k]!==0?Math.PI/4+0.01:Math.PI/2)))continue;/* a span may follow a span only straight on (a bridge into a tunnel), and none turns back: those made loops, a bridge out and a tunnel back under it */
         let bridged=false,tunneled=false;const step=L,jmax=Math.floor(400/step);
         for(let s=3;s<=jmax&&!(bridged&&tunneled);s++){const ei=ki+di*s,ej=kj+dj*s;if(ei<0||ej<0||ei>=nx||ej>=nz)break;const e=ej*nx+ei;if(kind[e]!==0)continue;const span=s*step,he=hh[e];if(Math.abs(he-hk)/span>0.07)continue;
           let below=true,above=true,dmin=0,dmax=0,wet=false,q1=-1e9,q3=-1e9,mid=1e9;for(let t=1;t<s;t++){const c=(kj+dj*t)*nx+ki+di*t,y=hk+(he-hk)*t/s;if(kind[c]===-1){below=above=false;break;}let gd=hh[c]-y;if(kind[c]===1){wet=true;gd=Math.max(gd,wl[c]+2-y);}const f=t/s;if(f<0.25)q1=Math.max(q1,hh[c]);else if(f>0.75)q3=Math.max(q3,hh[c]);else mid=Math.min(mid,kind[c]===1?wl[c]:hh[c]);
