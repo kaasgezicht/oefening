@@ -474,6 +474,11 @@ R.updateVegLists=function(cam,force){if(!R.vegB)return;const T=R.world,CN=16,cw=
 R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;for(let t=0;t<6;t++){R.drawObj('t'+t+'n',t,R.instBufs['veg'+t+'_1'],pass);if(t<5)R.drawObj('t'+t+'f',t,R.instBufs['veg'+t+'_2'],pass);}};
 
 // ---- a village plot levelled while playing: upload just that patch of heights and normals, widen the chunk bounds
+/* after ground was cut down (an airstrip): dry cells whose stored water surface now lies above the ground would show water on the slope;
+   push their surface under the ground and upload that rectangle of the water texture */
+R.dryWater=function(T,i0,j0,i1,j1){const W=R._wLast;if(!W||!R.wTex)return;const N=T.N,H=T.Hr;i0=Math.max(0,i0);j0=Math.max(0,j0);i1=Math.min(N-1,i1);j1=Math.min(N-1,j1);const w=i1-i0+1,h=j1-j0+1,S=new Float32Array(w*h*4);let n=0;
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;if(W[k*4+3]<=0&&W[k*4]>H[k]-0.3){W[k*4]=H[k]-3;n++;}S.set(W.subarray(k*4,k*4+4),((j-j0)*w+(i-i0))*4);}
+  if(n){scratch();gl.bindTexture(gl.TEXTURE_2D,R.wTex);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.FLOAT,S);}};
 R.patchTerrain=function(T,i0,j0,i1,j1){R.terrVer=(R.terrVer|0)+1;const N=T.N,cs=T.cs,H=T.Hr;i0=Math.max(0,i0-1);j0=Math.max(0,j0-1);i1=Math.min(N-1,i1+1);j1=Math.min(N-1,j1+1);const w=i1-i0+1,h=j1-j0+1;
   const Hs=new Float32Array(w*h);for(let j=0;j<h;j++)Hs.set(H.subarray((j0+j)*N+i0,(j0+j)*N+i0+w),j*w);scratch();gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RED,gl.FLOAT,Hs);
   const A=R.normData,Ns=new Uint8Array(w*h*4);for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const l=H[j*N+Math.max(i-1,0)],r=H[j*N+Math.min(i+1,N-1)],d=H[Math.max(j-1,0)*N+i],u=H[Math.min(j+1,N-1)*N+i];
@@ -702,8 +707,8 @@ R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1
       if(v.ctype==='grain'&&R.veh[36]&&(v.n||0)>0.05){const lm=R.veh[36],T=M.slice(),f=Math.min(1,v.n/20),yb=1.55+1.95*f,h=0.12+0.4*f;T[12]+=M[4]*yb;T[13]+=M[5]*yb;T[14]+=M[6]*yb;T[4]*=h;T[5]*=h;T[6]*=h;gl.uniformMatrix4fv(p.u('uModel'),false,T);gl.bindVertexArray(lm.vao);gl.drawElements(gl.TRIANGLES,lm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
       // ore hoppers: the heaped load rises with the fill
       if(ORE[v.ctype]&&R.veh[22]&&(v.n||0)>0.05){const lm=R.veh[22+['gold','silver','diamond'].indexOf(v.ctype)],T=M.slice(),h=0.12+1.6*Math.min(1,v.n/20);T[12]+=M[4]*1.74;T[13]+=M[5]*1.74;T[14]+=M[6]*1.74;T[4]*=h;T[5]*=h;T[6]*=h;gl.uniformMatrix4fv(p.u('uModel'),false,T);gl.bindVertexArray(lm.vao);gl.drawElements(gl.TRIANGLES,lm.count,gl.UNSIGNED_INT,0);Stats.draws++;}});}};
-  gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uGlass'),pass===0?2:0);drawTrains();Plane.draw(p);RoadVeh.draw(p,pass);try{Air.draw(p,pass);Sea.draw(p,pass);}catch(e){if(!Air._derr){Air._derr=1;Log.err('airstrip/sea draw: '+(e.stack||e));}}R.pm('v-trains');R.drawTrainsFn=drawTrains;
-  if(pass===0&&part!=='o'){gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);drawTrains();Plane.draw(p);RoadVeh.draw(p,pass);try{Air.draw(p,pass);Sea.draw(p,pass);}catch(e){if(!Air._derr){Air._derr=1;Log.err('airstrip/sea draw: '+(e.stack||e));}}gl.depthMask(true);gl.disable(gl.BLEND);R.pm('v-glass');}
+  gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uGlass'),pass===0?2:0);drawTrains();Plane.draw(p);RoadVeh.draw(p,pass);try{Air.draw(p,pass);Sea.draw(p,pass);Wild.draw(p,pass);}catch(e){if(!Air._derr){Air._derr=1;Log.err('airstrip/sea draw: '+(e.stack||e));}}R.pm('v-trains');R.drawTrainsFn=drawTrains;
+  if(pass===0&&part!=='o'){gl.uniform1i(p.u('uGlass'),1);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);drawTrains();Plane.draw(p);RoadVeh.draw(p,pass);try{Air.draw(p,pass);Sea.draw(p,pass);Wild.draw(p,pass);}catch(e){if(!Air._derr){Air._derr=1;Log.err('airstrip/sea draw: '+(e.stack||e));}}gl.depthMask(true);gl.disable(gl.BLEND);R.pm('v-glass');}
   gl.uniform1i(p.u('uGlass'),0);gl.bindVertexArray(null);};
 R.waterU=function(p,cam,near){gl.uniform1f(p.u('uDbg'),+P.dbgWater||0);gl.uniform1f(p.u('uSeaL'),R.world&&R.world.sea!=null?R.world.sea:-1);gl.uniform2f(p.u('uNF'),cam.near,cam.far);
   gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.floodRise,0,0);const fp=R.fallP||(R.fallP=new Float32Array(32));fp.fill(0);const em=R.world&&R.world.emitters;
