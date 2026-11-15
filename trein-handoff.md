@@ -1,4 +1,4 @@
-# Trein handoff 78 (14 Nov 2026): v4.19.0 — island sea fixed on 16 km maps; Tunnels and Surface route modes; hold to route; loading bar moves during villages; next: plan step 7 (footbridge)
+# Trein handoff 79 (15 Nov 2026): v4.20.0 — exploration mode, UI layout editor, moon and God rays, classical music with a music manager, rudder on the left stick; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,48 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.19.0, 14 Nov) — the user's 16 km island had no sea; route modes; hold to route; loading bar
+### Latest (4.20.0, 15 Nov) — exploration mode, UI layout, moon, God rays, classical music, controller
+- Controller (js/plane.js PlanePad): left stick X = rudder (added to LB/RB), right stick X = roll, right Y = pitch, left Y = throttle. The other buttons are unchanged.
+- Moon (js/render.js sunState/atmos, FS_SKY):
+  - Lower arc: 6–30° at night.
+  - Phase: an 8-day cycle, `R.moonPhase()` = (Weather.days + time/24)/8 + 0.36. A new game starts waxing gibbous.
+  - Sky disc: a lit sphere (uMoonPh.x = phase angle; the light vector `l` points from the moon to the sun), noise seas, earthshine, and a halo scaled by the illuminated fraction.
+  - Moonlight (the key light at night) is silvery, ×(0.25 + 0.75·illum). The water glitter and the shadows follow the moon.
+- God rays (Settings → Look, `godRays` 0–1.5, default off). Post pass in R.post:
+  - FS_RAYMASK at quarter size: sky pixels (depth = far) near the key light's screen spot, luminance above 0.7.
+  - FS_RAYBLUR twice (48 steps, decay 0.97).
+  - Added in FS_TONEMAP (uRays, TU 29, uRayC). Moon rays ×0.7.
+- UI layout (js/uilayout.js, Settings → UI tab, loaded right after core.js):
+  - 14 groups (UI_EL). Each has x, y and size for portrait and for landscape (`ui_<k>_<p|l><x|y|s>`), plus `uiText`. The headings come from a new `head` field in def().
+  - Applied with the CSS `translate`/`scale` properties (they stack on the existing transforms), refreshed on resize and every 0.8 s for late-made panels.
+  - Every font size in css/trein.css is `calc(Npx*var(--txt,1))`.
+  - Edit layout: drag groups (capture-phase pointer handlers; clicks are swallowed), tap one and use the Size slider, Text slider, "Show all controls", reset, Done.
+  - The three corner buttons now sit in #cornerBox.
+- Exploration mode (js/explore.js; new game checkbox #mmExplore; P.exploreMode, P.exploreRadius 100–2000 m, default 500, Settings → Life):
+  - Mask: Uint8 N² (16 m cells, 128–1024). Soft-edged discs are stamped every 0.25 s round buses, lorries, trains and the plane (radius × up to 2.5 with height).
+  - Texture TU 30 (sub-rect uploads). FS_TONEMAP rebuilds world positions from depth (uInvVPt) and mixes in drifting mist (uNoise3) on unexplored pixels. So the 3D view and the map are both covered; the sky is not.
+  - Start: village 0 is known and gets an automatic bus stop. The intro banner shows the loop.
+  - "Add bus" with one stop makes an explorer bus (b.explorer) that waits.
+  - Discovery: a village is discovered when its centre is uncovered. It is stamped clear, gets a bus stop (all-stops buses pick it up), a banner with "Show me", and a log line.
+  - Hidden in the mist: village labels, map symbols, upgrade notes. Building and bus stops are refused there.
+  - Saved as `snapshot.explore = {N, rle, known}`, a few hundred bytes. Switching it on mid-game makes a fresh mask round village 0.
+  - Also: New game now clears airstrips (it did not before).
+- Classical music (js/classical.js, after music.js):
+  - 13 public-domain pieces (PIECES: Beethoven ×2, Mozart ×2, Bach ×2, Pachelbel, Brahms, Grieg ×2, Satie, Strauss II, Dvořák). Written as melody tokens ("C#5:3") and chords ("F#m:2", lengths in beats) with an accompaniment style (waltz, alberti, elise, pulse, arp, arp3, pad, stacc, gymno). Built into timed events and played on the Music synth instruments.
+  - `musicMix` (Settings → Sound): mix (100–180 s of generated music between pieces), classical only, generated only.
+  - The generated music hands over at a phrase boundary (`Classical.want`).
+  - Music manager (#musicMgr, from Settings → Sound and the sky sheet "♪ Music…"): now playing, Skip, the mix setting, and a switch and ▶ for each preset and piece. Blocks are kept in localStorage `trein.musicBlock`. ▶ on a preset pins it for 150 s (`Music.pin`).
+  - The pieces are written from memory, so some inner bars and harmonies may differ from the scores.
+- Tested headless:
+  - The pad mapping.
+  - Moon phases, God rays at day and night.
+  - The UI editor: portrait drag/size/text, landscape unaffected, clicks blocked while editing.
+  - Exploration: the intro, the explorer bus, driving to Bergen and discovering it (banner, stop, the bus got 2 stops), the map, save and load (identical mask and known villages).
+  - Music: ▶, block, the mix hand-over, Skip, all presets blocked; offline renders of three pieces.
+  - Not tested: a real phone, a real controller, the sound by ear.
+- Pictures: checks/moon-phases.png, checks/godrays.png, checks/ui-layout.png, checks/explore.png, checks/music-manager.png. Samples: checks/music-*.mp3.
+
+### Earlier (4.19.0, 14 Nov) — the user's 16 km island had no sea; route modes; hold to route; loading bar
 - Island sea gone on big maps (js/gen.js genWater):
   - The terrain and the preview had the ocean (58% of a 16 km island), but genWater lost it.
   - Cause: the outlet gorge of a coastal lake whose level is below sea level walked across the flat filled sea and trenched through the board's rim (rim cells down to -136 m), so the ocean drained over the edge.
