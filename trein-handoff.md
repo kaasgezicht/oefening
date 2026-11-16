@@ -1,4 +1,4 @@
-# Trein handoff 82 (16 Nov 2026): v4.23.0 — buses and lorries placed on a road with a route planner (list or map, estimates), map tabs with route statistics and graphs, a store (double-decker), solid houses; next: plan step 7 (footbridge)
+# Trein handoff 83 (16 Nov 2026): v4.24.0 — the DHC-2 Beaver amphibian (store, € 450.000), seaplane jetties, smooth camera after driving; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,47 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.23.0, 16 Nov) — fleet: place on a road, route planner, map tabs, statistics, store, solid houses
+### Latest (4.24.0, 16 Nov) — DHC-2 Beaver amphibian, seaplane jetties, camera after driving
+- **DHC-2 Beaver** (new file js/beaver.js, after plane.js): bought in the store for € 450.000 (`Fleet.unlocks.beaver`, saved).
+  - Model `beaverMeshes()` from the user's four photos of N67684: chrome yellow; orange sweep on the cowling running back as a stripe along
+    the lower fuselage with dark pinstripes; orange wingtip bands, lift struts, fin band and tailplane tips; "N67684" in orange with a
+    dark outline (canvas letters as quads); 3-blade grey prop with white tips and a chrome spinner; 9-cylinder Wasp Jr behind the lip;
+    windscreen, cockpit door, cabin windows with frames; interior, pilot and passenger.
+  - Floats: aluminium V hulls with a step, white decks with dark walkways, bow bumpers, water rudders; N strut forward, ladder strut aft,
+    spreader bars, wires.
+  - Amphibious gear (from the Turbo Beaver photo): nose wheels swing up/forward into the float bows (+95°), mains up/back beside the floats
+    (−100°), animated with `gearPos` (4 s). Parts in `BEAVER_PARTS`; `R.beaverMesh` is built on first draw.
+  - Spec `PLB`: span 14.64, S 23.2, 2300 kg, 336 kW, cd0 0.034, a0 −0.07 (cambered wing), static thrust 6400 N, inertia [6500,11000,8200].
+  - **Plane generalised**: `Plane.kind` ('stag'|'beaver') and `Plane.K` (PL or PLB) replace the old global `PL.` inside `Plane`;
+    `Plane.choose()` asks which plane to fly once the Beaver is owned (Menu → Fly a plane, main menu Fly).
+  - **Water** (`Beaver.contact`): 8 keel points per float. Each point gets buoyancy 7270·d, planing lift 38·d·v², vertical damping,
+    drag along the float d·(6v² + 160·v·e^(−(v/11)²)) (planing about 6:1, plus a hump near 10 m/s), keel side force, and water rudders at
+    the sterns at taxi speed. `Beaver.waterY` follows the sea swell (`Sea.height`). There is spray from the bows and steps.
+    - Wheels down on water above 7 m/s noses over.
+    - Floats on hard ground slide (crash above 3.5 m/s sink).
+    - The 4 wheels work only on land, the nose wheels steered by the rudder pedals.
+  - Tested (seed 4242):
+    - at rest, a draft of 0.33 m at the step and 2.3° nose up;
+    - water take-off in 21 s and 389 m, lift-off at 125 km/h (the draft falls from 0.33 to 0.03 m on the step);
+    - a firm water landing (2.9 m/s sink) settles and stops;
+    - wheels down on the water noses over;
+    - a runway take-off with the wheels down in 14 s and 367 m;
+    - right water rudder turns about 6°/s at taxi power.
+- **Seaplane jetties**: village upgrade `jetty` (⚓, € 80.000, any level) when the Beaver is owned and `Air.jettySpot(v)` finds a shore
+  within 750 m with 1.2 m of water 24 m out and a straight run of 600 m of open water.
+  - Stored in `Air.list` with `water:true` (saved with `w,sx,sz`).
+  - `Air.jettyMesh`: plank walkway on piles, a floating T-head 18 m across with tyre fenders, a shed and a number board.
+  - `stripAt` finds a jetty when the Beaver is on the water within 32 m; crate jobs as for airstrips. Missions with a jetty fly the Beaver.
+  - The Staggerwing never spawns at a jetty. Tested: 10 of 16 villages offered one; a crate load at the jetty works.
+- **Statistics**: `Ledger.beaver` beside `Ledger.plane` (Planes tab lists both); income/crates/flights/km go to the plane being flown.
+- **After driving** (`RoadVeh.stopDriving`): the free camera starts exactly where the driving camera was and glides out over 1.8 s to
+  48 m and pitch 0.5 (`zoomOut`), then follows the vehicle. Tested: the eye moves 1.3 m at the switch, then dist 2.4 → 48 smoothly.
+- Pictures: checks/beaver-front34.png, beaver-side.png, beaver-rear34.png, beaver-nose.png, beaver-wheels-down.png, beaver-cockpit.png,
+  beaver-flying-orbit.png, beaver-runway.png, beaver-jetty.png, beaver-at-jetty.png.
+- Limits: the floats have no wheel wells cut into them (the retracted wheels sit in the open, as on many amphibians); no wake trail, only
+  spray; the cabin interior is simple.
+
+### Earlier (4.23.0, 16 Nov) — fleet: place on a road, route planner, map tabs, statistics, store, solid houses
 New file **js/fleet.js** (loaded after wild.js): `Ledger`, `Fleet`, `FleetUI`, `MapUI`, `StatsUI`, `Store`.
 - **Adding a bus or lorry** (Build → Roads → Add bus / Add lorry; "Add double-decker" is gone from the menu): `Fleet.startPlace` sets
   `Roads.tool='spawn'`; the next tap within 30 m of a road (`Roads.tap` → `Fleet.placed`) opens the planner. Nothing is bought yet.

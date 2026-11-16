@@ -224,7 +224,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
         s.p+=s.pv*h;s.r+=s.rv*h;s.h+=s.hv*h;}
       s.p=clamp(s.p,-0.09,0.09);s.r=clamp(s.r,-0.12,0.12);s.h=clamp(s.h,-0.08,0.08);}
     if(this.sel&&!Buses.list.includes(this.sel))this.close();
-    if(this.sel&&this.cam==='follow'){const b=this.sel,y=this.gy(b.x,b.z,b._gy)+1.5;Cam.mode='free';Cam.target[0]+=(b.x-Cam.target[0])*Math.min(1,dt*6);Cam.target[2]+=(b.z-Cam.target[2])*Math.min(1,dt*6);Cam.target[1]=y;}
+    if(this.sel&&this.cam==='follow'){const b=this.sel,y=this.gy(b.x,b.z,b._gy)+1.5;Cam.mode='free';{const z=this.zoomOut;if(z){z.t=Math.min(1,z.t+dt/1.8);const f=z.t*z.t*(3-2*z.t);Cam.dist=lerp(z.d0,z.d1,f);Cam.pitch=lerp(z.p0,z.p1,f);if(z.t>=1)this.zoomOut=null;}}Cam.target[0]+=(b.x-Cam.target[0])*Math.min(1,dt*6);Cam.target[2]+=(b.z-Cam.target[2])*Math.min(1,dt*6);Cam.target[1]=y;}
     this.tick();},
   // ---- picking a vehicle with a tap: the nearest on screen within a radius that grows as it comes closer
   pick(sx,sy){let best=null,bd=1e9;const cp=Cam.pos||[0,0,0];for(const b of Buses.list){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d>1500)continue;const q=Cam.toScreen(b.x,this.gy(b.x,b.z)+1.4*RV_SCALE,b.z);if(!q)continue;
@@ -256,7 +256,11 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   // water stops it. "Back to the route" hands it back: it plans from where it stands to its next stop and carries on.
   startDriving(b){if(Plane.on)Plane.exit();if(Build.active)Build.exit();if(Drive.active)Drive.exit();this.drv=b;b.manual=true;b.mv=b.st==='drive'?b.v:0;b.st='drive';b.queued=null;this.sel=b;
     this.setCam('chase');this.ui(true);UI.toast('You drive '+b.name+': joystick to steer and drive, or a controller (left stick, RT, LT)');this.refresh();},
-  stopDriving(){const b=this.drv;if(!b)return;b.manual=false;b.mv=0;b.v=0;b.path=null;b.st='drive';b.offRoad=false;this.drv=null;this.ui(false);if(this.sel)this.setCam('follow');UI.toast(b.name+' goes back to its route');this.refresh();},
+  /* stop driving: the free camera takes over exactly where the driving camera was (behind or in the cab), then glides out to a view from
+     above and behind and keeps following the vehicle back to its route */
+  stopDriving(){const b=this.drv;if(!b)return;b.manual=false;b.mv=0;b.v=0;b.path=null;b.st='drive';b.offRoad=false;this.drv=null;this.ui(false);
+    if(this.sel){const eye=(Cam.pos||[b.x,0,b.z]).slice(),gy=this.gy(b.x,b.z,b._gy)+1.5;this.setCam('follow');Cam.anim=null;Cam.target=[b.x,gy,b.z];const d=[eye[0]-b.x,eye[1]-gy,eye[2]-b.z],L=Math.max(2,Math.hypot(...d));
+      Cam.dist=L;Cam.pitch=clamp(Math.asin(clamp(d[1]/L,-1,1)),0.05,1.4);Cam.yaw=Math.atan2(d[0],d[2]);this.zoomOut={t:0,d0:L,d1:Math.max(48,L),p0:Cam.pitch,p1:0.5};}UI.toast(b.name+' goes back to its route');this.refresh();},
   ui(on){let el=$('#rvUI');if(!el){el=document.createElement('div');el.id='rvUI';el.innerHTML='<div id="rvHud"></div><div id="rvTop"><button data-a="min">🙈 Hide</button><button data-a="cam">📷 Camera</button><button data-a="horn">📯 Horn</button><button data-a="hop">⤒ Hop</button><button data-a="back" class="go">Back to the route</button></div><div id="rvStickWrap"><div id="rvStick"><div id="rvKnob"></div></div></div>';document.body.appendChild(el);
       el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='cam')this.nextCam();else if(t.dataset.a==='horn')this.horn();else if(t.dataset.a==='hop')this.hop();else if(t.dataset.a==='back')this.stopDriving();else if(t.dataset.a==='min'){const on=!document.body.classList.contains('rvmin');document.body.classList.toggle('rvmin',on);t.textContent=on?'👁 Show':'🙈 Hide';}});
       const st=el.querySelector('#rvStick'),kn=el.querySelector('#rvKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,Rr=r.width/2-14;let dx=(ev.clientX-cx)/Rr,dy=(ev.clientY-cy)/Rr;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}

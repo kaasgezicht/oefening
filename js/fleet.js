@@ -8,14 +8,16 @@
 //   Fleet    placing (tap a road), the route planner (list or map), the estimate of a round (time, passengers or cargo, income)
 //   MapUI    the tabs and route lists on the map, the stats panel with its graphs, the store
 // ===================================================================
-const Ledger={days:0,simT:0,acc:0,SAMPLE:60,MAXS:360,plane:{name:'Staggerwing',isPlane:true},
+const Ledger={days:0,simT:0,acc:0,SAMPLE:60,MAXS:360,plane:{name:'Staggerwing',isPlane:true},beaver:{name:'DHC-2 Beaver',isPlane:true},
+  /* the plane being flown */
+  flown(){return Plane.kind==='beaver'?this.beaver:this.plane;},
   /* a game year is four seasons of P.daysPerSeason days; with the clock stopped, no year passes */
   year(){return Math.floor(this.days/(4*Math.max(1,P.daysPerSeason|0||1)));},
   of(o){if(!o.led)o.led={tot:{},yr:{},ly:{},yi:this.year(),ser:[],acc:{}};return o.led;},
   add(o,k,v){if(!o||!v)return;const L=this.of(o);L.tot[k]=(L.tot[k]||0)+v;L.yr[k]=(L.yr[k]||0)+v;L.acc[k]=(L.acc[k]||0)+v;},
-  all(){return[...Buses.list,...Trains.list,this.plane];},
+  all(){return[...Buses.list,...Trains.list,this.plane,...(Fleet.unlocks.beaver?[this.beaver]:[])];},
   /* the levels sampled (not summed): how full it is, people or goods waiting along its route, the last round's time */
-  levels(o){if(o.isPlane)return{load:Air.cargo?100:0};if(Trains.list.includes(o)){const C=o.veh.filter(v=>v.k==='coach').length*SEATS,W=o.veh.filter(v=>v.k==='wagon');let l=0;if(C)l=(o.pax||[]).length/C;else if(W.length)l=W.reduce((a,w)=>a+(w.n||0),0)/(W.length*20);return{load:Math.round(l*100)};}
+  levels(o){if(o.isPlane)return{load:Air.cargo&&this.flown()===o?100:0};if(Trains.list.includes(o)){const C=o.veh.filter(v=>v.k==='coach').length*SEATS,W=o.veh.filter(v=>v.k==='wagon');let l=0;if(C)l=(o.pax||[]).length/C;else if(W.length)l=W.reduce((a,w)=>a+(w.n||0),0)/(W.length*20);return{load:Math.round(l*100)};}
     const R2=Buses.route(o),cap=RV[RoadVeh.type(o)].cap;if(o.goods){const used=Object.values(o.cargo||{}).reduce((a,c)=>a+(c.n||0),0);let w=0;for(const s of R2){const g=Goods.get('bs:'+s.id);for(const t in g)w+=g[t];}return{load:Math.round(used/16*100),wait:Math.round(w),rt:o.led&&o.led.lastRt||0};}
     let w=0;for(const s of R2)w+=s.waiting||0;return{load:Math.round((o.pax||[]).length/cap*100),wait:Math.round(w),rt:o.led&&o.led.lastRt||0};},
   tick(dt){this.simT+=dt;this.days+=dt*(+P.timeSpeed||0)/86400;const y=this.year();
@@ -166,14 +168,14 @@ const MapUI={tab:'all',TABS:[['all','All','map'],['bus','Buses','bus'],['lorry',
     if(!MapView.on||Fleet.draft){p.hidden=true;return;}p.hidden=false;{const bar=$('#mapBar');p.style.bottom=(bar&&!bar.hidden?innerHeight-bar.getBoundingClientRect().top+8:90)+'px';}const yr=o=>fmtE(o.led&&o.led.yr.inc||0),eye=o=>`<button data-a="eye" data-k="${this.key(o)}" aria-label="${o.mapHidden?'Show':'Hide'} on the map" class="ic2${o.mapHidden?'':' on'}">${svgIcon(o.mapHidden?'eyeOff':'eye')}</button>`,
       st=o=>`<button data-a="st" data-k="${this.key(o)}" aria-label="Numbers and graphs" class="ic2">${svgIcon('list')}</button>`,row=(o,col,sub)=>`<div class="ml-r"><i style="background:${col}"></i><div><b>${esc(o.name)}</b><span>${sub}</span></div>${eye(o)}${st(o)}</div>`;
     let h='';const B=Buses.list.filter(b=>!b.goods),Lo=Buses.list.filter(b=>b.goods);
-    if(this.tab==='all'){const sum=(L)=>fmtE(L.reduce((a,o)=>a+(o.led&&o.led.yr.inc||0),0));h+=`<div class="fp-cap">This year</div>`+[['bus','Buses',B],['lorry','Lorries',Lo],['train','Trains',Trains.list],['plane','Planes',Air.list.length?[Ledger.plane]:[]]].map(([k,n,L])=>`<button data-a="tab" data-t="${k}" class="ml-all">${svgIcon(this.TABS.find(q=>q[0]===k)[2])}<b>${n}</b><span>${L.length} · ${sum(L)}</span></button>`).join('');}
+    if(this.tab==='all'){const sum=(L)=>fmtE(L.reduce((a,o)=>a+(o.led&&o.led.yr.inc||0),0));h+=`<div class="fp-cap">This year</div>`+[['bus','Buses',B],['lorry','Lorries',Lo],['train','Trains',Trains.list],['plane','Planes',[...(Air.list.length?[Ledger.plane]:[]),...(Fleet.unlocks.beaver?[Ledger.beaver]:[])]]].map(([k,n,L])=>`<button data-a="tab" data-t="${k}" class="ml-all">${svgIcon(this.TABS.find(q=>q[0]===k)[2])}<b>${n}</b><span>${L.length} · ${sum(L)}</span></button>`).join('');}
     else if(this.tab==='bus'||this.tab==='lorry'){const L=this.tab==='bus'?B:Lo;h+=`<div class="ml-h"><span>${L.length} ${this.tab==='bus'?(L.length===1?'bus route':'bus routes'):(L.length===1?'lorry route':'lorry routes')}</span><button data-a="add" class="go">+ ${this.tab==='bus'?'Add bus':'Add lorry'}</button></div>`;
       h+=L.map(b=>row(b,Fleet.color(b),`${Buses.route(b).length} stops · ${esc(Buses.status(b))} · ${yr(b)} this year`)).join('')||`<div class="fp-note">None yet.</div>`;}
     else if(this.tab==='train')h+=Trains.list.map(t=>row(t,'#ff5a4a',`${t.veh.length-2} ${t.veh.some(v=>v.k==='coach')?'coaches':'wagons'} · ${yr(t)} this year`)).join('')||`<div class="fp-note">No trains yet.</div>`;
-    else h+=Air.list.length?row(Ledger.plane,'#ffe07a',`${Air.list.length} airstrip${Air.list.length>1?'s':''} · ${yr(Ledger.plane)} this year`):`<div class="fp-note">No airstrip yet: a town can buy one (tap the town).</div>`;
+    else{const nS=Air.list.filter(s=>!s.water).length,nJ=Air.list.length-nS;h+=row(Ledger.plane,'#ffe07a',`${nS} airstrip${nS===1?'':'s'} · ${yr(Ledger.plane)} this year`);if(Fleet.unlocks.beaver)h+=row(Ledger.beaver,'#f0a020',`${nJ} jett${nJ===1?'y':'ies'} · ${yr(Ledger.beaver)} this year`);if(!Air.list.length)h+=`<div class="fp-note">No airstrip yet: a town can buy one (tap the town).</div>`;}
     p.innerHTML=h;},
-  key(o){return o.isPlane?'p':Trains.list.includes(o)?'t'+o.id:'b'+o.id;},
-  byKey(k){if(k==='p')return Ledger.plane;if(k[0]==='t')return Trains.list.find(t=>t.id===+k.slice(1));return Buses.list.find(b=>b.id===+k.slice(1));},
+  key(o){return o===Ledger.beaver?'pb':o.isPlane?'p':Trains.list.includes(o)?'t'+o.id:'b'+o.id;},
+  byKey(k){if(k==='pb')return Ledger.beaver;if(k==='p')return Ledger.plane;if(k[0]==='t')return Trains.list.find(t=>t.id===+k.slice(1));return Buses.list.find(b=>b.id===+k.slice(1));},
   click(e){const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='tab'){this.tab=b.dataset.t;this.bar();this.list();return;}
     if(a==='add'){const g=this.tab==='lorry';MapView.close();Build.enter();Build.setTab('roads');Fleet.startPlace(g);return;}
     const o=this.byKey(b.dataset.k);if(!o)return;if(a==='eye'){o.mapHidden=!o.mapHidden;this.list();}else if(a==='st')StatsUI.open(o);}};
@@ -228,9 +230,9 @@ const StatsUI={el:null,o:null,ch:null,
 // ===================================================================
 // the store: upgrades and purchases (the double-decker for now)
 // ===================================================================
-const Store={el:null,ITEMS:[{id:'dd',name:'Double-decker',price:300000,desc:'The 1930s double-decker bus: 60 seats instead of 24, for busy routes between towns. After this, a new bus can be bought as a double-decker (€ 55.000 each).'}],
+const Store={el:null,ITEMS:[{id:'beaver',name:'DHC-2 Beaver (amphibian)',price:450000,desc:'The de Havilland Canada bush plane on amphibious floats: it lands on lakes and the sea as well as on airstrips, with wheels that fold into the floats. Villages on open water can then build a seaplane jetty for cargo flights. Choose it whenever you fly.'},{id:'dd',name:'Double-decker',price:300000,desc:'The 1930s double-decker bus: 60 seats instead of 24, for busy routes between towns. After this, a new bus can be bought as a double-decker (€ 55.000 each).'}],
   open(){let p=this.el;if(!p){p=this.el=document.createElement('div');p.id='storePanel';p.className='fp';document.body.appendChild(p);p.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='x')this.close();else if(b.dataset.a==='buy')this.buy(b.dataset.id);});}p.hidden=false;this.refresh();},
   close(){if(this.el)this.el.hidden=true;},
   buy(id){const it=this.ITEMS.find(q=>q.id===id);if(!it||Fleet.unlocks[id])return;if(Money.on()){if(Money.cash<it.price){UI.toast(`Not enough money: ${it.name} costs ${fmtE(it.price)}`);return;}Money.spend(it.price,it.name);}
-    Fleet.unlocks[id]=true;UI.toast(`${it.name} bought: choose it when you add a bus`);this.refresh();},
+    Fleet.unlocks[id]=true;UI.toast(id==='beaver'?'The Beaver is yours: tap Fly and choose it. Villages on open water now offer a seaplane jetty':`${it.name} bought: choose it when you add a bus`);if(id==='beaver')for(const v of Life.villages)v._jsp=undefined;this.refresh();},
   refresh(){const p=this.el;if(!p)return;p.innerHTML=`<div class="fp-h"><div><b>Store</b><span>upgrades and purchases</span></div><button data-a="x" aria-label="Close">✕</button></div>`+this.ITEMS.map(it=>`<div class="sto-i"><div><b>${it.name}</b><span>${it.desc}</span></div>${Fleet.unlocks[it.id]?'<em>Owned</em>':`<button data-a="buy" data-id="${it.id}" class="go">${fmtE(it.price)}</button>`}</div>`).join('')+`<div class="fp-note">More upgrades will come here.</div>`;}};
