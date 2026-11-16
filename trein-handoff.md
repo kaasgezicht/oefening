@@ -1,4 +1,4 @@
-# Trein handoff 81 (15 Nov 2026): v4.22.0 — country roads re-planned in separate steps (route, shape, height profile, labels), a fixed tunnel portal kit, tunnel camera fixes; next: plan step 7 (footbridge)
+# Trein handoff 82 (16 Nov 2026): v4.23.0 — buses and lorries placed on a road with a route planner (list or map, estimates), map tabs with route statistics and graphs, a store (double-decker), solid houses; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,45 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.22.0, 15 Nov) — country roads planned in steps (the user: the tunnels and bridges "don't look good, make sure they really work")
+### Latest (4.23.0, 16 Nov) — fleet: place on a road, route planner, map tabs, statistics, store, solid houses
+New file **js/fleet.js** (loaded after wild.js): `Ledger`, `Fleet`, `FleetUI`, `MapUI`, `StatsUI`, `Store`.
+- **Adding a bus or lorry** (Build → Roads → Add bus / Add lorry; "Add double-decker" is gone from the menu): `Fleet.startPlace` sets
+  `Roads.tool='spawn'`; the next tap within 30 m of a road (`Roads.tap` → `Fleet.placed`) opens the planner. Nothing is bought yet.
+- **Planner** (`FleetUI`, #fleetPanel), List or Map (switchable, the selection is kept):
+  - Destinations: known villages; lorries also owned sawmills and wood workshops (`Fleet.cands`). Places without a stop get one when
+    bought (a village stop via `Explore.autoStop`, € 8.000; a loading bay with its access road at an industry slot, € 12.000).
+  - Buses: the shortest round trip by road (all orders up to 8 stops, else nearest-neighbour + 2-opt), starting at the stop nearest the
+    vehicle. Lorries: the order they were ticked in, ↑↓ to change, a "Shortest order" button; each stop shows what it makes (/min) and takes.
+  - Each leg: road distance, driving time (`legT`: L/11 m/s × 1.15 + 9.2 s), stop time (8 s bus, 11 double-decker, 10 lorry, 36 at a bay).
+  - Estimate (`Fleet.estimate`): one round followed three times. People pile up at each stop at the game's rate (0.05·people·(1+0.9·level)/s,
+    capped 16+12·level) for the round's time, split between the vehicles serving that stop; it boards what fits; fares by `Money.fare`
+    (distance, trip time). Lorries: `Goods.src` rates, the lorry's own loading rules, pay units × km × rate. Warnings: more waiting than
+    fits (add a vehicle), shared stops, legs with no road.
+  - Map: rings round every candidate (gold with its number when chosen), the route in white over the roads, the start as a square; tap
+    toggles; eyes per other route. The camera frames the area.
+  - Tested against the simulation (seed 4242, 5 stops, 17.5 km): estimate 32:00 min and € 25.4k per round; simulated rounds 30:41 min and
+    € 28–30k (rounds 2–5). So time +4%, income about −12%.
+- **Map** (#mapBar): tabs All · Buses · Lorries · Trains · Planes (`MapUI`), store icon, close. Per tab a list (#mapList): each route with
+  its colour (golden-angle hues: buses blue–violet, lorries orange–red, lorries dotted), an eye (SVG `eye`/`eyeOff`, `o.mapHidden`) and a
+  list button (statistics). "+ Add bus/lorry" from the list. All: this year's income per kind.
+- **Statistics** (`Ledger`, `StatsUI`): per bus, lorry, train and the plane: income, passengers, goods (units), km, rounds, stops served
+  (plane: crates, flights). Columns this game year, last game year, in all, plus income/km, income/round, passengers or goods/round. Levels:
+  seats taken / load %, people or goods waiting along the route, time of a round (now and average). Running costs show "—" (not in the
+  game yet). A sample every 60 s of play, at most 360 per vehicle (older pairs merged). Game year = 4 seasons × days per season, counted
+  from the clock (`Ledger.days`). A tap on a number draws its graph at the top of the panel (running totals; levels as sampled), with a
+  readout under the finger.
+- **Store** (`Store`, map bar): the double-decker for € 300.000 unlocks buying double-deckers (bus/double-decker choice in the planner);
+  existing buses stay. `Fleet.unlocks` is saved.
+- **Saved**: `fleet:{unlocks,days,simT,plane,planeHid}`, and per bus/lorry/train `led` and `hid`.
+- **Houses are solid** for a vehicle you drive (`RoadVeh.hitsHouse`: 7 points of its outline against each plot less 0.8 m): it stops
+  against the wall, rocks back, clunks. Tested: a lorry driven at a house stops at the garden edge; 0 of 2142 points along all village
+  streets are blocked. The "Into the water" toast is gone.
+- Pictures: checks/fleet-planner-list.png, fleet-planner-map.png, fleet-lorry-planner.png, fleet-map-buses.png, fleet-stats-graph.png,
+  fleet-store.png, fleet-map-phone.png.
+- Not done / limits: running costs; the plane's route has no planner (one plane); trains have statistics but no route planner. Lorries
+  carry at most 4 of each kind per stop when loading (the existing rule), so their warning about goods piling up shows often.
+
+### Earlier (4.22.0, 15 Nov) — country roads planned in steps (the user: the tunnels and bridges "don't look good, make sure they really work")
 The old planner chose the route, the bridges and tunnels and their heights in one A* search; later steps patched round its choices (portals
 moved inward, profiles shared, clash re-plans) and tangles followed (one road threading four tunnels through one hill, a lorry stuck at a
 junction). At the user's request it was rebuilt as separate steps in a new file, **js/roadplan.js** (`RoadPlan`, loaded after life.js;

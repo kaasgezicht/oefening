@@ -1118,7 +1118,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
             const fp=this.farPlat(psi),rp=this.farRamp(psi).reverse();w.bp=[dp[1],dp[0],...this.fbPathTo(psi,k,fp),...rp];
             const st0=w.bp[w.bp.length-1],pth=this.vpath(psi.v,[st0[0],st0[1]],[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}
           else if(psi.road)w.wp=psi.road.slice();else{const fc=this.stW(psi,this.stDoorX(psi),this.stBack(psi)+3.2),pth=this.vpath(psi.v,fc,[w.tx,w.tz]);if(pth&&pth.length>1)w.wp=pth;}}else{const o=this.stW(psi,this.stDoorX(psi)+(Math.random()-0.5)*20,this.stBack(psi)+25);w.tx=o[0];w.tz=o[1];}this.walkers.push(w);}else stay.push(p);}
-    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);tr.pax=stay;
+    if(inc>0)Money.earn(Math.round(inc),`${tr.name} → ${si.st.name}`,si.x,si.y,si.z);Ledger.add(tr,'inc',Math.round(inc));Ledger.add(tr,'pax',off);tr.pax=stay;
     // seats free in the coaches at the platform
     const free=new Map(fresh.map(i=>[i,SEATS-tr.pax.filter(p=>p.ci===i).length]));let board=0;const pick=()=>{let b=-1,bv=0;for(const [i,n] of free)if(n>bv){bv=n;b=i;}return b;};
     for(const w of this.walkers){if(!(w.st&&w.st.st.id===psi.st.id&&(w.state==='wait'||(w.state==='toStation'&&w.inDone&&!w.bp))))continue;const c=pick();if(c<0)break;free.set(c,free.get(c)-1);

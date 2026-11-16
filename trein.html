@@ -46,7 +46,7 @@
 <div class="mm-page" data-p="quality" hidden><div class="mm-h">Quality</div><div class="mm-row mm-chips" id="mmPreset"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
  <div class="mm-grid"><label>Building detail distance<input type="range" id="mmq_kitLod" min="0.1" max="2" step="0.05"></label><label>Render scale<input type="range" id="mmq_renderScale" min="0.3" max="1" step="0.05"></label></div>
  <div class="mm-note">More in All settings › Quality.</div><button class="mm-b" id="mmBack3">Back</button></div>
-</div></div><div id="mapBar" hidden><span id="mapTitle">Map</span><span id="mapLegend"></span><button id="mapClose">✕ Close map</button></div>
+</div></div><div id="mapBar" hidden><span id="mapTabs"></span><button id="mapStore" class="ic2" aria-label="Store" title="Store"></button><button id="mapClose" aria-label="Close the map">✕<span class="lbl"> Close</span></button><span id="mapLegend"></span></div>
 <div id="cornerBox"><button id="btnFF" class="corner" aria-label="Fast forward">1×</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button><button id="btnSound" class="corner" data-ic="soundOff">Sound off</button></div>
 <div id="skySheet" hidden>
   <h4>Time of day</h4><input type="range" id="skyTime" min="0" max="24" step="0.05">
@@ -72,7 +72,7 @@
     <div class="chips" id="pSlope"><span class="seg slope"><button data-slope="down2" title="Steep down">⇊</button><button data-slope="down" title="Down">↘</button><button data-slope="level" title="Level">→</button><button data-slope="auto" data-ic="follow">Follow the ground</button><button data-slope="up" title="Up">↗</button><button data-slope="up2" title="Steep up">⇈</button></span></div>
     <div class="tools"><button id="pNew" data-ic="newLine">New line</button><button id="pBranch" data-ic="junction">Junction</button><button id="pDemolish" data-ic="demolish">Demolish</button><button id="pPlace" class="go big keepcap" data-ic="place">Place</button></div>
   </div>
-  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="build" data-ic="roads">Build road</button><button data-rtool="stop" data-ic="busStop">Bus stop</button><button data-rtool="remove" data-ic="eraser">Remove road or stop</button></span></div><div class="tools"><button id="rAddBus" class="go add" data-ic="bus">Add bus</button><button id="rAddDD" class="add" data-ic="bus">Add double-decker</button><button id="rAddLorry" class="add" data-ic="lorry">Add lorry (Opel Blitz)</button><button id="rBusList" data-ic="list">Bus list</button><button id="rAirstrip">🛩️ Airstrip</button></div></div>
+  <div id="mRoads" hidden><div class="chips"><span class="seg"><button data-rtool="build" data-ic="roads">Build road</button><button data-rtool="stop" data-ic="busStop">Bus stop</button><button data-rtool="remove" data-ic="eraser">Remove road or stop</button></span></div><div class="tools"><button id="rAddBus" class="go add" data-ic="bus">Add bus</button><button id="rAddLorry" class="add" data-ic="lorry">Add lorry (Opel Blitz)</button><button id="rBusList" data-ic="list">Bus list</button><button id="rAirstrip">🛩️ Airstrip</button></div></div>
   <div id="mSignals" hidden><div class="chips"><span class="seg"><button data-sig="signal" data-ic="signals">Signal</button><button data-sig="station" data-ic="station">Station</button><button data-sig="longer" data-ic="longer">Longer platform</button><button data-sig="shorter" data-ic="shorter">Shorter platform</button><button data-sig="remove" data-ic="eraser">Remove signal or station</button></span></div></div>
   <div class="tools" id="bChoice" hidden><button id="cA" class="go">A</button><button id="cB">B</button><button id="cC">C</button></div>
   <div id="mRoute" hidden><div class="chips"><span class="seg"><button data-prefer="scenic" data-ic="roadBend">Scenic (hug the land)</button><button data-prefer="direct" data-ic="direct">Direct</button><button data-prefer="tunnel" data-ic="tunnel" class="trkOnly">Tunnels</button><button data-prefer="surface" data-ic="surface" class="trkOnly">Surface</button></span><button id="rClear" class="tog" data-ic="restart">Start the route over</button></div></div>
@@ -141,6 +141,7 @@
 <script src="js/air.js"></script>
 <script src="js/sea.js"></script>
 <script src="js/wild.js"></script>
+<script src="js/fleet.js"></script>
 <script src="js/main.js"></script>
 <script src="js/bench.js"></script>
 <script>/* installable app: register the service worker when served over http(s) (GitHub Pages); a file:// or content:// page cannot */

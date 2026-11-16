@@ -265,6 +265,9 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     el.hidden=!on;document.body.classList.toggle('roaddrive',on);if(!on)document.body.classList.remove('rvmin');},
   hud(){const b=this.drv,el=$('#rvHud');if(!el)return;el.innerHTML=`<b>${Math.round(Math.abs(b.mv||0)/RV_SCALE*3.6)}</b> km/h${(b.mv||0)<-0.3?' · reverse':''}${b.offRoad?' · off the road':''} · ${esc(b.name)}`;},
   /* a hop: up it goes (about 1.2 m), no grip in the air (no throttle or brake, a little steering), and the springs take the landing */
+  /* a vehicle's outline (half length, half width) at x,z heading rot against the houses' plots: front and back corners and mid sides */
+  hitsHouse(x,z,rot,hl,hw){const c=Math.cos(rot),sn=Math.sin(rot);for(const h of Life.houses){if(h.gone||!h.rect||Math.abs(h.x-x)>hl+h.r+4||Math.abs(h.z-z)>hl+h.r+4)continue;if(!Life.plotOn(h))continue;
+      for(const [u,w] of [[hl,-hw],[hl,0],[hl,hw],[-hl,-hw],[-hl,hw],[0,-hw],[0,hw]])if(VG.inRect(h.rect,x+c*u-sn*w,z+sn*u+c*w,-0.8))return true;}return false;},/* the plot less its hedge line, so a street past the gate stays free */
   hop(){const b=this.drv;if(!b||(b.hz||0)>0.02)return;b.hvz=4.9;b.hz=0.03;},
   horn(){const c=Sfx.ctx;if(!c||!Sfx.on)return;const t=c.currentTime,g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.03);g.gain.setValueAtTime(0.18,t+0.45);g.gain.linearRampToValueAtTime(0,t+0.55);g.connect(Sfx.master);
     for(const f of [392,494]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;o.connect(lp);lp.connect(g);o.start(t);o.stop(t+0.6);}},
@@ -292,5 +295,5 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
        the side) is not made; it scrapes along and slows. Off the structures, or in the air after a hop, nothing holds it */
     const yNow=b._gy,yNew=this.gy(nx,nz,yNow),onStruct=yNow!=null&&(Life.deckY(b.x,b.z,yNow)>-1e8&&Math.abs(Life.deckY(b.x,b.z,yNow)-yNow)<0.6||(Life.tunY(b.x,b.z)!=null&&Math.abs(Life.tunY(b.x,b.z)-yNow)<0.6)||(Life.roadY(b.x,b.z,yNow)!=null&&R.drawnH(T,b.x,b.z)<yNow-1.5));
     if(onStruct&&!air&&yNew<yNow-1.5){v*=0.6;b.rot=nr;if(Math.abs(v)>2&&!b.railToast){b.railToast=true;UI.toast('The parapet holds you');setTimeout(()=>b.railToast=false,3000);}}
-    else if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(!inW&&water(ahead[0],ahead[1])&&Math.abs(v)>2&&!b.wetToast){b.wetToast=true;UI.toast('Into the water: it floats, slowly');}b.x=nx;b.z=nz;b.rot=nr;}
-    b.mv=v;b.v=Math.abs(v);b._gy=this.gy(b.x,b.z,b._gy);}};
+    else if(ahead[0]<10||ahead[1]<10||ahead[0]>T.W-10||ahead[1]>T.W-10){if(Math.abs(v)>1)UI.toast('The edge of the world');v=0;}else{if(this.hitsHouse(nx,nz,nr,S.len*k*0.5,1.25*k)){/* houses are solid: it stops against the wall and rocks back a little */if(Math.abs(v)>1.5){if(Sfx.clunk)Sfx.clunk();if(b._s)b._s.pv+=0.25*Math.sign(v);}v=-v*0.2;}else{b.x=nx;b.z=nz;b.rot=nr;}}
+    b.mv=v;b.v=Math.abs(v);b._gy=this.gy(b.x,b.z,b._gy);Ledger.add(b,'km',Math.abs(v)*dt/1000);}};

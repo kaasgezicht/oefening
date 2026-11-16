@@ -737,7 +737,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(Math.abs(ds)>0){const front=ds>0?tr.head:advance(tr.head,-this.length(tr.veh)+COUPLE).pos;// the end leading the motion
       const a=advance(front,ds,tr,true);
       if(a.blocked){if(Math.abs(tr.v)>2.5){UI.toast(`${tr.name} hit the buffers at ${(Math.abs(tr.v)*3.6).toFixed(0)} km/h`);Sfx.crash(tr);tr.shake=0.6;}tr.v=0;}
-      else{if(ds>0)tr.head=a.pos;else tr.head=advance(a.pos,this.length(tr.veh)-COUPLE).pos;tr.dist+=ds;}}
+      else{if(ds>0)tr.head=a.pos;else tr.head=advance(a.pos,this.length(tr.veh)-COUPLE).pos;tr.dist+=ds;Ledger.add(tr,'km',Math.abs(ds)/1000);}}
     this.place(tr);tr.shake=Math.max(0,tr.shake-dt);
     // exhaust beats: 4 per driving-wheel turn
     const per=2*Math.PI*locoSpec(tr).R/4,b=Math.floor(Math.abs(tr.dist)/per);
@@ -753,7 +753,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     for(const pa of A.poses)for(const pb of B.poses){if(!pa||!pb)continue;if(Math.hypot(pa.c[0]-pb.c[0],pa.c[1]-pb.c[1],pa.c[2]-pb.c[2])<9){
       if(Math.abs(A.v)+Math.abs(B.v)>1.5){UI.toast(`${A.name} and ${B.name} collided!`);Sfx.crash(A);A.shake=B.shake=0.8;}
       const rel=A.v-B.v;A.v=B.v=0;return;}}}},
-  serialize(){return this.list.map(t=>({head:t.head,lt:t.veh[0].lt||undefined,cars:t.veh.length-2,livery:t.veh[2]&&t.veh[2].k==='coach'?t.veh[2].mesh-2:0,autoKmh:t.autoKmh,name:t.name,
+  serialize(){return this.list.map(t=>({head:t.head,lt:t.veh[0].lt||undefined,cars:t.veh.length-2,livery:t.veh[2]&&t.veh[2].k==='coach'?t.veh[2].mesh-2:0,autoKmh:t.autoKmh,name:t.name,led:Ledger.save(t),hid:!!t.mapHidden,
     cons:t.veh.slice(2).map(v=>v.k==='wagon'?{w:v.ctype,n:Math.round((v.n||0)*100)/100,fx:v.fx,fz:v.fz,from:v.from}:{c:v.mesh-2})}));},
   // a vehicle for the wagon editor: 'coach' (livery 0/1) or a goods wagon kind
   car(kind,livery,n){if(kind==='coach')return{k:'coach',...VEH.coach,mesh:2+(livery|0)};if(ORE[kind])return{k:'wagon',...VEH.ore,mesh:21,ctype:kind,n:n||0};const T=['grain','produce','mail','wood'],t=Math.max(0,T.indexOf(kind));return{k:'wagon',...VEH.wagon,mesh:6+t,ctype:T[t],n:n||0};},
@@ -761,7 +761,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(advance(t.head,-this.length(veh)).blocked){UI.toast(`No room behind ${t.name} for another ${kind==='coach'?'coach':'wagon'}`);return;}t.veh=veh;this.place(t);Drive.refresh();},
   removeCar(tr){const t=tr||this.cur();if(!t)return;if(t.veh.length<=2){UI.toast(`${t.name} has no wagons left`);return;}t.veh.pop();t.poses.length=t.veh.length;this.place(t);Drive.refresh();},
   load(d){this.list=[];this.sel=-1;if(!d)return;for(const o of d){if(!segById(o.head.sid))continue;const veh=o.cons?[...this.consist(0,0,o.lt),...o.cons.map(q=>{if(q.w){const v=this.car(q.w,0,q.n);v.fx=q.fx;v.fz=q.fz;v.from=q.from;return v;}return this.car('coach',q.c);})]:this.consist(o.cars,o.livery,o.lt);
-    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};
+    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};Ledger.load(tr,o.led);tr.mapHidden=!!o.hid;
     this.list.push(tr);this.place(tr);Money.paidTr.add(tr.id);/* already paid for when it was bought (loading a save charged it again before 4.14.0) */}this.sel=this.list.length?0:-1;},
   rerail(){const t=this.cur();if(!t)return;t.derailed=false;t.v=0;t.derailT=0;this.place(t);UI.toast('Back on the rails');}
 };

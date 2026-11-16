@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.22.0 (country roads planned in steps: route, shape, height profile, labels; tunnel portal kit; tunnel camera fixes)';
+const VERSION='4.23.0 (buses and lorries placed on a road with a route planner, map tabs with route statistics and graphs, store, solid houses)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -360,6 +360,10 @@ const ICONS=(()=>{const F=' fill="currentColor" stroke="none"';
     list:`<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4.5" cy="6" r="1.3"${F}/><circle cx="4.5" cy="12" r="1.3"${F}/><circle cx="4.5" cy="18" r="1.3"${F}/>`,
     loco:loco,
     wagon:`<path d="M3 5.5h18v10H3zM1.5 15.5h21"/><path d="M9.5 5.5v10M14.5 5.5v10" stroke-width="1.4"/><circle cx="7" cy="18.5" r="2"/><circle cx="17" cy="18.5" r="2"/>`,
+    eye:`<path d="M1.8 12C4.5 7.2 8 5 12 5s7.5 2.2 10.2 7c-2.7 4.8-6.2 7-10.2 7s-7.5-2.2-10.2-7z"/><circle cx="12" cy="12" r="3.2"/>`,
+    eyeOff:`<path d="M1.8 12C4.5 7.2 8 5 12 5s7.5 2.2 10.2 7c-2.7 4.8-6.2 7-10.2 7s-7.5-2.2-10.2-7z" opacity=".45"/><path d="M3.5 3.5l17 17"/>`,
+    store:`<path d="M3.5 9.5L5 4h14l1.5 5.5"/><path d="M3.5 9.5a2.8 2.8 0 0 0 5.6 0 2.8 2.8 0 0 0 5.8 0 2.8 2.8 0 0 0 5.6 0"/><path d="M5 12.2V20h14v-7.8M10 20v-5h4v5"/>`,
+    plane:`<path d="M2 12h20M12 5.5v13M9 5.5h6M9 18.5h6M19 9.5l2.5 2.5-2.5 2.5"/><path d="M3.5 10v4"/>`,
     goTo:`<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"${F}/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/>`,
   };})();
 function svgIcon(n){return'<svg class="i" viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[n]||'')+'</svg>';}
@@ -476,12 +480,12 @@ const Goods={T:{grain:{icon:'🌾',rate:60},produce:{icon:'🥕',rate:80},mail:{
   tick(dt){this.acc+=dt;if(this.acc<1)return;const a=this.acc*P.goodsRate;this.acc=0;const pts=[];for(const si of Life.stInfo||[])pts.push(['st:'+si.st.id,si.x,si.z,si.st]);for(const s of Buses.stops)pts.push(['bs:'+s.id,s.x,s.z,s]);
     for(const [k,x,z,o] of pts){const S=this.get(k),r=this.src(x,z);if(o.sawmill){const m=Crane.ind('sawmill',o.sawmill);if(m&&Life.indOn('sawmill',m))r.wood+=0.18;}if(o.mine){const m=Crane.ind('mine',o.mine);if(m&&Life.indOn('mine',m))r[m.type]+=0.16;}if(o.farm){const fm=Life.farmOf(o);if(fm&&fm.v.farmOwned)r.grain+=0.22;}for(const t in r)S[t]=Math.min(60,S[t]+r[t]*a);}},
   deliver(k,x,z,v,hold,where,label){let pay=0,units=0;const parts=[];for(const t in hold){const c=hold[t];if(!c||c.n<1||c.from===k||!(t==='wood'?this.woodSink(k,x,z):this.accepts(v,t)))continue;const km=(Math.abs(x-c.fx)+Math.abs(z-c.fz))/1000;pay+=c.n*km*this.T[t].rate*P.fareRate;units+=c.n;parts.push(`${Math.floor(c.n)} ${this.T[t].icon}`);c.n=0;}
-    this.lastPay=(this.lastPay||0)+(Money.on()&&units?Math.round(pay):0);if(units){if(Money.on()&&pay>0)Money.earn(Math.round(pay),`${label} → ${where}`,x,R.sampleHr(R.world,x,z),z);if(v)Life.addGrowth(v,units*0.6);Icons.add(x,R.sampleHr(R.world,x,z)+4,z,'−'+parts.join(' '));}return units;},
+    this.lastPay=(this.lastPay||0)+(Money.on()&&units?Math.round(pay):0);this.lastUnits=(this.lastUnits||0)+units;if(units){if(Money.on()&&pay>0)Money.earn(Math.round(pay),`${label} → ${where}`,x,R.sampleHr(R.world,x,z),z);if(v)Life.addGrowth(v,units*0.6);Icons.add(x,R.sampleHr(R.world,x,z)+4,z,'−'+parts.join(' '));}return units;},
   load(k,x,z,hold,caps){const S=this.get(k),parts=[];for(const t in caps){const c=hold[t]||(hold[t]={n:0,fx:x,fz:z,from:k});const take=Math.min(caps[t]-c.n,Math.floor(S[t]));if(take<1)continue;if(c.n<1){c.fx=x;c.fz=z;c.from=k;}c.n+=take;S[t]-=take;parts.push(`${take} ${this.T[t].icon}`);}
     if(parts.length)Icons.add(x,R.sampleHr(R.world,x,z)+5,z,'+'+parts.join(' '));},
   trainStop(tr,si){const k='st:'+si.st.id,crane=!!(si.st.sawmill||si.st.workshop),mn=si.st.mine?Crane.ind('mine',si.st.mine):null,skip=w=>(crane&&w.ctype==='wood')||(mn&&w.ctype===mn.type)||(si.st.farm&&w.ctype==='grain'),hold={},caps={};for(const w of tr.veh)if(w.k==='wagon'&&!skip(w)){hold[w.ctype]=hold[w.ctype]||{n:0,fx:si.x,fz:si.z,from:null};}
     const W=tr.veh.filter(w=>w.k==='wagon'&&!skip(w));for(const t in hold){const ws=W.filter(w=>w.ctype===t);const n=ws.reduce((a,w)=>a+(w.n||0),0);if(n>0){hold[t]={n,fx:ws[0].fx,fz:ws[0].fz,from:ws[0].from};}caps[t]=ws.length*20;}
-    this.deliver(k,si.x,si.z,si.v,hold,si.st.name,tr.name);this.load(k,si.x,si.z,hold,caps);
+    {const p0=this.lastPay||0,u=this.deliver(k,si.x,si.z,si.v,hold,si.st.name,tr.name);Ledger.add(tr,'inc',(this.lastPay||0)-p0);Ledger.add(tr,'cargo',u);}this.load(k,si.x,si.z,hold,caps);
     for(const t in hold){let left=hold[t].n;for(const w of W.filter(w=>w.ctype===t)){w.n=Math.min(20,left);left-=w.n;w.fx=hold[t].fx;w.fz=hold[t].fz;w.from=hold[t].from;}}},
   lorryStop(b,s){const k='bs:'+s.id;b.cargo=b.cargo||{};this.deliver(k,s.x,s.z,s.v,b.cargo,s.name,b.name);const used=Object.values(b.cargo).reduce((a,c)=>a+(c.n||0),0),free=Math.max(0,16-used),caps={};
     for(const t of ['mail','produce','grain','wood'])caps[t]=(b.cargo[t]?b.cargo[t].n:0)+Math.floor(free/4);this.load(k,s.x,s.z,b.cargo,caps);},
@@ -509,10 +513,11 @@ const Roads={list:[],tool:'build',a:null,undoL:[],nid:0,ver:0,
     let L=0;for(let k=1;k<pts.length;k++)L+=Math.hypot(pts[k][0]-pts[k-1][0],pts[k][1]-pts[k-1][1]);const r={p:pts.flat(),w:1.4,kind:1,player:true,id:++this.nid};this.list.push(r);this.ver++;
     Life.roadsDirty=true;Buses.G=null;Buses.legCache=null;if(Money.on())Money.spend(Math.round(L*45),'road');Log.info(`road built (${Build.mode}): ${L.toFixed(0)} m`);Sfx.clunk&&Sfx.clunk();return r;},
   undo(){const u=this.undoL.pop();if(!u){UI.toast('Nothing to undo');return false;}this.list=JSON.parse(u).map(r=>({...r,player:true}));this.nid=Math.max(this.nid,...this.list.map(r=>r.id||0));this.ver++;Life.roadsDirty=true;Buses.G=null;Buses.legCache=null;return true;},
-  hint(){return this.tool==='build'?'':this.tool==='stop'?'Tap on a road to put a bus stop there (near a village, people will come).':this.tool==='remove'?'Tap a road you built, or a bus stop, to remove it.':this.a?'Tap the next point. The road continues from the last one; ↺ starts it somewhere else.':'Tap where the road should start (on an existing road joins it).';},
+  hint(){return this.tool==='spawn'?(this.spawn&&this.spawn.goods?'Tap a road where the new lorry should start.':'Tap a road where the new bus should start.'):this.tool==='build'?'':this.tool==='stop'?'Tap on a road to put a bus stop there (near a village, people will come).':this.tool==='remove'?'Tap a road you built, or a bus stop, to remove it.':this.a?'Tap the next point. The road continues from the last one; ↺ starts it somewhere else.':'Tap where the road should start (on an existing road joins it).';},
   nearestRoad(x,z,maxd){let best=null,bd=maxd;const LR=Life.roads||[];for(const r of LR.concat(this.list.filter(q=>!LR.includes(q)))){if(r.disc)continue;const p=r.p;for(let i=0;i+3<p.length;i+=2){const ax=p[i],az=p[i+1],ex=p[i+2]-ax,ez=p[i+3]-az,ll=ex*ex+ez*ez;if(ll<1e-6)continue;const t=clamp(((x-ax)*ex+(z-az)*ez)/ll,0,1),qx=ax+ex*t,qz=az+ez*t,d=Math.hypot(x-qx,z-qz);
       if(d<bd){bd=d;const l=Math.sqrt(ll);best={x:qx,z:qz,dx:ex/l,dz:ez/l,w:r.w,road:r};}}}return best;},
   tap(h){if(!h)return;const T=R.world;
+    if(this.tool==='spawn'){Fleet.placed(h);return;}
     if(this.tool==='stop'){const sw=Life.nearSawSlot(h[0],h[2],32);if(sw&&sw.kind==='mine'){UI.toast('Ore goes by rail: build a station at the mine');return;}if(sw&&sw.kind==='farm'){UI.toast('Grain goes by rail: build a station at the farm');return;}if(sw&&!Buses.stops.some(q=>q[sw.kind]&&q[sw.kind].mi===sw.mi&&q[sw.kind].k===sw.k)){const sl=sw.slot,dx=Math.cos(sl.t),dz=Math.sin(sl.t);
         const nr=this.nearestRoad(sl.p[0],sl.p[1],400);if(nr&&Math.hypot(nr.x-sl.p[0],nr.z-sl.p[1])>4){const pts=Life.routePath([sl.p[0],sl.p[1]],[nr.x,nr.z],{cs:5,margin:60,bridge:true,wind:0.1,road:0.6,maxG:0.32});if(pts){this.list.push({p:pts.flat(),w:1.4,kind:1,player:true});}}
         this.list.push({p:[sl.p[0]-dx*10,sl.p[1]-dz*10,sl.p[0]+dx*10,sl.p[1]+dz*10],w:2.2,kind:1,player:true});Life.roadsDirty=true;
@@ -548,7 +553,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   stopAdded(s){for(const b of this.list)if(b.allStops&&(b.goods||!this.isCargo(s)))b.stops.push(s.id);this.legCache=null;BusUI.refresh();},
   stopRemoved(s){for(const b of this.list){const i=b.stops.indexOf(s.id);if(i>=0){b.stops.splice(i,1);if(b.leg>i||b.leg>=b.stops.length)b.leg=Math.max(0,b.leg-1);b.path=null;}}this.legCache=null;BusUI.refresh();},
   edited(b){b.allStops=false;b.path=null;if(b.leg>=b.stops.length)b.leg=0;this.legCache=null;BusUI.refresh();},
-  restore(){if(this.pendingList){for(const q of this.pendingList){const b=this.make(q.goods,q.name,q.stops,this.list.length);b.allStops=!!q.allStops;if(q.type==='dd')b.type='dd';b.earned=+q.earned||0;b.trips=+q.trips||0;if(b.stops.length)this.list.push(b);}this.pendingList=null;this.pending=0;}
+  restore(){if(this.pendingList){for(const q of this.pendingList){const b=this.make(q.goods,q.name,q.stops,this.list.length);b.allStops=!!q.allStops;if(q.type==='dd')b.type='dd';b.earned=+q.earned||0;b.trips=+q.trips||0;Ledger.load(b,q.led);b.mapHidden=!!q.hid;if(b.stops.length)this.list.push(b);}this.pendingList=null;this.pending=0;}
     else if(this.pending&&this.stops.length>1){for(let k=0;k<this.pending;k++){const b=this.make(false,null,null,k);if(b.stops.length>1)this.list.push(b);}this.pending=0;}},
   // ---- the road network as a graph: polyline points (long pieces split to 8 m), shared points merged, loose road ends joined to the nearest other road
   graph(){if(this.G)return this.G;const N=[],E=[],H=new Map(),PI=[],key=(x,z)=>Math.round(x/1.5)+','+Math.round(z/1.5);
@@ -588,9 +593,9 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
     const n=q.length,L=[];for(let i=0;i<n;i++){const a=q[Math.max(0,i-1)],c=q[Math.min(n-1,i+1)];let dx=c[0]-a[0],dz=c[1]-a[1];const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;const o=i===0?0:i===n-1?1.15:0.9;L.push([q[i][0]-dz*o,q[i][1]+dx*o]);}
     b.path=L;const c=[0];for(let k=1;k<L.length;k++)c.push(c[k-1]+Math.hypot(L[k][0]-L[k-1][0],L[k][1]-L[k-1][1]));b.cum=c;b.len=c[c.length-1];b.ps=0;b.pi=1;},
   at(b,s){const c=b.cum;let i=Math.max(1,b.pi||1);while(i<c.length-1&&c[i]<s)i++;while(i>1&&c[i-1]>s)i--;const a=b.path[i-1],e=b.path[i],u=clamp((s-c[i-1])/Math.max(1e-6,c[i]-c[i-1]),0,1);return{x:a[0]+(e[0]-a[0])*u,z:a[1]+(e[1]-a[1])*u,h:Math.atan2(e[1]-a[1],e[0]-a[0]),i};},
-  arrive(b,t){b.st='dwell';b.v=0;b.trips=(b.trips||0)+1;if(b.goods){b.wait=t.sawmill||t.workshop?36:10;Goods.lastPay=0;Goods.lorryStop(b,t);b.earned=(b.earned||0)+(Goods.lastPay||0);return;}b.wait=b.type==='dd'?11:8;let off=0,inc=0;const R2=this.route(b);
+  arrive(b,t){b.st='dwell';b.v=0;b.trips=(b.trips||0)+1;Ledger.add(b,'stops',1);{const R0=this.route(b);if(R0.length>1&&R0[0]===t){const L=Ledger.of(b);if(b._rt0!=null){Ledger.add(b,'rounds',1);L.lastRt=App.time-b._rt0;}b._rt0=App.time;}}if(b.goods){b.wait=t.sawmill||t.workshop?36:10;Goods.lastPay=0;Goods.lastUnits=0;Goods.lorryStop(b,t);b.earned=(b.earned||0)+(Goods.lastPay||0);Ledger.add(b,'inc',Goods.lastPay||0);Ledger.add(b,'cargo',Goods.lastUnits||0);return;}b.wait=b.type==='dd'?11:8;let off=0,inc=0;const R2=this.route(b);
     b.pax=b.pax.filter(p=>{if(p.dest===t.id||!R2.some(q=>q.id===p.dest)||Math.random()<0.08){off++;if(Money.on())inc+=Money.fare(p,t)*(t.castle?1.6:1);if(t.castle&&p.fv){p.fv.trans=(p.fv.trans||0)+1;Life.addGrowth(p.fv,0.8);t.visits=(t.visits||0)+1;}return false;}return true;});
-    for(let k=0;k<Math.min(off,6);k++)Icons.add(t.x+(Math.random()-0.5)*2,R.sampleHr(R.world,t.x,t.z)+3,t.z+(Math.random()-0.5)*2,'-');if(inc>0){b.earned=(b.earned||0)+Math.round(inc);}if(inc>0)Money.earn(Math.round(inc),`${b.name} → ${t.name}`,t.x,R.sampleHr(R.world,t.x,t.z),t.z);
+    for(let k=0;k<Math.min(off,6);k++)Icons.add(t.x+(Math.random()-0.5)*2,R.sampleHr(R.world,t.x,t.z)+3,t.z+(Math.random()-0.5)*2,'-');if(inc>0){b.earned=(b.earned||0)+Math.round(inc);Ledger.add(b,'inc',Math.round(inc));}Ledger.add(b,'pax',off);if(inc>0)Money.earn(Math.round(inc),`${b.name} → ${t.name}`,t.x,R.sampleHr(R.world,t.x,t.z),t.z);
     const o=R2.filter(q=>q!==t&&!q.cargo),oc=o.filter(q=>q.castle),n=Math.min(Math.floor(t.waiting),RV[RoadVeh.type(b)].cap-b.pax.length);
     for(let k=0;k<n&&o.length;k++){const d=!t.castle&&oc.length&&Math.random()<0.4?oc[Math.floor(Math.random()*oc.length)]:o[Math.floor(Math.random()*o.length)];b.pax.push({dest:d.id,fx:t.x,fz:t.z,t0:App.time,fv:t.v});if(k<6)Icons.add(t.x+(Math.random()-0.5)*2,R.sampleHr(R.world,t.x,t.z)+3,t.z+(Math.random()-0.5)*2,'+');}
     t.waiting-=Math.max(0,n);if(t.v&&(off||n>0)){t.v.trans=(t.v.trans||0)+off+Math.max(0,n);Life.addGrowth(t.v,(off+Math.max(0,n))*0.5);}},
@@ -606,7 +611,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
       {const p0=this.at(b,b.ps),p1=this.at(b,Math.min(b.len,b.ps+14));const turn=Math.abs(wrapPi(p1.h-p0.h));vt=Math.min(vt,11-7*clamp(turn/0.9,0,1));}
       b.queued=null;const fx=Math.cos(b.rot),fz=Math.sin(b.rot);for(const o of this.list){if(o===b)continue;const dx=o.x-b.x,dz=o.z-b.z;if(Math.abs(dx)>30||Math.abs(dz)>30)continue;
         const a=dx*fx+dz*fz,l=-dx*fz+dz*fx;if((a>0.05||(a>-0.05&&o.id<b.id&&o.st==='drive'))&&a<30&&Math.abs(l)<1.8&&Math.cos(o.rot-b.rot)>0.2){const lim=a<9.5?0:Math.sqrt(2*2*(a-9.5));if(lim<vt){vt=lim;if(lim<0.5)b.queued=o.name;}}}
-      b.v+=clamp(vt-b.v,-3*dt,1.2*dt);if(b.v<0)b.v=0;b.ps=Math.min(b.len,b.ps+b.v*dt);
+      b.v+=clamp(vt-b.v,-3*dt,1.2*dt);if(b.v<0)b.v=0;b.ps=Math.min(b.len,b.ps+b.v*dt);Ledger.add(b,'km',b.v*dt/1000);
       if(b.skip){b.skip=false;b.path=null;b.leg=(b.leg+1)%R2.length;continue;}if(b.len-b.ps<0.8&&!b.queued){this.arrive(b,t);continue;}
       const q=this.at(b,b.ps);b.pi=q.i;b.x=q.x;b.z=q.z;b.rot=lerpAng(b.rot,q.h,Math.min(1,dt*5));}}};
 // ---- the bus list (Build → Roads → Bus list): every bus and lorry with its stops in order, the road distance of each leg and of a round
@@ -799,7 +804,7 @@ const VillageUI={els:new Map(),panel:null,cur:null,
     p.querySelector('#vpX').onclick=()=>{p.hidden=true;this.why=null;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
 function snapshot(){
   return{app:'Trein',saveVersion:SAVE_VERSION,build:VERSION,savedAt:new Date().toISOString(),params:{...P},camera:Cam.state(),
-    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),explore:Explore.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops}))},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
+    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),explore:Explore.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops,led:Ledger.save(b),hid:!!b.mapHidden}))},fleet:{unlocks:{...Fleet.unlocks},days:Ledger.days,simT:Math.round(Ledger.simT),plane:Ledger.save(Ledger.plane),planeHid:!!Ledger.plane.mapHidden},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
 }
 function applySnapshot(s){
   if(!s||s.app!=='Trein')throw new Error('Not a Trein save file');
@@ -814,6 +819,7 @@ function applySnapshot(s){
   Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
   Life.pendingV=s.villages||null;
+  {const F=s.fleet||{};Fleet.unlocks={dd:false,...(F.unlocks||{})};Ledger.days=+F.days||0;Ledger.simT=+F.simT||0;Ledger.plane.led=null;Ledger.load(Ledger.plane,F.plane);Ledger.plane.mapHidden=!!F.planeHid;}
   if(s.money){Money.cash=s.money.cash;Money.loan=s.money.loan;Money.paid=new Map(s.money.paid||[]);Money.inited=false;Money.paidSt=new Set(Track.stations.map(q=>q.id));Money.paidTr=new Set();Money.loadedTrains=true;}
   Log.info(`snapshot applied: ${n} params, build ${s.build}, saved ${s.savedAt}`);
 }
