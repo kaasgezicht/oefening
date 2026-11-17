@@ -138,7 +138,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
       let t=performance.now(),T,cached=false,ckey=null,fromFile=null;const wkey=from===0&&!Bench.on&&+P.worldFile!==0&&WorldFile.ok()?WorldFile.key(P):null;
       /* the whole world from the device (OPFS): no generating at all; the save's track is carved in afresh */
       if(wkey){if(show)UI.progress(true,0.03,'Reading the world from this device');fromFile=await WorldFile.load(wkey);
-        if(fromFile){T=fromFile.T;Object.assign(Life,fromFile.L);if(T.H0)T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);Life.applyTrackMask(T);R.computeRenderHeights(T);Life.uploaded=false;Life.kitDirty=true;Life.roadsDirty=true;
+        if(fromFile){T=fromFile.T;Object.assign(Life,fromFile.L);if(Track.segs&&Track.segs.length&&T.H0){T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);}Life.applyTrackMask(T);R.computeRenderHeights(T);Life.uploaded=false;Life.kitDirty=true;Life.roadsDirty=true;
           this.base=null;this.eroded=null;times.push('world file '+(performance.now()-t).toFixed(0));t=performance.now();}}
       if(!fromFile){
       if(from===0&&+P.worldCache!==0&&!Bench.on){ckey=WorldCache.key(P);if(show)UI.progress(true,0.05,'Loading the land from the cache');const c=await WorldCache.load(ckey);

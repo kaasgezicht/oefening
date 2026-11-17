@@ -13,7 +13,7 @@ const LoadScene={on:false,raf:0,cv:null,S:null,t0:0,puffs:[],
     const rng=mulberry32(5);for(let i=0;i<14;i++){const a=rng()*6.283,r=i<6?5+rng()*7:21+rng()*3,x=Math.cos(a)*r,z=Math.sin(a)*r,h=3+rng()*3;vcylN(G,[x,0,z],[x,h*0.35,z],0.18,0.14,6,[0.4,0.28,0.18],0,null,false);
       vcylN(G,[x,h*0.3,z],[x,h,z],1.1+rng()*0.5,0.05,7,rng()<0.5?[0.2,0.42,0.2]:[0.26,0.48,0.22],0,null,true);}
     vbox(G,[0,0.45,R0+4.1],[10,0.9,3],[0.6,0.56,0.5],0);vcyl(G,[3.5,0.9,R0+4.6],'y',0.06,3,[0.15,0.15,0.16],0,6);vbox(G,[3.5,4.0,R0+4.6],[0.35,0.4,0.35],[1,0.9,0.6],9);
-    const puff=vmesh();vcylN(puff,[0,-0.5,0],[0,0.5,0],0.55,0.55,7,[0.86,0.86,0.88],0,null,true);
+    const puff=vmesh(),pc=[0.9,0.9,0.92];vcylN(puff,[0,-0.5,0],[0,-0.25,0],0.12,0.42,8,pc,0,null,true);vcylN(puff,[0,-0.25,0],[0,0.2,0],0.42,0.4,8,pc,0,null,false);vcylN(puff,[0,0.2,0],[0,0.5,0],0.4,0.08,8,pc,0,null,true);
     this.S={G:up(G),loco:up(loco01Mesh()),tender:up(tender01Mesh()),puff:up(puff),R:R0};return this.S;},
   show(on){if(on===this.on)return;this.on=on;let cv=this.cv;if(on&&!cv){cv=this.cv=document.createElement('canvas');cv.id='progScene';cv.width=600;cv.height=340;const p=$('#prog');if(p)p.insertBefore(cv,p.firstChild);}
     if(cv)cv.style.display=on?'block':'none';if(on){this.t0=performance.now();const loop=()=>{if(!this.on)return;try{this.draw();}catch(e){this.on=false;Log.warn('loading scene: '+e.message);return;}this.raf=requestAnimationFrame(loop);};this.raf=requestAnimationFrame(loop);}else cancelAnimationFrame(this.raf);},
@@ -28,7 +28,7 @@ const LoadScene={on:false,raf:0,cv:null,S:null,t0:0,puffs:[],
     /* a body on the circle: centre at angle a, its x axis along the track (anticlockwise seen from above) */const on=(a,y,s)=>{const cx=Math.cos(a)*S.R,cz=Math.sin(a)*S.R,tx=-Math.sin(a),tz=Math.cos(a);s=s||1;return new Float32Array([tx*s,0,tz*s,0,0,s,0,0,-tz*s,0,tx*s,0,cx,y,cz,1]);};
     dm(S.G,new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]));const th=t*0.32,LL=VEH.loco01.len,LT=VEH.tender01.len;dm(S.loco,on(th,0.32));dm(S.tender,on(th-(LL/2+COUPLE+LT/2)/S.R,0.32));
     /* smoke: a puff every 0.35 s from the chimney, rising, growing and drifting back */const ch=th+(LL/2-3.2)/S.R;if(!this.lp||t-this.lp>0.35){this.lp=t;this.puffs.push({x:Math.cos(ch)*S.R,z:Math.sin(ch)*S.R,t});}
-    this.puffs=this.puffs.filter(p=>t-p.t<3.2);for(const p of this.puffs){const u=t-p.t,s=0.5+u*0.9;dm(S.puff,new Float32Array([s,0,0,0,0,s*0.8,0,0,0,0,s,0,p.x+u*0.6,4.9+u*1.6,p.z+u*0.3,1]));}
+    this.puffs=this.puffs.filter(p=>t-p.t<2.4);for(const p of this.puffs){const u=t-p.t,s=(0.45+u*0.55)*(1-Math.max(0,u-1.8)/0.6*0.7);dm(S.puff,new Float32Array([s,0,0,0,0,s*0.8,0,0,0,0,s,0,p.x+u*0.5,4.8+u*1.3,p.z+u*0.25,1]));}
     const c2=dst.getContext('2d');c2.drawImage(pc,0,0);}};
 
 // WorldFile: the whole generated world (the land, water, vegetation, villages, houses, roads, fields, industries: everything made from the

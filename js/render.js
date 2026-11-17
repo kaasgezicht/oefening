@@ -187,6 +187,8 @@ R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr|
     keep[j*N+i]=k;}
   const flat=T.flatMask;for(let n=0;n<N*N;n++){const w=s*(1-keep[n]);T.Hr[n]=flat&&flat[n]&&keep[n]<0.05?T.flatH[n]:H[n]+(S[n]-H[n])*w;}
   R.clearTrackBed(T);
+  /* island maps: the rim cells are held at sea level in the data (one ocean basin); drawn, they drop away so no beach line shows at the edge */
+  if(T.sea!=null)for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])T.Hr[c]=Math.min(T.Hr[c],T.sea-12);
 };
 // The ground is drawn from corner heights (each the mean of the 4 cells around it) in triangles one cell (8 m) wide, so near a cutting
 // the drawn surface between the bed cells and the raised cells beside them can rise over the ballast even though every bed cell is at
