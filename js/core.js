@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.25.0 (mine complex from the reference, store page with 3D previews and the DB 01, Mountain islands map)';
+const VERSION='4.26.0 (lighthouses, open sea, fishing harbours, seagulls, world file on the device, new-game settings, loading scene)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

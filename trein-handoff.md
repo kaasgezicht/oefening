@@ -1,4 +1,4 @@
-# Trein handoff 84 (17 Nov 2026): v4.25.0 — mine complex from the user's picture, store page with 3D previews (Beaver, double-decker, DB 01), airstrips within 1 km, Mountain islands map; next: plan step 7 (footbridge)
+# Trein handoff 85 (17 Nov 2026): v4.26.0 — lighthouses with night beams, open sea round island maps, harbours and seagulls, the whole world kept on the device (OPFS), every world setting in New game, loading scene with the 01; next: 24/32 km at full detail, streamed (the user's choice)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,58 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.25.0, 17 Nov) — mine complex, store page, DB 01 lock, airstrips ≤ 1 km, Mountain islands
+### Latest (4.26.0, 17 Nov) — lighthouses, open sea, harbours, world file, New game settings, loading scene
+User's answers this round: 32 km = "Generate full detail to OPFS, but load it into RAM/VRAM dynamically … a little loading bar when going far
+away to load the next cell"; sea = "a realistic sea, use the current water model (a glass box is fine)"; size slider = fixed stops; world file =
+everything generated.
+- **New game** (main.js `MainMenu`): below the basics, every setting with apply world/water/veg/life in folding groups (`GROUPS`: Land shape,
+  Big mountains, Erosion, Rivers and lakes, Coast and sea, Trees and rocks, Villages and countryside), built from PDEF (`buildMore`), value
+  shown beside each slider, "Reset these to the defaults". World size is a slider with stops 1, 2, 4, 8, 12, 16, 24, 32 km (`SIZES`).
+  - **24 and 32 km for now use the 2048² grid** (12 and 16 m cells, same memory as 16 km). Full 8 m detail streamed from the world file is
+    the next step (task 77). Tested: see the 32 km line below.
+- **Free flight from one airstrip**: the airstrip panel always offers "Fly from here (free flight, no cargo)" (`Air.freeFlight`).
+- **Water on sea maps**: the FFT field stays tuned for the ocean, lakes and rivers (water not at sea level) get `lakeCalm` (0.3) of it, in the
+  vertex displacement and the shading (`seaK()`; `uSwell.w`).
+- **Open sea** (`P.openSea`, on): instead of the table, 8 nested rings of water round the camera (300 m to 38 km half-size, 64² quads each,
+  snapped) drawn with the lake program; the height texture clamps at the rim, which is sea, so it is the same ocean with its swell (faded on
+  the coarse rings). Past the edge the floor keeps dropping (`oDep`, 8-60 m). The map's rim vertices move only vertically and the rings
+  overlap the rim by 3 m (no cracks); the rim cells (held at sea level in the data) are drawn 12 m below the sea (`computeRenderHeights`).
+- **Coast** (new js/coast.js, after sea.js), on maps with a sea, from the seed after the villages:
+  - **Lighthouses** (`lighthouseMesh`, from the user's four photos): granite slabs, a rough granite base (rows of stones), a whitewashed
+    stone tower with rust streaks under the gallery, a doorway, narrow windows, the fog-signal bracket with a horn, cornice, black gallery
+    with a 3-rail railing, octagonal lantern (lit glass at night, lens inside), black roof with a vent ball and rod. Placed on headlands
+    (sea on 38-85 % of a 110 m ring, 2-48 m above the sea, 16 m back from the waterline, 300 m from villages): `round(sqrt(km²)/2 ×
+    lighthouses)` per island over 1.2 km², 1-6.
+  - **Beams** (`Coast.beams`, `R.drawBeams`, VS/FS_BEAM): at dusk and night, camera-facing ribbons along each beam (warm 1, .78, .42,
+    soft across, fading with distance and spread) and a glare at the lamp that flares when the beam points at the camera; turning on real time.
+    Settings (tab **Sea**): `lhSpeed` 1.2 turns/min, `lhBright`, `lhWidth` 2.6 m, `lhRange` 2600 m, `lhDiverge` 3.5°, `lhDouble`. The lamp
+    also lights the tower (Life.lights).
+  - **Fishing harbours** at villages with open sea within 420 m: a stone quay 40 m out (bollards, ladder, lamp, hut, nets, crates, pots)
+    and 1-3 fishing boats moored alongside that ride the swell (`quayMesh`, boats in `Coast.build`).
+  - **Seagulls**: flocks over each harbour and lighthouse and along the coasts, gliding with a few wing beats, banking; some sit on quays.
+  - **Coastal villages**: village sites within 170 m of the sea score `coastVillages` × 1.3 extra (Life). Whales, dolphins and fish were
+    already there (sea.js).
+  - Tested (4 km Mountain island, seed 4242): 1 lighthouse, 6 harbours, 69 gulls; pictures by day, dusk and night.
+- **Mountain islands**: island radius is now absolute (0.9-1.7 km × land share), so small maps get one proper island.
+- **World file** (new js/worldfile.js, `WorldFile`, setting `worldFile` on): after the villages step, the land T and every field the villages
+  step set on Life (found by comparing Life before and after) are written to the Origin Private File System as one gzip file: "TRW1", a JSON
+  object graph with references (shared and circular objects come back as they were) and the typed arrays as one binary block. Keyed by every
+  world/water/veg/life setting + format 1 (not the game version: a world stays as it was made). On start the file replaces generating: the
+  save's track is carved in again (only when there is track), houses on track hidden, render heights rebuilt. `navigator.storage.persist()` is
+  asked after writing. If it is missing, damaged or from other settings, the world is generated as before.
+  - Tested (4 km): 27 MB packed in 50 ms, 9 MB on the device in 1.8 s; the reload read it in 0.2 s and built the world in 1.1 s instead of
+    5.6 s, with the same villages, houses, trees and roads.
+  - Saves page: **Back up the world file** (download .trw) and **Load a world file** (writes it to the device, takes its world settings,
+    opens it; the track and trains of the current save stay). The compact save (localStorage, export/import) is the game itself, as before.
+- **Loading scene** (`LoadScene`): in the loading card, a 50 × 50 m lawn with a ring of track (sleepers, rails), trees, a platform with a
+  lamp, the black 01 with its tender running round, smoke puffs, the camera circling; drawn with the store's preview renderer between the
+  generation steps (rAF). The bar moves as before.
+- Pictures: checks/lighthouse-day.png, lighthouse-dusk.png, lighthouse-night.png, lighthouse-close.png, harbour.png, open-sea.png,
+  open-sea-horizon.png, newgame-settings.png, loading-scene.png, loading-scene-phone.png, islands-preview.png.
+- Limits: the beams are flat ribbons (seen end-on only the glare shows); they do not light the ground or the sea; boats do not sail; the
+  world file of a 16 km world will be large (estimate 150-300 MB raw, less compressed) and is written in one piece.
+
+### Earlier (4.25.0, 17 Nov) — mine complex, store page, DB 01 lock, airstrips ≤ 1 km, Mountain islands
 - **Airstrips**: `AIR.maxDist` 1000 — the strip is placed within 1 km of the village that bought it (`bestSpot` radii 380–920). The map
   icon shows from the first strip (`icons()`: `list.length>=1`); with only one strip the mission panel says to build a second one elsewhere.
 - **Store page** (js/fleet.js `Store`, css `#storePage`): a full-screen page (`body.storeOpen` hides the bars) with cards for the
