@@ -40,7 +40,7 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   `coastShape` cuts the coast round each island. Land share follows the Island size slider (≈ 20–35 %). **Sea only**: country roads are not
   planned between villages on different islands. Tested seed 4242 (8 km): 7 islands, 16 villages (4,3,2,1,4,2,0 per island), generation 40 s.
 - **Large maps (advice only, nothing built)**: see the reply of 17 Nov — coarse 32 km plan + full detail in tiles near the camera.
-- Pictures: checks/store-desk.png, store-phone.png, mine-*.png, peaks-map.png, peaks-island*.png, peaks-preview.png.
+- Pictures: checks/store-desk.png, store-phone.png, mine-carts-shovel.png, mine-flywheel.png, mine-wide.png, mine-m*.png, peaks-map.png, peaks-island*.png, peaks-preview.png.
 - Limits: the mine carts run on a fixed timer, not tied to the ore stock; the crusher has no moving parts inside; Mountain-island villages
   are not guaranteed on every island (one island had none in the test).
 
