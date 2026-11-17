@@ -228,11 +228,56 @@ const StatsUI={el:null,o:null,ch:null,
     if(!this.noTip){cv.onpointermove=show;cv.onpointerdown=show;}}};
 
 // ===================================================================
-// the store: upgrades and purchases (the double-decker for now)
+// the store: a page of its own (4.25.0). Each item turns slowly in a 3D preview drawn by a small renderer of its own (a second WebGL
+// context with a plain lit shader) from the same meshes the game uses; drag a preview to turn it
 // ===================================================================
-const Store={el:null,ITEMS:[{id:'beaver',name:'DHC-2 Beaver (amphibian)',price:450000,desc:'The de Havilland Canada bush plane on amphibious floats: it lands on lakes and the sea as well as on airstrips, with wheels that fold into the floats. Villages on open water can then build a seaplane jetty for cargo flights. Choose it whenever you fly.'},{id:'dd',name:'Double-decker',price:300000,desc:'The 1930s double-decker bus: 60 seats instead of 24, for busy routes between towns. After this, a new bus can be bought as a double-decker (€ 55.000 each).'}],
-  open(){let p=this.el;if(!p){p=this.el=document.createElement('div');p.id='storePanel';p.className='fp';document.body.appendChild(p);p.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='x')this.close();else if(b.dataset.a==='buy')this.buy(b.dataset.id);});}p.hidden=false;this.refresh();},
-  close(){if(this.el)this.el.hidden=true;},
+const Preview={gl:null,cv:null,prog:null,cache:new Map(),
+  init(){if(this.gl)return true;const cv=this.cv=document.createElement('canvas');cv.width=640;cv.height=400;const g=this.gl=cv.getContext('webgl2',{alpha:true,premultipliedAlpha:false,preserveDrawingBuffer:true,antialias:true});if(!g)return false;
+    const sh=(t,src)=>{const o=g.createShader(t);g.shaderSource(o,src);g.compileShader(o);if(!g.getShaderParameter(o,g.COMPILE_STATUS))Log.warn('preview shader: '+g.getShaderInfoLog(o));return o;};
+    const vs=`#version 300 es
+layout(location=0) in vec3 aP;layout(location=1) in vec3 aN;layout(location=2) in vec3 aC;layout(location=4) in float aM;uniform mat4 uVP,uM;out vec3 vN;out vec3 vC;out vec3 vW;flat out float vMt;
+void main(){vec4 w=uM*vec4(aP,1.);vW=w.xyz;vN=mat3(uM)*aN;vC=aC;vMt=aM;gl_Position=uVP*w;}`;
+    const fs=`#version 300 es
+precision highp float;in vec3 vN;in vec3 vC;in vec3 vW;flat in float vMt;uniform vec3 uEye;out vec4 o;
+void main(){if(vMt>11.5&&vMt<12.5)discard;vec3 N=normalize(vN),V=normalize(uEye-vW);if(dot(N,V)<0.)N=-N;vec3 L=normalize(vec3(0.45,0.8,0.35)),H=normalize(L+V);
+  float d=max(dot(N,L),0.),hemi=0.5+0.5*N.y,sp=vMt>9.5&&vMt<10.5?pow(max(dot(N,H),0.),60.)*1.4:vMt>10.5&&vMt<11.5?pow(max(dot(N,H),0.),40.)*0.45:vMt>12.5?pow(max(dot(N,H),0.),80.)*1.2:pow(max(dot(N,H),0.),12.)*0.08;
+  vec3 c=vC*vC;vec3 col=c*(d*vec3(1.,0.96,0.9)*1.15+mix(vec3(0.16,0.13,0.1),vec3(0.3,0.36,0.45),hemi))+sp*vec3(1.);float fr=pow(1.-max(dot(N,V),0.),4.)*0.15;col+=fr*vec3(0.6,0.7,0.85);
+  if(vMt>12.5){col=mix(vec3(0.04,0.06,0.08),vec3(0.45,0.55,0.65),fr*3.)+sp;}o=vec4(sqrt(col),1.);}`;
+    const p=g.createProgram();g.attachShader(p,sh(g.VERTEX_SHADER,vs));g.attachShader(p,sh(g.FRAGMENT_SHADER,fs));g.linkProgram(p);this.prog=p;return true;},
+  up(M){const g=this.gl,vao=g.createVertexArray();g.bindVertexArray(vao);const vb=g.createBuffer();g.bindBuffer(g.ARRAY_BUFFER,vb);g.bufferData(g.ARRAY_BUFFER,new Float32Array(M.v),g.STATIC_DRAW);
+    [[0,3,0],[1,3,12],[2,3,24],[4,1,52]].forEach(([l,n,o])=>{g.enableVertexAttribArray(l);g.vertexAttribPointer(l,n,g.FLOAT,false,56,o);});const ib=g.createBuffer();g.bindBuffer(g.ELEMENT_ARRAY_BUFFER,ib);g.bufferData(g.ELEMENT_ARRAY_BUFFER,new Uint32Array(M.i),g.STATIC_DRAW);g.bindVertexArray(null);
+    let b0=[1e9,1e9,1e9],b1=[-1e9,-1e9,-1e9];for(let k=0;k<M.n;k++)for(let a=0;a<3;a++){const v=M.v[k*14+a];if(v<b0[a])b0[a]=v;if(v>b1[a])b1[a]=v;}return{vao,count:M.i.length,b0,b1};},
+  /* the parts of each model with their offsets (translation only), as they stand in the game */
+  build(id){if(this.cache.has(id))return this.cache.get(id);const P=[],T=(m,o)=>P.push({m:this.up(m),o:o||[0,0,0]});
+    if(id==='beaver'){const L=beaverMeshes(),pp=BEAVER_PARTS,at=n=>L[pp[n].i];T(at('body'));T(at('prop'),[PLB.propX,0.02,0]);T(at('pilot'));T(at('pax'));
+      for(const n of ['elev','rud','ailL','ailR','flapL','flapR'])T(at(n),pp[n].o);const nh=PLB.noseHinge,mh=PLB.mainHinge;T(at('noseL'),[nh[0],nh[1],-nh[2]]);T(at('noseR'),nh);T(at('mainL'),[mh[0],mh[1],-mh[2]]);T(at('mainR'),mh);}
+    else if(id==='dd'){const S=RV.dd,W=[0.06,0.06,0.07];T(RVMesh.bus(2));for(const sd of [-1,1]){T(RVMesh.wheel(S.r,W,sd,false),[S.axF,S.r,sd*S.trF]);S.trR.forEach(t=>T(RVMesh.wheel(S.r,W,sd,false),[S.axR,S.r,sd*t]));}}
+    else if(id==='loco01'){T(loco01Mesh());const t=tender01Mesh();T(t,[-(VEH.loco01.len/2+COUPLE+VEH.tender01.len/2),0,0]);}
+    let b0=[1e9,1e9,1e9],b1=[-1e9,-1e9,-1e9];for(const q of P)for(let a=0;a<3;a++){b0[a]=Math.min(b0[a],q.m.b0[a]+q.o[a]);b1[a]=Math.max(b1[a],q.m.b1[a]+q.o[a]);}
+    const r={P,c:[(b0[0]+b1[0])/2,(b0[1]+b1[1])/2,(b0[2]+b1[2])/2],R:Math.hypot(b1[0]-b0[0],b1[1]-b0[1],b1[2]-b0[2])/2,b0,b1};this.cache.set(id,r);return r;},
+  /* one frame into a card's 2D canvas */
+  draw(id,dst,yaw,pitch){if(!this.init())return;const g=this.gl,cv=this.cv,W=dst.width,H=dst.height;if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}const S=this.build(id);
+    g.viewport(0,0,W,H);g.clearColor(0,0,0,0);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);g.enable(g.DEPTH_TEST);g.disable(g.CULL_FACE);g.useProgram(this.prog);
+    const d=S.R*(id==="beaver"?1.55:1.75),eye=[S.c[0]+Math.sin(yaw)*Math.cos(pitch)*d,S.c[1]+Math.sin(pitch)*d,S.c[2]+Math.cos(yaw)*Math.cos(pitch)*d],asp=W/H,f=1/Math.tan(0.42),n=0.2,fa=d*4;
+    const z=[eye[0]-S.c[0],eye[1]-S.c[1],eye[2]-S.c[2]],zl=Math.hypot(...z),Z=z.map(v=>v/zl),X0=[Z[2],0,-Z[0]],xl=Math.hypot(...X0)||1,X=X0.map(v=>v/xl),Y=[Z[1]*X[2]-Z[2]*X[1],Z[2]*X[0]-Z[0]*X[2],Z[0]*X[1]-Z[1]*X[0]];
+    const V=[X[0],Y[0],Z[0],0,X[1],Y[1],Z[1],0,X[2],Y[2],Z[2],0,-(X[0]*eye[0]+X[1]*eye[1]+X[2]*eye[2]),-(Y[0]*eye[0]+Y[1]*eye[1]+Y[2]*eye[2]),-(Z[0]*eye[0]+Z[1]*eye[1]+Z[2]*eye[2]),1],
+      Pm=[f/asp,0,0,0,0,f,0,0,0,0,(fa+n)/(n-fa),-1,0,0,2*fa*n/(n-fa),0],VP=new Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let a=0;for(let k=0;k<4;k++)a+=Pm[k*4+j]*V[i*4+k];VP[i*4+j]=a;}
+    g.uniformMatrix4fv(g.getUniformLocation(this.prog,'uVP'),false,new Float32Array(VP));g.uniform3fv(g.getUniformLocation(this.prog,'uEye'),eye);const uM=g.getUniformLocation(this.prog,'uM');
+    for(const q of S.P){g.uniformMatrix4fv(uM,false,new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,q.o[0],q.o[1],q.o[2],1]));g.bindVertexArray(q.m.vao);g.drawElements(g.TRIANGLES,q.m.count,g.UNSIGNED_INT,0);}
+    const c2=dst.getContext('2d');c2.clearRect(0,0,W,H);/* a soft shadow on the floor under it */const gr=c2.createRadialGradient(W/2,H*0.8,4,W/2,H*0.8,W*0.42);gr.addColorStop(0,'rgba(0,0,0,0.38)');gr.addColorStop(1,'rgba(0,0,0,0)');c2.fillStyle=gr;c2.beginPath();c2.ellipse(W/2,H*0.8,W*0.42,H*0.09,0,0,6.283);c2.fill();c2.drawImage(cv,0,0);}};
+const Store={el:null,raf:0,
+  ITEMS:[{id:'beaver',name:'DHC-2 Beaver',sub:'Amphibian bush plane',price:450000,specs:['Floats and retractable wheels','Lakes, the sea and airstrips','Seaplane jetties for cargo'],desc:'The de Havilland Canada bush plane on amphibious floats: it lands on water as well as on airstrips, with wheels that fold into the floats. Villages on open water can then build a seaplane jetty. Choose it whenever you fly.'},
+    {id:'loco01',name:'DB class 01 Pacific',sub:'Express locomotive 01 118',price:350000,specs:['4-6-2 Pacific with tender','35% more pulling power','Faster on long lines'],desc:'The German express steam locomotive in black and red, with full Walschaerts valve gear. After buying, pick it for any train in the train editor.'},
+    {id:'dd',name:'Double-decker',sub:'1930s bus',price:300000,specs:['60 seats instead of 24','For busy town routes','€ 55.000 per bus'],desc:'The 1930s double-decker bus, for busy routes between towns. After this, a new bus can be bought as a double-decker.'}],
+  open(){let p=this.el;if(!p){p=this.el=document.createElement('div');p.id='storePage';document.body.appendChild(p);p.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='x')this.close();else if(b.dataset.a==='buy')this.buy(b.dataset.id);});}
+    p.hidden=false;document.body.classList.add('storeOpen');this.refresh();this.spin();},
+  close(){if(this.el)this.el.hidden=true;document.body.classList.remove('storeOpen');cancelAnimationFrame(this.raf);this.raf=0;},
   buy(id){const it=this.ITEMS.find(q=>q.id===id);if(!it||Fleet.unlocks[id])return;if(Money.on()){if(Money.cash<it.price){UI.toast(`Not enough money: ${it.name} costs ${fmtE(it.price)}`);return;}Money.spend(it.price,it.name);}
-    Fleet.unlocks[id]=true;UI.toast(id==='beaver'?'The Beaver is yours: tap Fly and choose it. Villages on open water now offer a seaplane jetty':`${it.name} bought: choose it when you add a bus`);if(id==='beaver')for(const v of Life.villages)v._jsp=undefined;this.refresh();},
-  refresh(){const p=this.el;if(!p)return;p.innerHTML=`<div class="fp-h"><div><b>Store</b><span>upgrades and purchases</span></div><button data-a="x" aria-label="Close">✕</button></div>`+this.ITEMS.map(it=>`<div class="sto-i"><div><b>${it.name}</b><span>${it.desc}</span></div>${Fleet.unlocks[it.id]?'<em>Owned</em>':`<button data-a="buy" data-id="${it.id}" class="go">${fmtE(it.price)}</button>`}</div>`).join('')+`<div class="fp-note">More upgrades will come here.</div>`;}};
+    Fleet.unlocks[id]=true;UI.toast(id==='beaver'?'The Beaver is yours: tap Fly and choose it. Villages on open water now offer a seaplane jetty':id==='loco01'?'The 01 118 is yours: choose it for a train in the train editor':`${it.name} bought: choose it when you add a bus`);if(id==='beaver')for(const v of Life.villages)v._jsp=undefined;this.refresh();},
+  refresh(){const p=this.el;if(!p)return;p.innerHTML=`<div class="sp-h"><div><b>Store</b><span>${Money.on()?'You have '+fmtE(Money.cash):'upgrades and purchases'}</span></div><button data-a="x" aria-label="Close the store">✕</button></div><div class="sp-g">`+
+      this.ITEMS.map(it=>{const own=!!Fleet.unlocks[it.id];return`<div class="sp-c${own?' own':''}"><canvas data-pv="${it.id}" width="560" height="340"></canvas><div class="sp-t"><b>${it.name}</b><span>${it.sub}</span></div><ul>${it.specs.map(s=>`<li>${s}</li>`).join('')}</ul><p>${it.desc}</p>
+        <div class="sp-f">${own?'<em>Owned</em>':`<button data-a="buy" data-id="${it.id}" class="go">Buy · ${fmtE(it.price)}</button>`}</div></div>`;}).join('')+`</div><div class="sp-n">More upgrades will come here.</div>`;
+    for(const cv of p.querySelectorAll('canvas[data-pv]')){const st=cv._st={yaw:0.7,pitch:0.28,drag:null,t:0};cv.onpointerdown=e=>{st.drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId);};cv.onpointermove=e=>{if(!st.drag)return;st.yaw-=(e.clientX-st.drag[0])*0.01;st.pitch=clamp(st.pitch+(e.clientY-st.drag[1])*0.006,-0.1,1.2);st.drag=[e.clientX,e.clientY];st.t=performance.now();};cv.onpointerup=cv.onpointercancel=()=>{st.drag=null;};}},
+  /* the previews turn slowly (not while being dragged, and not for 3 s after) */
+  spin(){cancelAnimationFrame(this.raf);let last=performance.now();const tick=ts=>{if(!this.el||this.el.hidden)return;const dt=Math.min(0.1,(ts-last)/1000);last=ts;
+      for(const cv of this.el.querySelectorAll('canvas[data-pv]')){const st=cv._st;if(!st)continue;if(!st.drag&&ts-st.t>3000)st.yaw+=dt*0.35;try{Preview.draw(cv.dataset.pv,cv,st.yaw,st.pitch);}catch(e){if(!this._err){this._err=1;Log.warn('store preview: '+(e.stack||e));}}}this.raf=requestAnimationFrame(tick);};this.raf=requestAnimationFrame(tick);}};

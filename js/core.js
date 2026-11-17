@@ -33,7 +33,7 @@ function def(id,o){o.id=id;o.kind=o.kind||'range';PDEF[id]=o;PORDER.push(id);P[i
 // --- World
 def('seed',{tab:'world',label:'Seed',min:1,max:99999,step:1,def:39536,apply:'world'});
 def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[16384,'16 × 16 km (heavy)']],def:8192,apply:'world'});
-def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands']],def:'land',apply:'world'});
+def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands'],['peaks','Mountain islands']],def:'land',apply:'world'});
 def('landShare',{tab:'world',label:'Island size (share of land)',min:0.15,max:0.85,step:0.01,def:0.5,apply:'world'});
 def('mapRes',{tab:'world',label:'Height map detail',kind:'select',options:[[0,'Auto (8 m cells, 1024 at 8 km)'],[256,'256 (fast)'],[512,'512'],[1024,'1024 (slow)'],[2048,'2048 (very slow)']],def:0,apply:'world'});
 def('maxHeight',{tab:'world',label:'Mountain height',min:80,max:1200,step:10,def:480,unit:' m',apply:'world'});

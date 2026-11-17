@@ -63,11 +63,12 @@ function makeTerrainFn(p){
 
 const SEA_LEVEL=40;
 // island styles: the land is lifted onto a coastline mask and the rest sinks into the ocean (see genTerrain)
-async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;if(p.mapStyle==='island'||p.mapStyle==='islands'){sea=SEA_LEVEL;const nI=makeNoise((p.seed|0)+777),nC=makeNoise((p.seed|0)+778),ls=clamp(+p.landShare||0.5,0.1,0.9);
+async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='peaks',IS=PK?peakIslands(p):null;if(p.mapStyle==='island'||p.mapStyle==='islands'||PK){sea=SEA_LEVEL;const nI=makeNoise((p.seed|0)+777),nC=makeNoise((p.seed|0)+778),ls=clamp(+p.landShare||0.5,0.1,0.9);
     for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,dx=x/W-0.5,dz=z/W-0.5,r=Math.hypot(dx,dz)*2,wob=fbm(nC,x/(W*0.18),z/(W*0.18),4,0.5,2);let m;
         if(p.mapStyle==='island')m=1-smooth(0.35+ls*0.55,0.55+ls*0.5,r+0.28*wob);
+        else if(PK){m=0;for(const q of IS){const ddx=x-q.x,ddz=z-q.z;if(Math.abs(ddx)>q.R*1.6||Math.abs(ddz)>q.R*1.6)continue;const u=(ddx*q.c+ddz*q.s)/q.ex,v=(-ddx*q.s+ddz*q.c)/q.ez,d=Math.hypot(u,v)/q.R;m=Math.max(m,1-smooth(0.72,1.0,d+0.3*wob));}}
         else{const n0=fbm(nI,x/(W*0.2)+3.1,z/(W*0.2)+7.7,3,0.45,2.1)*0.5+0.5,thr=0.53-(ls-0.5)*0.3;m=smooth(thr-0.03,thr+0.09,n0+0.05*wob-0.1*smooth(0.55,0.95,r));}
-        const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*(p.mapStyle==='islands'?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m);}if(y&&j%64===0)await y(j/N,'Shaping the coast');}
+        const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*(p.mapStyle==='islands'||PK?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m);}if(y&&j%64===0)await y(j/N,'Shaping the coast');}
     for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])H[c]=sea;}
   return sea;}
 // ---- the new-game preview: the same land (terrain, big mountains, coast) at a coarse grid, without erosion, rivers and lakes; drawn as a
@@ -83,10 +84,19 @@ function drawPreview(cv,L,p){const n=L.n,g=cv.getContext('2d'),img=g.createImage
     else{const a=h-(sea||0),t=a/Math.max(1,(top-(sea||0)));c=h>snow?[240,240,245]:t<0.02&&sea!=null?[214,200,150]:t<0.35?[110+60*t,160-40*t,70]:t<0.7?[150,130,95]:[150,145,140];c=c.map(v=>v*sh);}
     img.data.set([c[0],c[1],c[2],255],k*4);}
   const tmp=document.createElement('canvas');tmp.width=tmp.height=n;tmp.getContext('2d').putImageData(img,0,0);g.imageSmoothingEnabled=true;g.clearRect(0,0,cv.width,cv.height);g.drawImage(tmp,0,0,cv.width,cv.height);}
+/* 'peaks' style: a chain of islands, each round a big mountain. The layout (centres, radii, the peak on each) comes from the seed;
+   bigMountains raises the peaks and coastShape cuts the coastline round each island, so both read the same list. */
+function peakIslands(p){const W=p.worldSize,key=W+':'+p.seed+':'+p.landShare+':'+p.bigMtnHeight;if(peakIslands.k===key)return peakIslands.v;
+  const rng=mulberry32((p.seed|0)*131+17),ls=clamp(+p.landShare||0.5,0.1,0.9),want=clamp(Math.round((W/1000)**2/10*(0.6+ls*0.8)),2,16),L=[];
+  for(let tries=0;tries<600&&L.length<want;tries++){const R=W*(0.1+rng()*0.075)*(0.75+ls*0.5),m=R*0.9+W*0.03,x=m+rng()*(W-2*m),z=m+rng()*(W-2*m);
+    if(L.some(q=>Math.hypot(q.x-x,q.z-z)<(q.R+R)*0.9+W*0.02))continue;const a=rng()*Math.PI,el=0.78+rng()*0.4,pa=rng()*6.283,po=R*rng()*0.18;
+    L.push({x,z,R,c:Math.cos(a),s:Math.sin(a),ex:el,ez:1/el,px:x+Math.cos(pa)*po,pz:z+Math.sin(pa)*po,pd:rng()*Math.PI,H:(+p.bigMtnHeight||900)*(0.62+rng()*0.48),long:rng()*0.35});}
+  peakIslands.k=key;peakIslands.v=L;return L;}
 // ---- big mountains (World settings): up to three massifs added in metres on top of the shaped land, each a cone with concave flanks
 // stretched along a ridge (shape 0 = round peak, 1 = a long ridge four times longer than wide), with spurs and gullies from ridged
 // noise so erosion has something to carve. Position and direction come from the seed unless set.
-function bigMountains(p){const n=Math.min(3,p.bigMtns|0);if(!n)return null;const W=p.worldSize,rng=mulberry32((p.seed|0)*97+5),nz=makeNoise((p.seed|0)+515),L=[];
+function bigMountains(p){const PK=p.mapStyle==='peaks',n=PK?0:Math.min(3,p.bigMtns|0);if(!n&&!PK)return null;const W=p.worldSize,rng=mulberry32((p.seed|0)*97+5),nz=makeNoise((p.seed|0)+515),L=[];
+  if(PK)for(const q of peakIslands(p)){const R=Math.min(q.R*0.66,(+p.bigMtnBase||3000)/2),Lr=R*q.long;L.push({x:q.px,z:q.pz,c:Math.cos(q.pd),s:Math.sin(q.pd),R,Lr,H:q.H});}
   for(let k=1;k<=3;k++){const ax=0.22+rng()*0.56,az=0.22+rng()*0.56,ad=rng()*Math.PI;if(k>n)continue;const fx=+p['bigMtnX'+k]||0,fz=+p['bigMtnZ'+k]||0,fd=+p['bigMtnDir'+k]||0;
     const x=(fx>0?fx/100:ax)*W,z=(fz>0?fz/100:az)*W,d=fd>0?fd*Math.PI/180:ad,R=p.bigMtnBase/2,el=clamp(+p.bigMtnLong||0,0,1),Lr=R*3*el,H=p.bigMtnHeight*(1-0.14*(k-1));
     L.push({x,z,c:Math.cos(d),s:Math.sin(d),R,Lr,H});}

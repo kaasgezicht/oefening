@@ -3,7 +3,7 @@
 // ✓ to build), each with a unique number and colour; flying cargo between them (land and stop: the crates are unloaded and paid by the
 // distance from the airstrip where they were loaded, then a new load goes on board); and the compass, a horizontal tape at the top that
 // shows N, E, S, W rolling past and coloured markers: the airstrips while flying, the next stop while driving a bus or lorry.
-const AIR={len:600,w:28,price:60000,rate:200,crates:8,maxDist:2500,fill:6};// runway length and width (m), price, € per km, crates per load, max distance from the village
+const AIR={len:600,w:28,price:60000,rate:200,crates:8,maxDist:1000,fill:6};// runway length and width (m), price, € per km, crates per load, max distance from the village
 const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),ghost:null,
   // ---- a unique colour per airstrip number: hues spaced by the golden angle, alternating lightness, so no two are the same
   color(n){const h=((n-1)*137.508)%360,l=n%2?52:62,s=82;return`hsl(${h.toFixed(0)},${s}%,${l}%)`;},
@@ -12,7 +12,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   startPlace(v){if(!App.T)return;if(Plane.on)Plane.exit();if(Build.active)Build.exit();const s=this.bestSpot(v);this.pl={v,x:s.x,z:s.z,h:s.h};(R.freeMesh(this.ghost),this.ghost=null);this.check();this.ui(true);
     Cam.mode='free';Cam.anim=null;Cam.flyTo([s.x,R.sampleHr(App.T,s.x,s.z),s.z],Math.max(Cam.dist,520));UI.toast(`Airstrip for ${v.name}: tap the ground to move it, ⟲ ⟳ to turn it, ✓ to build`);},
   // a first guess: the flattest dry stretch within reach of the village, in 8 directions and 3 distances
-  bestSpot(v){let best=null;for(let r of [350,650,950,1300,1700,2200])for(let k=0;k<24;k++){if(best&&best.score<4)break;const a=k/24*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<12;j++){const h=j/12*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
+  bestSpot(v){let best=null;for(let r of [380,520,660,800,920])for(let k=0;k<24;k++){if(best&&best.score<4)break;const a=k/24*Math.PI*2,x=v.x+Math.cos(a)*r,z=v.z+Math.sin(a)*r;for(let j=0;j<12;j++){const h=j/12*Math.PI,c=this.check({v,x,z,h},true);if(c.ok&&(!best||c.score<best.score))best={x,z,h,score:c.score};}}
     return best||{x:v.x+400,z:v.z,h:0};},
   corners(a){const c=Math.cos(a.h),s=Math.sin(a.h),L=AIR.len/2,W=AIR.w/2;return{c,s,L,W,P:(u,w)=>[a.x+c*u-s*w,a.z+s*u+c*w]};},
   // the runway's grade line: a straight line fitted along the centre (slope at most 3%), raised over streams (they run under it in a
@@ -141,14 +141,14 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     this._ck=key;this._cm=M.n?R.uploadVeh(M):null;return this._cm;},
   hudText(){if(this.cargo&&this.cargo.to&&!this.job)return` · 📦 ${this.cargo.n} for ${this.nm(this.cargo.to)} · ${(Plane.st?Math.hypot(this.cargo.to.x-Plane.st.p[0],this.cargo.to.z-Plane.st.p[2])/1000:0).toFixed(1)} km`;if(this.job){const p=Math.round(this.job.t/this.job.dur*100);return` · ${this.job.kind==='unload'?'Unloading':'Loading'} 📦 ${p}%`;}return this.cargo?` · 📦 ${this.cargo.n} from ${this.cargo.from.n}`:(this.list.length?' · no cargo: stop on an airstrip':'');},
   pay(a,b){return Math.round(this.dist(a,b)/1000*AIR.rate);},
-  icons(){const show=this.list.length>=2&&!Plane.on&&!RoadVeh.drv&&!Build.active&&!MapView.on&&!this.pl;this.ic=this.ic||new Map();
+  icons(){const show=this.list.length>=1&&!Plane.on&&!RoadVeh.drv&&!Build.active&&!MapView.on&&!this.pl;this.ic=this.ic||new Map();
     for(const s of this.list){let el=this.ic.get(s);if(!el){el=document.createElement('div');el.className='ilabel airIcon';el.innerHTML=`<span>✈</span><b style="background:${this.color(s.n)}">${s.n}</b>`;el.title='Start a cargo flight from airstrip '+s.n;el.onclick=()=>this.missionPanel(s);document.body.appendChild(el);this.ic.set(s,el);}
       const q=show?Cam.toScreen(s.x,R.sampleHr(App.T,s.x,s.z)+12,s.z):null,far=Cam.pos?Math.hypot(Cam.pos[0]-s.x,Cam.pos[2]-s.z)>9000:false;if(!q||far){el.style.display='none';continue;}el.style.display='';el.style.left=q[0]+'px';el.style.top=q[1]+'px';}
     for(const [s,el] of this.ic)if(!this.list.includes(s)){el.remove();this.ic.delete(s);}},
   missionPanel(a){let el=$('#airMis');if(!el){el=document.createElement('div');el.id='airMis';document.body.appendChild(el);el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;if(t.dataset.a==='x'){el.hidden=true;return;}const A=this.list.find(s=>s.n===+t.dataset.a),B=this.list.find(s=>s.n===+t.dataset.b);if(A&&B){el.hidden=true;this.startMission(A,B);}});}
     const bv=!!Fleet.unlocks.beaver,others=this.list.filter(s=>s!==a&&(bv||!s.water)).sort((p,q)=>this.dist(a,p)-this.dist(a,q));
     el.innerHTML=`<div class="rv-h"><div><b>✈ ${a.water?'Jetty':'Airstrip'} ${a.n}${a.v?' · '+esc(a.v.name):''}</b><span>Fly ${AIR.crates} crates to another airstrip. Paid on landing there, +25% for a smooth touchdown</span></div><button data-a="x">✕</button></div>`+
-      others.map(b=>`<button class="mis" data-a="${a.n}" data-b="${b.n}"><i style="background:${this.color(b.n)}">${b.n}</i> ${esc(b.v?b.v.name:'')} · ${(this.dist(a,b)/1000).toFixed(1)} km${Money.on()?` · €${Money.fmt(this.pay(a,b))}`:''}</button>`).join('');el.hidden=false;},
+      (others.length?'':`<div class="fp-note" style="padding:6px">This is your only ${a.water?'jetty':'airstrip'} so far: build a second one in another town to fly cargo between them.</div>`)+others.map(b=>`<button class="mis" data-a="${a.n}" data-b="${b.n}"><i style="background:${this.color(b.n)}">${b.n}</i> ${esc(b.v?b.v.name:'')} · ${(this.dist(a,b)/1000).toFixed(1)} km${Money.on()?` · €${Money.fmt(this.pay(a,b))}`:''}</button>`).join('');el.hidden=false;},
   startMission(a,b){if(Plane.on)Plane.exit();if(RoadVeh.drv)RoadVeh.stopDriving();Plane.spawn(a,a.water||b.water||(Fleet.unlocks.beaver&&Plane.kind==='beaver')?'beaver':'stag');this.job=null;this.cargo={from:a,n:AIR.crates,to:b};this._hint=null;UI.toast(`Cargo for airstrip ${b.n} (${b.v?b.v.name:''}), ${(this.dist(a,b)/1000).toFixed(1)} km: full throttle to take off`);},
   // Build → Roads → Airstrip: the nearest village that can have one now, or what is still missing
   buildButton(){const c=Cam.target,V=Life.villages.slice().sort((p,q)=>Math.hypot(p.x-c[0],p.z-c[2])-Math.hypot(q.x-c[0],q.z-c[2]));const ok=V.find(v=>Life.upgState(v,'air')==='available');

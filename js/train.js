@@ -101,50 +101,77 @@ function hookMesh(){const M=vmesh(),ir=[0.2,0.2,0.22],tb=[0.36,0.27,0.19];vbox(M
   for(const e of [-1,1])vbeam(M,[0,-0.62,0],[e*0.9,-0.76,0],0.025,ir,1);vbox(M,[0,-0.85,0],[4.4,0.2,0.2],tb,3);for(const x of [-2,2])vbox(M,[x,-1.17,0],[0.04,0.64,0.04],ir,1);return M;}
 // ---- mines: the three ore kinds (colours of the ore piles, loads and signs)
 const ORE={gold:{name:'Gold',icon:'🥇',col:[0.66,0.5,0.26],glint:[0.95,0.8,0.32]},silver:{name:'Silver',icon:'🥈',col:[0.55,0.56,0.58],glint:[0.86,0.88,0.92]},diamond:{name:'Diamond',icon:'💎',col:[0.30,0.35,0.40],glint:[0.72,0.88,0.98]}};
-// 19th-century shaft mine (plot 34 × 26, +x faces the village; loading sides back -36, ±32, where the station brings its ore yard):
-// a timber headframe with two sheave wheels over the shaft house, the brick winding-engine house with its tall stack and a
-// boiler lean-to, cables from the drum up to the sheaves, a sorting house on stilts fed by a tub track from the shaft,
-// tubs of ore and a miner pushing one, the grey waste dump and the ore stockpile, an assay office, a powder magazine,
-// a water tank, lamps, a fence and a gate sign with the mine's emblem.
-function mineMesh(kind){const M=omesh(),o=ORE[kind]||ORE.gold,tb=[0.33,0.25,0.18],tl=[0.46,0.35,0.25],br=[0.6,0.31,0.24],ir=[0.2,0.2,0.22],st=[0.7,0.71,0.74],rock=[0.5,0.49,0.47],
-    gnd=[0.47,0.45,0.42],sl=[0.32,0.34,0.38];
-  oBox(M,0,0.08,0,34,0.16,26,gnd,0);
-  // shaft house (x -9..-3, z -3..3) and the headframe over it: four raking legs, back braces toward the engine, two sheaves
-  oBox(M,-6,2.2,0,6,4.1,6,tl,0);oGable(M,-6,0,6,6,4.25,1.6,0.3,'z',[0.38,0.33,0.3],tl,0,0);oBox(M,-2.97,1.5,0,0.06,2.6,1.8,[0.15,0.12,0.1],0);
-  for(const x of [-7.6,-4.4])for(const z of [-2.6,2.6])oLimb(M,[x,0.16,z],[x+(x<-6?0.9:-0.9),15.2,z*0.45],0.2,0.18,4,tb,0);
-  for(const z of [-1.17,1.17])oLimb(M,[2.4,0.16,z*2],[-5.2,14.8,z],0.17,0.15,4,tb,0);
-  for(const y of [6,10,13.5])oBox(M,-6,y,0,3.2-(y-6)*0.12,0.24,4.6-(y-6)*0.3,tb,0);oBox(M,-6,15.35,0,2.4,0.3,1.6,tb,0);oBox(M,-6,15.7,0,3.0,0.12,2.0,tl,0);
-  for(const z of [-0.45,0.45]){oLimb(M,[-6,16.6,z-0.06],[-6,16.6,z+0.06],1.25,1.25,16,ir,0,false);oLimb(M,[-6,16.6,z-0.06],[-6,16.6,z+0.06],0.2,0.2,8,ir,0);
-    for(let k=0;k<6;k++){const a=k/6*6.2832;oLimb(M,[-6,16.6,z],[-6+Math.cos(a)*1.2,16.6+Math.sin(a)*1.2,z],0.04,0.04,4,ir,0);}oBox(M,-6,15.95,z,0.3,0.4,0.2,ir,0);}
-  for(const z of [-0.45,0.45])oLimb(M,[-4.85,16.6,z],[5.6,3.2,z*1.6],0.03,0.03,4,[0.12,0.12,0.12],0);
-  // winding-engine house (x 4..14, z -3.5..3.5): brick, slate roof, arched windows, the drum showing through a door; stack and boiler house
-  oBox(M,9,2.6,0,10,5.2,7,br,0);oBox(M,9,0.3,0,10.3,0.6,7.3,[0.42,0.4,0.38],0);oGable(M,9,0,10,7,5.2,2.2,0.4,'x',sl,br,0,0);
-  for(const x of [6.5,9,11.5])for(const z of [-1,1]){oBox(M,x,2.7,z*3.52,1.0,1.6,0.06,[0.16,0.18,0.22],0);oArch(M,[x,3.5,z*3.56],0.5,'x',[0.16,0.18,0.22],0);}
-  oBox(M,3.97,1.8,0,0.06,3,2.6,[0.12,0.1,0.09],0);oLimb(M,[5.0,3.2,-1.2],[5.0,3.2,1.2],0.9,0.9,14,[0.35,0.3,0.26],0);oBox(M,5.6,3.2,0,0.16,0.16,0.16,ir,0);
-  oBox(M,12,9,-5.3,1.2,18,1.2,br,0);oBox(M,12,17.7,-5.3,1.55,0.5,1.55,br,0);oBox(M,12,18.1,-5.3,1.3,0.35,1.3,[0.14,0.13,0.13],0);for(const y of [6,12])oBox(M,12,y,-5.3,1.28,0.14,1.28,[0.48,0.25,0.2],0);
-  oBox(M,9.5,1.7,-5.3,5,3.4,3.6,br,0);oBox(M,9.5,3.5,-5.3,5.3,0.12,3.9,sl,0);oBox(M,11.4,1.0,-5.3,0.7,0.6,1.3,br,0);
-  // sorting house on stilts (x -14..-8, z 5..11) with chutes, fed by a tub track from the shaft house; tubs of ore, a miner pushing one
-  for(const x of [-13.6,-8.4])for(const z of [5.4,10.6])oBox(M,x,2.0,z,0.3,4,0.3,tb,0);oBox(M,-11,4.7,8,6,2.8,6,tl,0);oGable(M,-11,8,6,6,6.1,1.4,0.3,'x',[0.38,0.33,0.3],tl,0,0);
-  for(const z of [6.2,9.8])oOBox(M,[-11,2.9,z],[0,0.6,0],[0.5,0,0],[0,0.06,0.5],ir,0);oBox(M,-11,4.1,4.95,3,0.6,0.1,[0.25,0.2,0.15],0);
-  {const rails=(x0,z0,x1,z1)=>{const L=Math.hypot(x1-x0,z1-z0),dx=(x1-x0)/L,dz=(z1-z0)/L;for(const e of [-0.32,0.32])oOBox(M,[(x0+x1)/2-dz*e,0.22,(z0+z1)/2+dx*e],[(x1-x0)/2,0,(z1-z0)/2],[0,0.04,0],[-dz*0.03,0,dx*0.03],ir,0);for(let u=0.4;u<L;u+=0.8)oOBox(M,[x0+dx*u,0.18,z0+dz*u],[dx*0.1,0,dz*0.1],[0,0.03,0],[-dz*0.5,0,dx*0.5],tb,0);};
-    rails(-6,3.2,-6,8);rails(-6,8,-8.3,8);rails(-6,-3.2,-6,-10);}
-  const tub=(x,z,full)=>{oBox(M,x,0.6,z,1.1,0.6,0.8,ir,0);for(const dx of [-0.35,0.35])for(const dz of [-0.33,0.33])oLimb(M,[x+dx,0.36,z+dz-0.03],[x+dx,0.36,z+dz+0.03],0.13,0.13,8,[0.12,0.12,0.12],0);if(full)oIco(M,x,0.92,z,0.38,o.col,0,{sy:0.45,jit:0.2,seed:Math.round(x*7+z)});};
-  tub(-6,5.2,true);tub(-6,6.6,true);tub(-6,-6,false);tub(-6,-8,true);oMerge(M,personMesh(),-6,0.16,4.2,Math.PI/2);
-  // waste rock dump and the ore stockpile; a few rocks
-  oIco(M,-12,0.3,-7.5,4.2,rock,0,{sy:0.48,jit:0.16,detail:1,seed:31});oIco(M,-7.5,0.3,9,2.3,o.col,0,{sy:0.5,jit:0.2,detail:1,seed:33});for(let k=0;k<5;k++){const x=-8.3+k*0.4,z=9.4-k*0.2,d=Math.hypot(x+7.5,z-9);oIco(M,x,0.25+1.15*Math.sqrt(Math.max(0,1-d*d/5.3)),z,0.18,o.glint,0,{seed:40+k});}
-  for(const [x,z,r] of [[2,-10,0.6],[3.4,-11.2,0.4],[-1,11.5,0.5]])oIco(M,x,0.3,z,r,rock,0,{sy:0.7,jit:0.25,seed:Math.round(x*3+z)});
-  // assay office with porch and lit window, powder magazine (stone, iron door), water tank, lamps
-  oBox(M,9,1.5,8.8,6,3,4.4,[0.6,0.52,0.42],0);oGable(M,9,8.8,6,4.4,3.0,1.4,0.35,'x',[0.55,0.25,0.18],[0.6,0.52,0.42],0,0);oBox(M,8,1.15,6.58,0.9,2.0,0.06,[0.3,0.2,0.13],0);oBox(M,10.4,1.8,6.58,1.1,0.9,0.05,[1,0.85,0.55],9);
-  oBox(M,9,2.7,5.9,6.2,0.1,1.4,[0.55,0.25,0.18],0);for(const x of [6.2,11.8])oBox(M,x,1.35,5.3,0.14,2.7,0.14,tb,0);
-  oBox(M,14.5,1.2,-10.6,2.6,2.4,2.2,[0.62,0.6,0.56],0);oGable(M,14.5,-10.6,2.6,2.2,2.4,0.8,0.15,'x',[0.4,0.4,0.42],[0.62,0.6,0.56],0,0);oBox(M,13.17,1.0,-10.6,0.05,1.5,0.8,[0.25,0.25,0.27],0);
-  for(const dx of [-1,1])for(const dz of [-1,1])oBox(M,1.5+dx,2.3,-9.5+dz,0.22,4.6,0.22,tb,0);oPrism(M,1.5,-9.5,1.2,1.2,4.6,6.3,12,tl,0);oPrism(M,1.5,-9.5,1.3,0.08,6.3,7.0,12,[0.36,0.3,0.26],0);for(const y of [5,5.7])oPrism(M,1.5,-9.5,1.23,1.23,y,y+0.06,12,ir,0);
-  for(const [x,z] of [[0,4],[-2,-4],[15,3]]){oBox(M,x,1.8,z,0.14,3.6,0.14,[0.15,0.2,0.17],0);oBox(M,x,3.7,z,0.34,0.38,0.34,[1,1,1],9);}
-  // fence along the village side with a gate sign carrying the mine's emblem (a coin, a bar or a cut stone)
+// The mine (4.25.0), after the user's reference picture: a craggy rock face along the back of the plot with a stone-arched adit (timber
+// frame, a sign, a lantern) and an older boarded-up one, a narrow-gauge track from deep in the adit to the intake of the crusher house,
+// a steam engine house with a horizontal boiler, two iron stacks and an engine bed (its flywheel turns: mineFlyMesh), the crusher house
+// (stone base, two timber storeys, a dormer, iron pipes) with a lean-to, chutes out of both sides into feed bins at the plot edges
+// (where the loading station's conveyor starts), ore and coal heaps, barrels, crates, a timber pile, lamps and the gate sign. The carts,
+// the miners and the smoke are animated (Life.mineAnim). Plot ±17 × ±13, +x faces the village; stations load on the ±z sides.
+function mineMesh(kind){const M=omesh(),o=ORE[kind]||ORE.gold,tb=[0.33,0.25,0.18],tl=[0.46,0.35,0.25],td=[0.27,0.2,0.15],ir=[0.2,0.2,0.22],irr=[0.36,0.22,0.15],stn=[0.5,0.49,0.46],stn2=[0.42,0.41,0.39],
+    gnd=[0.42,0.38,0.33],sl=[0.27,0.26,0.27],coal=[0.1,0.1,0.11],rk=[[0.42,0.39,0.35],[0.48,0.45,0.4],[0.36,0.34,0.31],[0.45,0.41,0.36]],rng=mulberry32(kind==='gold'?11:kind==='silver'?23:37);
+  oBox(M,0,0.06,0,34,0.12,26,gnd,0);
+  // ---- the rock face: columns of rock, tallest at the back, a shoulder along each side; none in front of the adits
+  const adit=(x,z)=>Math.abs(z+4)<3.4&&x>-22.5,old=(x,z)=>Math.abs(z-8)<2.4&&x>-20,RK=[[0.47,0.44,0.4],[0.41,0.39,0.36],[0.53,0.5,0.45],[0.36,0.34,0.32],[0.44,0.4,0.35]],pick=()=>RK[Math.floor(rng()*RK.length)];
+  /* the face: big weathered crags, taller toward the back and in the middle, their tops sometimes grassed; a few sharp columns of strata */
+  for(let i=0;i<70;i++){const x=-25+rng()*8.5,z=-19+rng()*38,r=1.8+rng()*2.4;if(adit(x,z)||old(x,z))continue;const top=10+(x+25)*-0.5+rng()*7-Math.max(0,Math.abs(z)-10)*0.5;oIco(M,x,top*0.5-1,z,r,pick(),0,{sy:Math.max(1,top/(2*r)),jit:0.28,detail:1,seed:100+i});}
+  for(let i=0;i<12;i++){const x=-24+rng()*5,z=-17+rng()*34,r=1.1+rng()*0.9;if(adit(x,z)||old(x,z))continue;oPrism(M,x,z,r,r*0.62,-1,6+rng()*6,5,pick(),0,rng()*6.28);}
+  for(const sd of [-1,1])for(let i=0;i<26;i++){const x=-17+rng()*10,z=sd*(13.8+rng()*4.2),r=1.0+rng()*1.6,h=Math.max(1.2,7-(x+17)*0.55+rng()*2.5);oIco(M,x,h*0.4-0.6,z,r,pick(),0,{sy:Math.max(0.8,h/(2*r)),jit:0.3,seed:300+i+(sd>0?50:0)});}
+  for(let i=0;i<14;i++){const x=-15+rng()*28,z=(rng()<0.5?-1:1)*(10+rng()*2.5),r=0.25+rng()*0.4;oIco(M,x,0.15,z,r,pick(),0,{sy:0.6,jit:0.3,seed:500+i});}/* loose rocks */
+  // the rock above and round each adit mouth (a lintel of rock), the dark tunnels behind
+  for(const [zc,w,hh] of [[-4,3.4,4.2],[8,2.4,3.2]]){oBox(M,-21,hh+3,zc,6,6,w+2.6,rk[2],0);oBox(M,-20.5,hh/2,zc,7,hh+0.2,w,[0.03,0.03,0.035],0);for(const e of [-1,1])oBox(M,-20,hh/2,zc+e*(w/2+0.7),5,hh+1,1.4,rk[0],0);}
+  // ---- the main adit: a masonry portal (rough blocks round an arch), timber frame, the sign, a lantern
+  {const zc=-4,xf=-16.3;for(let y=0;y<6.4;y+=0.55)for(let z=-7;z<=-1;z+=0.62){const dz=z-zc,inside=Math.abs(dz)<1.55&&y<3.6+(Math.abs(dz)<1.55?Math.sqrt(Math.max(0,2.4-dz*dz))*0.6:0);if(inside)continue;oBox(M,xf-0.5+rng()*0.12,y+0.28,z+(Math.floor(y/0.55)%2)*0.31,1.0,0.5,0.58,rng()<0.5?stn:stn2,0);}
+    for(const e of [-1,1])oBox(M,xf+0.1,1.8,zc+e*1.45,0.32,3.6,0.32,tb,0);oBox(M,xf+0.1,3.7,zc,0.36,0.36,3.4,tb,0);for(const e of [-1,1])oLimb(M,[xf+0.12,3.0,zc+e*1.45],[xf+0.12,3.6,zc+e*0.85],0.07,0.07,4,tb,0);
+    oBox(M,xf+0.28,4.35,zc,0.08,0.6,2.3,[0.24,0.18,0.12],0);for(let k=0;k<6;k++)oBox(M,xf+0.33,4.35,zc-0.85+k*0.34,0.03,0.32,0.18,[0.85,0.78,0.6],0);/* SHAFT 4 */
+    oBox(M,xf+0.5,2.9,zc+2.1,0.08,0.08,0.5,ir,0);oBox(M,xf+0.5,2.6,zc+2.3,0.2,0.32,0.2,[1,0.78,0.4],9);}
+  // the old adit, boarded up
+  {const zc=8,xf=-17.8;for(const e of [-1,1])oBox(M,xf,1.3,zc+e*1.05,0.26,2.6,0.26,td,0);oBox(M,xf,2.7,zc,0.28,0.28,2.6,td,0);for(const [y,a] of [[0.8,0.5],[1.6,-0.4],[2.2,0.3]])oBox(M,xf+0.18,y,zc,0.06,0.22,2.2,tb,0,a);}
+  // ---- the cart track (narrow gauge, 0.6 m) from deep in the adit to the buffer at the crusher intake
+  {const rail=(x0,x1,z)=>{for(const e of [-0.32,0.32])oBox(M,(x0+x1)/2,0.2,z+e,x1-x0,0.06,0.05,ir,0);for(let x=x0+0.3;x<x1;x+=0.7)oBox(M,x,0.14,z,0.16,0.06,1.0,td,0);};rail(-24,-3.4,-4);oBox(M,-3.2,0.45,-4,0.3,0.5,1.2,tb,0);}
+  // the intake platform and hopper at the west wall of the crusher house (where the miners shovel the carts empty)
+  oBox(M,-3.3,0.32,-6.0,4.2,0.12,1.8,tl,0);oBox(M,-3.3,0.32,-2.0,4.2,0.12,1.8,tl,0);oOBox(M,[-1.6,2.0,-4],[0.7,0,0],[0,0.7,0],[0,0,1.5],td,0);oOBox(M,[-1.95,2.6,-4],[0.35,0,0],[0,0.05,0],[0,0,1.4],[0.08,0.08,0.09],0);
+  // ---- the crusher house: stone base, two timber storeys with battens, gable roof along x, a dormer, iron stove pipes
+  {const x0=-1,x1=9,z0=-9,z1=1,cx=(x0+x1)/2,cz=(z0+z1)/2,W=x1-x0,D=z1-z0;oBox(M,cx,1.9,cz,W,3.8,D,stn,0);for(let y=0.6;y<3.8;y+=0.62)oBox(M,cx,y,cz,W+0.04,0.05,D+0.04,stn2,0);
+    oBox(M,cx,6.2,cz,W-0.4,4.8,D-0.4,tl,0);for(let x=x0+0.5;x<x1;x+=0.55)for(const e of [z0+0.18,z1-0.18])oBox(M,x,6.2,e+(e<cz?-0.03:0.03),0.07,4.7,0.06,tb,0);for(let z=z0+0.5;z<z1;z+=0.55)for(const e of [x0+0.18,x1-0.18])oBox(M,e+(e<cx?-0.03:0.03),6.2,z,0.06,4.7,0.07,tb,0);
+    oGable(M,cx,cz,W+0.2,D+0.2,8.6,3.2,0.5,'x',sl,tl,0,0);
+    for(const x of [1.2,4,6.8])for(const z of [z0+0.19,z1-0.19]){oBox(M,x,6.9,z,1.0,1.3,0.06,[0.12,0.14,0.18],9);oBox(M,x,6.9,z+(z<cz?-0.03:0.03),1.15,0.08,0.08,tb,0);}
+    oBox(M,x1+0.05,1.6,cz-1,0.06,3,1.8,td,0);oBox(M,4,10.2,z1+0.2,2.2,1.6,1.4,tl,0);oGable(M,4,z1+0.2,2.4,1.6,10.9,0.9,0.2,'z',sl,tl,0,0);oBox(M,4,10.3,z1+0.92,1.0,0.8,0.05,[0.12,0.14,0.18],9);
+    for(const [x,h] of [[7.5,14.5],[8.4,13.2]]){oLimb(M,[x,8.2,cz-2],[x,h,cz-2],0.22,0.2,10,ir,0,true);oLimb(M,[x,h,cz-2],[x,h+0.3,cz-2],0.3,0.3,10,irr,0,true);}
+    // the lean-to on the +x end, under a porch roof on posts (photo: the small shed in front)
+    oBox(M,x1+2,1.4,-6.5,3.4,2.8,3.4,td,0);oGable(M,x1+2,-6.5,3.6,3.6,2.8,1.0,0.3,'z',sl,td,0,0);for(const z of [-9,-4])oBox(M,x1+4.2,1.2,z,0.18,2.4,0.18,tb,0);oBox(M,x1+3.3,2.5,-6.5,2.4,0.1,5.6,sl,0);
+    // chutes out of both sides down into the feed bins at the plot edges (the station's conveyor starts at a bin)
+    for(const e of [-1,1]){const zw=e<0?z0:z1,zb=e*12.4;oOBox(M,[2.2,(5.2+2.9)/2,(zw+zb)/2],[0.45,0,0],[0,(5.2-2.9)/2,(zw-zb)/2*0.02],[0,-0.12,(zb-zw)/2],ir,0);
+      for(const dx of [-1.2,1.2])for(const dz of [-1.2,1.2])oBox(M,2.2+dx,1.2,zb+dz,0.22,2.4,0.22,tb,0);oOBox(M,[2.2,2.9,zb],[1.5,0,0],[0,0.55,0],[0,0,1.5],tl,0);oIco(M,2.2,3.5,zb,1.1,o.col,0,{sy:0.4,jit:0.2,seed:51+e});}}
+  // ---- the engine house: boiler, two iron stacks, engine bed with cylinder and crosshead guides (the flywheel is drawn turning)
+  {oBox(M,-6.5,0.5,6.5,7,1.0,6,stn,0);oLimb(M,[-9.6,1.9,7.8],[-4.2,1.9,7.8],1.0,1.0,14,[0.24,0.24,0.26],0,true);for(const x of [-8.8,-7,-5.2])oLimb(M,[x,1.9,7.8],[x+0.08,1.9,7.8],1.04,1.04,14,irr,0);
+    oBox(M,-10,1.4,7.8,0.6,1.8,2.2,stn2,0);oBox(M,-10.25,1.2,7.8,0.06,0.7,0.6,[1,0.5,0.15],9);
+    for(const [z,h] of [[6.9,15.5],[8.7,13.8]]){oLimb(M,[-8.4,2.8,z],[-8.4,h,z],0.32,0.28,10,ir,0,true);oLimb(M,[-8.4,h,z],[-8.4,h+0.35,z],0.42,0.42,10,irr,0,true);oLimb(M,[-8.4,h*0.6,z],[-8.4,h*0.6+0.12,z],0.36,0.36,10,irr,0);}
+    oLimb(M,[-4.2,2.4,7.8],[-3.6,3.6,6.5],0.12,0.12,8,irr,0);oLimb(M,[-3.6,3.6,6.5],[-1.6,3.3,6.5],0.12,0.12,8,irr,0);
+    oBox(M,-3.2,0.7,5,4,1.4,1.4,stn2,0);oLimb(M,[-4.8,1.9,5],[-3.6,1.9,5],0.35,0.35,12,[0.3,0.3,0.32],0,true);for(const y of [1.65,2.15])oBox(M,-2.6,y,5,1.8,0.06,0.1,[0.75,0.75,0.78],0);
+    oBox(M,-1.4,1.5,6.5,0.6,3.0,0.5,stn2,0);oBox(M,-1.4,1.5,4.3,0.6,3.0,0.5,stn2,0);// the flywheel bearings (wheel between them at -1.4, y 2.4)
+    oOBox(M,[-0.6,4.6,1.6],[0.6,0,0],[0,1.9,-1.9],[0,0.05,0.05],[0.1,0.09,0.08],0);// the drive belt up into the crusher house
+    oBox(M,-6.5,3.3,4.4,7.4,0.12,0.8,tb,0);for(const x of [-10,-3])oBox(M,x,1.9,4.4,0.16,2.8,0.16,tb,0);oBox(M,-6.5,3.4,6.5,7.6,0.1,6.4,sl,0);/* a roof over the engine on posts */for(const [x,z] of [[-10,9.6],[-3,9.6]])oBox(M,x,1.9,z,0.16,2.8,0.16,tb,0);}
+  // ---- heaps, props, lamps
+  oIco(M,-12,0.3,9.5,3.2,[0.5,0.49,0.46],0,{sy:0.45,jit:0.18,detail:1,seed:31});oIco(M,-11.5,0.3,4.2,1.6,coal,0,{sy:0.5,jit:0.2,seed:32});oIco(M,-1.8,0.2,-7.4,1.5,o.col,0,{sy:0.55,jit:0.2,seed:33});
+  for(let k=0;k<6;k++)oIco(M,-2.6+k*0.22,0.45+rng()*0.4,-7.2+rng(),0.16,o.glint,0,{seed:40+k});
+  for(const [x,z] of [[-13.5,-6.8],[-13.9,-7.6],[-12.8,-7.4]])oPrism(M,x,z,0.32,0.32,0.12,1.0,10,[0.42,0.3,0.18],0,0,[0.3,0.22,0.14]);
+  for(const [x,z,r] of [[11.5,-1.5,0],[12.3,-1.8,0.2],[11.8,-1.0,0.5]])oBox(M,x,0.45,z,0.8,0.7,0.8,[0.55,0.42,0.26],0,r);
+  for(let k=0;k<6;k++)oLimb(M,[5,0.3+Math.floor(k/3)*0.3,7+(k%3)*0.32],[10,0.3+Math.floor(k/3)*0.3,7+(k%3)*0.32],0.15,0.15,6,[0.5,0.38,0.24],0);
+  for(const [x,z] of [[-9,-2],[11,3],[-4,-10.5]]){oBox(M,x,1.8,z,0.14,3.6,0.14,tb,0);oBox(M,x+0.3,3.5,z,0.6,0.06,0.06,tb,0);oBox(M,x+0.55,3.25,z,0.24,0.34,0.24,[1,0.8,0.42],9);}
+  // the gate sign with the mine's emblem (a coin, a bar or a cut stone)
   for(const z of [-2.8,2.8])oBox(M,16.6,1.7,z,0.22,3.4,0.22,tb,0);oBox(M,16.6,3.2,0,0.16,0.7,5.8,tl,0);
   if(kind==='diamond'){const c=[16.48,3.2,0],r=0.42;for(let k=0;k<6;k++){const a0=k/6*6.2832,a1=(k+1)/6*6.2832;oTri(M,c,[c[0],c[1]+Math.sin(a0)*r*0.6+0.12,Math.cos(a0)*r],[c[0],c[1]+Math.sin(a1)*r*0.6+0.12,Math.cos(a1)*r],o.glint,0);}oTri(M,[16.48,3.32,-0.42],[16.48,3.32,0.42],[16.48,2.85,0],o.glint,0);}
   else oLimb(M,[16.5,3.2,0],[16.47,3.2,0],0.38,0.38,14,o.glint,0);
-  for(const [z0,z1] of [[-12.8,-2.8],[2.8,12.8]]){for(let z=z0;z<=z1+0.01;z+=(z1-z0)/4)oBox(M,16.7,0.7,z,0.14,1.1,0.14,tb,0);for(const y of [0.55,1.0])oBox(M,16.7,y,(z0+z1)/2,0.07,0.1,z1-z0,tl,0);}
   return M;}
+/* a mine cart (narrow-gauge tub, forward +x): a flared riveted steel body on four small wheels, coupling bars */
+function mineCartMesh(){const M=omesh(),ir=[0.24,0.22,0.21],rs=[0.4,0.25,0.17],dk=[0.08,0.08,0.09];oOBox(M,[0,0.82,0],[0.72,0,0],[0,0.36,0],[0,0,0.46],rs,0);oOBox(M,[0,0.5,0],[0.6,0,0],[0,0.05,0],[0,0,0.36],ir,0);
+  for(const e of [-1,1]){oBox(M,e*0.73,0.82,0,0.04,0.72,0.96,ir,0);oBox(M,0,1.18,e*0.47,1.48,0.06,0.05,ir,0);oBox(M,e*0.86,0.5,0,0.3,0.06,0.08,dk,0);}
+  for(const dx of [-0.42,0.42])for(const dz of [-0.33,0.33])oLimb(M,[dx,0.22,dz-0.04],[dx,0.22,dz+0.04],0.2,0.2,10,dk,0,true);return M;}
+/* the ore heaped in a cart */
+function mineLoadMesh(kind){const M=omesh(),o=ORE[kind];oIco(M,0,1.12,0,0.5,o.col,0,{sy:0.42,jit:0.25,seed:5});for(let k=0;k<4;k++)oIco(M,-0.4+k*0.27,1.28,(k%2?0.15:-0.15),0.09,o.glint,0,{seed:9+k});return M;}
+/* the engine's flywheel (kind 11: turns about local x at the origin) */
+function mineFlyMesh(){const M=omesh(),ir=[0.18,0.18,0.2],R=1.9,n=24;for(let k=0;k<n;k++){const a0=k/n*6.2832,a1=(k+1)/n*6.2832;oOBox(M,[0,Math.sin((a0+a1)/2)*R,Math.cos((a0+a1)/2)*R],[0.16,0,0],[0,Math.cos((a0+a1)/2)*0.26*Math.PI*R/n*1.9,-Math.sin((a0+a1)/2)*0.26*Math.PI*R/n*1.9],[0,Math.sin((a0+a1)/2)*0.13,Math.cos((a0+a1)/2)*0.13],ir,0);}
+  for(let k=0;k<6;k++){const a=k/6*6.2832;oLimb(M,[0,0,0],[0,Math.sin(a)*R*0.95,Math.cos(a)*R*0.95],0.07,0.05,5,ir,0);}oLimb(M,[-0.3,0,0],[0.3,0,0],0.28,0.28,10,[0.3,0.3,0.32],0,true);oLimb(M,[-0.5,0,0],[0.5,0,0],0.1,0.1,8,[0.6,0.6,0.62],0,true);return M;}
 // ---- ore hopper wagon on two bogies, after the long-haul ore trains: a tall ribbed steel box in rust-red paint with a heavy top
 // chord, corner posts and a belt rail, sloping discharge hoppers underneath, centre-buffer couplers, cast bogie side frames with
 // coil-spring nests, disc wheels, a handbrake wheel on the end wall, end and side ladders, grab irons and an air reservoir.
@@ -182,21 +209,33 @@ function oreLoadMesh(kind){const M=vmesh(),o=ORE[kind],L=4.88,W=1.38;vbox(M,[0,0
 // ore loading station (station frame, yard on -z): a timber ore bunker on trestle bents spanning the track, a row of ore
 // pockets with spouts between the bents (the one over a wagon opens and pours), a roof, an inclined covered conveyor gallery
 // from the ore yard up to the bunker, lamps and a weigh hut
-function oreYardMesh(){const M=vmesh(),tb=[0.34,0.26,0.19],tl=[0.47,0.36,0.26],ir=[0.24,0.24,0.26],rf=[0.36,0.33,0.31],dk=[0.2,0.19,0.18];
-  for(let x=-20;x<=20.01;x+=4){for(const z of [-2.9,2.9]){vbox(M,[x,3.1,z],[0.32,6.6,0.32],tb,3);vbox(M,[x,-0.6,z],[0.7,0.9,0.7],[0.55,0.53,0.5],3);}vbox(M,[x,6.55,0],[0.34,0.3,6.4],tb,3);for(const e of [-1,1])vbeam(M,[x,4.9,e*2.9],[x,6.4,e*1.6],0.09,tb,3);}
-  for(const z of [-2.9,2.9])vbox(M,[0,6.55,z],[41,0.3,0.3],tb,3);for(let x=-18;x<=18.01;x+=4)for(const z of [-2.9,2.9])vbeam(M,[x-2,1.2,z],[x+2,5.9,z],0.07,tb,3);
-  vbox(M,[0,8.0,0],[41.2,2.6,5.6],tl,5);vbox(M,[0,6.8,0],[41.2,0.2,5.2],tb,3);for(let x=-20;x<=20.01;x+=2)for(const z of [-2.85,2.85])vbox(M,[x,8.0,z],[0.12,2.6,0.1],tb,3);
-  for(const z of [-1,1])vq(M,[-21,9.3,z*3.1],[21,9.3,z*3.1],[21,10.6,0],[-21,10.6,0],[0,0.92,z*0.39],rf,3);for(const e of [-1,1])vt(M,[e*20.6,9.3,-2.8],[e*20.6,9.3,2.8],[e*20.6,10.6,0],[e,0,0],tl,3);
-  for(let x=-18;x<=18.01;x+=4){vobox(M,[x,6.35,0],[0.7,0,0],[0,0.35,0],[0,0,0.7],dk,3);vbox(M,[x,5.35,0],[0.55,1.6,0.55],ir,1);vbox(M,[x+0.4,5.5,0.45],[0.05,0.9,0.05],ir,1);vbox(M,[x+0.4,5.95,0.6],[0.05,0.05,0.35],ir,1);}
-  // inclined conveyor gallery from the ore yard (z -17, ground) up to the bunker side (z -3, y 8.8), on two trestles
-  vobox(M,[0,4.6,-10.2],[0,4.2,7.0],[1.15,0,0],[0,0.68,-0.41],tl,3);vobox(M,[0,5.27,-10.6],[0,4.2,7.0],[1.3,0,0],[0,0.043,-0.026],rf,3);
-  for(const [z,y] of [[-13.5,2.6],[-8.5,5.6]])for(const x of [-0.9,0.9])vbox(M,[x,(y-0.2)/2,z],[0.24,y+0.2,0.24],tb,3);
+// the loading station's ore bins (after the picture's "ORE HOPPER"): three timber bins on a braced trestle over the track, a funnel and
+// ten sloping chutes under them (the pour points at x -18..18), a walkway with railings, stairs and a lantern on the far side, the sign,
+// and the inclined conveyor gallery from the mine's feed bin (local z -21, ground) up over the bin tops; ore heaps in the bins and on the
+// belt are drawn by Crane.draw
+function oreYardMesh(){const M=vmesh(),tb=[0.34,0.26,0.19],tl=[0.47,0.36,0.26],td=[0.28,0.21,0.15],ir=[0.24,0.24,0.26],rf=[0.36,0.33,0.31],dk=[0.2,0.19,0.18];
+  for(let x=-20;x<=20.01;x+=4){for(const z of [-2.9,2.9]){vbox(M,[x,3.4,z],[0.34,6.8,0.34],tb,3);vbox(M,[x,-0.5,z],[0.8,0.9,0.8],[0.55,0.53,0.5],3);}vbox(M,[x,6.75,0],[0.36,0.3,6.4],tb,3);for(const e of [-1,1])vbeam(M,[x,5.0,e*2.9],[x,6.6,e*1.6],0.09,tb,3);}
+  for(const z of [-2.9,2.9])vbox(M,[0,6.75,z],[41,0.3,0.3],tb,3);for(let x=-18;x<=18.01;x+=4)for(const z of [-2.9,2.9]){vbeam(M,[x-2,1.0,z],[x+2,6.1,z],0.07,tb,3);vbeam(M,[x+2,1.0,z],[x-2,6.1,z],0.07,tb,3);}
+  // three bins: plank walls between posts, iron bands, open tops (the heaps show from above)
+  for(const bx of [-13.2,0,13.2]){const L=12.9;for(const z of [-3.2,3.2])vbox(M,[bx,9.0,z],[L,4.2,0.14],tl,5);for(const e of [-1,1])vbox(M,[bx+e*L/2,9.0,0],[0.14,4.2,6.4],tl,5);
+    for(let x=bx-L/2;x<=bx+L/2+0.01;x+=L/4)for(const z of [-3.27,3.27])vbox(M,[x,9.0,z],[0.22,4.3,0.12],tb,3);for(const y of [7.4,10.6])for(const z of [-3.3,3.3])vbox(M,[bx,y,z],[L+0.1,0.12,0.06],ir,1);
+    vbox(M,[bx,7.1,0],[L,0.2,6.4],td,3);}
+  // funnels and chutes: each chute slopes from under the bin floor to its spout over the track centre
+  for(let x=-18;x<=18.01;x+=4){vobox(M,[x,6.45,0],[0.75,0,0],[0,0.35,0],[0,0,0.75],dk,3);vobox(M,[x,5.35,0.6],[0.32,0,0],[0,0.75,-0.3],[0,0.09,0.32],ir,1);vbox(M,[x,4.75,0],[0.5,0.32,0.5],ir,1);}
+  // walkway along the bin tops with railings, stairs down on the far side (+z), a lantern, the sign
+  vbox(M,[0,11.15,4.1],[40,0.12,1.5],td,3);for(let x=-20;x<=20.01;x+=2.5){vbox(M,[x,11.75,4.82],[0.1,1.1,0.1],tb,3);}vbox(M,[0,12.25,4.82],[40,0.1,0.1],tb,3);vbox(M,[0,11.75,4.82],[40,0.06,0.06],tb,3);
+  for(let k=0;k<14;k++){const x=21+k*0.55,y=11.15-k*0.8;vbox(M,[x,y,4.1],[0.6,0.1,1.2],td,3);}for(const z of [3.5,4.7])vbeam(M,[20.8,11.2,z],[28.8,0.0,z],0.08,tb,3);vbeam(M,[21,12.2,4.7],[29,1.0,4.7],0.05,tb,3);
+  vbox(M,[20.6,12.6,4.6],[0.12,2.8,0.12],tb,3);vbox(M,[20.6,13.6,4.25],[0.1,0.1,0.7],tb,3);vbox(M,[20.6,13.25,3.95],[0.3,0.42,0.3],COL.lamp,4);
+  vbox(M,[0,9.6,3.42],[5.2,1.0,0.08],[0.24,0.18,0.12],3);for(let k=0;k<9;k++)vbox(M,[-2.1+k*0.52,9.6,3.47],[0.3,0.5,0.02],[0.85,0.78,0.6],3);/* ORE HOPPER */
+  // the conveyor gallery: from the feed bin at the mine (z -21) up to over the bins (z -3.4, y 11.6), roofed, on three trestles
+  {const z0=-21,y0=1.2,z1=-3.4,y1=11.6,L=Math.hypot(z1-z0,y1-y0),uz=(z1-z0)/L,uy=(y1-y0)/L;vobox(M,[0,(y0+y1)/2,(z0+z1)/2],[0,uy*L/2,uz*L/2],[0.9,0,0],[0,uz*0.08,-uy*0.08],tl,3);
+    vobox(M,[0,(y0+y1)/2+1.5,(z0+z1)/2],[0,uy*L/2,uz*L/2],[1.15,0,0],[0,uz*0.06,-uy*0.06],rf,3);for(const e of [-1,1])vobox(M,[e*0.9,(y0+y1)/2+0.75,(z0+z1)/2],[0,uy*L/2,uz*L/2],[0.05,0,0],[0,uz*0.7,-uy*0.7],tl,5);
+    for(const f of [0.3,0.6,0.85]){const z=z0+(z1-z0)*f,y=y0+(y1-y0)*f;for(const x of [-0.9,0.9])vbox(M,[x,y/2,z],[0.26,y,0.26],tb,3);vbeam(M,[-0.9,0.3,z],[0.9,y-0.3,z],0.06,tb,3);}}
   for(const x of [-7,7]){vbox(M,[x,1.8,-5.4],[0.14,3.9,0.14],[0.15,0.2,0.17],1);vbox(M,[x,3.92,-5.4],[0.36,0.4,0.36],COL.lamp,4);vbox(M,[x,4.2,-5.4],[0.48,0.08,0.48],[0.15,0.2,0.17],1);}
-  vbox(M,[-24.6,1.1,-6],[2.6,2.6,2.4],tl,3);vbox(M,[-24.6,2.48,-6],[3.0,0.14,2.8],[0.5,0.24,0.18],3);vbox(M,[-23.28,1.0,-6],[0.05,1.9,0.8],[0.3,0.2,0.13],3);
   return M;}
 // the falling ore (1 m, stretched to the drop) and the yard stockpile (1 m high, stretched to the stock)
 function oreStreamMesh(kind){const M=vmesh();vbox(M,[0,-0.5,0],[0.4,1,0.4],ORE[kind].col,3);return M;}
-function oreHeapMesh(kind){const M=vmesh(),o=ORE[kind],n=10;for(let k=0;k<n;k++){const a0=k/n*6.2832,a1=(k+1)/n*6.2832,P=(a,r,y)=>[Math.cos(a)*r*1.6,y,Math.sin(a)*r];
+function oreHeapMesh(kind){const M=vmesh(),o=ORE[kind],n=10;for(let k=0;k<n;k++){const a0=k/n*6.2832,a1=(k+1)/n*6.2832,P=(a,r,y)=>[Math.cos(a)*r*1.52,y,Math.sin(a)*r*0.74];
     vq(M,P(a0,4,0),P(a1,4,0),P(a1,1.4,0.85),P(a0,1.4,0.85),[Math.cos(a0),0.7,Math.sin(a0)],o.col,3);vt(M,P(a0,1.4,0.85),P(a1,1.4,0.85),[0,1,0],[0,1,0],o.col,3);}return M;}
 // tender engine, toyish but true to type: frames and footplate with red valances, splashers with brass beading over
 // the drivers, banded boiler with handrails, smokebox with door, hinges and number plate, chimney with copper cap,
@@ -670,7 +709,8 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   draw(pass){if(!this.F.length||!R.veh||!R.veh[18])return;const p=R.pVeh,c=Cam.pos||R.focus||[0,0,0];gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);gl.uniform2f(p.u('uOcc'),0,0);
     const dm=(mi,M)=>{const m=R.veh[mi];gl.uniformMatrix4fv(p.u('uModel'),false,M);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     for(const f of this.F){const s=f.s;if(!s||f.kind==='farm'||Math.hypot(f.o[0]-c[0],f.o[2]-c[2])>1600)continue;
-      if(f.kind==='mine'){const i=['gold','silver','diamond'].indexOf(f.ore),S=Goods.get(f.key)[f.ore];dm(28+i,this.mat(f,-8,-0.18,-14,0.35+2.4*Math.min(1,S/60)));
+      if(f.kind==='mine'){const i=['gold','silver','diamond'].indexOf(f.ore),S=Goods.get(f.key)[f.ore],m=this.ind('mine',f.st.mine);for(const bx of [-13.2,0,13.2])dm(28+i,this.mat(f,bx,7.15,0,0.25+2.9*Math.min(1,S/60)));
+        if(m&&Life.indOn('mine',m)&&S<59.5){const z0=-21,y0=1.45,z1=-3.4,y1=11.85;for(let k=0;k<12;k++){const u=((App.time*0.06+k/12)%1+1)%1;dm(25+i,this.mat(f,(k%3-1)*0.18,y0+(y1-y0)*u+0.3,z0+(z1-z0)*u,0.3));}}/* ore lumps riding the belt up to the bins */
         if(s.pour&&s.task){const t=s.task,top=4.55,bot=t.car.ay+1.74+0.12+1.6*Math.min(1,(t.car.w.n||0)/20);dm(25+i,this.mat(f,t.cx,top,t.car.az,Math.max(0.1,top-bot)));}continue;}
       if(f.bs)dm(10,this.mat(f,0,0,0));dm(11,this.mat(f,s.gx,0,0));dm(12,this.mat(f,s.gx,0,s.tz));dm(13,this.mat(f,s.gx,CRN.drumY,s.tz,CRN.drumY-s.hy));dm(14,this.mat(f,s.gx,s.hy,s.tz));
       if(s.load>=0)dm(18+s.load,this.mat(f,s.gx,s.hy-CRN.sling,s.tz));
@@ -761,7 +801,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(advance(t.head,-this.length(veh)).blocked){UI.toast(`No room behind ${t.name} for another ${kind==='coach'?'coach':'wagon'}`);return;}t.veh=veh;this.place(t);Drive.refresh();},
   removeCar(tr){const t=tr||this.cur();if(!t)return;if(t.veh.length<=2){UI.toast(`${t.name} has no wagons left`);return;}t.veh.pop();t.poses.length=t.veh.length;this.place(t);Drive.refresh();},
   load(d){this.list=[];this.sel=-1;if(!d)return;for(const o of d){if(!segById(o.head.sid))continue;const veh=o.cons?[...this.consist(0,0,o.lt),...o.cons.map(q=>{if(q.w){const v=this.car(q.w,0,q.n);v.fx=q.fx;v.fz=q.fz;v.from=q.from;return v;}return this.car('coach',q.c);})]:this.consist(o.cars,o.livery,o.lt);
-    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};Ledger.load(tr,o.led);tr.mapHidden=!!o.hid;
+    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};Ledger.load(tr,o.led);tr.mapHidden=!!o.hid;if(o.lt==='01')Fleet.unlocks.loco01=true;/* saves that already run the 01 keep it */
     this.list.push(tr);this.place(tr);Money.paidTr.add(tr.id);/* already paid for when it was bought (loading a save charged it again before 4.14.0) */}this.sel=this.list.length?0:-1;},
   rerail(){const t=this.cur();if(!t)return;t.derailed=false;t.v=0;t.derailT=0;this.place(t);UI.toast('Back on the rails');}
 };
