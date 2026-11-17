@@ -1,4 +1,4 @@
-# Trein handoff 83 (16 Nov 2026): v4.24.0 — the DHC-2 Beaver amphibian (store, € 450.000), seaplane jetties, smooth camera after driving; next: plan step 7 (footbridge)
+# Trein handoff 84 (17 Nov 2026): v4.25.0 — mine complex from the user's picture, store page with 3D previews (Beaver, double-decker, DB 01), airstrips within 1 km, Mountain islands map; next: plan step 7 (footbridge)
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,37 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.24.0, 16 Nov) — DHC-2 Beaver amphibian, seaplane jetties, camera after driving
+### Latest (4.25.0, 17 Nov) — mine complex, store page, DB 01 lock, airstrips ≤ 1 km, Mountain islands
+- **Airstrips**: `AIR.maxDist` 1000 — the strip is placed within 1 km of the village that bought it (`bestSpot` radii 380–920). The map
+  icon shows from the first strip (`icons()`: `list.length>=1`); with only one strip the mission panel says to build a second one elsewhere.
+- **Store page** (js/fleet.js `Store`, css `#storePage`): a full-screen page (`body.storeOpen` hides the bars) with cards for the
+  Beaver € 450.000, the DB 01 118 € 350.000 and the double-decker € 300.000. Each card has a live 3D preview (`Preview`: its own WebGL2
+  canvas and shader, hemisphere + sun, specular by mat; drag to rotate, idle spin). Beaver: body + prop + people + surfaces + wheels;
+  double-decker: `RVMesh.bus(2)`; 01: `loco01Mesh` + `tender01Mesh` coupled.
+  - **DB 01 locked** until bought (`Fleet.unlocks.loco01`); the loco picker shows "🔒 01" and opens the store. Saves that already run an 01
+    unlock it (`Trains.load`).
+- **Mine** (from the user's reference picture; `mineMesh(kind)` in train.js, local +x toward the village, plot ±17 × ±13):
+  - Rock face of weathered crags (jittered, stretched icospheres, grey-brown), a few strata columns, shoulders along both sides, loose rocks.
+  - Main adit: masonry arch, timber frame, "SHAFT" sign, lantern; an old boarded adit beside it; dark tunnels behind.
+  - Narrow-gauge track from the adit to an intake platform with a hopper; crusher house (stone base, dark timber upper floor, gable roof
+    with dormer, lit windows, iron stacks) with a lean-to; chutes to feed bins; engine house with boiler, two tall stacks, engine bed and
+    a turning **flywheel** (`mineFlyMesh`, kind 11); heaps of waste, coal and ore, barrels, crates, timber, lamps, gate sign.
+  - **Working loop** (`Life.mineWork(m)`, 44 s, phase from m.x): 4 loaded carts (`mineCartMesh`, `mineLoadMesh(kind)`) are pushed out of the
+    adit by a miner (0–12 s), two men shovel them empty into the intake one by one (12–26 s, ore particles), the empty train goes back
+    (26–37 s) and in. Also an engine man and a miner at the portal. Smoke from four stacks.
+  - **Ore station** (`oreYardMesh`, R.veh 31): a three-bin "ORE HOPPER" on trestles with X-bracing, iron bands, funnels and chutes every
+    4 m down to the wagons, walkway with railing, stairs, lantern, sign, and a covered conveyor gallery up from the mine side. While the
+    mine is owned and the bins are not full, ore lumps ride up the belt; the heaps in the three bins grow with the stock.
+- **Mountain islands** (map style `peaks`, New game → Mountain islands): `peakIslands(p)` places 2–16 islands (7 on 8 km) from the seed,
+  each an ellipse with a wobbly coast; `bigMountains` raises one peak per island (bigMtnHeight × 0.62–1.1, base ≤ 0.66 R) and
+  `coastShape` cuts the coast round each island. Land share follows the Island size slider (≈ 20–35 %). **Sea only**: country roads are not
+  planned between villages on different islands. Tested seed 4242 (8 km): 7 islands, 16 villages (4,3,2,1,4,2,0 per island), generation 40 s.
+- **Large maps (advice only, nothing built)**: see the reply of 17 Nov — coarse 32 km plan + full detail in tiles near the camera.
+- Pictures: checks/store-desk.png, store-phone.png, mine-*.png, peaks-map.png, peaks-island*.png, peaks-preview.png.
+- Limits: the mine carts run on a fixed timer, not tied to the ore stock; the crusher has no moving parts inside; Mountain-island villages
+  are not guaranteed on every island (one island had none in the test).
+
+### Earlier (4.24.0, 16 Nov) — DHC-2 Beaver amphibian, seaplane jetties, camera after driving
 - **DHC-2 Beaver** (new file js/beaver.js, after plane.js): bought in the store for € 450.000 (`Fleet.unlocks.beaver`, saved).
   - Model `beaverMeshes()` from the user's four photos of N67684: chrome yellow; orange sweep on the cowling running back as a stripe along
     the lower fuselage with dark pinstripes; orange wingtip bands, lift struts, fin band and tailplane tips; "N67684" in orange with a

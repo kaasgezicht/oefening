@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.24.0 (DHC-2 Beaver amphibian in the store, seaplane jetties, smooth camera after driving)';
+const VERSION='4.25.0 (mine complex from the reference, store page with 3D previews and the DB 01, Mountain islands map)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
