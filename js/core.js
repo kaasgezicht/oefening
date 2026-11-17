@@ -95,6 +95,7 @@ def('lhBright',{tab:'sea',label:'Lighthouse beam: brightness',min:0,max:4,step:0
 def('lhWidth',{tab:'sea',label:'Lighthouse beam: width at the lamp',min:0.5,max:10,step:0.1,def:2.6,unit:' m',apply:'live'});
 def('lhRange',{tab:'sea',label:'Lighthouse beam: how far it reaches',min:200,max:8000,step:50,def:2600,unit:' m',apply:'live'});
 def('lhDiverge',{tab:'sea',label:'Lighthouse beam: spread',min:0.2,max:20,step:0.1,def:3.5,unit:'°',apply:'live'});
+def('lhLight',{tab:'sea',label:'Lighthouse beam: light on land, sea, mist and clouds',min:0,max:3,step:0.05,def:1,apply:'live'});
 def('lhDouble',{tab:'sea',label:'Lighthouse: double beam (two opposite beams)',kind:'check',def:0,apply:'live'});
 def('lakeCalm',{tab:'water',label:'Lake and river waves on sea maps (share of the ocean waves)',min:0,max:1,step:0.05,def:0.3,apply:'live'});
 def('lakeWaves',{tab:'water',label:'Lake wave size',min:0,max:7.5,step:0.05,def:1,apply:'live'});

@@ -6,7 +6,7 @@
 // critters, glassy water, cotton-wool clouds, mist banks, glow and a tilt-shift finish.
 // ===================================================================
 const Stats={draws:0,tris:0,chunks:0,objs:0,trees:0};
-const R={world:null,U:new Float32Array(336),veh:null,sun:{day:1,L:[0,1,0]},tw:0,th:0,vegKey:'',focus:[1024,0,1024],focusDist:600};
+const R={world:null,U:new Float32Array(372),veh:null,sun:{day:1,L:[0,1,0]},tw:0,th:0,vegKey:'',focus:[1024,0,1024],focusDist:600};
 const srgb=c=>c.map(v=>Math.pow(Math.max(v,0),2.2));
 R.bindSh=function(t){if(!R.rawSmp){R.rawSmp=gl.createSampler();for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_COMPARE_MODE,gl.NONE],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.samplerParameteri(R.rawSmp,k,v);gl.bindSampler(TU.uShadowRaw,R.rawSmp);}
   bindTU(TU.uShadow,gl.TEXTURE_2D,t);bindTU(TU.uShadowRaw,gl.TEXTURE_2D,t);};
@@ -188,7 +188,7 @@ R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr|
   const flat=T.flatMask;for(let n=0;n<N*N;n++){const w=s*(1-keep[n]);T.Hr[n]=flat&&flat[n]&&keep[n]<0.05?T.flatH[n]:H[n]+(S[n]-H[n])*w;}
   R.clearTrackBed(T);
   /* island maps: the rim cells are held at sea level in the data (one ocean basin); drawn, they drop away so no beach line shows at the edge */
-  if(T.sea!=null)for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])T.Hr[c]=Math.min(T.Hr[c],T.sea-12);
+  if(T.sea!=null)for(let i=0;i<N;i++){const k=Math.min(N-1,Math.max(0,i));for(const [c,d] of [[k,2*N+k],[(N-1)*N+k,(N-3)*N+k],[k*N,k*N+2],[k*N+N-1,k*N+N-3]]){T.Hr[c]=Math.min(T.Hr[c],T.Hr[d],T.sea-12);const c2=c+(d-c)/2;T.Hr[c2]=Math.min(T.Hr[c2],T.Hr[d],T.sea-12);}}
 };
 // The ground is drawn from corner heights (each the mean of the 4 cells around it) in triangles one cell (8 m) wide, so near a cutting
 // the drawn surface between the bed cells and the raised cells beside them can rise over the ballast even though every bed cell is at
@@ -270,7 +270,7 @@ R.uploadFields=function(T){const F=new Float32Array(256*2*4);const L=T.fields||[
 // after Life regenerates: new fields, paths and flattened plots
 R.refreshGround=function(T){R.computeRenderHeights(T);scratch();gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
   gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);R.uploadFields(T);R.chunkBounds(T);R.uploadVeg(T);};
-R.chunkBounds=function(T){R.buildStreams(T);if(Life.T===T)Life.roadsDirty=true;const N=T.N,H=T.Hr||T.H;const CN=16,cw=T.W/CN,cells=N/CN;R.cw=cw;R.cells=cells;R.chunks=[];R.waterChunks=[];R.gridBase=Math.min(64,cells);
+R.chunkBounds=function(T){R.buildStreams(T);if(Life.T===T)Life.roadsDirty=true;const N=T.N,H=T.Hr||T.H;const CN=16,cw=T.W/CN,cells=N/CN;R.cw=cw;R.cells=cells;R.chunks=[];R.waterChunks=[];R.gridBase=Math.min(64,cells);/* 24 and 32 km (12-16 m cells): the nearest chunks get one quad per cell, as near as 16 km looks */R.fineBase=T.cs>=12&&cells>=128?cells:0;
   for(let cj=0;cj<CN;cj++)for(let ci=0;ci<CN;ci++){let mn=1e9,mx=-1e9,wmn=1e9,wmx=-1e9,wet=false;
     for(let j=Math.max(cj*cells-1,0);j<=Math.min((cj+1)*cells,N-1);j++)for(let i=Math.max(ci*cells-1,0);i<=Math.min((ci+1)*cells,N-1);i++){const k=j*N+i,h=H[k];if(h<mn)mn=h;if(h>mx)mx=h;
       if(T.water[k*4+3]>0){wet=true;const w=T.water[k*4];if(w<wmn)wmn=w;if(w>wmx)wmx=w;}}
@@ -592,7 +592,7 @@ R.fillUBO=function(cam,A,lightVP){const U=R.U,T=R.world,E=A.E;
   const lights=A.night>0.05&&P.lampsOn?Life.lights(R.focus,Math.min(24,P.nightLights)):[];const k=A.night;
   for(let i=0;i<24;i++){const l=lights[i];if(l){U.set([l[0],l[1],l[2],l[3]],132+i*4);U.set([l[4]*k,l[5]*k,l[6]*k,0],228+i*4);}}
   const res=R.shRes&&A.keyUp?R.shRes:0;
-  U.set([lights.length,0,res?R.shTexel:0,res?1/res:0],128);U.set(Weather.boltU(),324);U.set([Clouds.base,Clouds.thick,Clouds.M,Clouds.inv],328);U.set([-Clouds.off[0],-Clouds.off[1],E.dark+E.storm*0.3,Clouds.dens],332);
+  U.set([lights.length,0,res?R.shTexel:0,res?1/res:0],128);U.set(Weather.boltU(),324);U.set([Clouds.base,Clouds.thick,Clouds.M,Clouds.inv],328);U.set([-Clouds.off[0],-Clouds.off[1],E.dark+E.storm*0.3,Clouds.dens],332);U.fill(0,336,372);if(typeof Coast!=='undefined')Coast.beamU(U,A);
   gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferSubData(gl.UNIFORM_BUFFER,0,U);};
 R.lightMatrix=function(A){const F=R.focus,Lr=clamp(R.focusDist*0.95,140,1500)*(1+0.25*Math.abs(A.key[0]));let L=A.key;if(L[1]<0.08)L=[L[0],0.08,L[2]];const l=Math.hypot(...L);L=L.map(v=>v/l);
   const eye=[F[0]+L[0]*3000,F[1]+L[1]*3000,F[2]+L[2]*3000],up=Math.abs(L[1])>0.95?[1,0,0]:[0,1,0];let view=M4.lookAt(eye,F,up);
@@ -712,7 +712,7 @@ R.drawTerrain=function(cam,pass,pl){const T=R.world;const lo=pass!==1&&+P.terrai
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,c] of list){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
     const lod=R.chunkLod(c,cam);/* same detail in the shadow pass: a coarser shadow terrain lies above the ground in hollows and shadows it */
-    const n=Math.max(2,R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);if(pass===0)gl.uniform1f(p.u('uStep'),T.cs*R.cells/n);
+    const n=Math.max(2,lod===0&&R.fineBase?R.fineBase:R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);if(pass===0)gl.uniform1f(p.u('uStep'),T.cs*R.cells/n);
     gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.tris;Stats.chunks++;}
   if(R.patches&&R.patches.length&&R.patchVao){const q=pass===1?R.pPatchSh:lo?R.pPatchLo:R.pPatch;gl.useProgram(q.p);if(pass!==1){const F=R.roadFine;gl.uniform4f(q.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(q.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(q.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);gl.uniform1f(q.u('uStep'),R.patchStep||1);}
     gl.uniform4f(q.u('uChunk'),0,0,R.cells,-1);gl.bindVertexArray(R.patchVao);

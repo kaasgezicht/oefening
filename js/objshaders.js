@@ -237,7 +237,7 @@ void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCam
     if(dh.x>.002){if(fd==0.)fd=t;float od=0.;for(int j=1;j<=3;j++){float sl=float(j*j)*16.;od+=cloudD(p+L*sl,false).x*sl;}od*=.06;
       vec3 sun=uSunCol.rgb*(exp(-od)+.3*exp(-od*.25))*ph;vec3 amb=uSkyAmb.rgb*(.45+.75*dh.y)*1.4+uGndAmb.rgb*(1.-dh.y)*.6;
       vec3 db=p-uBolt.xyz;vec3 fl=vec3(.75,.8,1.)*uBolt.w*9./(1.+dot(db,db)/90000.);
-      vec3 S=(sun+amb)*(1.-dk*.55)+fl;float sg=dh.x*.06,dT=exp(-sg*ds);C+=T*S*(1.-dT);T*=dT;}
+      vec3 S=(sun+amb)*(1.-dk*.55)+fl+beams(p,vec3(0,1,0),0.)*2.2;/* lighthouse beams glow in the cloud */float sg=dh.x*.06,dT=exp(-sg*ds);C+=T*S*(1.-dT);T*=dT;}
     t+=ds;}
   if(fd>0.){float f=1.-exp(-fd*uFogCol.w*.45);C=mix(C,uFogCol.rgb*(1.-T),f*.9);}
   o=vec4(C,1.-T);}`;
@@ -256,12 +256,12 @@ void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCam
   vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));t1=min(t1,t0+3000.);
   if(zs<1.&&rd.y<-.03){vec3 ph=ro+rd*t1;vec4 m=texture(uMistMap,clamp(ph.xz*uMist.z,0.,1.));float top=max(m.g+3.*max(m.b,2.),ph.y)+30.;t0=max(t0,t1-(top-ph.y)/(-rd.y));}// march only the last stretch above the ground
   if(t1<=t0){o=vec4(0);return;}
-  float Ls=t1-t0,N=uMist.w,jit=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584)))),T=1.,acc=0.,hw=0.;vec3 pw=vec3(0);
+  float Ls=t1-t0,N=uMist.w,jit=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584)))),T=1.,acc=0.,hw=0.;vec3 pw=vec3(0),bm=vec3(0);
   for(int i=0;i<32;i++){if(float(i)>=N||T<.02)break;float ds=Ls/N,t=t0+ds*(float(i)+jit);
-    vec3 p=ro+rd*t;vec2 d=mistD(p);if(d.x>.002){float al=1.-exp(-d.x*.05*ds),w=T*al;acc+=w;pw+=p*w;hw+=d.y*w;T*=1.-al;}}
+    vec3 p=ro+rd*t;vec2 d=mistD(p);if(d.x>.002){float al=1.-exp(-d.x*.05*ds),w=T*al;acc+=w;pw+=p*w;hw+=d.y*w;bm+=beams(p,vec3(0,1,0),0.)*w;T*=1.-al;}}
   if(acc<.003){o=vec4(0);return;}
   pw/=acc;hw/=acc;vec3 up=vec3(0,1,0);float sh=shadowAt(pw,up)*cloudSh(pw);float mu=dot(rd,uSunDir.xyz);float ph=.55+hgN(mu,.6)*.12;
-  vec3 col=L(vec3(.96,.97,.98))*(uSunCol.rgb*ph*sh*mix(.5,1.,hw)*(1.-uWx2.w*.5)*.6+ambient(up)+pools(pw,up)*.6)+vec3(.8,.85,1.)*uWx2.y*1.2;
+  vec3 col=L(vec3(.96,.97,.98))*(uSunCol.rgb*ph*sh*mix(.5,1.,hw)*(1.-uWx2.w*.5)*.6+ambient(up)+pools(pw,up)*.6)+vec3(.8,.85,1.)*uWx2.y*1.2+bm/acc*2.4;/* the beams light up the mist they cross */
   float dist=length(pw-ro),f=clamp(1.-exp(-dist*uFogCol.w*.6),0.,.9);col=mix(col*acc,uFogCol.rgb*acc,f);
   o=vec4(col,acc);}`;
 const FS_MCOMP=`#version 300 es
@@ -365,7 +365,7 @@ vec3 swellD(vec2 p,float dep,out vec3 sg){vec3 d=vec3(0);sg=vec3(0);if(uSwell.x<
   sg.z=clamp(sg.z,-1.,1.);return d;}/* sg.z: -1 trough .. 1 where all crests meet */
 /* on maps with a sea the wave field is tuned for the ocean; lakes and rivers (water not at sea level) get uSwell.w of it */
 /* past the map edge the sea floor keeps dropping (the height texture only clamps): at least 8 m, 60 m some 1 km out */
-float oDep(vec2 p){vec2 ob=max(max(-p,p-uWorld.x),0.);float d=max(ob.x,ob.y);return d>0.?min(60.,8.+d*.05):0.;}
+float oDep(vec2 p){vec2 ob=max(max(-p,p-uWorld.x),0.);float d=max(ob.x,ob.y);return d>0.?min(70.,40.+d*.03):0.;}
 float seaK(float l){return uSwell.y>0.&&abs(l-uSwell.y)>.7?uSwell.w:1.;}
 vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;float lod=log2(max(spc*2./(uWL[c]/uWL.w),1.));d+=textureLod(uWDisp,vec3(p/uWL[c],float(c)),lod).xyz;}return d;}
 `;
@@ -428,7 +428,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
-  float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(60.,8.+od*.05));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,8.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
+  float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(70.,40.+od*.03));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,30.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
   {vec2 duv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float zs=texture(uDepthCopy,duv).r;if(zs<1.){vec3 F=-vec3(uView[0][2],uView[1][2],uView[2][2]),Dr=normalize(W-uCamPos.xyz);
       float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));if(abs(db-depthT)<1.+depthT*.6)depth=mix(depthT,db,nw);}}
   float dsl=length(vec2(dFdx(depth),dFdy(depth)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard
@@ -503,8 +503,8 @@ void main(){if(uPass==1){if(vB.w<.5)discard;o=vec4(0);return;}
   vec2 suv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float th=lin(texture(uDepthCopy,suv).r)-lin(gl_FragCoord.z);
   float a=clamp(th/14.,0.,1.)*vB.w;if(a<.01)discard;
   vec3 base=mix(L(vec3(1.,.99,.97)),L(vec3(.50,.54,.62)),vB.y);base*=mix(.8,1.,smoothstep(-.6,.6,N.y));
-  float nl=dot(N,uSunDir.xyz);vec3 col=base*(uSunCol.rgb*clamp(nl*.7+.35,0.,1.)*(1.-uWx2.w*.6)+ambient(N)*1.1)+vec3(.8,.85,1.)*uWx2.y*1.5*(1.-vB.y*.5);
-  o=vec4(fogc(col,vW)*a,a);}`;
+  float nl=dot(N,uSunDir.xyz);vec3 col=base*(uSunCol.rgb*clamp(nl*.7+.35,0.,1.)*(1.-uWx2.w*.6)+ambient(N)*1.1)+vec3(.8,.85,1.)*uWx2.y*1.5*(1.-vB.y*.5);col=fogc(col,vW)+beams(vW,N,0.)*1.8;
+  o=vec4(col*a,a);}`;
 
 // ---------------- soft billboards: mist banks, smoke & steam puffs
 const VS_MIST=GLSL_HEAD+`
@@ -519,7 +519,7 @@ void main(){float r=length(vQ);if(r>1.)discard;float t=uCamPos.w*.03;
   float n=vnoise(vQ*2.2+vB.y*17.+t)*.6+vnoise(vQ*5.+vB.y*3.-t*1.7)*.4;float a=smoothstep(1.,.25,r)*smoothstep(.25,.7,n+.35-r*.3)*vB.x;
   vec2 suv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float th=lin(texture(uDepthCopy,suv).r)-lin(gl_FragCoord.z);a*=clamp(th/25.,0.,1.);
   float dc=length(vW-uCamPos.xyz);a*=smoothstep(8.,60.,dc);if(a<.004)discard;
-  vec3 col=L(vec3(.96,.97,.98))*(uSunCol.rgb*.45*max(uSunDir.y,0.)+ambient(vec3(0,1,0))*1.05);col=mix(col,uFogCol.rgb,.25);
+  vec3 col=L(vec3(.96,.97,.98))*(uSunCol.rgb*.45*max(uSunDir.y,0.)+ambient(vec3(0,1,0))*1.05);col=mix(col,uFogCol.rgb,.25)+beams(vW,vec3(0,1,0),0.)*2.5;/* lighthouse beams light the mist */
   o=vec4(col*a,a);}`;
 const VS_PART=GLSL_HEAD+`
 layout(location=0) in vec3 iP;layout(location=1) in vec4 iL;layout(location=2) in vec2 iT;

@@ -9,7 +9,7 @@ const GLSL_HEAD=`#version 300 es
 precision highp float;precision highp int;precision highp sampler2DShadow;
 layout(std140) uniform Frame{mat4 uViewProj;mat4 uView;mat4 uLightVP;vec4 uCamPos;vec4 uSunDir;vec4 uSunCol;vec4 uSkyAmb;vec4 uGndAmb;vec4 uFogCol;vec4 uFogCol2;
   vec4 uWorld;vec4 uWind;vec4 uWx;vec4 uWx2;vec4 uSeason;vec4 uLook;vec4 uWater;vec4 uSkyZ;vec4 uSkyH;vec4 uMoon;vec4 uSunTrue;vec4 uTable;vec4 uMisc;vec4 uMisc2;
-  vec4 uLightP[24];vec4 uLightC[24];vec4 uBolt;vec4 uCld;vec4 uCld2;};
+  vec4 uLightP[24];vec4 uLightC[24];vec4 uBolt;vec4 uCld;vec4 uCld2;vec4 uBeamP[4];vec4 uBeamD[4];vec4 uBeamC;};
 `;
 // uSunDir: key light (sun by day, moon at night) xyz, w = day 0..1 | uSunCol: key colour, w = night 0..1
 // uSkyAmb w = valley shading | uGndAmb w = shadow softness | uFogCol w = density, uFogCol2 = toward the sun
@@ -20,6 +20,11 @@ layout(std140) uniform Frame{mat4 uViewProj;mat4 uView;mat4 uLightVP;vec4 uCamPo
 const GLSL_BASE=`
 uniform sampler2D uHeight;uniform sampler2D uNorm;uniform sampler2D uShadowRaw;uniform sampler2D uCloudMap;uniform sampler2D uAux;uniform sampler2D uData;uniform sampler2D uWaterTex;uniform sampler2DShadow uShadow;uniform sampler2D uFields;
 vec3 L(vec3 c){return c*c*(c*.31+.69);}
+// lighthouse beams as light (coast.js): uBeamP xyz lamp, w reach; uBeamD xyz direction, w cos of the half spread; uBeamC rgb colour, w 1/falloff²
+// surf 1: a surface with normal N (lit from the lamp's side); 0: in-scatter in mist and clouds
+vec3 beams(vec3 W,vec3 N,float surf){vec3 s=vec3(0);if(uBeamC.r+uBeamC.g<=0.)return s;for(int i=0;i<4;i++){vec4 P=uBeamP[i];if(P.w<=0.)continue;vec3 v=W-P.xyz;float d=length(v)+1e-3;vec3 u=v/d;
+  float c0=uBeamD[i].w,ca=dot(u,uBeamD[i].xyz);if(ca<c0||d>P.w)continue;float sp=smoothstep(c0,mix(c0,1.,.45),ca),fall=(1.-d/P.w)/(1.+d*d*uBeamC.w);
+  s+=uBeamC.rgb*sp*fall*(surf>.5?max(dot(N,-u),0.)*.85+.15:1.);}return s;}
 float hash12(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
 float hash11(float p){p=fract(p*.1031);p*=p+33.33;p*=p+p;return fract(p);}
 float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);float a=hash12(i),b=hash12(i+vec2(1,0)),c=hash12(i+vec2(0,1)),d=hash12(i+vec2(1,1));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
@@ -44,7 +49,7 @@ float shadowAt(vec3 W,vec3 N){if(uMisc2.w<=0.)return 1.;float tx=uMisc2.z,nl=cla
 vec3 ambient(vec3 N){vec2 sd=normalize(uSunDir.xz+1e-4);return mix(uGndAmb.rgb,uSkyAmb.rgb,N.y*.5+.5)*(1.+.22*dot(N.xz,sd)*uSunDir.w);}
 uniform sampler2D uLampMap;
 vec3 pools(vec3 W,vec3 N){vec3 s=texture(uLampMap,W.xz/uWorld.x).rgb*clamp(uMisc.x,0.,1.)*(max(N.y,0.)*.7+.3);int n=int(uMisc2.x);for(int i=0;i<24;i++){if(i>=n)break;vec3 d=uLightP[i].xyz-W;float r=uLightP[i].w;float dd=dot(d,d);if(dd>r*r)continue;
-  float l=sqrt(dd)+1e-3;float a=1.-l/r;a*=a;s+=uLightC[i].rgb*a*(max(dot(N,d/l),0.)*.75+.25);}return s;}
+  float l=sqrt(dd)+1e-3;float a=1.-l/r;a*=a;s+=uLightC[i].rgb*a*(max(dot(N,d/l),0.)*.75+.25);}return s+beams(W,N,1.);}
 float cloudSh(vec3 W){if(uCld.y<=0.)return 1.;vec3 L=uSunDir.xyz;vec3 p=W+L*max(uCld.x+uCld.y*.3-W.y,0.)/max(L.y,.15);
   float m=texture(uCloudMap,(p.xz+uCld.z)*uCld.w).r;return 1.-clamp(m*1.5-.12,0.,.82)*min(uCld2.w,1.2);}
 vec3 lightS(vec3 alb,vec3 N,vec3 W,float ao,float sh,float rough){float nl=dot(N,uSunDir.xyz);float d=clamp(nl*1.08+.02,0.,1.)*sh*cloudSh(W);
