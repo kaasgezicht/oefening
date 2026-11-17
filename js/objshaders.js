@@ -392,8 +392,9 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
   vec3 W=vec3(float(g.x)*uWorld.z,l,float(g.y)*uWorld.z);float t=uCamPos.w;
   float lw=.25*(lkf(a0)+lkf(a1)+lkf(a2)+lkf(a3));vLake=lw;vP=W.xz;vH=0.;
   W.y+=(sin(W.x*.11+t*1.3)*.5+sin(W.z*.13-t*1.1+W.x*.05)*.5)*.22*uWater.y*(1.-uWater.w)*min(pr,1.)*(1.-lw*uWaveA.x);
-  if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w)*seaK(l);W+=d;vH=d.y;}
-  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);W+=sd;vSw=sg;vH+=sd.y;}
+  bool rim=g.x==0||g.y==0||g.x>=N||g.y>=N;/* the map's rim vertices move only up and down, so no gap opens to the open sea outside */
+  if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w)*seaK(l);if(rim)d.xz=vec2(0);W+=d;vH=d.y;}
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);if(rim)sd.xz=vec2(0);W+=sd;vSw=sg;vH+=sd.y;}
   vL=l;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;in vec3 vSw;uniform vec4 uFlood;uniform vec4 uFallP[8];uniform vec4 uSwell;
@@ -423,7 +424,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // a culvert ditch is dug below the water table of a wet cell: water that the natural ground covered stays hidden there
   {ivec2 pc=clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1));if(texelFetch(uPatch,pc,0).r>.5){vec2 g=W.xz/uWorld.z,f=fract(g);ivec2 c=ivec2(floor(g));
     float ha=cornerH(c),hb=cornerH(c+ivec2(1,0)),hc=cornerH(c+ivec2(0,1)),hd=cornerH(c+ivec2(1,1)),gh=f.x+f.y<=1.?ha+(hb-ha)*f.x+(hc-ha)*f.y:hd+(hc-hd)*(1.-f.x)+(hb-hd)*(1.-f.y);if(gh>W.y-.02)discard;}}
-  if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);if((vP.x>0.&&vP.y>0.&&vP.x<uWorld.x&&vP.y<uWorld.x)||max(q.x,q.y)<uLakeP.w-2.)discard;}
+  if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);if((vP.x>3.&&vP.y>3.&&vP.x<uWorld.x-3.&&vP.y<uWorld.x-3.)||max(q.x,q.y)<uLakeP.w-2.)discard;}
   else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
