@@ -1,4 +1,4 @@
-# Trein handoff 85 (17 Nov 2026): v4.26.0 — lighthouses with night beams, open sea round island maps, harbours and seagulls, the whole world kept on the device (OPFS), every world setting in New game, loading scene with the 01; next: 24/32 km at full detail, streamed (the user's choice)
+# Trein handoff 86 (17 Nov 2026): v4.27.0 — lighthouse beams as light (land, sea, mist, clouds); 8 m detail tiles for 24/32 km, step 1 of 3 (made and stored); next: step 2, draw the tiles round the camera
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,26 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.26.0, 17 Nov) — lighthouses, open sea, harbours, world file, New game settings, loading scene
+### Latest (4.27.0, 17 Nov) — beams as light; 8 m detail tiles (step 1)
+- **Lighthouse beams as light** (user: "make the lighthouse emit actual light … see it in the mist and clouds"): the four beams nearest the
+  camera go into the frame uniforms (`uBeamP[4]`, `uBeamD[4]`, `uBeamC`; UBO 336-371, R.U is now 372 floats; `Coast.beamU`). `beams(W,N,surf)`
+  in GLSL_BASE: a cone from the lamp (half spread + 0.006 rad), soft edge, falloff (1 - d/reach)/(1 + (d/0.3 reach)²). Used in `pools()`
+  (every surface lit by lamps: ground, buildings, water), in the volumetric clouds (in-scatter ×2.2), the volumetric mist (accumulated along
+  the ray), the billboard mist banks and the billboard clouds. The ribbons are brighter in mist (+1.5 × mist) and rain. Setting `lhLight`
+  (Sea tab, 0-3). Tested at night in mist: strong warm shafts; a bank crossed by the beam takes its light.
+- **Map edge**: the drawn rim cells now copy the cell two in (no shallow ridge, no beach line) and the sea floor past the edge starts at 40 m.
+- **24/32 km**: the nearest terrain chunks get one quad per cell (`R.fineBase`), as near as 16 km looks. Tested 32 km: no errors, heap 1.2 GB.
+- **8 m detail tiles, step 1** (user's choice: "true 8 m tiles in OPFS, in four batches or all at once"; new js/tiles.js, `Tiles`): for maps
+  with cells over 8.5 m, each 2 x 2 km tile is refined to 8 m: bilinear 16 m heights + ridged relief in world coordinates (amplitude 0.6-6 m
+  by slope and mountain mask) + the game's droplet erosion on the tile and a 16-cell margin (seed per tile, 0.6 × drops, ≤ 2 rockfall
+  passes); the erosion change fades out over 12 cells at the tile edges; protected ground (village plots, roads, paths, track, water,
+  shores below sea + 2 m, dilated one 16 m cell) is left exactly as it was, so nothing placed moves. Stored as Int16 cm differences in OPFS
+  folder `detail-<world key hash>`, `t_x_z.bin`, 128 KB a tile. Saves page: "Make all of it" or one of four quarters, progress per tile
+  in the loading card with the train; "Remove the detail".
+  - **Not drawn yet** (step 2: a fine terrain patch round the camera with the tiles streamed into a texture, normals from the detail, the
+    coarse terrain cut out under it, a small loading pill), then step 3 (trees, rocks, vehicles and the CPU height sampling on the fine ground).
+
+### Earlier (4.26.0, 17 Nov) — lighthouses, open sea, harbours, world file, New game settings, loading scene
 User's answers this round: 32 km = "Generate full detail to OPFS, but load it into RAM/VRAM dynamically … a little loading bar when going far
 away to load the next cell"; sea = "a realistic sea, use the current water model (a glass box is fine)"; size slider = fixed stops; world file =
 everything generated.

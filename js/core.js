@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.26.0 (lighthouses, open sea, fishing harbours, seagulls, world file on the device, new-game settings, loading scene)';
+const VERSION='4.27.0 (lighthouse beams light the land, mist and clouds; 8 m detail tiles for 24/32 km, step 1)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
