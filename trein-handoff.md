@@ -60,6 +60,9 @@ everything generated.
 - **Loading scene** (`LoadScene`): in the loading card, a 50 × 50 m lawn with a ring of track (sleepers, rails), trees, a platform with a
   lamp, the black 01 with its tender running round, smoke puffs, the camera circling; drawn with the store's preview renderer between the
   generation steps (rAF). The bar moves as before.
+- **32 km tested** (Mountain islands, seed 4242, 16 m grid): generated in 70 s on the test machine (villages 31 s), 51 villages, 16 lighthouses,
+  44 harbours, 571 gulls, JS heap 1.36 GB (too much for a phone: the streamed full-detail version is next). The camera's far plane is now
+  max(26 km, 2.2 × world size), or the map view of a 32 km world showed nothing. checks/world-32km-map.png.
 - Pictures: checks/lighthouse-day.png, lighthouse-dusk.png, lighthouse-night.png, lighthouse-close.png, harbour.png, open-sea.png,
   open-sea-horizon.png, newgame-settings.png, loading-scene.png, loading-scene-phone.png, islands-preview.png.
 - Limits: the beams are flat ribbons (seen end-on only the glare shows); they do not light the ground or the sea; boats do not sail; the
