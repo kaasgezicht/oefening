@@ -29,7 +29,7 @@
  <div class="mm-row mm-chips" id="mmStyle"><button data-v="land">Land</button><button data-v="island">Island</button><button data-v="islands">Many islands</button><button data-v="peaks">Mountain islands</button></div>
  <canvas id="mmPrev" width="300" height="300"></canvas><div class="mm-note" id="mmPrevNote">Preview without rivers and lakes</div>
  <div class="mm-grid">
-  <label>World size<select id="mmSize"><option value="2048">2 × 2 km</option><option value="4096">4 × 4 km</option><option value="8192">8 × 8 km</option><option value="16384">16 × 16 km (heavy)</option></select></label>
+  <label>World size <b id="mmSizeV"></b><input type="range" id="mmSize" min="0" max="7" step="1"></label>
   <label>Seed<span class="mm-seed"><input id="mmSeed" type="number" min="1" max="99999"><button id="mmDice" title="Random seed">🎲</button></span></label>
   <label>Mountain height<input type="range" id="mm_maxHeight" min="80" max="1200" step="10"></label>
   <label>Mountain amount<input type="range" id="mm_mountains" min="0" max="1" step="0.01"></label>
@@ -40,6 +40,7 @@
   <label class="bm">Peak → ridge<input type="range" id="mm_bigMtnLong" min="0" max="1" step="0.01"></label>
   <label>Villages<input type="range" id="mm_villages" min="0" max="12" step="1"></label>
  </div>
+ <div id="mmMore"></div>
  <label class="mm-chk"><input type="checkbox" id="mmExplore"><span><b>Exploration mode</b><small>Start in one village; the rest of the world is hidden in mist until your vehicles explore it.</small></span></label>
  <div class="mm-row"><button class="mm-b" id="mmBack1">Back</button><button class="mm-b go" id="mmStart">Start</button></div></div>
 <div class="mm-page" data-p="saves" hidden><div class="mm-h">Saves</div><div class="mm-note" id="mmSaveInfo"></div><button class="mm-b" id="mmSaveNow">Save now</button><button class="mm-b" id="mmLoad">Load the last save</button><button class="mm-b" id="mmExport">Export save file</button><button class="mm-b" id="mmImport">Import save file</button><button class="mm-b" id="mmLog">Export debug log</button><button class="mm-b" id="mmBack2">Back</button></div>

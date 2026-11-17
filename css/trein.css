@@ -279,3 +279,7 @@ body.fplan #bar,body.fplan #mapList{display:none}
 .sp-c ul{margin:4px 0 6px 18px;padding:0;color:#e3d8bd;font-size:calc(13px*var(--txt,1))}.sp-c p{margin:0 2px 10px;color:#bfb399;font-size:calc(12.5px*var(--txt,1));flex:1}
 .sp-f{display:flex;justify-content:flex-end}.sp-f button{background:#c9a14a;color:#15191a;border:none;border-radius:10px;padding:10px 16px;font:700 calc(15px*var(--txt,1)) system-ui;cursor:pointer}.sp-f em{font-style:normal;color:#9fd8a0;font-weight:700;padding:10px 4px}
 .sp-n{text-align:center;color:#8f8670;margin-top:16px}body.storeOpen #bar,body.storeOpen #mapBar,body.storeOpen #mapList{display:none!important}
+
+.mm-fold{border:1px solid #c9a14a50;border-radius:12px;background:#15191acc;margin:0 0 6px}.mm-fold summary{cursor:pointer;padding:10px 12px;font:600 calc(14px*var(--txt,1)) system-ui;color:#f1e7d0;display:flex;justify-content:space-between;align-items:center}
+.mm-fold summary small{opacity:.6;font-weight:500}.mm-fold[open] summary{border-bottom:1px solid #c9a14a40}.mm-fold .mm-grid{padding:10px 12px}.mm-grid label b{font-weight:600;color:#e8c25a}
+.mm-grid label.mm-ck{flex-direction:row;align-items:center;justify-content:space-between}.mm-ck input{width:20px;height:20px;accent-color:#c9a14a}

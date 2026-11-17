@@ -12,12 +12,31 @@ const MainMenu={np:null,pt:0,
   hide(){$('#mainMenu').hidden=true;},
   page(p){for(const e of document.querySelectorAll('.mm-page'))e.hidden=e.dataset.p!==p;if(p==='new')this.initNew();if(p==='saves')this.saveInfo();if(p==='quality')this.initQ();},
   KEYS:['maxHeight','mountains','landShare','bigMtns','bigMtnHeight','bigMtnBase','bigMtnLong','villages'],
-  initNew(){const np=this.np={...P};$('#mmExplore').checked=!!+P.exploreMode;$('#mmSize').value=String(np.worldSize);$('#mmSeed').value=np.seed;for(const k of this.KEYS)$('#mm_'+k).value=np[k];this.sync();this.preview();},
+  SIZES:[1024,2048,4096,8192,12288,16384,24576,32768],
+  /* every setting that shapes a new world (applied when the world is made), in folding groups below the basics */
+  GROUPS:[['Land shape',d=>d.tab==='world'&&!/^bigMtn/.test(d.id)],['Big mountains',d=>d.tab==='world'&&/^bigMtn/.test(d.id)],['Erosion',d=>d.tab==='erosion'],['Rivers and lakes',d=>d.tab==='water'],
+    ['Coast and sea',d=>d.tab==='sea'],['Trees and rocks',d=>d.tab==='trees'],['Villages and countryside',d=>d.tab==='life']],
+  genIds(){return PORDER.filter(id=>{const d=PDEF[id];return['world','water','veg','life'].includes(d.apply)&&!['seed','worldSize','mapStyle'].includes(id)&&!this.KEYS.includes(id);});},
+  fmt(d,v){if(d.kind==='select'){const o=d.options.find(q=>String(q[0])===String(v));return o?o[1]:v;}if(d.kind==='check')return'';const st=+d.step||1,dg=st>=1?0:st>=0.1?1:2;return(+v).toFixed(dg)+(d.unit||'');},
+  buildMore(){const box=$('#mmMore');if(!box||box.dataset.built)return;box.dataset.built=1;const ids=this.genIds();let html='';
+    for(const [g,f] of this.GROUPS){const L=ids.filter(id=>f(PDEF[id]));if(!L.length)continue;
+      html+=`<details class="mm-fold"><summary>${g}<small>${L.length}</small></summary><div class="mm-grid">`+L.map(id=>{const d=PDEF[id];
+        if(d.kind==='select')return`<label>${d.label}<select data-mk="${id}">${d.options.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select></label>`;
+        if(d.kind==='check')return`<label class="mm-ck"><span>${d.label}</span><input type="checkbox" data-mk="${id}"></label>`;
+        return`<label>${d.label} <b data-mv="${id}"></b><input type="range" data-mk="${id}" min="${d.min}" max="${d.max}" step="${d.step}"></label>`;}).join('')+`</div></details>`;}
+    html+=`<button class="mm-b" id="mmDefaults">Reset these to the defaults</button>`;box.innerHTML=html;
+    for(const e of box.querySelectorAll('[data-mk]')){const id=e.dataset.mk,d=PDEF[id];e.oninput=e.onchange=()=>{const v=d.kind==='check'?(e.checked?1:0):d.kind==='select'?(isNaN(+e.value)?e.value:+e.value):+e.value;this.np[id]=v;this.showVal(id);if(d.tab==='world'||d.tab==='erosion')this.preview();};}
+    $('#mmDefaults').onclick=()=>{for(const id of [...this.genIds(),...this.KEYS])this.np[id]=PDEF[id].def;this.fill();this.preview();};},
+  showVal(id){const b=document.querySelector(`#mmMore [data-mv="${id}"]`);if(b)b.textContent=this.fmt(PDEF[id],this.np[id]);},
+  fill(){const np=this.np;for(const k of this.KEYS)$('#mm_'+k).value=np[k];for(const e of document.querySelectorAll('#mmMore [data-mk]')){const id=e.dataset.mk;if(PDEF[id].kind==='check')e.checked=!!+np[id];else e.value=np[id];this.showVal(id);}
+    const si=Math.max(0,this.SIZES.indexOf(+np.worldSize));$('#mmSize').value=si;this.sizeLabel();},
+  sizeLabel(){const W=+this.np.worldSize,km=W/1024;$('#mmSizeV').textContent=`${km} × ${km} km`+(W>16384?' · heavy':W>=16384?' · large':'');},
+  initNew(){const np=this.np={...P};this.buildMore();$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},
   sync(){const np=this.np;for(const b of document.querySelectorAll('#mmStyle button'))b.classList.toggle('on',b.dataset.v===np.mapStyle);for(const e of document.querySelectorAll('.mm-grid .isl'))e.style.display=np.mapStyle==='land'?'none':'';
     for(const e of document.querySelectorAll('.mm-grid .bm'))e.style.opacity=np.bigMtns>0?1:0.4;},
   preview(){clearTimeout(this.pt);this.pt=setTimeout(async()=>{const np=this.np,t0=performance.now();try{const L=await previewLand(np,160);drawPreview($('#mmPrev'),L,np);$('#mmPrevNote').textContent=`Preview without rivers and lakes · ${np.worldSize/1000} km · seed ${np.seed}`;}catch(e){Log.warn('preview: '+e.message);}},120);},
   start(){const np=this.np;if(!np)return;if(Bench.on){UI.toast('Leave the benchmark world first');return;}
-    for(const k of ['worldSize','seed','mapStyle',...this.KEYS])P[k]=np[k];P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
+    for(const k of ['worldSize','seed','mapStyle',...this.KEYS,...this.genIds()])P[k]=np[k];P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
     Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Ledger.beaver.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
     App.camLoaded=false;App.placedCam=false;UI.refreshAll();this.hide();App.generate(0);},
   saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes';},
@@ -25,7 +44,7 @@ const MainMenu={np:null,pt:0,
   bind(){const on=(id,f)=>{$(id).onclick=f;};on('#mmCont',()=>this.hide());on('#mmNew',()=>this.page('new'));on('#mmSaves',()=>this.page('saves'));on('#mmQual',()=>this.page('quality'));
     on('#mmSet',()=>{this.hide();$('#btnMenu').click();});on('#mmFly',()=>{this.hide();if(window.Plane)Plane.choose();});for(const b of ['#mmBack1','#mmBack2','#mmBack3'])on(b,()=>this.page('home'));
     on('#mmStart',()=>this.start());on('#mmDice',()=>{this.np.seed=1+Math.floor(Math.random()*99998);$('#mmSeed').value=this.np.seed;this.preview();});
-    $('#mmSeed').onchange=()=>{this.np.seed=clamp(Math.round(+$('#mmSeed').value||1),1,99999);this.preview();};$('#mmSize').onchange=()=>{this.np.worldSize=+$('#mmSize').value;this.preview();};
+    $('#mmSeed').onchange=()=>{this.np.seed=clamp(Math.round(+$('#mmSeed').value||1),1,99999);this.preview();};$('#mmSize').oninput=()=>{this.np.worldSize=this.SIZES[+$('#mmSize').value]||8192;this.sizeLabel();this.preview();};
     for(const b of document.querySelectorAll('#mmStyle button'))b.onclick=()=>{this.np.mapStyle=b.dataset.v;this.sync();this.preview();};
     for(const k of this.KEYS)$('#mm_'+k).oninput=()=>{this.np[k]=+$('#mm_'+k).value;this.sync();this.preview();};
     on('#mmSaveNow',()=>{App.save();this.saveInfo();});on('#mmLoad',()=>{this.hide();App.load();});on('#mmExport',()=>App.exportJSON());on('#mmImport',()=>$('#file').click());on('#mmLog',()=>App.exportLog());

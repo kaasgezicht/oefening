@@ -32,7 +32,7 @@ const TAB_HINT={ui:'Move and size the on-screen controls, with separate layouts 
 function def(id,o){o.id=id;o.kind=o.kind||'range';PDEF[id]=o;PORDER.push(id);P[id]=o.def;}
 // --- World
 def('seed',{tab:'world',label:'Seed',min:1,max:99999,step:1,def:39536,apply:'world'});
-def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[16384,'16 × 16 km (heavy)']],def:8192,apply:'world'});
+def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[12288,'12 × 12 km'],[16384,'16 × 16 km (heavy)'],[24576,'24 × 24 km (heavy)'],[32768,'32 × 32 km (heavy)']],def:8192,apply:'world'});
 def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands'],['peaks','Mountain islands']],def:'land',apply:'world'});
 def('landShare',{tab:'world',label:'Island size (share of land)',min:0.15,max:0.85,step:0.01,def:0.5,apply:'world'});
 def('mapRes',{tab:'world',label:'Height map detail',kind:'select',options:[[0,'Auto (8 m cells, 1024 at 8 km)'],[256,'256 (fast)'],[512,'512'],[1024,'1024 (slow)'],[2048,'2048 (very slow)']],def:0,apply:'world'});
@@ -85,6 +85,8 @@ def('runoff',{tab:'water',label:'Rain run-off',min:0,max:1.5,step:0.05,def:1,app
 def('waterModel',{tab:'water',label:'Lake water',kind:'select',options:[[0,'Simple ripples'],[1,'Low: FFT waves'],[2,'Medium: FFT + 3D waves near camera'],[3,'High: finer FFT + larger 3D area']],def:2,apply:'live'});
 def('reflQuality',{tab:'water',label:'Reflections',kind:'select',options:[[0,'Sky only'],[1,'Mirror: low'],[2,'Mirror: medium'],[3,'Mirror: high']],def:2,apply:'live'});
 def('oceanSwell',{tab:'water',label:'Ocean swell height (island maps)',min:0,max:20,step:0.5,def:4,unit:' m',apply:'live'});
+def('openSea',{tab:'water',label:'Open sea round island maps (instead of the table)',kind:'check',def:1,apply:'live'});
+def('lakeCalm',{tab:'water',label:'Lake and river waves on sea maps (share of the ocean waves)',min:0,max:1,step:0.05,def:0.3,apply:'live'});
 def('lakeWaves',{tab:'water',label:'Lake wave size',min:0,max:7.5,step:0.05,def:1,apply:'live'});
 def('lakeFetch',{tab:'water',label:'Lake fetch (sea-likeness)',min:0.5,max:40,step:0.5,def:15,unit:' km',apply:'live'});
 def('lakeChop',{tab:'water',label:'Wave choppiness',min:0,max:3,step:0.05,def:0.9,apply:'live'});

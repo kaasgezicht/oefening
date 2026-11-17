@@ -363,6 +363,10 @@ vec3 swellD(vec2 p,float dep,out vec3 sg){vec3 d=vec3(0);sg=vec3(0);if(uSwell.x<
     float k=6.2832/lam,w=sqrt(9.81*k),A=uSwell.x*.5*sh*1.25*fd,Q=min(.16/max(k*A,1e-4),1.);vec2 dir=vec2(cos(uSwell.z+da),sin(uSwell.z+da));float ph=k*dot(dir,p)-w*t+fi*1.7,c=cos(ph),s=sin(ph);
     d.xz-=Q*A*dir*s;d.y+=A*c;sg.xy-=A*k*dir*s;sg.z+=sh*c;}
   sg.z=clamp(sg.z,-1.,1.);return d;}/* sg.z: -1 trough .. 1 where all crests meet */
+/* on maps with a sea the wave field is tuned for the ocean; lakes and rivers (water not at sea level) get uSwell.w of it */
+/* past the map edge the sea floor keeps dropping (the height texture only clamps): at least 8 m, 60 m some 1 km out */
+float oDep(vec2 p){vec2 ob=max(max(-p,p-uWorld.x),0.);float d=max(ob.x,ob.y);return d>0.?min(60.,8.+d*.05):0.;}
+float seaK(float l){return uSwell.y>0.&&abs(l-uSwell.y)>.7?uSwell.w:1.;}
 vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;float lod=log2(max(spc*2./(uWL[c]/uWL.w),1.));d+=textureLod(uWDisp,vec3(p/uWL[c],float(c)),lod).xyz;}return d;}
 `;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
@@ -371,8 +375,8 @@ void main(){vec2 p=uLakeP.xy+(aQ*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=fl
   for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1);vec4 w=texelFetch(uWaterTex,clamp(c+o2,ivec2(0),ivec2(M)),0);float b=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);float lk=w.a>.75&&w.a<1.5?1.:0.;sw+=b*lk;sl+=b*lk*w.r;bl+=b*w.r;}
   float l=sw>1e-4?sl/sw:bl;vLake=sw;vFall=0.;vL=l;vP=p;vec3 W=vec3(p.x,l,p.y);
   float e=clamp((uLakeP.z-max(abs(p.x-uLakeP.x),abs(p.y-uLakeP.y)))/(uLakeP.z*.3),0.,1.);
-  float fd=step(.01,sw)*clamp((l-terrainH(p))/2.,0.,1.)*(1.-uWater.w);vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
-  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,l-terrainH(p),sg);W+=sd;vSw=sg;d.y+=sd.y;}
+  float dp=max(l-terrainH(p),oDep(p));float fd=step(.01,sw)*clamp(dp/2.,0.,1.)*(1.-uWater.w)*seaK(l);vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,dp,sg);float swk=clamp(2.-uSpc2.y/40.,0.,1.);/* the open-sea rings far out are too coarse for the swell */W+=sd*swk;vSw=sg*swk;d.y+=sd.y*swk;}
   W+=d;vH=d.y;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 
 const VS_WATER=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
@@ -388,7 +392,7 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
   vec3 W=vec3(float(g.x)*uWorld.z,l,float(g.y)*uWorld.z);float t=uCamPos.w;
   float lw=.25*(lkf(a0)+lkf(a1)+lkf(a2)+lkf(a3));vLake=lw;vP=W.xz;vH=0.;
   W.y+=(sin(W.x*.11+t*1.3)*.5+sin(W.z*.13-t*1.1+W.x*.05)*.5)*.22*uWater.y*(1.-uWater.w)*min(pr,1.)*(1.-lw*uWaveA.x);
-  if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w);W+=d;vH=d.y;}
+  if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w)*seaK(l);W+=d;vH=d.y;}
   vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);W+=sd;vSw=sg;vH+=sd.y;}
   vL=l;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
@@ -419,10 +423,11 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // a culvert ditch is dug below the water table of a wet cell: water that the natural ground covered stays hidden there
   {ivec2 pc=clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1));if(texelFetch(uPatch,pc,0).r>.5){vec2 g=W.xz/uWorld.z,f=fract(g);ivec2 c=ivec2(floor(g));
     float ha=cornerH(c),hb=cornerH(c+ivec2(1,0)),hc=cornerH(c+ivec2(0,1)),hd=cornerH(c+ivec2(1,1)),gh=f.x+f.y<=1.?ha+(hb-ha)*f.x+(hc-ha)*f.y:hd+(hc-hd)*(1.-f.x)+(hb-hd)*(1.-f.y);if(gh>W.y-.02)discard;}}
-  if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
+  if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);if((vP.x>0.&&vP.y>0.&&vP.x<uWorld.x&&vP.y<uWorld.x)||max(q.x,q.y)<uLakeP.w-2.)discard;}
+  else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
-  float depthT=max(vL-terrainH(W.xz),0.),depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
+  float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(60.,8.+od*.05));}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
   {vec2 duv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float zs=texture(uDepthCopy,duv).r;if(zs<1.){vec3 F=-vec3(uView[0][2],uView[1][2],uView[2][2]),Dr=normalize(W-uCamPos.xyz);
       float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));if(abs(db-depthT)<1.+depthT*.6)depth=mix(depthT,db,nw);}}
   float dsl=length(vec2(dFdx(depth),dFdy(depth)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard
@@ -440,7 +445,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // lakes: FFT wave slopes (Lagrangian sampling at the undisplaced position)
   float lkw=uWaveA.x>0.?clamp(vLake*2.-.5,0.,1.)*(1.-iceF):0.,wf=0.;
   if(lkw>0.){vec4 dv=vec4(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;vec3 u=vec3(vP/uWL[c],float(c));dv+=texture(uWDeriv,u);wf+=texture(uWDisp,u).w*(c==2?.5:1.);}
-    float sf=clamp(depth/1.5,0.,1.);g=mix(g,vec2(dv.x/max(1.+dv.z,.2),dv.y/max(1.+dv.w,.2))*sf+g*.25,lkw);wf*=sf;}
+    float sk=uSwell.y>0.&&abs(vL-uSwell.y)>.7?uSwell.w:1.;float sf=clamp(depth/1.5,0.,1.)*sk;g=mix(g,vec2(dv.x/max(1.+dv.z*sk,.2),dv.y/max(1.+dv.w*sk,.2))*sf+g*.25,lkw);wf*=sf*sk;}
   g+=vSw.xy;wf+=smoothstep(.62,.92,vSw.z)*clamp(uSwell.x/8.,0.,.75)*smoothstep(.35,.75,vnoise(W.xz*.05+uCamPos.w*.04));// ocean swell: its slope, whitecaps on the crests
   g+=((vec2(vnoise(W.xz*.06),vnoise(W.xz*.06+7.))-.5)*.05+(vec2(vnoise(W.xz*.35),vnoise(W.xz*.35+9.))-.5)*.045+(vec2(vnoise(W.xz*1.4+3.),vnoise(W.xz*1.4+5.))-.5)*.02)*iceF;// ice: bump map that ripples the mirror
   vec3 N=normalize(vec3(-g.x,1.,-g.y));

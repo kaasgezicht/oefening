@@ -737,7 +737,7 @@ R.drawWall=function(pass){if(!R.wallVao)return;const p=pass===1?R.pWallSh:R.pWal
 // part: 'o' opaque only, 'g' the trains' window glass only (blended, after everything opaque), else both
 R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
   if(part==='g')return R.drawVehGlass(p);
-  if(P.tableOn&&R.tableMesh&&pass===0){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
+  if(P.tableOn&&R.tableMesh&&pass===0&&!(R.world&&R.world.sea!=null&&P.openSea)){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(R.tableMesh.vao);gl.drawElements(gl.TRIANGLES,R.tableMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   gl.uniform2f(p.u('uOcc'),0,0);for(const bm of [R.bridgeMesh,R.xingMesh,R.dockMesh,R.portalMesh])if(bm){gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(bm.vao);gl.drawElements(gl.TRIANGLES,bm.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   if(R.ribbons){const cp=Cam.pos||[0,0,0],lim=pass===1?700:2600;gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());for(const t of R.ribbons){const dx=Math.max(0,Math.abs(cp[0]-t.cx)-512),dz=Math.max(0,Math.abs(cp[2]-t.cz)-512);if(Math.hypot(dx,dz)>lim)continue;gl.bindVertexArray(t.m.vao);gl.drawElements(gl.TRIANGLES,t.m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=t.m.count/3;}}
   R.pm('v-static');Net.draw(pass);Crane.draw(pass);R.pm('v-net+crane');if(!R.veh)return;gl.useProgram(p.p);gl.uniform2f(p.u('uOcc'),0,0);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);
@@ -758,7 +758,7 @@ R.waterU=function(p,cam,near){gl.uniform1f(p.u('uDbg'),+P.dbgWater||0);gl.unifor
   gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.floodRise,0,0);const fp=R.fallP||(R.fallP=new Float32Array(32));fp.fill(0);const em=R.world&&R.world.emitters;
   if(em&&em.length){const c=cam.pos,l=em.map(e=>[Math.hypot(e[0]-c[0],e[2]-c[2]),e]).sort((a,b)=>a[0]-b[0]).slice(0,8);l.forEach(([,e],i)=>fp.set([e[0],e[1],e[2],Math.min(3,0.6+e[3]*1.2)],i*4));}
   gl.uniform4fv(p.u('uFallP'),fp);const W=Waves;gl.uniform4f(p.u('uWaveA'),W.on?1:0,P.lakeChop,P.lakeFoam,W.NC||0);gl.uniform4f(p.u('uWL'),W.L[0],W.L[1],W.L[2],W.N||64);
-  {const T=R.world,E=Weather.eff();gl.uniform4f(p.u('uSwell'),T&&T.sea!=null&&P.waterOn?Sea.amp():0,T&&T.sea!=null?T.sea:-1,P.windDir*Math.PI/180,0);}/* the ocean swell */
+  {const T=R.world,E=Weather.eff();gl.uniform4f(p.u('uSwell'),T&&T.sea!=null&&P.waterOn?Sea.amp():0,T&&T.sea!=null?T.sea:-1,P.windDir*Math.PI/180,clamp(+P.lakeCalm,0,1));}/* the ocean swell; w: wave size on lakes and rivers when there is a sea */
   const q=+P.reflQuality;gl.uniform4f(p.u('uRefl'),[0,12,20,32][q]||0,[1,1.6,1.3,1.2][q]||1,0,0);const lp=R.lakePatch;gl.uniform4f(p.u('uLakeP'),lp?lp[0]:0,lp?lp[1]:0,lp?lp[2]:0,near?1:0);};
 R.lakeGrid=function(M){const G=R._lg||(R._lg={});if(G[M])return G[M];const v=new Float32Array((M+1)*(M+1)*2),idx=new Uint32Array(M*M*6);let k=0;
   for(let j=0;j<=M;j++)for(let i=0;i<=M;i++){v[k++]=i/M;v[k++]=j/M;}k=0;for(let j=0;j<M;j++)for(let i=0;i<M;i++){const a=j*(M+1)+i;idx.set([a,a+M+1,a+1,a+1,a+M+1,a+M+2],k);k+=6;}
@@ -774,7 +774,15 @@ R.drawWater=function(cam){if(!R.waterChunks.length)return;const T=R.world,q=+P.w
   R.pm('w-chunks');
   if(R.lakePatch){const lp=R.lakePatch;p=R.pLake;gl.useProgram(p.p);R.waterU(p,cam,true);gl.uniform2f(p.u('uSpc2'),R.cells/R.gridBase*T.cs,lp[4]);
     const g=R.lakeGrid(lp[3]);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.count/3;}
+  if(T&&T.sea!=null&&P.openSea)R.drawOpenSea(cam);
   gl.bindVertexArray(null);};
+/* the open sea round island maps: 8 nested squares round the camera (300 m to 38 km half-size, 64 x 64 quads each, snapped to their own
+   spacing), drawn with the lake program; the water texture clamps at the map edge, which is sea, so it is the same ocean with its swell.
+   Each ring discards the map itself and the square of the finer ring inside it (uRefl.zw = that ring's centre, uLakeP.w-2 its half-size) */
+R.drawOpenSea=function(cam){const T=R.world,p=R.pLake,M=64,g=R.lakeGrid(M);gl.useProgram(p.p);R.waterU(p,cam,false);gl.bindVertexArray(g.vao);let pc=null,ph=0;const q=+P.reflQuality;
+  for(let k=0;k<8;k++){const H=300*2**k,sp=2*H/M,cx=Math.round(cam.pos[0]/(2*sp))*2*sp,cz=Math.round(cam.pos[2]/(2*sp))*2*sp;
+    {gl.uniform4f(p.u('uLakeP'),cx,cz,H,2+(k?ph:0));gl.uniform4f(p.u('uRefl'),[0,12,20,32][q]||0,[1,1.6,1.3,1.2][q]||1,pc?pc[0]:0,pc?pc[1]:0);gl.uniform2f(p.u('uSpc2'),sp,sp);
+      gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;}pc=[cx,cz];ph=H;}};
 // ---- FFT wave simulation for lakes: spectrum → time evolution → 2×log2(N) FFT passes → per-cascade assemble (+ foam memory)
 const Waves={N:0,NC:0,L:[96,24,6],pp:0,on:false,U:-1,key:'',last:0,
   initGL(){const mkP=(n,f)=>makeProgram(n,VS_FS,f);this.pI=mkP('wave-init',FS_WINIT);this.pT=mkP('wave-time',FS_WTIME);this.pF=mkP('wave-fft',FS_WFFT);this.pA=mkP('wave-asm',FS_WASM);
