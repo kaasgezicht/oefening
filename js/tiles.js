@@ -22,15 +22,21 @@ const Tiles={S:2048,FC:8,M:16,dirName:'',done:new Set(),busy:false,
         return(A[cell(i,j)]*(1-fu)+A[cell(i+1,j)]*fu)*(1-fv)+(A[cell(i,j+1)]*(1-fu)+A[cell(i+1,j+1)]*fu)*fv;};
     const prot=(x,z)=>{const i0=Math.floor(x/cs),j0=Math.floor(z/cs);for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const k=cell(i0+di,j0+dj);
         if((T.flatMask&&T.flatMask[k])||(T.roadMask&&T.roadMask[k])||(T.trackMask&&T.trackMask[k])||(T.pathMask&&T.pathMask[k]>40)||(T.water&&T.water[k*4+3]>0)||(sea!=null&&H[k]<sea+2))return 1;}return 0;};
-    const nz=this.nz||(this.nz=makeNoise((P.seed|0)+9191)),base=new Float32Array(G*G),fine=new Float32Array(G*G),pr=new Uint8Array(G*G);
+    const nz=this.nz||(this.nz=makeNoise((P.seed|0)+9191)),base=new Float32Array(G*G),fine=new Float32Array(G*G),pr=new Uint8Array(G*G),nd=new Float32Array(G*G);
     for(let j=0;j<G;j++)for(let i=0;i<G;i++){const x=x0+(i+0.5)*fc,z=z0+(j+0.5)*fc,k=j*G+i,b=bil(H,x,z);base[k]=b;const p=pr[k]=prot(x,z);
       if(p){fine[k]=b;continue;}const sx=(bil(H,x+cs,z)-bil(H,x-cs,z))/(2*cs),sz=(bil(H,x,z+cs)-bil(H,x,z-cs))/(2*cs),sl=Math.hypot(sx,sz),mm=T.mm?bil(T.mm,x,z):0;
-      const amp=0.6+3.2*smooth(0.08,0.55,sl)+2.4*mm,r=ridged(nz,x/90,z/90,3,0.5,2.1)-0.45,f=fbm(nz,x/22+7.3,z/22-3.1,2,0.5,2)*0.35;fine[k]=b+(r+f)*amp;}
+      const amp=(0.6+3.2*smooth(0.08,0.55,sl)+2.4*mm)*0.75,r=ridged(nz,x/90,z/90,3,0.5,2.1)-0.45,f=fbm(nz,x/22+7.3,z/22-3.1,2,0.5,2)*0.35;nd[k]=(r+f)*amp;fine[k]=b+nd[k];}
     // local erosion on the tile and its margin (seeded per tile; the game's erosion settings, fewer drops)
     const E={N:G,cs:fc,H:fine};const pp=Object.assign({},P,{seed:((P.seed|0)*7919+tx*131+tz*977)|0,dropletsPerCell:Math.min(1.2,(+P.dropletsPerCell||1)*0.6),thermalIter:Math.min(2,P.thermalIter|0)});
-    return{G,n,M,base,fine,pr,E,pp};},
-  finish(r){const {G,n,M,base,fine,pr}=r,out=new Int16Array(n*n),fd=12;
-    for(let j=0;j<n;j++)for(let i=0;i<n;i++){const k=(j+M)*G+(i+M);if(pr[k]){out[j*n+i]=0;continue;}const e=Math.min(i,j,n-1-i,n-1-j),w=smooth(0,fd,e);let d=fine[k]-base[k];d=clamp(d,-8,8)*w;out[j*n+i]=Math.round(d*100);}
+    return{G,n,M,base,fine,pr,nd,E,pp};},
+  /* only the detail is kept: the change minus its own 104 m running mean (separable box blur), so the refined ground neither sinks nor rises
+     against the 16 m world on average; protected cells stay exactly 0 */
+  finish(r){const {G,n,M,base,fine,pr,nd}=r,out=new Int16Array(n*n),fd=12,D=new Float32Array(G*G),A=new Float32Array(G*G),B=new Float32Array(G*G),R=6;
+    /* D: relief (continuous over tile edges) + the erosion's change, which fades out toward the tile's edges (it differs per tile) */
+    for(let j=0;j<G;j++)for(let i=0;i<G;i++){const k=j*G+i;if(pr[k]){D[k]=0;continue;}const e=Math.min(i,j,G-1-i,G-1-j)-M,w=smooth(0,fd,e);D[k]=nd[k]+(fine[k]-base[k]-nd[k])*w;}
+    for(let j=0;j<G;j++){let a=0;for(let i=-R;i<=R;i++)a+=D[j*G+clamp(i,0,G-1)];for(let i=0;i<G;i++){A[j*G+i]=a/(2*R+1);a+=D[j*G+Math.min(G-1,i+R+1)]-D[j*G+Math.max(0,i-R)];}}
+    for(let i=0;i<G;i++){let a=0;for(let j=-R;j<=R;j++)a+=A[clamp(j,0,G-1)*G+i];for(let j=0;j<G;j++){B[j*G+i]=a/(2*R+1);a+=A[Math.min(G-1,j+R+1)*G+i]-A[Math.max(0,j-R)*G+i];}}
+    for(let j=0;j<n;j++)for(let i=0;i<n;i++){const k=(j+M)*G+(i+M);if(pr[k]){out[j*n+i]=0;continue;}let d=D[k]-B[k];d=clamp(d,-5,5);out[j*n+i]=Math.round(d*100);}
     return out;},
   async store(tx,tz,a){const d=await this.dir(true),fh=await d.getFileHandle(`t_${tx}_${tz}.bin`,{create:true}),ws=await fh.createWritable();await ws.write(a);await ws.close();this.done.add(tx+'_'+tz);},
   async load(tx,tz){try{const d=await this.dir(false),f=await (await d.getFileHandle(`t_${tx}_${tz}.bin`)).getFile();return new Int16Array(await f.arrayBuffer());}catch(e){return null;}},

@@ -30,6 +30,9 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   shores below sea + 2 m, dilated one 16 m cell) is left exactly as it was, so nothing placed moves. Stored as Int16 cm differences in OPFS
   folder `detail-<world key hash>`, `t_x_z.bin`, 128 KB a tile. Saves page: "Make all of it" or one of four quarters, progress per tile
   in the loading card with the train; "Remove the detail".
+  - The kept change is high-passed (minus its own 104 m running mean) so the refined ground does not sink or rise on average (the first
+    try sank everything by metres); relief amplitude ×0.75, clamp ±5 m. Tested (24 km, seed 4242): a quarter of 36 tiles in 8.3 s; land
+    tiles 5-44 % changed, gullies radiating down the mountains; checks/detail-tiles.png (grey 0, light raised, dark cut), detail-saves.png.
   - **Not drawn yet** (step 2: a fine terrain patch round the camera with the tiles streamed into a texture, normals from the detail, the
     coarse terrain cut out under it, a small loading pill), then step 3 (trees, rocks, vehicles and the CPU height sampling on the fine ground).
 
