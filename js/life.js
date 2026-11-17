@@ -124,7 +124,8 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     // ---- country roads (Kruskal): every pair of villages within 6 km, shortest first; a pair is routed when it joins two parts not yet
     // linked, and when its route fails the next pair is tried, so all villages that can be reached end up on one network. A few short
     // extra links make loops. Each road keeps which of its segments are bridges (1) or tunnels (2), with their end heights.
-    this.links=[];if(+P.countryRoads>0&&this.villages.length>1){const V=this.villages,E=[];for(let a=0;a<V.length;a++)for(let b=a+1;b<V.length;b++){const d=Math.hypot(V[a].x-V[b].x,V[a].z-V[b].z);if(d<6000)E.push([d,a,b]);}
+    this.links=[];if(+P.countryRoads>0&&this.villages.length>1){const V=this.villages,E=[];/* Mountain islands: the islands are linked by sea only, so no road between villages on different islands */
+      const IS=P.mapStyle==='peaks'?peakIslands(P):null,isl=v=>{let bi=-1,bd=1e9;for(let i=0;i<IS.length;i++){const d=Math.hypot(v.x-IS[i].x,v.z-IS[i].z)/IS[i].R;if(d<bd){bd=d;bi=i;}}return bi;},sep=IS?(a,b)=>isl(a)!==isl(b):null;for(let a=0;a<V.length;a++)for(let b=a+1;b<V.length;b++){const d=Math.hypot(V[a].x-V[b].x,V[a].z-V[b].z);if(d<6000&&!(sep&&sep(V[a],V[b])))E.push([d,a,b]);}
       E.sort((p,q)=>p[0]-q[0]);const par=V.map((_,i)=>i),fd=i=>par[i]===i?i:(par[i]=fd(par[i]));let tried=0,failed=0,nb=0,nt=0;
       const ends=(A,B)=>{let best=null,bd=1e9;for(const sa of A.streets)for(const ea of [[sa[0],sa[1]],[sa[2],sa[3]]])for(const sb of B.streets)for(const eb of [[sb[0],sb[1]],[sb[2],sb[3]]]){const d=Math.hypot(ea[0]-eb[0],ea[1]-eb[1]);if(d<bd){bd=d;best=[ea,eb];}}return best;};
       /* each link is planned in steps (RoadPlan): where its route runs on roads already laid it joins them, so it may add a few pieces or
