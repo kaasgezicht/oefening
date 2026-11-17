@@ -88,7 +88,7 @@ function drawPreview(cv,L,p){const n=L.n,g=cv.getContext('2d'),img=g.createImage
    bigMountains raises the peaks and coastShape cuts the coastline round each island, so both read the same list. */
 function peakIslands(p){const W=p.worldSize,key=W+':'+p.seed+':'+p.landShare+':'+p.bigMtnHeight;if(peakIslands.k===key)return peakIslands.v;
   const rng=mulberry32((p.seed|0)*131+17),ls=clamp(+p.landShare||0.5,0.1,0.9),want=clamp(Math.round((W/1000)**2/10*(0.6+ls*0.8)),2,16),L=[];
-  for(let tries=0;tries<600&&L.length<want;tries++){const R=W*(0.1+rng()*0.075)*(0.75+ls*0.5),m=R*0.9+W*0.03,x=m+rng()*(W-2*m),z=m+rng()*(W-2*m);
+  for(let tries=0;tries<600&&L.length<want;tries++){const R=Math.min(W*0.32,(900+rng()*800)*(0.75+ls*0.5)),m=R*0.9+W*0.03,x=m+rng()*(W-2*m),z=m+rng()*(W-2*m);
     if(L.some(q=>Math.hypot(q.x-x,q.z-z)<(q.R+R)*0.9+W*0.02))continue;const a=rng()*Math.PI,el=0.78+rng()*0.4,pa=rng()*6.283,po=R*rng()*0.18;
     L.push({x,z,R,c:Math.cos(a),s:Math.sin(a),ex:el,ez:1/el,px:x+Math.cos(pa)*po,pz:z+Math.sin(pa)*po,pd:rng()*Math.PI,H:(+p.bigMtnHeight||900)*(0.62+rng()*0.48),long:rng()*0.35});}
   peakIslands.k=key;peakIslands.v=L;return L;}

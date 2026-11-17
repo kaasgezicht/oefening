@@ -23,7 +23,7 @@ window.addEventListener('unhandledrejection',e=>Log.err('unhandled rejection: '+
 // apply: live = read every frame | world = needs Generate | water/veg = auto-rebuild that stage
 //        tex = regenerate ground textures | shadow = rebuild shadow maps | trees = rebuild tree models
 const P={},PDEF={},PORDER=[];
-const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['ui','UI'],['file','File']];
+const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['sea','Sea'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['ui','UI'],['file','File']];
 const TAB_HINT={ui:'Move and size the on-screen controls, with separate layouts for portrait and landscape. Edit layout lets you drag them on the screen; text grows with each control, and Text size changes all of it.',world:'Changes here rebuild the whole landscape when you press Generate.',erosion:'Erosion runs when you press Generate. Turn it off to compare with raw noise.',
   water:'Lake and river shape rebuild automatically (a second or two). Look settings are live.',trees:'Placement sliders replant automatically. Distances are live.',
   track:'Lay track with the Build button. Bed width and slopes reshape existing track straight away.',look:'How the diorama looks. Everything here is live.',
@@ -86,6 +86,16 @@ def('waterModel',{tab:'water',label:'Lake water',kind:'select',options:[[0,'Simp
 def('reflQuality',{tab:'water',label:'Reflections',kind:'select',options:[[0,'Sky only'],[1,'Mirror: low'],[2,'Mirror: medium'],[3,'Mirror: high']],def:2,apply:'live'});
 def('oceanSwell',{tab:'water',label:'Ocean swell height (island maps)',min:0,max:20,step:0.5,def:4,unit:' m',apply:'live'});
 def('openSea',{tab:'water',label:'Open sea round island maps (instead of the table)',kind:'check',def:1,apply:'live'});
+// --- Sea and coast (4.26.0)
+def('worldFile',{tab:'file',label:'Keep the whole generated world on this device (OPFS), so it is generated once',kind:'check',def:1,apply:'live'});
+def('lighthouses',{tab:'sea',label:'Lighthouses per big island',min:0,max:2,step:0.25,def:1,unit:'×',apply:'life'});
+def('coastVillages',{tab:'sea',label:'Villages by the sea (preference)',min:0,max:2,step:0.1,def:1,apply:'life'});
+def('lhSpeed',{tab:'sea',label:'Lighthouse beam: turns per minute',min:0,max:12,step:0.1,def:1.2,apply:'live'});
+def('lhBright',{tab:'sea',label:'Lighthouse beam: brightness',min:0,max:4,step:0.05,def:1,apply:'live'});
+def('lhWidth',{tab:'sea',label:'Lighthouse beam: width at the lamp',min:0.5,max:10,step:0.1,def:2.6,unit:' m',apply:'live'});
+def('lhRange',{tab:'sea',label:'Lighthouse beam: how far it reaches',min:200,max:8000,step:50,def:2600,unit:' m',apply:'live'});
+def('lhDiverge',{tab:'sea',label:'Lighthouse beam: spread',min:0.2,max:20,step:0.1,def:3.5,unit:'°',apply:'live'});
+def('lhDouble',{tab:'sea',label:'Lighthouse: double beam (two opposite beams)',kind:'check',def:0,apply:'live'});
 def('lakeCalm',{tab:'water',label:'Lake and river waves on sea maps (share of the ocean waves)',min:0,max:1,step:0.05,def:0.3,apply:'live'});
 def('lakeWaves',{tab:'water',label:'Lake wave size',min:0,max:7.5,step:0.05,def:1,apply:'live'});
 def('lakeFetch',{tab:'water',label:'Lake fetch (sea-likeness)',min:0.5,max:40,step:0.5,def:15,unit:' km',apply:'live'});

@@ -39,7 +39,7 @@ const MainMenu={np:null,pt:0,
     for(const k of ['worldSize','seed','mapStyle',...this.KEYS,...this.genIds()])P[k]=np[k];P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
     Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Ledger.beaver.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
     App.camLoaded=false;App.placedCam=false;UI.refreshAll();this.hide();App.generate(0);},
-  saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes';},
+  saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes. Two files: the save (your game, small) and the world file (the generated world, kept on this device; back it up to keep a world without generating it again).';},
   initQ(){for(const b of document.querySelectorAll('#mmPreset button'))b.classList.toggle('on',b.dataset.v===P.preset);for(const k of ['kitLod','renderScale'])$('#mmq_'+k).value=P[k];},
   bind(){const on=(id,f)=>{$(id).onclick=f;};on('#mmCont',()=>this.hide());on('#mmNew',()=>this.page('new'));on('#mmSaves',()=>this.page('saves'));on('#mmQual',()=>this.page('quality'));
     on('#mmSet',()=>{this.hide();$('#btnMenu').click();});on('#mmFly',()=>{this.hide();if(window.Plane)Plane.choose();});for(const b of ['#mmBack1','#mmBack2','#mmBack3'])on(b,()=>this.page('home'));
@@ -47,7 +47,7 @@ const MainMenu={np:null,pt:0,
     $('#mmSeed').onchange=()=>{this.np.seed=clamp(Math.round(+$('#mmSeed').value||1),1,99999);this.preview();};$('#mmSize').oninput=()=>{this.np.worldSize=this.SIZES[+$('#mmSize').value]||8192;this.sizeLabel();this.preview();};
     for(const b of document.querySelectorAll('#mmStyle button'))b.onclick=()=>{this.np.mapStyle=b.dataset.v;this.sync();this.preview();};
     for(const k of this.KEYS)$('#mm_'+k).oninput=()=>{this.np[k]=+$('#mm_'+k).value;this.sync();this.preview();};
-    on('#mmSaveNow',()=>{App.save();this.saveInfo();});on('#mmLoad',()=>{this.hide();App.load();});on('#mmExport',()=>App.exportJSON());on('#mmImport',()=>$('#file').click());on('#mmLog',()=>App.exportLog());
+    on('#mmSaveNow',()=>{App.save();this.saveInfo();});on('#mmLoad',()=>{this.hide();App.load();});on('#mmExport',()=>App.exportJSON());on('#mmImport',()=>$('#file').click());on('#mmWExport',()=>WorldFile.exportFile());on('#mmWImport',()=>$('#wfile').click());$('#wfile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f){this.hide();WorldFile.importFile(f);}};on('#mmLog',()=>App.exportLog());
     for(const b of document.querySelectorAll('#mmPreset button'))b.onclick=()=>{P.preset=b.dataset.v;applyPreset(b.dataset.v);UI.refreshAll();this.initQ();};
     for(const k of ['kitLod','renderScale'])$('#mmq_'+k).oninput=()=>{P[k]=+$('#mmq_'+k).value;paramChanged(k);UI.refresh(k);};}};
 // ---- the map: the world seen straight down without clouds, mist or haze; on top of it (a 2D canvas) the railways, the bus and lorry
@@ -133,9 +133,14 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     this.busy=true;const t0=performance.now(),show=from<=2;const times=[];
     const W={0:[0,0.08],1:[0.08,0.36],2:[0.44,0.1],3:[0.54,0.08]};/* the villages take the rest (0.62-0.96): on a 16 km map they are a third of the time */let st=W[from];
     const y=makeYielder((f,l)=>{if(show)UI.progress(true,st[0]+f*st[1],l);});
-    if(show)UI.progress(true,0,'Starting');await new Promise(r=>setTimeout(r,30));
+    if(show){UI.progress(true,0,'Starting');LoadScene.show(true);}await new Promise(r=>setTimeout(r,30));
     try{
-      let t=performance.now(),T,cached=false,ckey=null;
+      let t=performance.now(),T,cached=false,ckey=null,fromFile=null;const wkey=from===0&&!Bench.on&&+P.worldFile!==0&&WorldFile.ok()?WorldFile.key(P):null;
+      /* the whole world from the device (OPFS): no generating at all; the save's track is carved in afresh */
+      if(wkey){if(show)UI.progress(true,0.03,'Reading the world from this device');fromFile=await WorldFile.load(wkey);
+        if(fromFile){T=fromFile.T;Object.assign(Life,fromFile.L);if(T.H0)T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);Life.applyTrackMask(T);R.computeRenderHeights(T);Life.uploaded=false;Life.kitDirty=true;Life.roadsDirty=true;
+          this.base=null;this.eroded=null;times.push('world file '+(performance.now()-t).toFixed(0));t=performance.now();}}
+      if(!fromFile){
       if(from===0&&+P.worldCache!==0&&!Bench.on){ckey=WorldCache.key(P);if(show)UI.progress(true,0.05,'Loading the land from the cache');const c=await WorldCache.load(ckey);
         if(c){T=c;cached=true;this.base=null;this.eroded=null;times.push('land from cache '+(performance.now()-t).toFixed(0));t=performance.now();}}
       if(!cached){
@@ -149,7 +154,10 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
         if(+P.worldCache!==0&&!Bench.on)WorldCache.store(ckey||WorldCache.key(P),T);}
       }
       if(show)UI.progress(true,0.62,'Villages and fields');await new Promise(r=>setTimeout(r,0));
-      {const g=Life.genSteps(T);let r,last=Date.now();while(!(r=g.next()).done){const [f,l]=r.value;if(show&&Date.now()-last>40){UI.progress(true,0.62+f*0.34,l);await new Promise(q=>setTimeout(q,0));last=Date.now();}}}
+      {const before=new Map(Object.keys(Life).map(k=>[k,Life[k]]));const g=Life.genSteps(T);let r,last=Date.now();while(!(r=g.next()).done){const [f,l]=r.value;if(show&&Date.now()-last>40){UI.progress(true,0.62+f*0.34,l);await new Promise(q=>setTimeout(q,0));last=Date.now();}}
+        /* everything the villages step set on Life goes into the world file with the land (written in the background) */
+        if(wkey){const L={};for(const k of Object.keys(Life))if(typeof Life[k]!=='function'&&Life[k]!==before.get(k))L[k]=Life[k];const prm={};for(const id of PORDER){const a=PDEF[id].apply;if(a==='world'||a==='water'||a==='veg'||a==='life')prm[id]=P[id];}if(show)UI.progress(true,0.965,'Storing the world on this device');WorldFile.save(T,L,wkey,prm);}}
+      }
       if(show){UI.progress(true,0.97,'Building the 3D world');await new Promise(q=>setTimeout(q,0));}
       times.push('villages '+(performance.now()-t).toFixed(0));
       this.T=T;R.uploadWorld(T);Weather.setWorld(T);try{Explore.worldReady(T);}catch(e){Log.err('explore: '+(e.stack||e));}if(this.pendingTrains){Trains.load(this.pendingTrains);this.pendingTrains=null;}else Trains.trackChanged();
@@ -158,7 +166,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
       if(from===0){Pending.world=false;UI.markGenerate(false);}
       if(!this.placedCam){this.placedCam=true;if(!this.camLoaded)this.frameWorld();}
     }catch(e){Log.err('generation failed: '+(e.stack||e));UI.toast('Generation failed — export the debug log');}
-    UI.progress(false);this.busy=false;
+    UI.progress(false);LoadScene.show(false);this.busy=false;
     if(this.pendingFrom<99){const f=this.pendingFrom;this.pendingFrom=99;this.generate(f);}
   },
   frameWorld(){const T=this.T;const v=Life.villages[0];const x=v?v.x:T.W*0.5,z=v?v.z:T.W*0.5;Cam.target=[x,sampleH(T,x,z),z];Cam.dist=v?420:T.W*0.6;Cam.pitch=0.55;Cam.yaw=0.8;},

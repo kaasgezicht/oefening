@@ -427,7 +427,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
-  float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(60.,8.+od*.05));}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
+  float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(60.,8.+od*.05));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,8.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
   {vec2 duv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float zs=texture(uDepthCopy,duv).r;if(zs<1.){vec3 F=-vec3(uView[0][2],uView[1][2],uView[2][2]),Dr=normalize(W-uCamPos.xyz);
       float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));if(abs(db-depthT)<1.+depthT*.6)depth=mix(depthT,db,nw);}}
   float dsl=length(vec2(dFdx(depth),dFdy(depth)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard
@@ -576,6 +576,13 @@ layout(location=0) in vec4 aP;layout(location=1) in vec2 aQ;out float vA;out vec
 const FS_BOLT=GLSL_HEAD+`in float vA;in vec2 vQ;`+FS_OUT+`void main(){float q=abs(vQ.x);vec3 c;
   if(vQ.y<.5){float g=1.-q;c=vec3(.55,.5,1.)*g*g*1.4;}else{float k=smoothstep(1.,.2,q);c=mix(vec3(.8,.82,1.),vec3(1.),k)*k*14.;}
   o=vec4(c*vA,0.);}`;
+// ---------------- lighthouse beams (coast.js): ribbons along each beam (vQ.y 0: a soft profile across) and the glare at the lamp (vQ.y 1..3)
+const VS_BEAM=GLSL_HEAD+`
+layout(location=0) in vec4 aP;layout(location=1) in vec2 aQ;out float vA;out vec2 vQ;void main(){vA=aP.w;vQ=aQ;gl_Position=uViewProj*vec4(aP.xyz,1.);}`;
+const FS_BEAM=GLSL_HEAD+`in float vA;in vec2 vQ;`+FS_OUT+`void main(){vec3 warm=vec3(1.,.78,.42);float k;
+  if(vQ.y<.5){float q=abs(vQ.x);k=exp(-q*q*3.2)*(1.-q*q)*.9;}
+  else{vec2 d=vec2(vQ.x,vQ.y-2.);float r=length(d);k=exp(-r*r*9.)*2.4+exp(-r*3.6)*.35+max(0.,1.-abs(d.y)*40.)*max(0.,1.-r)*.25;}
+  o=vec4(warm*k*vA,0.);}`;
 // ---------------- build / drive markers
 const VS_MARK=GLSL_HEAD+`
 uniform vec4 uMk[24];uniform vec4 uMs[24];uniform int uBeam;out vec2 vQ;flat out float vSt;

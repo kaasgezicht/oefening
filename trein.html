@@ -43,7 +43,7 @@
  <div id="mmMore"></div>
  <label class="mm-chk"><input type="checkbox" id="mmExplore"><span><b>Exploration mode</b><small>Start in one village; the rest of the world is hidden in mist until your vehicles explore it.</small></span></label>
  <div class="mm-row"><button class="mm-b" id="mmBack1">Back</button><button class="mm-b go" id="mmStart">Start</button></div></div>
-<div class="mm-page" data-p="saves" hidden><div class="mm-h">Saves</div><div class="mm-note" id="mmSaveInfo"></div><button class="mm-b" id="mmSaveNow">Save now</button><button class="mm-b" id="mmLoad">Load the last save</button><button class="mm-b" id="mmExport">Export save file</button><button class="mm-b" id="mmImport">Import save file</button><button class="mm-b" id="mmLog">Export debug log</button><button class="mm-b" id="mmBack2">Back</button></div>
+<div class="mm-page" data-p="saves" hidden><div class="mm-h">Saves</div><div class="mm-note" id="mmSaveInfo"></div><button class="mm-b" id="mmSaveNow">Save now</button><button class="mm-b" id="mmLoad">Load the last save</button><button class="mm-b" id="mmExport">Export save file</button><button class="mm-b" id="mmImport">Import save file</button><button class="mm-b" id="mmWExport">Back up the world file</button><button class="mm-b" id="mmWImport">Load a world file</button><input type="file" id="wfile" accept=".trw,application/octet-stream" hidden><button class="mm-b" id="mmLog">Export debug log</button><button class="mm-b" id="mmBack2">Back</button></div>
 <div class="mm-page" data-p="quality" hidden><div class="mm-h">Quality</div><div class="mm-row mm-chips" id="mmPreset"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
  <div class="mm-grid"><label>Building detail distance<input type="range" id="mmq_kitLod" min="0.1" max="2" step="0.05"></label><label>Render scale<input type="range" id="mmq_renderScale" min="0.3" max="1" step="0.05"></label></div>
  <div class="mm-note">More in All settings › Quality.</div><button class="mm-b" id="mmBack3">Back</button></div>
@@ -142,8 +142,10 @@
 <script src="js/roadveh.js"></script>
 <script src="js/air.js"></script>
 <script src="js/sea.js"></script>
+<script src="js/coast.js"></script>
 <script src="js/wild.js"></script>
 <script src="js/fleet.js"></script>
+<script src="js/worldfile.js"></script>
 <script src="js/main.js"></script>
 <script src="js/bench.js"></script>
 <script>/* installable app: register the service worker when served over http(s) (GitHub Pages); a file:// or content:// page cannot */

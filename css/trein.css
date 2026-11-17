@@ -283,3 +283,5 @@ body.fplan #bar,body.fplan #mapList{display:none}
 .mm-fold{border:1px solid #c9a14a50;border-radius:12px;background:#15191acc;margin:0 0 6px}.mm-fold summary{cursor:pointer;padding:10px 12px;font:600 calc(14px*var(--txt,1)) system-ui;color:#f1e7d0;display:flex;justify-content:space-between;align-items:center}
 .mm-fold summary small{opacity:.6;font-weight:500}.mm-fold[open] summary{border-bottom:1px solid #c9a14a40}.mm-fold .mm-grid{padding:10px 12px}.mm-grid label b{font-weight:600;color:#e8c25a}
 .mm-grid label.mm-ck{flex-direction:row;align-items:center;justify-content:space-between}.mm-ck input{width:20px;height:20px;accent-color:#c9a14a}
+#progScene{display:block;width:100%;aspect-ratio:600/340;border-radius:8px;margin:0 0 10px;background:#8fb0cc}
+#prog:has(#progScene[style*="block"]){width:min(420px,88vw)}
