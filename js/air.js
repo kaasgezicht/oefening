@@ -92,9 +92,8 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),ln=s.ln||{m:0,c:R.sampleHr(T,s.x,s.z)},lineY=u=>ln.c+ln.m*clamp(u,-L,L),g=(u,w)=>{const [x,z]=P(u,w);return[x,Math.abs(u)<=L+0.1&&Math.abs(w)<=W+0.1?Math.max(R.sampleHr(T,x,z),lineY(u))+0.12:R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n),onDeck=(u,w)=>{const [x,z]=P(u,w);return R.sampleHr(T,x,z)<lineY(u)-0.4;};
     const V=(p,n,cl,m)=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],cl[0],cl[1],cl[2],0,0,0,1,m);return M.n++;},q=(a,b,cc,d,cl,m)=>{const ix=[a,b,cc,d].map(p=>V(p,[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);},lift0=(p,d)=>[p[0],p[1]+d,p[2]],lift=lift0;
     /* 4.33.0 (the user's reference pictures): an asphalt runway with white edge lines and centre dashes; concrete on a deck */
-    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const cl=onDeck(u+5,w+W/4)?[0.5,0.5,0.49]:((Math.floor((u+L)/10)+Math.floor((w+W)/(W/2)))%2?[0.25,0.25,0.26]:[0.27,0.27,0.28]);q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
-    {const wl=[0.93,0.93,0.9];for(const e of [-1,1])for(let u=-L+2;u<L-2;u+=10)q(lift0(g(u,e*(W-1.2)),0.02),lift0(g(u+10,e*(W-1.2)),0.02),lift0(g(u+10,e*(W-0.8)),0.02),lift0(g(u,e*(W-0.8)),0.02),wl,0);
-      for(let u=-L+30;u<L-30;u+=24)q(lift0(g(u,-0.3),0.02),lift0(g(u+12,-0.3),0.02),lift0(g(u+12,0.3),0.02),lift0(g(u,0.3),0.02),wl,0);}
+    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,mid=Math.abs(w+W/4)<W*0.3,cl=onDeck(u+5,w+W/4)?[0.5,0.5,0.49]:mid?(stripe?[0.56,0.5,0.36]:[0.6,0.53,0.38]):(stripe?[0.5,0.68,0.27]:[0.44,0.62,0.24]);q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}/* 4.34.0: a mown grass strip, worn to dirt down the middle where the wheels run */
+    {const wl=[0.95,0.95,0.92];for(const e of [-1,1])for(let u=-L+20;u<L-10;u+=50)q(lift0(g(u,e*(W-1.6)),0.03),lift0(g(u+3,e*(W-1.6)),0.03),lift0(g(u+3,e*(W-0.4)),0.03),lift0(g(u,e*(W-0.4)),0.03),wl,0);}/* white edge markers every 50 m */
     // the concrete deck: a fascia along both edges and square piers down to the ground every 15 m where the land falls away
     {const cc=[0.58,0.58,0.56],cd=[0.48,0.48,0.47];for(const e of [-1,1])for(let u=-L;u<L-0.1;u+=5){if(!onDeck(u+2.5,e*W*0.9))continue;const a=P(u,e*(W+0.3)),b=P(u+5,e*(W+0.3)),ya=lineY(u)+0.12,yb=lineY(u+5)+0.12;q([a[0],ya-1.3,a[1]],[b[0],yb-1.3,b[1]],[b[0],yb,b[1]],[a[0],ya,a[1]],cd,0);}
       for(let u=-L+6;u<=L-6;u+=15)for(const w of [-W+2,0,W-2]){const [x,z]=P(u,w),gy=R.sampleHr(T,x,z),top=lineY(u)-1.2;if(top-gy<0.6)continue;const hh=(top-gy+1)/2,T2=(a2,b2,d2)=>[x+c*a2-sn*d2,gy-1+hh+b2,z+sn*a2+c*d2];
@@ -113,8 +112,8 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
       for(const f of [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7]]){const ix=f.map(i=>V(pp[i],[0,1,0],cl,m||0));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
     const LQ=(a,b2,cc,d,cl)=>q(Lb(...a),Lb(...b2),Lb(...cc),Lb(...d),cl,0);
     // apron: concrete slabs with dark joints on a plinth that hides the slope, a yellow taxi line and a parking box
-    const aw0=-W-2,aw1=-W-50,au=48;LB(0,-1.4,(aw0+aw1)/2,au,1.5,(aw0-aw1)/2,[0.42,0.4,0.37]);
-    for(let u=-au;u<au;u+=8)for(let w=aw1;w<aw0;w+=8){const sh=((u/8+w/8)|0)%2?0.02:0;LQ([u+0.15,0.12,w+0.15],[u+7.85,0.12,w+0.15],[u+7.85,0.12,w+7.85],[u+0.15,0.12,w+7.85],[0.6+sh,0.57+sh,0.52+sh]);}
+    const aw0=-W-2,aw1=-W-50,au=48;LB(0,-1.4,(aw0+aw1)/2,au,1.5,(aw0-aw1)/2,[0.45,0.37,0.27]);
+    for(let u=-au;u<au;u+=8)for(let w=aw1;w<aw0;w+=8){const sh=(((u*7+w*13)|0)%5)*0.012;LQ([u,0.12,w],[u+8,0.12,w],[u+8,0.12,w+8],[u,0.12,w+8],[0.55+sh,0.48+sh,0.36+sh]);}/* a gravel and dirt apron */
     const yl=[0.92,0.76,0.18];for(let u=-au+2;u<au-2;u+=4)LQ([u,0.14,-W-6.2],[u+2.5,0.14,-W-6.2],[u+2.5,0.14,-W-5.8],[u,0.14,-W-5.8],yl);
     for(const [a1,b1,c1,d1] of [[0,-W-14,0.3,-W-30],[18,-W-14,18.3,-W-30],[0,-W-14,18.3,-W-14.3],[0,-W-29.7,18.3,-W-30]])LQ([a1,0.14,b1],[c1,0.14,b1],[c1,0.14,d1],[a1,0.14,d1],yl);
     // the hangar: green-grey walls, an arched corrugated roof (ridge across the runway), doors slid open to the apron, dark inside, a rooster vane

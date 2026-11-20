@@ -199,7 +199,7 @@ function beaverMeshes(){
 const Beaver={
   /* the water surface under a point (the sea's swell where it is the sea), or null on dry land */
   waterY(x,z){const T=App.T;if(!T)return null;const cx=clamp(x,0,T.W),cz=clamp(z,0,T.W),w=sampleWater(T,cx,cz);if(!(w[1]>0&&w[0]>R.sampleHr(T,cx,cz)+0.05))return null;
-    if(T.sea!=null&&Math.abs(w[0]-T.sea)<0.6&&window.Sea&&Sea.amp&&Sea.amp())return Sea.height(cx,cz);return w[0];},
+    if(T.sea!=null&&Math.abs(w[0]-T.sea)<0.6&&(typeof Sea!=='undefined')&&Sea.amp&&Sea.amp())return Sea.height(cx,cz);return w[0];},
   draw(pl,p){if(!R.beaverMesh){R.beaverMesh=beaverMeshes().map(m=>R.uploadVeh(m));}const M=R.beaverMesh,PP=BEAVER_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     gl.uniform1f(p.u('uDist'),0);dm('body',pl.mat());const r=pl.rpm(),c=pl.ctl,K=PLB;
     dm('prop',pl.mat([K.propX,0.02,0],Q.axis([1,0,0],pl.prop)));if(pl.cam!=='cockpit')dm('pilot',pl.mat());dm('pax',pl.mat());

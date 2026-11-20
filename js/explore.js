@@ -31,7 +31,7 @@ const Explore={N:0,cs:1,M:null,tex:null,dirty:null,known:new Set(),t:0,pending:n
   update(dt){if(+P.exploreMode&&!this.M&&App.T&&!App.busy)this.worldReady(App.T);/* switched on in Settings mid-game */if(!this.on())return;this.t-=dt;if(this.t>0)return;this.t=0.25;const r=+P.exploreRadius||500;
     for(const b of Buses.list)this.stamp(b.x,b.z,r);
     for(const tr of Trains.list){const p=tr.poses&&tr.poses[0];if(p)this.stamp(p.c[0],p.c[2],r);}
-    if(window.Plane&&Plane.on&&Plane.st){const p=Plane.st.p,agl=p[1]-R.sampleHr(App.T,p[0],p[2]);this.stamp(p[0],p[2],r*(1+clamp(agl/400,0,1.5)));}/* higher, further */
+    if(typeof Plane!=='undefined'&&Plane.on&&Plane.st){const p=Plane.st.p,agl=p[1]-R.sampleHr(App.T,p[0],p[2]);this.stamp(p[0],p[2],r*(1+clamp(agl/400,0,1.5)));}/* higher, further */
     for(const v of Life.villages||[])if(!this.known.has(v.name)&&this.seen(v.x,v.z))this.discover(v);},
   discover(v,first){this.known.add(v.name);this.stamp(v.x,v.z,v.R+220);/* the whole village comes out of the mist */this.autoStop(v);if(first)return;
     Log.info(`explored: ${v.name} discovered`);const n=this.known.size,all=(Life.villages||[]).length;

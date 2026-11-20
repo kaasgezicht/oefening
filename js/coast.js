@@ -69,16 +69,18 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
       if(!near(x,z,700))continue;const F=this.mat(x,y,z,hd,0,-bank,1.6);dm(M.gull,F.m);
       for(const e of [-1,1]){const wq=Q.mul(F.q,Q.axis([1,0,0],-e*fl)),X=Q.rot(wq,[1.6,0,0]),Y=Q.rot(wq,[0,1.6,0]),Z=Q.rot(wq,[0,0,1.6*e]);dm(M.wing,new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,x,y,z,1]));}}},
   /* the four beams nearest the camera as light for every surface, the mist and the clouds (UBO 336-371, see beams() in shaders.js) */
+  /* how far a beam reaches before the ground stands in its way (a hill, a headland): the light and the shaft stop there */
+  reach(L,d,rng){const T=App.T,H=T.Hr||T.H,Wd=T.N*T.cs,n=48,st=rng/n;for(let i=1;i<=n;i++){const s=i*st,x=L[0]+d[0]*s,z=L[2]+d[2]*s;if(x<0||z<0||x>=Wd||z>=Wd)return rng;if(sampleH(T,x,z,H)>L[1]+d[1]*s+0.5)return Math.max(8,s-st*0.5);}return rng;},
   beamU(U,A){const T=App.T;if(!T||T.sea==null||!this.L.length||!A||!P.lhLight)return;const nk=clamp(A.night*1.3,0,1);if(nk<0.02)return;const cp=Cam.pos||[0,0,0],nb=P.lhDouble?2:1,rng=Math.max(100,+P.lhRange||2500),
       dv=Math.tan((+P.lhDiverge||4)*Math.PI/360),half=Math.atan(dv)+0.006,I=(+P.lhBright||0)*nk*(+P.lhLight||1),L=this.L.map(l=>[Math.hypot(l.x-cp[0],l.z-cp[2]),l]).sort((a,b)=>a[0]-b[0]);let k=0;
-    for(const [d,l] of L){if(d>rng+6000)break;for(let bi=0;bi<nb&&k<4;bi++,k++){const a=this.rot+l.ph+bi*Math.PI;U.set([l.x,l.y+LH.lamp,l.z,rng],336+k*4);U.set([Math.cos(a),-0.004,Math.sin(a),Math.cos(half)],352+k*4);}if(k>=4)break;}
+    for(const [d,l] of L){if(d>rng+6000)break;for(let bi=0;bi<nb&&k<4;bi++,k++){const a=this.rot+l.ph+bi*Math.PI,Lp=[l.x,l.y+LH.lamp,l.z];U.set([Lp[0],Lp[1],Lp[2],this.reach(Lp,[Math.cos(a),-0.004,Math.sin(a)],rng)],336+k*4);U.set([Math.cos(a),-0.004,Math.sin(a),Math.cos(half)],352+k*4);}if(k>=4)break;}
     const r0=rng*0.3;U.set([2.6*I,2.0*I,1.1*I,1/(r0*r0)],368);},
   // ---- the beams: camera-facing ribbons along each beam and a glare at the lamp, additive, at dusk and night
   beams(){const T=App.T,A=R.A;if(!T||T.sea==null||!this.L.length||!A)return null;const nk=clamp(A.night*1.3,0,1);if(nk<0.02)return null;const E=Weather.eff(),cp=Cam.pos,V=[];
     const I0=(+P.lhBright||0)*nk*(1+0.6*(E.storm||0)+1.5*(E.mist||0)+0.8*(E.rain||0)),rng=Math.max(100,+P.lhRange||2500),w0=Math.max(0.3,+P.lhWidth||3)/2,dv=Math.tan((+P.lhDiverge||4)*Math.PI/360),nb=P.lhDouble?2:1,tilt=-0.004;
     for(const l of this.L){const L=[l.x,l.y+LH.lamp,l.z],dc=Math.hypot(L[0]-cp[0],L[1]-cp[1],L[2]-cp[2]);if(dc>rng+9000)continue;
-      for(let bi=0;bi<nb;bi++){const a=this.rot+l.ph+bi*Math.PI,d=[Math.cos(a),tilt,Math.sin(a)],n=14;let prev=null;
-        for(let i=0;i<=n;i++){const u=i/n,s=rng*u*u,Pp=[L[0]+d[0]*s,L[1]+d[1]*s,L[2]+d[2]*s],m=[Pp[0]-cp[0],Pp[1]-cp[1],Pp[2]-cp[2]];let sx=d[1]*m[2]-d[2]*m[1],sy=d[2]*m[0]-d[0]*m[2],sz=d[0]*m[1]-d[1]*m[0];const sl=Math.hypot(sx,sy,sz)||1;sx/=sl;sy/=sl;sz/=sl;
+      for(let bi=0;bi<nb;bi++){const a=this.rot+l.ph+bi*Math.PI,d=[Math.cos(a),tilt,Math.sin(a)],n=14,re=this.reach(L,d,rng);let prev=null;
+        for(let i=0;i<=n;i++){const u=i/n,s=re*u*u,Pp=[L[0]+d[0]*s,L[1]+d[1]*s,L[2]+d[2]*s],m=[Pp[0]-cp[0],Pp[1]-cp[1],Pp[2]-cp[2]];let sx=d[1]*m[2]-d[2]*m[1],sy=d[2]*m[0]-d[0]*m[2],sz=d[0]*m[1]-d[1]*m[0];const sl=Math.hypot(sx,sy,sz)||1;sx/=sl;sy/=sl;sz/=sl;
           const w=w0+s*dv,dist=Math.hypot(m[0],m[1],m[2]),al=I0*Math.pow(1-s/rng,1.3)*clamp(dist/25,0,1)*(0.4+0.6*clamp(w0*2/w,0,1)),cur=[Pp[0]-sx*w,Pp[1]-sy*w,Pp[2]-sz*w,al,Pp[0]+sx*w,Pp[1]+sy*w,Pp[2]+sz*w,al];
           if(prev){const [a0,a1]=[prev,cur];V.push(a0[0],a0[1],a0[2],a0[3],-1,0, a0[4],a0[5],a0[6],a0[7],1,0, a1[4],a1[5],a1[6],a1[7],1,0, a0[0],a0[1],a0[2],a0[3],-1,0, a1[4],a1[5],a1[6],a1[7],1,0, a1[0],a1[1],a1[2],a1[3],-1,0);}prev=cur;}
         // the glare: bright when the beam points at the camera

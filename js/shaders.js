@@ -22,8 +22,10 @@ uniform sampler2D uHeight;uniform sampler2D uNorm;uniform sampler2D uShadowRaw;u
 vec3 L(vec3 c){return c*c*(c*.31+.69);}
 // lighthouse beams as light (coast.js): uBeamP xyz lamp, w reach; uBeamD xyz direction, w cos of the half spread; uBeamC rgb colour, w 1/falloff²
 // surf 1: a surface with normal N (lit from the lamp's side); 0: in-scatter in mist and clouds
+float terrainH(vec2 xz);
 vec3 beams(vec3 W,vec3 N,float surf){vec3 s=vec3(0);if(uBeamC.r+uBeamC.g<=0.)return s;for(int i=0;i<4;i++){vec4 P=uBeamP[i];if(P.w<=0.)continue;vec3 v=W-P.xyz;float d=length(v)+1e-3;vec3 u=v/d;
-  float c0=uBeamD[i].w,ca=dot(u,uBeamD[i].xyz);if(ca<c0||d>P.w)continue;float sp=smoothstep(c0,mix(c0,1.,.45),ca),fall=(1.-d/P.w)/(1.+d*d*uBeamC.w);
+  float c0=uBeamD[i].w,ca=dot(u,uBeamD[i].xyz);if(ca<c0||d>P.w)continue;
+  /* hills between the lamp and the point keep the light off it */bool hid=false;for(int k=1;k<7;k++){vec3 q=P.xyz+v*(float(k)/7.);if(terrainH(q.xz)>q.y+0.8){hid=true;break;}}if(hid)continue;float sp=smoothstep(c0,mix(c0,1.,.45),ca),fall=(1.-d/P.w)/(1.+d*d*uBeamC.w);
   s+=uBeamC.rgb*sp*fall*(surf>.5?max(dot(N,-u),0.)*.85+.15:1.);}return s;}
 float hash12(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
 float hash11(float p){p=fract(p*.1031);p*=p+33.33;p*=p+p;return fract(p);}

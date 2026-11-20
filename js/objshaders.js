@@ -274,12 +274,12 @@ void main(){vec2 ls=vec2(textureSize(uCldTex,0)),p=vUV*ls-.5,i=floor(p),f=p-i;fl
 // ---------------- streams & run-off: draped ribbons, width/visibility follow rain and flood
 // the ribbon height comes from the very terrain triangle drawn under it (same chunk detail level, same diagonal), so it never sinks or floats
 const VS_STREAM=GLSL_HEAD+GLSL_BASE+`
-layout(location=0) in vec3 aP;layout(location=1) in vec4 aB;layout(location=2) in float aHid;out vec3 vW;out vec4 vB;out float vHid;uniform vec4 uCL[64];uniform float uGB;
+layout(location=0) in vec3 aP;layout(location=1) in vec4 aB;layout(location=2) in float aHid;out vec3 vW;out vec4 vB;out float vHid;uniform vec4 uCL[64];uniform float uGB;uniform float uFB;
 float lodH(vec2 xz){float cells=uWorld.y/16.;vec2 g=xz/uWorld.z;ivec2 ci=clamp(ivec2(floor(g/cells)),ivec2(0),ivec2(15));int k=ci.y*16+ci.x;
-  float n=max(2.,floor(uGB/exp2(uCL[k>>2][k&3])+.5)),S=cells/n;vec2 q=g/S,i=floor(q),f=q-i;
+  float lv=uCL[k>>2][k&3],n=lv<.5&&uFB>0.?uFB:max(2.,floor(uGB/exp2(lv)+.5)),S=cells/n;/* the same mesh as the terrain (24/32 km: one quad per cell near) */vec2 q=g/S,i=floor(q),f=q-i;
   float ha=cornerH(ivec2(i*S+.5)),hb=cornerH(ivec2((i+vec2(1,0))*S+.5)),hc=cornerH(ivec2((i+vec2(0,1))*S+.5)),hd=cornerH(ivec2((i+1.)*S+.5));
   return f.x+f.y<=1.?ha+(hb-ha)*f.x+(hc-ha)*f.y:hd+(hc-hd)*(1.-f.x)+(hb-hd)*(1.-f.y);}
-void main(){vec3 p=aP;float d=length(uCamPos.xz-p.xz);p.y=lodH(p.xz)+.05+d*.0005-aP.y;vW=p;vB=aB;vHid=aHid;gl_Position=uViewProj*vec4(p,1.);}`;// aP.y: how far the water lies below the drawn ground (a culvert trench)
+void main(){vec3 p=aP;float d=length(uCamPos.xz-p.xz);p.y=lodH(p.xz)+fineAt(p.xz)+.05+d*.0005-aP.y;/* + the 8 m ground where it is drawn */vW=p;vB=aB;vHid=aHid;gl_Position=uViewProj*vec4(p,1.);}`;// aP.y: how far the water lies below the drawn ground (a culvert trench)
 // streams: clear water over a pebbly bed (deeper and bluer in the middle, like the lakes), sky reflection with Fresnel, sun glints,
 // ripples dragged downstream, foam on steep riffles and along the banks; perennial streams get a damp bank of dark soil and pebbles
 const FS_STREAM=GLSL_HEAD+GLSL_COMMON+`

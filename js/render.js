@@ -293,10 +293,12 @@ R.chunkBounds=function(T){const quick=R._quickBounds;R._quickBounds=false;/* aft
 // Vertex: pos3, u (-1..1 across), s (m along), half-width, kind+slope
 R.buildStreams=function(T){if(R.stVao){gl.deleteVertexArray(R.stVao);gl.deleteBuffer(R.stVb);gl.deleteBuffer(R.stIb);R.stVao=null;}R.stCount=0;R.stPieces=[];const S=T.streams;if(!S||!S.length)return;
   const V=[],I=[],H=T.Hr||T.H,rw=P.riverWidth;let base=0;const C=[],SS=[];
+  const PG=new Map(),pk=(x,z)=>Math.floor(x/8)+','+Math.floor(z/8);S.forEach((s,id)=>{for(let i=0;i<s.length;i+=3){const k=pk(s[i],s[i+1]);if(!PG.has(k))PG.set(k,new Set());PG.get(k).add(id);}});
+  const touch=s=>{const id=S.indexOf(s);for(const e of [0,s.length-3]){const gx=Math.floor(s[e]/8),gz=Math.floor(s[e+1]/8);for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){const g=PG.get((gx+dx)+','+(gz+dz));if(g)for(const o of g)if(o!==id)return true;}}return false;};
   const chaikin=pt=>{const n=pt.length;if(n<3)return pt;const q=[pt[0]];for(let i=0;i<n-1;i++){const a=pt[i],b=pt[i+1];q.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25,a[2]],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75,b[2]]);}q.push(pt[n-1]);return q;};
   for(const s of S){let pt=[];for(let i=0;i<s.length/3;i++)pt.push([s[i*3],s[i*3+1],s[i*3+2]]);pt=chaikin(chaikin(pt));
     {const step=[4.5,3,1.6][clamp(+P.riverQ||0,0,2)]||3,q=[pt[0]];let acc=0;for(let i=1;i<pt.length;i++){acc+=Math.hypot(pt[i][0]-pt[i-1][0],pt[i][1]-pt[i-1][1]);if(acc>=step||i===pt.length-1){q.push(pt[i]);acc=0;}}pt=q;}
-    const n=pt.length;if(n<2)continue;SS.push(base/2,n);
+    const n=pt.length;if(n<2)continue;{let len=0;for(let i=1;i<n;i++)len+=Math.hypot(pt[i][0]-pt[i-1][0],pt[i][1]-pt[i-1][1]);if(len<40&&!touch(s))continue;}/* stray bits of stream (under 40 m, joined to no other) are left out */SS.push(base/2,n);
     let sd=0;for(let i=0;i<n;i++){const a=pt[Math.max(i-1,0)],b=pt[Math.min(i+1,n-1)];let dx=b[0]-a[0],dz=b[1]-a[1];const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
       if(i>0)sd+=Math.hypot(pt[i][0]-pt[i-1][0],pt[i][1]-pt[i-1][1]);const ar=Math.abs(pt[i][2]),kind=pt[i][2]>0?1:0;
       const w=kind?clamp(rw*6.5*Math.sqrt(ar),0.7,3.2):clamp(0.35+ar*40,0.35,0.9),hw=w*0.5*(kind?1.8:1.4)*(0.35+0.65*Math.min(1,sd/15));
@@ -471,7 +473,7 @@ R.buildLampMap=function(T,LM){const RS=1024,px=T.W/RS,r=18,col=[1.6,1.05,0.55];c
     else{const S2=new Float32Array(w*h*4);for(let j=0;j<h;j++)S2.set(D.subarray(((j0+j)*RS+i0)*4,((j0+j)*RS+i1+1)*4),j*w*4);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.FLOAT,S2);}}
   bindTU(TU.uLampMap,gl.TEXTURE_2D,R.lampTex);};
 R.drawStreams=function(cam){if(!R.stCount)return;const p=R.pStream;gl.useProgram(p.p);gl.uniform4f(p.u('uFlood'),Weather.flood||0,P.runoff,+P.riverQ||0,0);
-  const CL=R.stCL||(R.stCL=new Float32Array(256));R.chunks.forEach((c,k)=>{CL[k]=R.chunkLod(c,cam);});gl.uniform4fv(p.u('uCL'),CL);gl.uniform1f(p.u('uGB'),R.gridBase);
+  const CL=R.stCL||(R.stCL=new Float32Array(256));R.chunks.forEach((c,k)=>{CL[k]=R.chunkLod(c,cam);});gl.uniform4fv(p.u('uCL'),CL);gl.uniform1f(p.u('uGB'),R.gridBase);gl.uniform1f(p.u('uFB'),R.fineBase||0);{const FP=typeof Tiles!=='undefined'?Tiles.cur:null,w=FP&&Tiles.win;gl.uniform4f(p.u('uFineP'),FP?FP.cx:0,FP?FP.cz:0,FP?FP.half:0,FP?3:0);if(FP){gl.uniform4f(p.u('uFineW'),w.x0,w.z0,w.N*Tiles.FC,w.N);bindTU(TU.uFine,gl.TEXTURE_2D,w.tex);}}
   gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-1,-4);gl.bindVertexArray(R.stVao);
   let f0=-1,f1=-1;const flush=()=>{if(f0>=0){gl.drawElements(gl.TRIANGLES,f1-f0,gl.UNSIGNED_INT,f0*4);Stats.draws++;Stats.tris+=(f1-f0)/3;}f0=-1;};
   for(const q of R.stPieces){const b=q.b,dx=Math.max(b[0]-cam.pos[0],0,cam.pos[0]-b[3]),dz=Math.max(b[2]-cam.pos[2],0,cam.pos[2]-b[5]);
@@ -627,7 +629,7 @@ R.ensureTargets=function(w,h){const ms=Math.min(+P.msaa||0,CAPS.maxSamples||0);i
 
 // ---------------- frame
 R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=true;}if(R.world)try{R.updateRoadFine();}catch(e){Log.err('fine roads: '+e);R.roadFine&&(R.roadFine.on=false);}Stats.draws=Stats.tris=Stats.chunks=Stats.objs=0;const T=R.world,S=R.skip;// S: categories left out (cost measurement by ablation, tools/bench.js)
-  const tr=Trains.cur();const fp=Cam.mode!=='free'&&tr&&tr.poses&&tr.poses[0]?tr.poses[0].c:Cam.target;R.focus=[fp[0],fp[1],fp[2]];R.focusDist=Math.hypot(fp[0]-cam.pos[0],fp[1]-cam.pos[1],fp[2]-cam.pos[2]);
+  const tr=Trains.cur();/* the shadow map and the depth of field centre on what the camera follows: the plane or helicopter, a bus or lorry, else the train */const fp=Cam.mode==='plane'&&Plane.on&&Plane.st?(Plane.cam==='cockpit'&&Cam.look?Cam.look:Plane.st.p):Cam.mode==='road'&&Cam.look?Cam.look:Cam.mode!=='free'&&tr&&tr.poses&&tr.poses[0]?tr.poses[0].c:Cam.target;R.focus=[fp[0],fp[1],fp[2]];R.focusDist=Math.hypot(fp[0]-cam.pos[0],fp[1]-cam.pos[1],fp[2]-cam.pos[2]);
   const A=R.atmos();A.keyUp=A.key[1]>0.02&&(A.day>0.01||A.moonUp>0.05);R.sun={day:A.day,L:A.st.sun,night:A.night};R.A=A;
   // shadows every other frame (experimental): in between, the last shadow map is sampled with the light matrix it was drawn with
   let lightVP=R.lightMatrix(A);R.frameNo=(R.frameNo|0)+1;const shReuse=+P.optShadowHalf===1&&!!R.shVP&&(R.frameNo&1)===1&&R.shKeyUp;if(shReuse)lightVP=R.shVP;else R.shVP=lightVP;
@@ -894,7 +896,7 @@ R.post=function(cam,A){const qw=R.qw,qh=R.qh;gl.disable(gl.DEPTH_TEST);
   gl.viewport(0,0,qw,qh);let bl=R.blackTex,dof=R.blackTex;
   if(P.bloom>0.001){pass(R.bAf,R.pBloomDown,R.colTex,p=>{gl.uniform2f(p.u('uTexel'),1/R.tw,1/R.th);gl.uniform1f(p.u('uThr'),1.25);});
     for(let it=0;it<2;it++){pass(R.bBf,R.pBlur,R.bA,p=>gl.uniform2f(p.u('uDir'),(1+it)/qw,0));pass(R.bAf,R.pBlur,R.bB,p=>gl.uniform2f(p.u('uDir'),0,(1+it)/qh));}bl=R.bA;}
-  const bok=P.bokeh*(Cam.mode==='cab'||Cam.mode==='coach'?0.25:1);
+  const bok=P.bokeh*(Cam.mode==='cab'||Cam.mode==='coach'||(Cam.mode==='plane'&&(Plane.cam==='cockpit'||Plane.cam==='wing'))?0.25:1);/* close views (a cab, a cockpit, beside the wing) keep their subject sharp */
   if(bok>0.001){pass(R.dAf,R.pDown,R.colTex,p=>gl.uniform2f(p.u('uTexel'),1/R.tw,1/R.th));
     for(let it=0;it<2;it++){pass(R.dBf,R.pBlur,R.dA,p=>gl.uniform2f(p.u('uDir'),(0.8+it*0.7)/qw,0));pass(R.dAf,R.pBlur,R.dB,p=>gl.uniform2f(p.u('uDir'),0,(0.8+it*0.7)/qh));}dof=R.dA;}
   // God rays from the key light (sun by day, moon at night) when it is in front of the camera and not far off the screen

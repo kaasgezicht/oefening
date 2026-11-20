@@ -20,7 +20,7 @@ const Track={nodes:[],segs:[],sigs:[],stations:[],nextId:1,undo:[],
   serialize(){const keep=this.segs.filter(s=>!s.pend),ids=new Set(),sids=new Set(keep.map(s=>s.id));keep.forEach(s=>{ids.add(s.a);ids.add(s.b);});
     return{nodes:this.nodes.filter(n=>ids.has(n.id)).map(n=>({...n})),segs:keep.map(s=>{const o={...s};if(o.prof)o.prof=o.prof.map(v=>+v.toFixed(2));return o;}),nextId:this.nextId,
       sigs:this.sigs.filter(g=>sids.has(g.sid)).map(g=>({...g})),stations:this.stations.filter(g=>sids.has(g.sid)).map(g=>({...g}))};},
-  load(d){this.nodes=(d&&d.nodes||[]).map(n=>({...n}));this.segs=(d&&d.segs||[]).map(s=>({...s}));this.nextId=d&&d.nextId||1;this.sigs=(d&&d.sigs||[]).map(g=>({...g}));this.stations=(d&&d.stations||[]).map(g=>({...g}));this.undo=[];if(window.Net||typeof Net!=='undefined')Net.changed();},
+  load(d){this.nodes=(d&&d.nodes||[]).map(n=>({...n}));this.segs=(d&&d.segs||[]).map(s=>({...s}));this.nextId=d&&d.nextId||1;this.sigs=(d&&d.sigs||[]).map(g=>({...g}));this.stations=(d&&d.stations||[]).map(g=>({...g}));this.undo=[];if((typeof Net!=='undefined')||typeof Net!=='undefined')Net.changed();},
   node(id){return this.nodes.find(n=>n.id===id);},
   links(id){let c=0;for(const s of this.segs)if(s.a===id||s.b===id)c++;return c;},
   freeEnds(){return this.nodes.filter(n=>this.links(n.id)<2);},

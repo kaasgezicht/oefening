@@ -1,4 +1,4 @@
-# Trein handoff 95 (20 Nov 2026): v4.33.0 — world presets in New game, plains + hills + mountains in one world, the airfield from the user's pictures
+# Trein handoff 96 (20 Nov 2026): v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,48 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.33.0, 20 Nov) — presets, varied land, airfield
+### Latest (4.34.0, 20 Nov) — helicopter and the user's seven-point list
+- **Rescue helicopter** (new `js/heli.js`, loaded after beaver.js; `Plane.kind==='heli'`, `PLH`, `Heli.spawn/step/draw/spin/rpm`), from the
+  user's five photos of orange coast-guard helicopters (Dolphin type): orange-red superelliptic body (d = metres from the nose, h = above
+  the ground; origin 1.25 m up), black radome, wrap-round windscreen with black frames, cockpit door and sliding-door windows (glass 13,
+  dark lining inside, panel, seats, two crew; the right-seat pilot is hidden in the cockpit view), white sill line and "U.S. COAST GUARD"
+  lettering laid on the skin (canvas runs as in beaver.js), slanted white band with a thin blue stripe, black boom top behind the engines,
+  engine fairing with round intakes and black exhausts, the hoist on the right (orange pod, black end, cable and hook), fenestron (white
+  duct, 10-blade fan turning, stator vanes), swept fin with "6550", tailplane with end plates, little fin, beacons, sponsons, fixed gear
+  (twin nose wheels, main legs), sensor ball, searchlight, probes, step rail; 4-blade rotor with white/black tips and a faint blur disc.
+  - Starts only from an airstrip (the Fly menu now always opens; Helicopter needs no purchase); 8 m off the centreline, 60 m in.
+  - Flying: the rotors spin up over 6 s. Thrust along the mast. Assist on: the slider's middle holds the height (dead band), up climbs and
+    down sinks (to 9 m/s); the stick sets the tilt (24°/29° max); let go and it levels and brakes to a hover (below 22 m/s). Assist off:
+    slider = thrust, stick = rates. Rudder = turn rate; forward flight turns coordinated and weathercocks. Ground effect and translational
+    lift; with Assist the sink slows near the ground (≥ −(0.6 + 0.45·height) m/s) for a soft touchdown. Three wheel springs, castering
+    nose wheel, brakes. Crashes: hard landing (> 4.2 m/s), rotor strike (touching down tilted
+    > 26°), water on wheels, hitting the ground > 9 m/s. Gear and Flaps buttons are hidden; the slider says Collective; the HUD shows the
+    rotor spin-up. Cameras: chase 17 m back (`K.chase`), cockpit, side ("wing", `K.wing`), tower, orbit.
+  - The glass is its own part (`glass`), left out in the cockpit view with the right-seat pilot; the windscreen is glass right up the
+    nose's centre (only the roof edge behind d 1.9 stays frame), else a level look from the seat left through the solid strip.
+    Debug trick used: cast rays from the eye through the built mesh in Node (heliMeshes() runs without a browser apart from the lettering).
+- **Plane looked patchy / blotchy (user's screenshot, Wing camera)**: while flying, the depth-of-field focus and the shadow map were still
+  centred on the train (or the old camera target), so the plane right in front of the camera was blurred by the bokeh and sat at the edge
+  of the shadow map. `R.frame` now centres them on the plane (cockpit: the look point), and on a bus/lorry in the road camera (`Cam.look`).
+  The cockpit and Wing views also get the cab's reduced bokeh (× 0.25). Before/after on the user's save: checks/plane-focus-*.png.
+- **Lighthouse light through hills**: `beams()` (shaders.js) marches 6 points from the lamp to the lit point against `terrainH` and skips
+  the beam when the ground is in between (ground, sea, mist and clouds). The visible shafts and the light's reach stop where the beam meets
+  the ground (`Coast.reach`, 48 steps). Houses and trees do not block it yet.
+- **Exploration mode: planes did not clear the mist**: explore.js tested `window.Plane`, but Plane is a top-level const (not on window).
+  The same mistake also broke: the main menu's Fly button (main.js), animals fleeing the plane (wild.js), airstrip decks as ground for
+  planes (`Plane.groundAt`), the Beaver on the sea swell (beaver.js `window.Sea`). All now `typeof X!=='undefined'`. Rule: top-level
+  `const` objects are never on `window`.
+- **Wildlife**: new setting Life → "Wild animals" (0–4 ×, default 2 ×; groups capped at 90 per kind).
+- **Fast forward while flying**: the plane is stepped in 20 ms pieces, and the chase camera now eases its offset from the plane instead of
+  trailing its position (at 8 × it fell > 40 m behind every frame and snapped back: the shaking).
+- **Island size**: "Land share" goes to 97 %.
+- **Streams**: the stream ribbon now follows the ground the way it is drawn on 24/32 km maps (one quad per cell near the camera:
+  `uFB = R.fineBase`) and adds the 8 m detail patch (`fineAt`); streams shorter than 40 m that join no other stream are left out.
+  On the user's 12 km save the streams render cleanly here, also with `?lowp=1`; their phone picture's broken grey ribbons were not
+  reproduced — ask where on the map if it persists.
+- **Airstrip is grass/dirt**: mown stripes with a worn dirt middle, white edge markers every 50 m instead of painted lines, a gravel apron.
+
+### Earlier (4.33.0, 20 Nov) — presets, varied land, airfield
 - **World presets** (`MainMenu.PRESETS`, cards above the map style): Varied countryside, Gentle lowlands, Alpine valleys, Lake district,
   Island, Many islands, Mountain islands, Flat archipelago. A preset resets the land settings to their defaults, then applies its own
   (style, size 8 km, heights, relief mix, plains, lakes, shores, bays, big mountains); everything stays editable. The map style row wraps
