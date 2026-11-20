@@ -39,7 +39,8 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
   drawObj(pass){const T=App.T;if(!T||T.sea==null)return;R.drawObj('lighthouse',10,R.instBufs.lighthouses,pass);R.drawObj('quay',10,R.instBufs.quays,pass);},
   update(dt){const T=App.T;if(!T||T.sea==null||!Life.villages||App.busy||Life.T!==T)return;const key=T.W+'|'+T.sea+'|'+P.seed+'|'+Life.villages.length+'|'+P.lighthouses;if(key!==this.key||this.T!==T){this.key=key;this.T=T;this.init();}
     /* the beams turn on real time (not the game clock), so fast-forward does not make them spin */this.rot+=Math.min(dt,0.1)*(+P.lhSpeed||0)*6.2832/60;
-    for(const g of this.gulls)if(!g.sit){g.a+=dt*g.w/g.r;g.ph+=dt;}},
+    for(const g of this.gulls)if(!g.sit){g.a+=dt*g.w/g.r;g.ph+=dt;}
+    if(typeof Fish!=='undefined')Fish.update(dt);},
   // lamp lights for the pools of light round lamps at night (Life.lights)
   lights(add){for(const l of this.L)add(l.x,l.y+LH.lamp,l.z,32,[2.4,1.8,0.9]);},
   // ---- boats and seagulls (vehicle program, like Sea and Wild)
@@ -59,9 +60,10 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
   draw(p,pass){const T=App.T;if(!T||T.sea==null||(!this.H.length&&!this.gulls.length))return;if(!this.M)this.build();const cp=Cam.pos||[0,0,0],M=this.M,t=App.time,lim=pass===1?400:1600;
     const dm=(m,mt)=>{gl.uniformMatrix4fv(p.u('uModel'),false,mt);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};gl.uniform1f(p.u('uDist'),0);
     const near=(x,z,r)=>Math.hypot(x-cp[0],z-cp[2])<r;
-    for(const h of this.H){if(!near(h.x,h.z,lim))continue;const c=Math.cos(h.rot),s=Math.sin(h.rot);for(const b of h.boats){const lx=b.at,lz=b.side*4.6,x=h.x+c*lx-s*lz,z=h.z+s*lx+c*lz,y=Sea.on()?Sea.height(x,z,t):T.sea,
+    for(const h of this.H){if(!near(h.x,h.z,lim))continue;const c=Math.cos(h.rot),s=Math.sin(h.rot);for(const b of h.boats){const ps=typeof Fish!=='undefined'?Fish.pose(h,b):null,hd=ps?ps.hd:h.rot,c=Math.cos(hd),s=Math.sin(hd),lx=b.at,lz=b.side*4.6,x=ps?ps.x:h.x+Math.cos(h.rot)*lx-Math.sin(h.rot)*lz,z=ps?ps.z:h.z+Math.sin(h.rot)*lx+Math.cos(h.rot)*lz,y=Sea.on()?Sea.height(x,z,t):T.sea,
         dx=(Sea.on()?Sea.height(x+c*3,z+s*3,t)-Sea.height(x-c*3,z-s*3,t):0)/6,dz=(Sea.on()?Sea.height(x-s*1.5,z+c*1.5,t)-Sea.height(x+s*1.5,z-c*1.5,t):0)/3;
-        dm(M.boats[b.k],this.mat(x,y-0.15+Math.sin(t*0.9+b.ph)*0.06,z,h.rot,Math.atan(dx)+Math.sin(t*0.7+b.ph)*0.02,Math.atan(dz)+Math.sin(t*0.83+b.ph)*0.04,1).m);}}
+        dm(M.boats[b.k],this.mat(x,y-0.15+Math.sin(t*0.9+b.ph)*0.06,z,hd,Math.atan(dx)+Math.sin(t*0.7+b.ph)*0.02,Math.atan(dz)+Math.sin(t*0.83+b.ph)*0.04,1).m);}}
+    if(typeof Fish!=='undefined')Fish.draw(p,pass);
     if(pass===1)return;
     for(const g of this.gulls){let x,y,z,hd,bank=0,fl=0;
       if(g.sit){const h=g.sit,c=Math.cos(h.rot),s=Math.sin(h.rot),lz=g.side*2.1;x=h.x+c*g.at-s*lz;z=h.z+s*g.at+c*lz;y=T.sea+1.62;hd=h.rot+g.side*1.4+Math.sin(t*0.2+g.ph)*0.6;fl=-1.3;}

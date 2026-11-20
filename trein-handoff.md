@@ -1,4 +1,4 @@
-# Trein handoff 99 (20 Nov 2026): v4.37.0 — step 3 of 4 (helipads, winch, missions). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 100 (20 Nov 2026): v4.38.0 — step 4 of 4 (fishing). Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,25 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.37.0, 20 Nov) — step 3 of 4: store, helipads, winch, rescue and supply missions (new js/rescue.js, after heli.js)
+### Latest (4.38.0, 20 Nov) — step 4 of 4: fishing (new js/fishing.js, after rescue.js; runs from Coast.update / Coast.draw)
+- **Fishing grounds** (`Fish.G`): per harbour 2–3 spots 400–2000 m out, ≥ 6 m deep, 90 m clear water all round, reachable in a straight line
+  from the harbour mouth (`h.gate`, 60 m out from the quay). Each has a fish (herring €18, mackerel €22, plaice €26, cod €30 per kg) and a
+  stock 0–1 (recovers 0.0015/s, fished down by hauls). Five gulls circle over each ground (the visible sign).
+- **AI boats** (each `Coast.H[i].boats[k]`: st moor → out → fish → haul → back → moor): wait 2–8 min moored, steam out via the gate,
+  drift round the ground at 1.4 m/s with the nets out (a curve of orange floats astern, a flag buoy at the end; `b.net` 0–1), haul for
+  30 s, come home. `Fish.steer` probes 12/25/45 m ahead and turns toward open water when the way is blocked. Foam at the stern under way.
+  `Coast.draw` takes the pose from `Fish.pose` when a boat is away. Tested: 25 game minutes, every harbour's boats cycle.
+- **Fishermen** on every quay (`h.men`, 2–3): oilskins, bent over a net pile with floats, arms pulling in a rhythm, now and then
+  straightening; fish boxes beside some.
+- **Your boat**: the ⚓ icon at each harbour (within 3.5 km, hidden while flying/driving/building) → panel (boats in/out, the grounds with
+  their fish, price and stock) → "Take a boat out" (a moored one). `Cam.mode='boat'`, `#fbUI` like the bus: the stick's up/down is the
+  throttle lever (it stays where you leave it; down = astern), sideways the helm; Camera (chase / bridge / orbit); Set nets (only below
+  2.5 m/s) → they fill with `4 × stock` kg/s while on a ground, speed limited to 2.5 m/s → Haul (15 s) → the catch in the hold (600 kg);
+  Sell catch (within 70 m of any harbour, stopped). Running aground stops the boat. Leaving hands it back to its crew (it sails home).
+  Four gulls follow your boat. The compass shows ⚑ grounds and ⚓ harbours. Tested: set nets on a cod ground, 160 kg, sold €4.800.
+- Not saved: boats' positions and the hold (they restart moored on load). No controller support for the boat yet.
+
+### Earlier (4.37.0, 20 Nov) — step 3 of 4: store, helipads, winch, rescue and supply missions (new js/rescue.js, after heli.js)
 - **Store**: "Rescue helicopter" €600.000 (`Fleet.unlocks.heli`, 3D preview). Fly menu offers it once bought (else a button to the
   store); `Plane.spawn(at,'heli')` refuses without it. Main menu "Fly (plane or helicopter)".
 - **Helipads** (`Rescue.pad(s)`): beside every land airstrip at u −200, w −52 (graded apron side), 10 m radius, level and lifted by the

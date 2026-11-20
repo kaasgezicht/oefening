@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.37.0 (rescue helicopter in the store: helipads, winch, rescue and supply missions)';
+const VERSION='4.38.0 (fishing: boats go out and fish, steer one, nets, sell the catch; fishermen on the quays)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

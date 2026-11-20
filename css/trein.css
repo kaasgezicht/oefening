@@ -306,3 +306,14 @@ body.fplan #bar,body.fplan #mapList{display:none}
 .rs-m b{font:600 calc(13.5px*var(--txt,1)) system-ui}.rs-m span{font-size:calc(11.5px*var(--txt,1));opacity:.75}.rs-m.on{background:#d9402a22}
 .rs-b{display:flex;gap:8px;padding:8px 10px}.rs-b button{flex:1}
 .rsLabel{position:fixed;transform:translate(-50%,-100%);background:#d9402ae6;color:#fff;border-radius:9px;padding:3px 8px;font:600 12px system-ui;pointer-events:none;z-index:12;white-space:nowrap}
+
+/* fishing boat (4.38.0): the same layout as driving a bus */
+#fbUI{position:fixed;inset:0;pointer-events:none;z-index:15}#fbUI[hidden]{display:none}#fbUI button{pointer-events:auto;font:600 calc(11px*var(--txt,1)) system-ui;padding:6px 9px;border-radius:9px;border:1px solid #c9a14a90;background:#15191ad9;color:#f1e7d0}#fbUI button.go{background:var(--brass);color:var(--coal)}#fbUI button[hidden]{display:none}
+#fbHud{position:absolute;left:50%;transform:translateX(-50%);top:calc(102px + env(safe-area-inset-top));background:#15191ac0;padding:5px 12px;border-radius:10px;font:500 calc(12px*var(--txt,1)) system-ui;color:#fff;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#fbTop{position:absolute;top:calc(8px + env(safe-area-inset-top));left:calc(8px + env(safe-area-inset-left));max-width:calc(100% - 280px);display:flex;gap:4px;flex-wrap:wrap}
+#fbStickWrap{position:absolute;right:calc(16px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
+#fbStick{width:min(46vw,200px);height:min(46vw,200px);border-radius:50%;background:radial-gradient(circle,#ffffff22,#15191aa0);border:2px solid #c9a14a90;pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center}
+#fbKnob{width:60px;height:60px;border-radius:50%;background:#c9a14a;box-shadow:0 2px 8px #000a;pointer-events:none}
+body.boatdrive #bar,body.boatdrive .vlabel,body.boatdrive .ilabel,body.boatdrive #upNotes,body.boatdrive #hud,body.boatdrive #money{display:none!important}
+#fbPanel{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);width:min(420px,94vw);z-index:40}#fbPanel[hidden]{display:none}
+.fbIcon span{background:#2a5d7a}

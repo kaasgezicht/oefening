@@ -193,6 +193,7 @@ const Compass={el:null,cv:null,
   deg(dx,dz){return((Math.atan2(dz,dx)*180/Math.PI+90)%360+360)%360;},
   tick(){let hd=null,pos=null,marks=[];
     if(Plane.on&&Plane.st){const F=Q.rot(Plane.st.q,[1,0,0]);hd=this.deg(F[0],F[2]);pos=Plane.st.p;for(const s of Air.list)marks.push({x:s.x,z:s.z,label:String(s.n),col:Air.color(s.n),ring:Air.cargo&&(Air.cargo.to?Air.cargo.to===s:Air.cargo.from===s)});marks.push(...Rescue.marks());}
+    else if(typeof Fish!=='undefined'&&Fish.drv){const q=Fish.heading();hd=this.deg(q[0],q[1]);pos=[q[2],0,q[3]];marks.push(...Fish.marks());}
     else if(RoadVeh.drv){const b=RoadVeh.drv;hd=this.deg(Math.cos(b.rot),Math.sin(b.rot));pos=[b.x,0,b.z];const t=Buses.cur(b);if(t)marks.push({x:t.rx,z:t.rz,label:'🚏',col:'#ffd27a',name:t.name});}
     this.show(hd!==null);if(hd===null)return;const t=performance.now();if(this._t>t-60)return;this._t=t;
     const cv=this.cv,dpr=Math.min(2,devicePixelRatio||1),W=this.el.clientWidth,H=this.el.clientHeight;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}

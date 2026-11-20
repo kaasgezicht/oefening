@@ -42,6 +42,7 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
     else{const cp=Math.cos(this.pitch);p=[this.target[0]+this.dist*cp*Math.sin(this.yaw),this.target[1]+this.dist*Math.sin(this.pitch),this.target[2]+this.dist*cp*Math.cos(this.yaw)];}
     if(this.mode==='road'){const c=RoadVeh.camera(dt);if(c){p=c.p;look=c.look;cab=c.cab;}}/* a bus or lorry: behind it, the driver's seat or beside a wheel */
     this.up=null;if(this.mode==='plane'&&Plane.on&&Plane.st){const c=Plane.camera(dt);p=c.p;look=c.look;cab=c.cab;this.up=c.up;}
+    if(this.mode==='boat'&&typeof Fish!=='undefined'&&Fish.drv){const c=Fish.camera(dt);p=c.p;look=c.look;cab=c.cab;}
     let gh=this.ground(p[0],p[2])+1.5;{const ty=typeof Life!=='undefined'&&Life.tunY?Life.tunY(p[0],p[2]):null;if(ty!=null&&p[1]<ty+TUN_ROAD.crown+1)gh=Math.min(gh,ty+1.2);}/* inside a road tunnel the floor of the tube is the ground */if(!cab){const need=Math.max(0,gh-p[1]);this.lift=(this.lift||0)+(need-(this.lift||0))*Math.min(1,dt*6);p[1]=Math.max(p[1]+this.lift,gh-1.2);}
     this.pos=p;this.look=look;const f=[look[0]-p[0],look[1]-p[1],look[2]-p[2]],fl=Math.hypot(...f)||1;this.fwd=f.map(v=>v/fl);this.right=[-this.fwd[2],0,this.fwd[0]].map(v=>v/(Math.hypot(this.fwd[0],this.fwd[2])||1));
     const agl=Math.max(p[1]-gh+1.2,0.5);this.near=cab?0.12:clamp(agl*0.12,0.2,12);this.far=Math.max(26000,(App.T?App.T.W:0)*2.2);/* the whole world fits in view from the map (32 km) */
