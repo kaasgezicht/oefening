@@ -371,20 +371,22 @@ vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3
 `;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
 layout(location=0) in vec2 aQ;uniform vec4 uLakeP;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
-void main(){vec2 p=uLakeP.xy+(aQ*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=floor(f);f-=i0;ivec2 c=ivec2(i0);int M=int(uWorld.y)-1;float sw=0.,sl=0.,bl=0.;
+void main(){vec2 aq=clamp(aQ,0.,1.);bool skirt=aq!=aQ;vec2 p=uLakeP.xy+(aq*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=floor(f);f-=i0;ivec2 c=ivec2(i0);int M=int(uWorld.y)-1;float sw=0.,sl=0.,bl=0.;
   for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1);vec4 w=texelFetch(uWaterTex,clamp(c+o2,ivec2(0),ivec2(M)),0);float b=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);float lk=w.a>.75&&w.a<1.5?1.:0.;sw+=b*lk;sl+=b*lk*w.r;bl+=b*w.r;}
-  float l=sw>1e-4?sl/sw:bl;vLake=sw;vFall=0.;vL=l;vP=p;vec3 W=vec3(p.x,l,p.y);
+  float l=sw>1e-4?sl/sw:bl;if(uLakeP.w>1.5){l=uSwell.y;sw=1.;}/* the open-sea rings are the sea, at sea level (their vertices over land read no water) */vLake=sw;vFall=0.;vL=l;vP=p;vec3 W=vec3(p.x,l,p.y);
   float e=clamp((uLakeP.z-max(abs(p.x-uLakeP.x),abs(p.y-uLakeP.y)))/(uLakeP.z*.3),0.,1.);
-  float dp=max(l-terrainH(p),oDep(p));float fd=step(.01,sw)*clamp(dp/2.,0.,1.)*(1.-uWater.w)*seaK(l);vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
-  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,dp,sg);float swk=clamp(2.-uSpc2.y/40.,0.,1.);/* the open-sea rings far out are too coarse for the swell */W+=sd*swk;vSw=sg*swk;d.y+=sd.y*swk;}
-  W+=d;vH=d.y;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
+  float dc=length(p-uCamPos.xz),oc=uLakeP.w>1.5?1.-smoothstep(500.,1100.,dc):1.;/* the open-sea rings: the FFT waves only near, where the rings are fine enough (the shading keeps them far out) */
+  float dp=max(l-terrainH(p),oDep(p));float fd=step(.01,sw)*clamp(dp/2.,0.,1.)*(1.-uWater.w)*seaK(l)*oc;vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
+  if(uLakeP.w<1.5)d.xz*=e;/* the near patch: its rim stays in place (no cracks to the coarse water round it) */
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,dp,sg);float swk=1.-smoothstep(1500.,3000.,dc);if(uLakeP.w<1.5)sd.xz*=e;/* the open-sea rings far out are too coarse for the swell */W+=sd*swk;vSw=sg*swk;d.y+=sd.y*swk;}
+  W+=d;if(skirt)W.y-=1.5;vH=d.y;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 
 const VS_WATER=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
 layout(location=0) in vec3 aG;uniform vec4 uChunk;uniform vec4 uFlood;uniform float uSpc;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 float lkf(float a){return a>.75&&a<1.5?1.:0.;}
 float rw(float a){return a<.05?0.:a<.5?(a-.1)/.3:a<2.5?a-1.:1.;}
 float wl(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));return texelFetch(uWaterTex,c,0).r;}
-float wp(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));return texelFetch(uWaterTex,c,0).a;}
+float wp(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));float a=texelFetch(uWaterTex,c,0).a;if(uSwell.y>0.&&(c.x==0||c.y==0||c.x==N-1||c.y==N-1))a=1.;/* the map's rim is sea, not river */return a;}
 void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5),ivec2(0),ivec2(N));
   float l=.25*(wl(g-ivec2(1))+wl(g-ivec2(0,1))+wl(g-ivec2(1,0))+wl(g));float pr=max(max(wp(g-ivec2(1)),wp(g-ivec2(0,1))),max(wp(g-ivec2(1,0)),wp(g)));
   float a0=wp(g-ivec2(1)),a1=wp(g-ivec2(0,1)),a2=wp(g-ivec2(1,0)),a3=wp(g);
@@ -394,7 +396,7 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
   W.y+=(sin(W.x*.11+t*1.3)*.5+sin(W.z*.13-t*1.1+W.x*.05)*.5)*.22*uWater.y*(1.-uWater.w)*min(pr,1.)*(1.-lw*uWaveA.x);
   bool rim=g.x==0||g.y==0||g.x>=N||g.y>=N;/* the map's rim vertices move only up and down, so no gap opens to the open sea outside */
   if(uWaveA.x>0.&&lw>0.){vec3 d=waveD(W.xz,uSpc)*lw*clamp((l-terrainH(W.xz))/2.,0.,1.)*(1.-uWater.w)*seaK(l);if(rim)d.xz=vec2(0);W+=d;vH=d.y;}
-  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);if(rim)sd.xz=vec2(0);W+=sd;vSw=sg;vH+=sd.y;}
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&lw>.5){vec3 sg;vec3 sd=swellD(vP,l-terrainH(vP),sg);if(rim)sd.xz=vec2(0);float swk=1.-smoothstep(1500.,3000.,length(vP-uCamPos.xz));sd*=swk;sg*=swk;W+=sd;vSw=sg;vH+=sd.y;}
   vL=l;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;in vec3 vSw;uniform vec4 uFlood;uniform vec4 uFallP[8];uniform vec4 uSwell;
@@ -424,8 +426,8 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // a culvert ditch is dug below the water table of a wet cell: water that the natural ground covered stays hidden there
   {ivec2 pc=clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1));if(texelFetch(uPatch,pc,0).r>.5){vec2 g=W.xz/uWorld.z,f=fract(g);ivec2 c=ivec2(floor(g));
     float ha=cornerH(c),hb=cornerH(c+ivec2(1,0)),hc=cornerH(c+ivec2(0,1)),hd=cornerH(c+ivec2(1,1)),gh=f.x+f.y<=1.?ha+(hb-ha)*f.x+(hc-ha)*f.y:hd+(hc-hd)*(1.-f.x)+(hb-hd)*(1.-f.y);if(gh>W.y-.02)discard;}}
-  if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);if((vP.x>3.&&vP.y>3.&&vP.x<uWorld.x-3.&&vP.y<uWorld.x-3.)||max(q.x,q.y)<uLakeP.w-2.)discard;}
-  else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&ins)discard;}
+  if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);float rb=uWorld.z*2.5;/* the rings also cover the map's outer cells (the map's own water leaves the rim cells out) */if((vP.x>rb&&vP.y>rb&&vP.x<uWorld.x-rb&&vP.y<uWorld.x-rb)||max(q.x,q.y)<uLakeP.w-2.)discard;}
+  else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z-3.)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
   float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(70.,40.+od*.03));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,30.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */

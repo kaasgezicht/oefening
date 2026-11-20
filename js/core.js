@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.28.0 (8 m ground drawn round the camera on 24/32 km maps; trees, rocks and vehicles on it)';
+const VERSION='4.28.1 (water glitches fixed: open-sea walls and squares, gap at the map edge, seam of the near wave patch)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

@@ -1,4 +1,4 @@
-# Trein handoff 87 (20 Nov 2026): v4.28.0 — 8 m ground drawn round the camera on 24/32 km maps (tiles from the device), trees, rocks and vehicles on it; next: tune and test on the phone
+# Trein handoff 88 (20 Nov 2026): v4.28.1 — water glitches fixed (user: "a line or a square in the water at specific angles")
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,23 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.28.0, 20 Nov) — 8 m detail, steps 2 and 3: drawn round the camera
+### Latest (4.28.1, 20 Nov) — water glitches ("a line or a square in the water")
+Reproduced with low and grazing views on a lake (land map) and at the edge of a Mountain-islands map (checks/water-glitch-before.jpg):
+- **Open-sea rings drew walls**: their vertices over the map read the water level of land cells (0) and stretched triangles from the sea
+  down to the bottom. The rings now always sit at sea level (`l=uSwell.y` when `uLakeP.w>1.5`).
+- **Squares between the rings**: the swell faded by ring spacing (a step at each ring boundary) and the FFT waves aliased on the coarse rings.
+  Now the swell fades with distance from the camera (1.5-3 km) in the rings and in the map's own water alike, and the rings carry FFT
+  displacement only within 0.5-1.1 km (their shading keeps the waves far out).
+- **Gap at the map edge** (a white or sandy strip with a step): the map's water leaves its rim cells out and the rings stopped 3 m inside;
+  the rings now cover the outer 2.5 cells. The rim cells count as sea in the water vertex shader (`wp`), and the board walls are not drawn
+  round island maps with open sea.
+- **Islands keep off the edge**: the coast mask fades out over 150-650 m from the map edge (all island styles; new worlds only).
+- **Seam of the near 3D-wave patch** on lakes (a dashed line of slits): the patch's rim keeps its place (no sideways wave displacement there),
+  the coarse water overlaps it by 3 m, and it has a 1.5 m skirt along its edge, drawn two-sided.
+- Remaining: on the sea, at a very low camera close to the water, a faint dashed seam can still show near the camera. checks/water-glitch-after.jpg,
+  water-lake-after.png.
+
+### Earlier (4.28.0, 20 Nov) — 8 m detail, steps 2 and 3: drawn round the camera
 - **Window** (`Tiles.update/loadWin`, called every frame from the main loop): 2 x 2 tiles (4 km, 512² cells) round the camera, chosen so the
   camera is at least 1 km from its edge; the four tiles are read from the device and put into an R32F texture (TU 22, `uFine`); missing
   tiles are zero. While it loads a pill "Loading the 8 m ground" shows (`#finePill`). Made or removed tiles reload it.

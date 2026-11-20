@@ -741,7 +741,7 @@ R.buildPatches=function(T,trenches){const N=T.N,cs=T.cs,M=R.patchMask;if(!M)retu
   if(V.length){R.patchVao=gl.createVertexArray();gl.bindVertexArray(R.patchVao);R.patchVb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,R.patchVb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(V),gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);gl.bindVertexArray(null);}
   scratch();gl.bindTexture(gl.TEXTURE_2D,R.pTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,N,N,gl.RED,gl.UNSIGNED_BYTE,M);};
-R.drawWall=function(pass){if(!R.wallVao)return;const p=pass===1?R.pWallSh:R.pWall;gl.useProgram(p.p);gl.bindVertexArray(R.wallVao);gl.drawElements(gl.TRIANGLES,R.wallCount,gl.UNSIGNED_INT,0);Stats.draws++;gl.bindVertexArray(null);};
+R.drawWall=function(pass){if(!R.wallVao||(R.world&&R.world.sea!=null&&P.openSea))return;const p=pass===1?R.pWallSh:R.pWall;gl.useProgram(p.p);gl.bindVertexArray(R.wallVao);gl.drawElements(gl.TRIANGLES,R.wallCount,gl.UNSIGNED_INT,0);Stats.draws++;gl.bindVertexArray(null);};
 // part: 'o' opaque only, 'g' the trains' window glass only (blended, after everything opaque), else both
 R.drawVehicles=function(pass,part){const p=R.pVeh;gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);
   if(part==='g')return R.drawVehGlass(p);
@@ -768,10 +768,12 @@ R.waterU=function(p,cam,near){gl.uniform1f(p.u('uDbg'),+P.dbgWater||0);gl.unifor
   gl.uniform4fv(p.u('uFallP'),fp);const W=Waves;gl.uniform4f(p.u('uWaveA'),W.on?1:0,P.lakeChop,P.lakeFoam,W.NC||0);gl.uniform4f(p.u('uWL'),W.L[0],W.L[1],W.L[2],W.N||64);
   {const T=R.world,E=Weather.eff();gl.uniform4f(p.u('uSwell'),T&&T.sea!=null&&P.waterOn?Sea.amp():0,T&&T.sea!=null?T.sea:-1,P.windDir*Math.PI/180,clamp(+P.lakeCalm,0,1));}/* the ocean swell; w: wave size on lakes and rivers when there is a sea */
   const q=+P.reflQuality;gl.uniform4f(p.u('uRefl'),[0,12,20,32][q]||0,[1,1.6,1.3,1.2][q]||1,0,0);const lp=R.lakePatch;gl.uniform4f(p.u('uLakeP'),lp?lp[0]:0,lp?lp[1]:0,lp?lp[2]:0,near?1:0);};
-R.lakeGrid=function(M){const G=R._lg||(R._lg={});if(G[M])return G[M];const v=new Float32Array((M+1)*(M+1)*2),idx=new Uint32Array(M*M*6);let k=0;
-  for(let j=0;j<=M;j++)for(let i=0;i<=M;i++){v[k++]=i/M;v[k++]=j/M;}k=0;for(let j=0;j<M;j++)for(let i=0;i<M;i++){const a=j*(M+1)+i;idx.set([a,a+M+1,a+1,a+1,a+M+1,a+M+2],k);k+=6;}
+/* sk: one more ring of vertices outside [0,1] (the shader puts it on the edge, 1.5 m lower): a skirt that closes slits at the patch's edge */
+R.lakeGrid=function(M,sk){const G=R._lg||(R._lg={}),key=M+(sk?'s':'');if(G[key])return G[key];const e=sk?1:0,Q=M+2*e,v=new Float32Array((Q+1)*(Q+1)*2),idx=new Uint32Array(Q*Q*6);let k=0;
+  for(let j=0;j<=Q;j++)for(let i=0;i<=Q;i++){v[k++]=(i-e)/M+(sk&&(i===0||i===Q)?(i===0?-1e-3:1e-3):0);v[k++]=(j-e)/M+(sk&&(j===0||j===Q)?(j===0?-1e-3:1e-3):0);}k=0;for(let j=0;j<Q;j++)for(let i=0;i<Q;i++){const a=j*(Q+1)+i;idx.set([a,a+Q+1,a+1,a+1,a+Q+1,a+Q+2],k);k+=6;}
+  const M0=M;M=Q;
   const vao=gl.createVertexArray();gl.bindVertexArray(vao);const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,v,gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,8,0);
-  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);gl.bindVertexArray(null);return G[M]={vao,count:idx.length};};
+  const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.STATIC_DRAW);gl.bindVertexArray(null);return G[key]={vao,count:idx.length};};
 R.drawWater=function(cam){if(!R.waterChunks.length)return;const T=R.world,q=+P.waterModel;R.lakePatch=null;
   // finer lake mesh (real 3D waves) on a square in front of the camera; snapped so its vertices never swim
   if(Waves.on&&q>=2){const Rp=q===3?110:70,M=q===3?192:112,sp=2*Rp/M;let fx=R.focus[0]-cam.pos[0],fz=R.focus[2]-cam.pos[2];const fl=Math.hypot(fx,fz)||1;
@@ -781,7 +783,7 @@ R.drawWater=function(cam){if(!R.waterChunks.length)return;const T=R.world,q=+P.w
     const lod=d<500?0:1,n=Math.max(2,R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);gl.uniform1f(p.u('uSpc'),R.cells/n*T.cs);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;}
   R.pm('w-chunks');
   if(R.lakePatch){const lp=R.lakePatch;p=R.pLake;gl.useProgram(p.p);R.waterU(p,cam,true);gl.uniform2f(p.u('uSpc2'),R.cells/R.gridBase*T.cs,lp[4]);
-    const g=R.lakeGrid(lp[3]);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.count/3;}
+    const g=R.lakeGrid(lp[3],true),cull=gl.isEnabled(gl.CULL_FACE);gl.disable(gl.CULL_FACE);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);if(cull)gl.enable(gl.CULL_FACE);Stats.draws++;Stats.tris+=g.count/3;}
   if(T&&T.sea!=null&&P.openSea)R.drawOpenSea(cam);
   gl.bindVertexArray(null);};
 /* the open sea round island maps: 8 nested squares round the camera (300 m to 38 km half-size, 64 x 64 quads each, snapped to their own

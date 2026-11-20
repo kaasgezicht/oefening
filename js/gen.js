@@ -68,6 +68,7 @@ async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='
         if(p.mapStyle==='island')m=1-smooth(0.35+ls*0.55,0.55+ls*0.5,r+0.28*wob);
         else if(PK){m=0;for(const q of IS){const ddx=x-q.x,ddz=z-q.z;if(Math.abs(ddx)>q.R*1.6||Math.abs(ddz)>q.R*1.6)continue;const u=(ddx*q.c+ddz*q.s)/q.ex,v=(-ddx*q.s+ddz*q.c)/q.ez,d=Math.hypot(u,v)/q.R;m=Math.max(m,1-smooth(0.72,1.0,d+0.3*wob));}}
         else{const n0=fbm(nI,x/(W*0.2)+3.1,z/(W*0.2)+7.7,3,0.45,2.1)*0.5+0.5,thr=0.53-(ls-0.5)*0.3;m=smooth(thr-0.03,thr+0.09,n0+0.05*wob-0.1*smooth(0.55,0.95,r));}
+        m*=smooth(150,650,Math.min(x,z,W-x,W-z));/* no land within ~300 m of the map edge: the open sea goes on past it */
         const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*(p.mapStyle==='islands'||PK?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m);}if(y&&j%64===0)await y(j/N,'Shaping the coast');}
     for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])H[c]=sea;}
   return sea;}
