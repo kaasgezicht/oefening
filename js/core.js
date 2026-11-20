@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.29.0 (train breakdowns and fuel as options; New game choices as buttons)';
+const VERSION='4.30.0 (low hills and mountains, flat coasts, bays and bay villages; no title on the game screen)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -42,6 +42,11 @@ def('octaves',{tab:'world',label:'Detail layers',min:3,max:9,step:1,def:7,apply:
 def('roughness',{tab:'world',label:'Roughness',min:0.3,max:0.65,step:0.01,def:0.48,apply:'world'});
 def('lacunarity',{tab:'world',label:'Detail spacing',min:1.7,max:2.4,step:0.01,def:2.0,apply:'world'});
 def('warp',{tab:'world',label:'Domain warp',min:0,max:1.5,step:0.01,def:0.55,apply:'world'});
+def('reliefMix',{tab:'world',label:'Low hills vs mountains (share of the land that is low and rolling)',min:0,max:1,step:0.01,def:0.5,apply:'world'});
+def('hillHeight',{tab:'world',label:'Low hills: height (share of the mountain height)',min:0.05,max:1,step:0.01,def:0.15,apply:'world'});
+def('shoreFlat',{tab:'world',label:'Flat coastal land (island maps)',min:0,max:2,step:0.05,def:0.8,apply:'world'});
+def('bays',{tab:'world',label:'Bays (island maps)',min:0,max:2,step:0.1,def:1,apply:'world'});
+def('bayVillages',{tab:'life',label:'Villages in the bays (preference)',min:0,max:2,step:0.1,def:1,apply:'life'});
 def('mountains',{tab:'world',label:'Mountain amount',min:0,max:1,step:0.01,def:0.55,apply:'world'});
 def('ridgeSharp',{tab:'world',label:'Ridge sharpness',min:0.6,max:3,step:0.05,def:1.1,apply:'world'});
 def('valleyFlat',{tab:'world',label:'Valley flatness',min:1,max:3,step:0.05,def:1.35,apply:'world'});

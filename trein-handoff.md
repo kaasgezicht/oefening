@@ -1,4 +1,4 @@
-# Trein handoff 90 (20 Nov 2026): v4.29.0 — train breakdowns and fuel (options, off by default); New game choices as buttons; next: repair and refuelling stations
+# Trein handoff 91 (20 Nov 2026): v4.30.0 — low hills and mountains in one world, flat coastal land, bays with bay villages; the title is off the game screen
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,20 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.29.0, 20 Nov) — breakdowns and fuel; New game choices
+### Latest (4.30.0, 20 Nov) — relief variety, flat coasts, bays
+- The "Trein" title is gone from the game screen (#hud keeps the clock, stats and money).
+- **Low hills and mountains** (`reliefFn` in gen.js, applied after shapeHeight in genTerrain and the preview, before the big mountains):
+  a large-scale mask (0.3 × world size) turns `reliefMix` (0.5) of the land into low rolling hills at `hillHeight` (0.15) of the height,
+  with no rock there; the rest keeps its mountains. 0 = as before. Defaults on, so islands vary too.
+- **Flat coastal land** (`shoreFlat`, 0.8, island maps): coastShape now works in three passes: the coast mask, a chamfer distance
+  inland from the waterline, then the heights, the land rising over the first 40 + 380 × shoreFlat m (a coastal plain); rock fades there.
+- **Bays** (`coastBays(p)`, `bays` 1): Mountain islands 1-3 per island, one island 2-5 round it: inlets reaching inland (1.2-1.8 ×
+  their radius), narrowing toward their head, irregular edges. **Bay villages** (`bayVillages`, 1): sites by a bay's head score extra,
+  and a bay with no village gets one on the best site round its head (up to a third of the villages). Tested (8 km Mountain islands,
+  seed 4242): 14 bays, 5 of 16 villages at bays, all on the coast. checks/bay-village.jpg, relief-shores-bays-preview.png.
+- These change the land: worlds made before keep theirs (the world file); new worlds get the new land.
+
+### Earlier (4.29.0, 20 Nov) — breakdowns and fuel; New game choices
 - **New game**: every dropdown in the folding groups is now a row of buttons (`.mm-chs`, `data-mc`, `MainMenu.chips()`), the chosen one in
   brass; sliders got a taller touch area. Tested on a 412 px phone: tapping sets the value.
 - **Trains menu, off by default** (core.js, train.js `step`):

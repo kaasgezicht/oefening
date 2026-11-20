@@ -49,10 +49,16 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       if(!ok||mx-mn>16||this.streamNear(x,z,28))continue;let nearW=0;for(let a=0;a<12;a++){if(wet(x+Math.cos(a*0.52)*120,z+Math.sin(a*0.52)*120)){nearW=1;break;}}
       let nearBig=0;for(let a=0;a<16&&!nearBig;a++)for(const r of [110,190])if(bigLakeAt(x+Math.cos(a*0.39)*r,z+Math.sin(a*0.39)*r)){nearBig=1;break;}
       /* coastal villages (4.26.0): on maps with a sea, sites within 170 m of it score extra */let nearSea=0;if(T.sea!=null&&+P.coastVillages>0)for(let a=0;a<12&&!nearSea;a++)for(const r of [90,170])if(H(x+Math.cos(a*0.52)*r,z+Math.sin(a*0.52)*r)<T.sea-0.3){nearSea=1;break;}
-      cand.push({x,z,s:(11-(mx-mn))/11+nearW*0.7+nearBig*1.4+nearSea*(+P.coastVillages||0)*1.3+(1-h/P.maxHeight)*0.6+rng()*0.7});}
+      cand.push({x,z,s:(11-(mx-mn))/11+nearW*0.7+nearBig*1.4+nearSea*(+P.coastVillages||0)*1.3+(nearSea&&typeof coastBays==='function'&&coastBays(P).some(b=>Math.hypot(x-b.hx,z-b.hz)<b.r*1.5)?(+P.bayVillages||0)*2:0)/* bay villages */+(1-h/P.maxHeight)*0.6+rng()*0.7});}
     cand.sort((a,b)=>b.s-a.s);const spacing=320*Math.sqrt(P.villageSize);
     const vWant=Math.round(P.villages*Math.max(1,T.W/4096));for(const c of cand){if(this.villages.length>=vWant)break;if(this.villages.some(v=>Math.hypot(v.x-c.x,v.z-c.z)<spacing))continue;
       this.villages.push({x:c.x,z:c.z,dir:rng()*Math.PI,name:villageName(this.villages.length),houses:[],R:(42+rng()*30)*P.villageSize});}
+    /* bay villages (4.30.0): a bay without a village gets one on the best dry, flat site round it (up to a third of the villages, bayVillages ×) */
+    if(T.sea!=null&&+P.bayVillages>0&&typeof coastBays==='function'){const B=coastBays(P).slice().sort((a,b)=>b.r-a.r),cap=Math.max(1,Math.round(vWant/3*Math.min(1,+P.bayVillages)));let added=0;
+      for(const b of B){if(added>=cap)break;const near=c=>Math.hypot(c.x-b.hx,c.z-b.hz)<b.r*1.5;if(this.villages.some(near))continue;const c=cand.filter(near).sort((a,q)=>q.s-a.s)[0];if(!c)continue;
+        if(this.villages.some(v=>Math.hypot(v.x-c.x,v.z-c.z)<spacing*0.75))continue;if(this.villages.length>=vWant){const out=this.villages.map((v,i)=>[i,v]).filter(([,v])=>!B.some(q=>Math.hypot(v.x-q.hx,v.z-q.hz)<q.r*1.5)).pop();if(!out)break;this.villages.splice(out[0],1);}
+        this.villages.push({x:c.x,z:c.z,dir:rng()*Math.PI,name:'',houses:[],R:(42+rng()*30)*P.villageSize,bay:true});added++;}
+      if(added)this.villages.forEach((v,i)=>v.name=villageName(i));Log.info(`bays: ${B.length}, ${added} bay village${added===1?'':'s'} added (sites near bays: ${B.map(b=>cand.filter(c=>Math.hypot(c.x-b.hx,c.z-b.hz)<b.r*1.5).length).join(',')})`);}
     // the biggest lake gets at least two lakeside villages: shore sites replace the villages that crowd them, or the last one
     {const BL=(this.lakes||[]).slice().sort((a,b)=>b.area-a.area)[0];if(BL&&BL.area>150000&&P.villages>0){const onL=(x,z)=>{for(let a=0;a<16;a++)for(const r of [110,190]){const xx=x+Math.cos(a*0.39)*r,zz=z+Math.sin(a*0.39)*r;if(this.lakeComp[clamp((zz/cs)|0,0,N-1)*N+clamp((xx/cs)|0,0,N-1)]===BL.id)return true;}return false;};
       // candidates all round the shore: march out from the lake centre to dry land, then 80-200 m further, on flat ground

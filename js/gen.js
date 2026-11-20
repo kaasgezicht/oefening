@@ -63,13 +63,31 @@ function makeTerrainFn(p){
 
 const SEA_LEVEL=40;
 // island styles: the land is lifted onto a coastline mask and the rest sinks into the ocean (see genTerrain)
-async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='peaks',IS=PK?peakIslands(p):null;if(p.mapStyle==='island'||p.mapStyle==='islands'||PK){sea=SEA_LEVEL;const nI=makeNoise((p.seed|0)+777),nC=makeNoise((p.seed|0)+778),ls=clamp(+p.landShare||0.5,0.1,0.9);
+/* bays (4.30.0): on island maps, round inlets cut into the coast (Mountain islands: 1-3 per island; one island: 2-5 round it), sheltered,
+   with a gentle shore; villages like them (Life). Each {x,z,r}: the centre sits on the coast, the sea reaches in to about half r */
+function coastBays(p){const key=p.worldSize+':'+p.seed+':'+p.mapStyle+':'+p.landShare+':'+p.bays;if(coastBays.k===key)return coastBays.v;const L=[],rng=mulberry32((p.seed|0)*577+3),nb=+p.bays;
+  if(nb>0){if(p.mapStyle==='peaks')for(const q of peakIslands(p)){const n=Math.round((1+rng()*2)*nb);for(let i=0;i<n;i++){const a=rng()*6.283,rr=q.R*(0.9+rng()*0.1);
+        const u=Math.cos(a)*rr*q.ex,v=Math.sin(a)*rr*q.ez;const X=u*q.c-v*q.s,Z=u*q.s+v*q.c,l=Math.hypot(X,Z)||1;L.push({x:q.x+X*0.92,z:q.z+Z*0.92,r:q.R*(0.2+rng()*0.12),dx:X/l,dz:Z/l,st:1.2+rng()*0.6});}}
+    else if(p.mapStyle==='island'){const W=p.worldSize,ls=clamp(+p.landShare||0.5,0.1,0.9),R0=W*(0.45+ls*0.5)/2*0.95,n=Math.round((2+rng()*3)*nb);for(let i=0;i<n;i++){const a=rng()*6.283;L.push({x:W/2+Math.cos(a)*R0,z:W/2+Math.sin(a)*R0,r:W*(0.035+rng()*0.03),dx:Math.cos(a),dz:Math.sin(a),st:1.2+rng()*0.6});}}}
+  for(const b of L){b.hx=b.x-b.dx*b.r*b.st*0.8;b.hz=b.z-b.dz*b.r*b.st*0.8;}/* the bay's head (inland end): its village goes round it */
+  coastBays.k=key;coastBays.v=L;return L;}
+async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='peaks',IS=PK?peakIslands(p):null;if(p.mapStyle==='island'||p.mapStyle==='islands'||PK){sea=SEA_LEVEL;const nI=makeNoise((p.seed|0)+777),nC=makeNoise((p.seed|0)+778),ls=clamp(+p.landShare||0.5,0.1,0.9),BY=coastBays(p);
+    // 1. the coast mask (1 land, 0 sea)
+    const Mk=new Float32Array(N*N);
     for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,dx=x/W-0.5,dz=z/W-0.5,r=Math.hypot(dx,dz)*2,wob=fbm(nC,x/(W*0.18),z/(W*0.18),4,0.5,2);let m;
         if(p.mapStyle==='island')m=1-smooth(0.35+ls*0.55,0.55+ls*0.5,r+0.28*wob);
         else if(PK){m=0;for(const q of IS){const ddx=x-q.x,ddz=z-q.z;if(Math.abs(ddx)>q.R*1.6||Math.abs(ddz)>q.R*1.6)continue;const u=(ddx*q.c+ddz*q.s)/q.ex,v=(-ddx*q.s+ddz*q.c)/q.ez,d=Math.hypot(u,v)/q.R;m=Math.max(m,1-smooth(0.72,1.0,d+0.3*wob));}}
         else{const n0=fbm(nI,x/(W*0.2)+3.1,z/(W*0.2)+7.7,3,0.45,2.1)*0.5+0.5,thr=0.53-(ls-0.5)*0.3;m=smooth(thr-0.03,thr+0.09,n0+0.05*wob-0.1*smooth(0.55,0.95,r));}
-        m*=smooth(150,650,Math.min(x,z,W-x,W-z));/* no land within ~300 m of the map edge: the open sea goes on past it */
-        const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*(p.mapStyle==='islands'||PK?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m);}if(y&&j%64===0)await y(j/N,'Shaping the coast');}
+        for(const b of BY){const ox=x-b.x,oz=z-b.z,al=ox*b.dx+oz*b.dz,ac=-ox*b.dz+oz*b.dx,d=Math.hypot(al<0?al/b.st:al,ac*(1+0.35*Math.max(0,-al)/b.r))/b.r;if(d<1.3)m*=smooth(0.45,1.15,d+0.35*wob);}/* the bays: reaching inland (st), narrowing toward their head, irregular */
+        m*=smooth(150,650,Math.min(x,z,W-x,W-z));/* no land within ~300 m of the map edge: the open sea goes on past it */Mk[k]=m;}if(y&&j%64===0)await y(j/N*0.5,'Shaping the coast');}
+    // 2. distance inland from the waterline (two-pass chamfer, metres): the land rises over the first shoreW metres, a coastal plain to build on
+    const D=new Float32Array(N*N),INF=1e9,d1=cs,d2=cs*1.4142;for(let k=0;k<N*N;k++)D[k]=Mk[k]>0.5?INF:0;
+    for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(!D[k])continue;let v=D[k];if(i>0)v=Math.min(v,D[k-1]+d1);if(j>0){v=Math.min(v,D[k-N]+d1);if(i>0)v=Math.min(v,D[k-N-1]+d2);if(i<N-1)v=Math.min(v,D[k-N+1]+d2);}D[k]=v;}
+    for(let j=N-1;j>=0;j--)for(let i=N-1;i>=0;i--){const k=j*N+i;if(!D[k])continue;let v=D[k];if(i<N-1)v=Math.min(v,D[k+1]+d1);if(j<N-1){v=Math.min(v,D[k+N]+d1);if(i<N-1)v=Math.min(v,D[k+N+1]+d2);if(i>0)v=Math.min(v,D[k+N-1]+d2);}D[k]=v;}
+    const sf=clamp(+p.shoreFlat||0,0,2),shoreW=40+380*sf;
+    // 3. heights: sea floor, the coastal plain rising inland, the land above it
+    for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,m=Mk[k],ramp=sf>0?Math.pow(smooth(0,shoreW,D[k]),1.2):1;
+        const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*ramp*(p.mapStyle==='islands'||PK?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m)*(0.3+0.7*ramp);}if(y&&j%64===0)await y(0.5+j/N*0.5,'Shaping the coast');}
     for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])H[c]=sea;}
   return sea;}
 // ---- the new-game preview: the same land (terrain, big mountains, coast) at a coarse grid, without erosion, rivers and lakes; drawn as a
@@ -77,6 +95,7 @@ async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='
 async function previewLand(p,n){const W=p.worldSize,cs=W/n,fn=makeTerrainFn(p),raw=new Float32Array(n*n),mm=new Float32Array(n*n),o={mm:0};let mn=1e9,mx=-1e9;
   for(let j=0;j<n;j++)for(let i=0;i<n;i++){const v=fn((i+0.5)*cs,(j+0.5)*cs,o);raw[j*n+i]=v;mm[j*n+i]=o.mm;if(v<mn)mn=v;if(v>mx)mx=v;}
   const H=new Float32Array(n*n),norm={min:mn,max:mx};for(let k=0;k<n*n;k++)H[k]=shapeHeight(raw[k],norm,p,mm[k]);
+  {const RF=reliefFn(p);if(RF)for(let j=0;j<n;j++)for(let i=0;i<n;i++){const k=j*n+i,f=RF((i+0.5)*cs,(j+0.5)*cs);H[k]*=f;mm[k]*=smooth(0.3,0.9,f);}}
   const BM=bigMountains(p);if(BM)for(let j=0;j<n;j++)for(let i=0;i<n;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,r=BM.at(x,z);if(r.h>0)H[j*n+i]+=r.h*smooth(0,W*0.09,Math.min(x,z,W-x,W-z));}
   const sea=await coastShape(p,H,mm,n,cs,W,null);return{n,H,sea,W};}
 function drawPreview(cv,L,p){const n=L.n,g=cv.getContext('2d'),img=g.createImageData(n,n),H=L.H,sea=L.sea;let top=0;for(const h of H)top=Math.max(top,h);const snow=p.snowLine*Math.max(p.maxHeight,top>p.maxHeight*1.25?top*0.8:0);
@@ -105,6 +124,10 @@ function bigMountains(p){const PK=p.mapStyle==='peaks',n=PK?0:Math.min(3,p.bigMt
       const along=q.Lr>0?1-0.25*Math.min(1,Math.abs(u)/(q.Lr+q.R)):1,t=clamp(1-r,0,1),prof=Math.pow(t,1.7)*(1-Math.exp(-t*6))*along+Math.max(0,0.25-Math.abs(r-1.05))*0.12;
       const sp=ridged(nz,x/(q.R*0.55),z/(q.R*0.55),5,0.5,2),gul=0.72+0.38*sp;h+=q.H*prof*gul;m=Math.max(m,clamp(t*1.6,0,1));}return{h,m};}};}
 // normalise raw -> metres (shared by inner map and far ring so they meet)
+/* relief variety (4.30.0): a large-scale mask makes some regions low rolling hills (hillHeight of the full height, no rock) and leaves the
+   rest mountainous; reliefMix is the share of lowland. Applied to the shaped heights before the big mountains and the coast */
+function reliefFn(p){const mix=clamp(+p.reliefMix||0,0,1);if(!mix)return null;const nz=makeNoise((p.seed|0)+4321),W=p.worldSize,hh=clamp(+p.hillHeight||0.25,0.05,1);
+  return(x,z)=>{const n=fbm(nz,x/(W*0.3)+1.7,z/(W*0.3)-2.9,3,0.5,2)*0.5+0.5,low=smooth(1-mix-0.08,1-mix+0.08,1-n);return 1-low*(1-hh);};}
 function shapeHeight(raw,norm,p,mm){
   let h01=(raw-norm.min)/(norm.max-norm.min);
   h01=Math.pow(Math.max(h01,0),p.valleyFlat);
@@ -128,6 +151,7 @@ async function genTerrain(p,y){
   const norm={min:mn,max:mx};
   const H=new Float32Array(N*N);
   for(let k=0;k<N*N;k++)H[k]=shapeHeight(raw[k],norm,p,mmA[k]);
+  {const RF=reliefFn(p);if(RF)for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,f=RF((i+0.5)*cs,(j+0.5)*cs);H[k]*=f;mmA[k]*=smooth(0.3,0.9,f);}}
   const BM=bigMountains(p);if(BM)for(let j=0;j<N;j++){for(let i=0;i<N;i++){const k=j*N+i,x=(i+0.5)*cs,z=(j+0.5)*cs,r=BM.at(x,z);if(r.h>0){r.h*=smooth(0,W*0.09,Math.min(x,z,W-x,W-z));H[k]+=r.h;mmA[k]=Math.max(mmA[k],r.m);}}if(j%32===0)await y(0.6+j/N*0.25,'Raising the big mountains');}
   /* island styles: the land is lifted onto a coastline mask and the rest sinks into an ocean whose surface is SEA_LEVEL; the outermost
      cells are held at sea level so the whole ocean becomes one basin that the water pass fills to that level (see genWater: T.sea) */
