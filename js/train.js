@@ -759,6 +759,11 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
       if(!tr.derailed&&Track.sigs.length){const sa=Net.sigAhead(tr,Net.scan(tr,v*v/1.2+40));if(sa&&sa.red)tr.redAt=sa.e.d;}}
     let Fg=0;let off=0;for(let i=0;i<tr.veh.length;i++){const p=tr.poses&&tr.poses[i];if(p){const gr=P.toyGrades?clamp(p.grade,-0.05,0.05):p.grade;Fg-=tr.veh[i].m*g*gr/Math.sqrt(1+gr*gr);}}
     const vs=Math.max(Math.abs(v),1.2);let Ft=tr.derailed?0:tr.throttle*Math.min(P.locoTE*1000,P.locoPower*1000/vs)*tr.rev*locoSpec(tr).te;
+    /* breakdowns and fuel (off by default): a broken-down or empty locomotive has no pull and the train rolls to a stop */
+    if(tr.fuel==null)tr.fuel=1;if(tr.broken>0){tr.broken-=dt;Ft=0;if(tr.broken<=0){tr.broken=0;UI.toast(`${tr.name}: the crew has mended the locomotive`);}}
+    else if(P.breakdowns&&Math.abs(v)>2&&Ft!==0&&Math.random()<Math.abs(v)*dt/100000*(+P.breakdownRate||0)){tr.broken=(+P.repairTime||8)*60;tr.breakWhy=['a hot axle box','a broken spring','a blown gauge glass','a leaking tube','a cracked brake block'][Math.floor(Math.random()*5)];Ft=0;UI.toast(`${tr.name} has broken down (${tr.breakWhy}). Repair it in the train list, or the crew mends it in ${P.repairTime|0} min`);}
+    if(P.trainFuel){if(tr.fuel<=0){Ft=0;if(!tr.emptyTold){tr.emptyTold=true;UI.toast(`${tr.name} has run out of coal and water: refuel it in the train list`);}}else if(Ft!==0)tr.fuel=Math.max(0,tr.fuel-Math.abs(v)*dt/1000/(+P.fuelRange||120)*(0.35+0.65*Math.abs(tr.throttle)));}
+    if(tr.broken>0)tr.status='Broken down';else if(P.trainFuel&&tr.fuel<=0)tr.status='Out of coal and water';
     const adh=0.26*(loco.m+10000)*9.81*P.adhesion;tr.slip=Math.abs(Ft)>adh;if(tr.slip)Ft=Math.sign(Ft)*adh*0.75;
     const k=tr.poses&&tr.poses[0]?Math.abs(tr.poses[0].k):0,Rr=k>1e-6?1/k:1e9;
     const resist=M*g*P.rollingRes+M*g*Math.min(0.012,0.5/Math.max(Rr,60))+(tr.derailed?M*g*0.5:0)+tr.brake*0.14*M*g*P.brakeStrength;
@@ -793,7 +798,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     for(const pa of A.poses)for(const pb of B.poses){if(!pa||!pb)continue;if(Math.hypot(pa.c[0]-pb.c[0],pa.c[1]-pb.c[1],pa.c[2]-pb.c[2])<9){
       if(Math.abs(A.v)+Math.abs(B.v)>1.5){UI.toast(`${A.name} and ${B.name} collided!`);Sfx.crash(A);A.shake=B.shake=0.8;}
       const rel=A.v-B.v;A.v=B.v=0;return;}}}},
-  serialize(){return this.list.map(t=>({head:t.head,lt:t.veh[0].lt||undefined,cars:t.veh.length-2,livery:t.veh[2]&&t.veh[2].k==='coach'?t.veh[2].mesh-2:0,autoKmh:t.autoKmh,name:t.name,led:Ledger.save(t),hid:!!t.mapHidden,
+  serialize(){return this.list.map(t=>({head:t.head,lt:t.veh[0].lt||undefined,cars:t.veh.length-2,livery:t.veh[2]&&t.veh[2].k==='coach'?t.veh[2].mesh-2:0,autoKmh:t.autoKmh,name:t.name,led:Ledger.save(t),hid:!!t.mapHidden,fuel:t.fuel!=null&&t.fuel<1?Math.round(t.fuel*1000)/1000:undefined,brk:t.broken>0?Math.round(t.broken):undefined,bw:t.broken>0?t.breakWhy:undefined,
     cons:t.veh.slice(2).map(v=>v.k==='wagon'?{w:v.ctype,n:Math.round((v.n||0)*100)/100,fx:v.fx,fz:v.fz,from:v.from}:{c:v.mesh-2})}));},
   // a vehicle for the wagon editor: 'coach' (livery 0/1) or a goods wagon kind
   car(kind,livery,n){if(kind==='coach')return{k:'coach',...VEH.coach,mesh:2+(livery|0)};if(ORE[kind])return{k:'wagon',...VEH.ore,mesh:21,ctype:kind,n:n||0};const T=['grain','produce','mail','wood'],t=Math.max(0,T.indexOf(kind));return{k:'wagon',...VEH.wagon,mesh:6+t,ctype:T[t],n:n||0};},
@@ -801,8 +806,12 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(advance(t.head,-this.length(veh)).blocked){UI.toast(`No room behind ${t.name} for another ${kind==='coach'?'coach':'wagon'}`);return;}t.veh=veh;this.place(t);Drive.refresh();},
   removeCar(tr){const t=tr||this.cur();if(!t)return;if(t.veh.length<=2){UI.toast(`${t.name} has no wagons left`);return;}t.veh.pop();t.poses.length=t.veh.length;this.place(t);Drive.refresh();},
   load(d){this.list=[];this.sel=-1;if(!d)return;for(const o of d){if(!segById(o.head.sid))continue;const veh=o.cons?[...this.consist(0,0,o.lt),...o.cons.map(q=>{if(q.w){const v=this.car(q.w,0,q.n);v.fx=q.fx;v.fz=q.fz;v.from=q.from;return v;}return this.car('coach',q.c);})]:this.consist(o.cars,o.livery,o.lt);
-    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};Ledger.load(tr,o.led);tr.mapHidden=!!o.hid;if(o.lt==='01')Fleet.unlocks.loco01=true;/* saves that already run the 01 keep it */
+    const tr={id:this.nextId++,head:o.head,v:0,throttle:0,brake:0.3,rev:1,veh,dist:0,beat:0,joint:0,whistle:false,auto:false,autoKmh:o.autoKmh||40,derailed:false,slip:false,shake:0,name:o.name||`Train ${this.list.length+1}`};Ledger.load(tr,o.led);tr.mapHidden=!!o.hid;tr.fuel=o.fuel!=null?o.fuel:1;tr.broken=o.brk||0;tr.breakWhy=o.bw;if(o.lt==='01')Fleet.unlocks.loco01=true;/* saves that already run the 01 keep it */
     this.list.push(tr);this.place(tr);Money.paidTr.add(tr.id);/* already paid for when it was bought (loading a save charged it again before 4.14.0) */}this.sel=this.list.length?0:-1;},
+  /* until there are repair and refuelling stations: a fitter or a coal lorry comes out, for money */
+  repairCost(t){return 1500;},fuelCost(t){return Math.round((1-(t.fuel==null?1:t.fuel))*2400/50)*50;},
+  repair(t){if(!(t.broken>0))return;const c=this.repairCost(t);if(Money.on())Money.spend(c,'repair '+t.name);t.broken=0;UI.toast(`${t.name} repaired${Money.on()?' for '+fmtE(c):''}`);},
+  refuel(t){const c=this.fuelCost(t);if(c<=0)return;if(Money.on())Money.spend(c,'coal and water for '+t.name);t.fuel=1;t.emptyTold=false;UI.toast(`${t.name} refuelled${Money.on()?' for '+fmtE(c):''}`);},
   rerail(){const t=this.cur();if(!t)return;t.derailed=false;t.v=0;t.derailT=0;this.place(t);UI.toast('Back on the rails');}
 };
 function locoPoint(tr,lx,ly,lz){const p=tr.poses&&tr.poses[0];if(!p)return null;const m=p.m;return[m[12]+m[0]*lx+m[4]*ly+m[8]*lz,m[13]+m[1]*lx+m[5]*ly+m[9]*lz,m[14]+m[2]*lx+m[6]*ly+m[10]*lz];}

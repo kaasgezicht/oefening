@@ -290,3 +290,7 @@ body.fplan #bar,body.fplan #mapList{display:none}
 
 #mapList.side{left:8px;transform:none;top:calc(118px + env(safe-area-inset-top));bottom:auto!important;width:min(300px,36vw);max-height:calc(100vh - 310px);overflow:auto}
 .ml-fold{display:block;width:100%;text-align:left;background:none;border:0;color:#e8c25a;font:600 calc(12.5px*var(--txt,1)) system-ui;padding:2px 2px 6px;cursor:pointer}
+
+.mm-chs{grid-column:1/-1;display:flex;flex-direction:column;gap:5px;font-size:calc(12px*var(--txt,1))}.mm-chs>div{display:flex;flex-wrap:wrap;gap:6px}
+.mm-chs button{flex:1 1 auto;min-height:40px;padding:8px 10px;border-radius:10px;border:1px solid #c9a14a70;background:#15191a;color:#f1e7d0;font:500 calc(13px*var(--txt,1)) system-ui;cursor:pointer}.mm-chs button.on{background:var(--brass);color:var(--coal);border-color:var(--brass);font-weight:700}
+.mm-grid input[type=range]{min-height:32px}

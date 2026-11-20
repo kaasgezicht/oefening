@@ -21,14 +21,17 @@ const MainMenu={np:null,pt:0,
   buildMore(){const box=$('#mmMore');if(!box||box.dataset.built)return;box.dataset.built=1;const ids=this.genIds();let html='';
     for(const [g,f] of this.GROUPS){const L=ids.filter(id=>f(PDEF[id]));if(!L.length)continue;
       html+=`<details class="mm-fold"><summary>${g}<small>${L.length}</small></summary><div class="mm-grid">`+L.map(id=>{const d=PDEF[id];
-        if(d.kind==='select')return`<label>${d.label}<select data-mk="${id}">${d.options.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select></label>`;
+        /* choices as a row of buttons (the dropdowns were hard to tap on a phone) */
+        if(d.kind==='select')return`<div class="mm-chs"><span>${d.label}</span><div>${d.options.map(o=>`<button type="button" data-mc="${id}" data-v="${o[0]}">${o[1]}</button>`).join('')}</div></div>`;
         if(d.kind==='check')return`<label class="mm-ck"><span>${d.label}</span><input type="checkbox" data-mk="${id}"></label>`;
         return`<label>${d.label} <b data-mv="${id}"></b><input type="range" data-mk="${id}" min="${d.min}" max="${d.max}" step="${d.step}"></label>`;}).join('')+`</div></details>`;}
     html+=`<button class="mm-b" id="mmDefaults">Reset these to the defaults</button>`;box.innerHTML=html;
     for(const e of box.querySelectorAll('[data-mk]')){const id=e.dataset.mk,d=PDEF[id];e.oninput=e.onchange=()=>{const v=d.kind==='check'?(e.checked?1:0):d.kind==='select'?(isNaN(+e.value)?e.value:+e.value):+e.value;this.np[id]=v;this.showVal(id);if(d.tab==='world'||d.tab==='erosion')this.preview();};}
+    for(const b of box.querySelectorAll('[data-mc]'))b.onclick=()=>{const id=b.dataset.mc,v=b.dataset.v;this.np[id]=isNaN(+v)?v:+v;this.chips();if(PDEF[id].tab==='world'||PDEF[id].tab==='erosion')this.preview();};
     $('#mmDefaults').onclick=()=>{for(const id of [...this.genIds(),...this.KEYS])this.np[id]=PDEF[id].def;this.fill();this.preview();};},
+  chips(){for(const b of document.querySelectorAll('#mmMore [data-mc]'))b.classList.toggle('on',String(this.np[b.dataset.mc])===b.dataset.v);},
   showVal(id){const b=document.querySelector(`#mmMore [data-mv="${id}"]`);if(b)b.textContent=this.fmt(PDEF[id],this.np[id]);},
-  fill(){const np=this.np;for(const k of this.KEYS)$('#mm_'+k).value=np[k];for(const e of document.querySelectorAll('#mmMore [data-mk]')){const id=e.dataset.mk;if(PDEF[id].kind==='check')e.checked=!!+np[id];else e.value=np[id];this.showVal(id);}
+  fill(){const np=this.np;for(const k of this.KEYS)$('#mm_'+k).value=np[k];for(const e of document.querySelectorAll('#mmMore [data-mk]')){const id=e.dataset.mk;if(PDEF[id].kind==='check')e.checked=!!+np[id];else e.value=np[id];this.showVal(id);}this.chips();
     const si=Math.max(0,this.SIZES.indexOf(+np.worldSize));$('#mmSize').value=si;this.sizeLabel();},
   sizeLabel(){const W=+this.np.worldSize,km=W/1024;$('#mmSizeV').textContent=`${km} × ${km} km`+(W>16384?' · heavy':W>=16384?' · large':'');},
   initNew(){const np=this.np={...P};this.buildMore();$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},

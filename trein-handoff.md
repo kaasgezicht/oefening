@@ -1,4 +1,4 @@
-# Trein handoff 89 (20 Nov 2026): v4.28.2 — glitch sweep: map view list no longer covers the map
+# Trein handoff 90 (20 Nov 2026): v4.29.0 — train breakdowns and fuel (options, off by default); New game choices as buttons; next: repair and refuelling stations
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,22 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.28.2, 20 Nov) — glitch sweep (user: "look for glitches and fix them")
+### Latest (4.29.0, 20 Nov) — breakdowns and fuel; New game choices
+- **New game**: every dropdown in the folding groups is now a row of buttons (`.mm-chs`, `data-mc`, `MainMenu.chips()`), the chosen one in
+  brass; sliders got a taller touch area. Tested on a 412 px phone: tapping sets the value.
+- **Trains menu, off by default** (core.js, train.js `step`):
+  - `breakdowns`, `breakdownRate` (per 100 km of running, 0.8), `repairTime` (the crew mends it themselves after 8 min): while running
+    under power a random breakdown (a hot axle box, a broken spring, …) takes the pull away; the train rolls to a stop; toast.
+  - `trainFuel`, `fuelRange` (km on a full tender at full power, 120): coal and water go down with distance × (0.35 + 0.65 × throttle);
+    empty = no pull, toast.
+  - Train list: "fuel n %" and the breakdown with minutes left; **Repair** (€ 1.500) and **Refuel** (€ 2.400 × the empty share) buttons
+    until the stations exist (`Trains.repair/refuel`, costs in `repairCost/fuelCost`). Saved (`fuel`, `brk`, `bw`).
+  - Tested: fuel falls while running, refuel and repair charge and restore. A breakdown during the short shunting test did not happen
+    (rare by design); the code path is the same as the forced one shown in the picture.
+- Picture: checks/newgame-chips-and-breakdowns.jpg.
+- Next (the user's plan): repair and refuelling stations (water tower, coal stage, engine shed) that do this on the line.
+
+### Earlier (4.28.2, 20 Nov) — glitch sweep (user: "look for glitches and fix them")
 - Swept a land and a Mountain-islands world (4 km, seed 777): overview, village, street, station with a train, water low and high, night,
   mist, dusk, map view, store, New game, Saves, flying. No errors in the log on either.
 - **Map view**: the "This year" list sat in the middle of a landscape screen and covered most of the map. It now folds to one line

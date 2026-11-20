@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.28.2 (map view list folds and moves aside on landscape screens)';
+const VERSION='4.29.0 (train breakdowns and fuel as options; New game choices as buttons)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -224,6 +224,12 @@ def('money',{tab:'trains',label:'Money: earn fares, pay for building (OpenTTD st
 def('fareRate',{tab:'trains',label:'Fare level',min:0.25,max:4,step:0.05,def:1,unit:'×',apply:'live'});
 def('goodsRate',{tab:'trains',label:'Goods production',min:0.2,max:4,step:0.1,def:1,unit:'×',apply:'live'});
 def('dwell',{tab:'trains',label:'Station stop time',min:10,max:90,step:1,def:30,unit:' s',apply:'live'});
+// breakdowns and fuel (4.29.0; repair and refuelling stations come later: until then Repair / Refuel in the train list, or the crew mends it)
+def('breakdowns',{tab:'trains',label:'Trains break down now and then',kind:'check',def:0,apply:'live'});
+def('breakdownRate',{tab:'trains',label:'Breakdowns: how often (per 100 km of running)',min:0.1,max:5,step:0.1,def:0.8,apply:'live'});
+def('repairTime',{tab:'trains',label:'Breakdowns: the crew mends it themselves after',min:1,max:60,step:1,def:8,unit:' min',apply:'live'});
+def('trainFuel',{tab:'trains',label:'Trains use coal and water, and can run out',kind:'check',def:0,apply:'live'});
+def('fuelRange',{tab:'trains',label:'Fuel: distance on a full tender at full power',min:10,max:500,step:5,def:120,unit:' km',apply:'live'});
 def('smoke',{tab:'trains',label:'Smoke and steam',kind:'check',def:1,apply:'live'});
 def('smokeQuality',{tab:'trains',label:'Smoke look',kind:'select',options:[[0,'Simple puffs'],[1,'Billowy (cloud noise)']],def:1,apply:'live'});
 def('chaseSmoke',{tab:'trains',label:'Smoke opacity in chase / cab view',min:0.05,max:1,step:0.05,def:0.2,apply:'live'});
