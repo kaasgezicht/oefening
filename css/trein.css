@@ -297,3 +297,12 @@ body.fplan #bar,body.fplan #mapList{display:none}
 
 .mm-pre{display:grid;grid-template-columns:1fr 1fr;gap:6px}.mm-pre button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:9px 10px;border-radius:12px;border:1px solid #c9a14a70;background:#15191ae6;color:#f1e7d0;cursor:pointer}.mm-pre button b{font:600 calc(13.5px*var(--txt,1)) system-ui}.mm-pre button small{font-size:calc(11px*var(--txt,1));opacity:.75}.mm-pre button.on{background:var(--brass);color:var(--coal);border-color:var(--brass)}
 #mmStyle{flex-wrap:wrap}#mmStyle[hidden]{display:none!important}#mmStyle button{flex:1 1 40%}
+
+/* rescue helicopter: winch buttons, missions board, the site label (4.37.0) */
+#rsUI{position:absolute;right:12px;bottom:calc(272px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;pointer-events:auto}#rsUI[hidden]{display:none}
+#rsUI button{touch-action:none;user-select:none;-webkit-user-select:none}
+#rsBoard{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);width:min(460px,94vw);max-height:76vh;overflow:auto;z-index:40}#rsBoard[hidden]{display:none}
+.rs-m{display:flex;gap:10px;align-items:center;padding:9px 10px;border-top:1px solid #c9a14a33}.rs-m i{font-style:normal;font-size:22px;width:30px;text-align:center}.rs-m div{flex:1;display:flex;flex-direction:column;gap:2px}
+.rs-m b{font:600 calc(13.5px*var(--txt,1)) system-ui}.rs-m span{font-size:calc(11.5px*var(--txt,1));opacity:.75}.rs-m.on{background:#d9402a22}
+.rs-b{display:flex;gap:8px;padding:8px 10px}.rs-b button{flex:1}
+.rsLabel{position:fixed;transform:translate(-50%,-100%);background:#d9402ae6;color:#fff;border-radius:9px;padding:3px 8px;font:600 12px system-ui;pointer-events:none;z-index:12;white-space:nowrap}

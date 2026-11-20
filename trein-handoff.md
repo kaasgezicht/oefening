@@ -1,4 +1,4 @@
-# Trein handoff 98 (20 Nov 2026): v4.36.0 — step 2 of 4 (helicopter looks and moving parts). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 99 (20 Nov 2026): v4.37.0 — step 3 of 4 (helipads, winch, missions). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,30 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.36.0, 20 Nov) — step 2 of 4: the helicopter, closer to the photos, every moving part animated
+### Latest (4.37.0, 20 Nov) — step 3 of 4: store, helipads, winch, rescue and supply missions (new js/rescue.js, after heli.js)
+- **Store**: "Rescue helicopter" €600.000 (`Fleet.unlocks.heli`, 3D preview). Fly menu offers it once bought (else a button to the
+  store); `Plane.spawn(at,'heli')` refuses without it. Main menu "Fly (plane or helicopter)".
+- **Helipads** (`Rescue.pad(s)`): beside every land airstrip at u −200, w −52 (graded apron side), 10 m radius, level and lifted by the
+  runway's slope × radius (else half sank into the sloping ground), with a 2.6 m skirt, yellow circle, white H, 8 green lights. Drawn from
+  `Air.draw` (`Rescue.drawPads`), count as ground (`Plane.groundAt` → `Rescue.padAt`). The helicopter now starts on the nearest pad.
+- **Winch**: ▼/▲ Winch buttons (hold) and a Missions button on the flying screen (`#rsUI`), controller D-pad down/up. Pays out 3 m/s
+  (the door opens first, `pl.winchOpen`), reels in 2 m/s, up to 60 m. The hook is a damped pendulum (10 ms steps) hung from the hoist
+  (`RESCUE.hoist` in the body frame), resting on ground, floating on water. It catches a person or the crate within 1.8 m by itself.
+- **Missions** (`Rescue.offer`, three at a time from the pad, one taken at a time; board `#rsBoard` from the airfield's panel button
+  "Rescue missions at the helipad" or Missions when landed on a pad):
+  - Injured hiker: lying on a slope of 32–120 % ≥ 60 m above the pad, 1.2–7 km away, a companion waving, a smoke column. Lift, reel in,
+    land on a pad (an ambulance waits beside it while someone is aboard): paid €20.000 + €8/m.
+  - Boat capsized: an upturned boat in open sea (180 m clear all round) and two people in life jackets bobbing in the swell; both.
+    €30.000 + €10/m.
+  - Medical supplies: a crate with a red cross on the pad, to a lighthouse or a village 1.5–12 km away; a ring (12 m, white/orange,
+    lit) on flat dry ground; paid when set down inside. €12.000 + €6/m.
+  - Cancel: costs a tenth of the pay (≥ €1.000) and a message of what became of the people (`Rescue.GRIEF`); the board counts lives
+    saved and lost (saved in the save file, `fleet.rescue`). A mission in progress is not saved.
+  - HUD: what to do next, distance, winch length; compass marks: H (pads) and SOS / 📦; a red label over the site with its distance.
+  - Tested on a 4 km Mountain-islands world: all three types complete and pay, cancel charges €3.000 with the message. checks/rescue-*.png.
+- Cargo flights (Air.update) are skipped while flying the helicopter.
+
+### Earlier (4.36.0, 20 Nov) — step 2 of 4: the helicopter, closer to the photos, every moving part animated
 - Parts (`HELI_PARTS`): body, glass, pilot, hub, blade (drawn 4×), swash, disc, fanB (drawn 10×), noseFork, noseWheel, mainWheel (2×), door,
   beacon, nav.
 - **Rotor**: per blade `pl.mat(hub, Ry(−ψ)·Rz(β)·Rx(−θ))`. Feathering θ = 0.02 + 0.1 × collective (thrust / weight) ± 0.07 × cyclic

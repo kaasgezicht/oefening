@@ -176,11 +176,11 @@ function heliMeshes(){
 // the collective's middle holds the height), turns coordinated in forward flight, three wheels on the ground
 // ===================================================================
 const Heli={
-  spawn(pl,at){pl.an=null;const c=Cam.target,as=at&&at.n?Air.spawnSpot([at.x,0,at.z]):Air.spawnSpot(c);if(!as){UI.toast('The helicopter starts from an airfield: build an airstrip first (Build → Airstrip)');return false;}
-    // on the strip, to one side of its first stretch (flat ground), nose along the runway
-    const sx=-Math.sin(as.h),sz=Math.cos(as.h),x=as.x+Math.cos(as.h)*60+sx*8,z=as.z+Math.sin(as.h)*60+sz*8;
+  spawn(pl,at){pl.an=null;const c=Cam.target,S=at&&at.n?Air.list.find(q=>q.n===at.n&&!q.water):null,pd=S?Rescue.pad(S):Rescue.nearestPad(c[0],c[2]);if(!pd){UI.toast('The helicopter starts from a helipad: build an airstrip first (Build → Airstrip)');return false;}
+    // on the helipad, nose along the runway
+    const as={x:pd.x,z:pd.z,h:pd.h,s:pd.s},x=pd.x,z=pd.z;Rescue.wL=0;Rescue.hook=null;Rescue.load=null;
     pl.st={p:[x,0,z],v:[0,0,0],q:Q.axis([0,1,0],-as.h),w:[0,0,0]};pl.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:1};pl.parkBrake=true;pl.gear=1;pl.gearPos=1;pl.flaps=0;pl.flapPos=0;pl.bridges=0;pl.prevP=null;pl.crashed=false;pl.on=true;pl.prop=0;pl.fanA=0;pl.rot=0;
-    pl.settle();UI.toast(`At airstrip ${as.s.n}: the rotors spin up. Slide the collective (left) above the middle to lift off; the stick tilts it, the rudder buttons turn it`);return true;},
+    pl.settle();UI.toast(`On helipad ${as.s.n}: the rotors spin up. Slide the collective (left) above the middle to lift off; the stick tilts it, the rudder buttons turn it`);return true;},
   step(pl,dt){const s=pl.st,c=pl.ctl,K=PLH,m=K.m,g=9.81;if(pl.crashed){s.v=s.v.map(v=>v*Math.max(0,1-dt*2));s.w=s.w.map(v=>v*Math.max(0,1-dt*3));return;}
     pl.rot=Math.min(1,(pl.rot||0)+dt/6);const rho=1.225*Math.exp(-s.p[1]/9000),qi=Q.inv(s.q),U=Q.rot(s.q,[0,1,0]),Fv=Q.rot(s.q,[1,0,0]),Zv=Q.rot(s.q,[0,0,1]);
     const gy=pl.groundAt(s.p[0],s.p[2]),agl=s.p[1]-K.cg-gy,vh=Math.hypot(s.v[0],s.v[2]),vb=Q.rot(qi,s.v),V=Math.hypot(...s.v);
@@ -224,7 +224,7 @@ const Heli={
     {const hf=[Fv[0],0,Fv[2]],hl=Math.hypot(hf[0],hf[2])||1,vf=(s.v[0]*hf[0]+s.v[2]*hf[2])/hl,vs=(-s.v[0]*hf[2]+s.v[2]*hf[0])/hl;if(onG){A.wa+=vf*dt/0.29;A.wn+=vf*dt/0.22;if(Math.hypot(vf,vs)>0.3)A.sw+=(clamp(Math.atan2(vs,Math.abs(vf))*Math.sign(vf||1),-1,1)-A.sw)*Math.min(1,dt*4);}}
     // the right-hand door slides open once it stands on the ground with the collective down (and for the winch, step 3)
     const want=(onG&&V<0.6&&c.thr<0.45)||pl.winchOpen?1:0;A.door+=clamp(want-A.door,-dt/2.2,dt/2.2);},
-  spin(pl,dt){pl.prop=(pl.prop+dt*(pl.rot||0)*5.8*6.283)%6.283;pl.fanA=((pl.fanA||0)+dt*(pl.rot||0)*3.1*6.283)%6.283;},
+  spin(pl,dt){Rescue.update(pl,dt);Rescue.label();pl.prop=(pl.prop+dt*(pl.rot||0)*5.8*6.283)%6.283;pl.fanA=((pl.fanA||0)+dt*(pl.rot||0)*3.1*6.283)%6.283;},
   rpm(pl){return pl.crashed?0:600+(pl.rot||0)*900+(pl.T||0)/PLH.m*40;},
   draw(pl,p){if(!R.heliMesh)R.heliMesh=heliMeshes().map(m=>R.uploadVeh(m));const M=R.heliMesh,PP=HELI_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     const K=PLH,A=pl.an||{coll:0,lon:0,lat:0,ped:0,sw:0,wa:0,wn:0,door:1},ro=pl.rot||0,ax=(v,a)=>Q.axis(v,a),mq=(...q)=>q.reduce((a,b)=>Q.mul(a,b));
@@ -245,4 +245,5 @@ const Heli={
     {const o=clamp(A.door*4,0,1),sl=clamp((A.door-0.2)/0.8,0,1);dm('door',pl.mat([-1.28*sl,0,0.06*o]));}
     // lights: steady position lights, the red anti-collision beacons flash
     dm('nav',pl.mat());const on=((App.time||0)*1.1)%1<0.12;gl.uniform3f(p.u('uLamp'),on?2:0.04,on?2:0.04,on?2:0.04);dm('beacon',pl.mat());gl.uniform3f(p.u('uLamp'),1,1,1);
+    Rescue.draw(pl,p);
     const da=clamp((ro-0.35)/0.65,0,1)*0.3;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat(K.hub));gl.uniform2f(p.u('uOcc'),0,0);}}};
