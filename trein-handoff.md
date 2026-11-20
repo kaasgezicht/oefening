@@ -1,4 +1,4 @@
-# Trein handoff 96 (20 Nov 2026): v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 97 (20 Nov 2026): v4.35.0 — step 1 of 4 (New game). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,26 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.34.0, 20 Nov) — helicopter and the user's seven-point list
+### Latest (4.35.0, 20 Nov) — step 1 of the user's 4-step list: New game
+The user's list (answers in brackets): (1) New game: only Mountain islands "for now", island size still capped, top buttons cut off;
+(2) helicopter more like the photos, every part that moves animated (blade pitch etc.), more detail; (3) helipad at the airstrip, bought
+in the store [the helicopter is the store item, the pad comes with it], a winch to lower and raise for rescue and supply missions
+[missions accepted at the airfield, money on completion, cancelling costs a small fee and a guilty message ("the people died")];
+(4) fishing boats spawnable and steerable at the docks [steer + set/haul nets at fishing grounds, sell the catch], AI boats going out
+fishing, fishermen cleaning nets on the docks. Done in steps, push after each.
+- **Mountain islands only**: the style row (`#mmStyle`) is hidden (`[hidden]` needs `display:none!important`, `.mm-row` is flex);
+  `initNew` sets `mapStyle:'peaks'`. Presets: Mountain islands, Big islands (12 km, 0.85), Scattered isles, High peaks, Green isles.
+  The other styles stay in the code.
+- **Island size** (`peakIslands`, gen.js): the land share now sets the total land (6 % + 68 % × share) and the number of islands
+  (`area/10 × (1.3 − share)`, at most `16 × (1.45 − share)`), each island's radius from those (0.75–1.25 × the mean, ≤ 0.45 W; tries
+  shrink them if they do not fit). A big island's peak grows with it (≥ 0.42 R). 32 km at 97 %: 7 islands of 2.3–7.4 km radius
+  (was ≤ 2.1 km). Old worlds keep the first layout: new hidden setting `islandGen` (def 2; `hide:true` keeps it out of the settings and
+  the New game lists), set to 1 on loading any save without it. checks/newgame-*.png.
+- **Top of the New game page cut off**: `#mainMenu` centred its card with `align-items:center` in an `overflow:auto` box, so a page taller
+  than the screen overflowed upward where it cannot scroll. Now `flex-start` + `.mm-card{margin:auto}` (still centred when short).
+- Main menu button: "Fly (plane or helicopter)".
+
+### Earlier (4.34.0, 20 Nov) — helicopter and the user's seven-point list
 - **Rescue helicopter** (new `js/heli.js`, loaded after beaver.js; `Plane.kind==='heli'`, `PLH`, `Heli.spawn/step/draw/spin/rpm`), from the
   user's five photos of orange coast-guard helicopters (Dolphin type): orange-red superelliptic body (d = metres from the nose, h = above
   the ground; origin 1.25 m up), black radome, wrap-round windscreen with black frames, cockpit door and sliding-door windows (glass 13,

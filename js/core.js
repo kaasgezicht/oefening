@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.34.0 (rescue helicopter, beam stops at hills, grass airstrip, plane focus fix, streams, wildlife)';
+const VERSION='4.35.0 (New game: mountain islands only, island size by land share, menu scrolls to the top)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -34,6 +34,7 @@ function def(id,o){o.id=id;o.kind=o.kind||'range';PDEF[id]=o;PORDER.push(id);P[i
 def('seed',{tab:'world',label:'Seed',min:1,max:99999,step:1,def:39536,apply:'world'});
 def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[12288,'12 × 12 km'],[16384,'16 × 16 km (heavy)'],[24576,'24 × 24 km (heavy)'],[32768,'32 × 32 km (heavy)']],def:8192,apply:'world'});
 def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands'],['peaks','Mountain islands']],def:'land',apply:'world'});
+def('islandGen',{tab:'world',label:'Island layout',min:1,max:2,step:1,def:2,apply:'world',hide:true});/* 1: the first mountain-island layout (fixed island sizes), kept for worlds saved before 4.35; 2: sized by the land share and the world */
 def('landShare',{tab:'world',label:'Island size (share of land)',min:0.15,max:0.97,step:0.01,def:0.5,apply:'world'});
 def('mapRes',{tab:'world',label:'Height map detail (metres between height points)',kind:'select',options:[[0,'Auto (8 m; 12-16 m above 16 km)'],[16,'16 m (faster, coarser)'],[8,'8 m'],[4,'4 m (small worlds only, slow)']],def:0,apply:'world'});
 def('maxHeight',{tab:'world',label:'Mountain height',min:80,max:1200,step:10,def:480,unit:' m',apply:'world'});
@@ -421,7 +422,7 @@ const UI=(()=>{
       const s=document.createElement('div');s.className='sec';s.dataset.tab=id;s.hidden=true;
       if(TAB_HINT[id]){const h=document.createElement('p');h.className='hint';h.textContent=TAB_HINT[id];s.appendChild(h);}
       secs.appendChild(s);}
-    for(const id of PORDER){const d=PDEF[id],sec=secs.querySelector(`.sec[data-tab="${d.tab}"]`);
+    for(const id of PORDER){const d=PDEF[id];if(d.hide)continue;const sec=secs.querySelector(`.sec[data-tab="${d.tab}"]`);
       const r=document.createElement('div');r.className='row';const lab=document.createElement('label');lab.textContent=d.label;lab.htmlFor='p_'+id;
       const val=document.createElement('span');val.className='val';r.append(lab,val);let inp;
       if(d.kind==='range'){inp=document.createElement('input');inp.type='range';inp.min=d.min;inp.max=d.max;inp.step=d.step;
@@ -844,7 +845,7 @@ function applySnapshot(s){
   const v1=(s.saveVersion||1)<2,keepTabs=new Set(['world','erosion','water','track','trains','sound']),skipV1=new Set(['maxGrade','buildGrade','gravityScale','locoTE','locoPower','waterGreen','waveStrength','foam']);
   let n=0,unk=0;for(const k in s.params){if(PDEF[k]){const d=PDEF[k];if(v1&&(!keepTabs.has(d.tab)||skipV1.has(k)))continue;let v=s.params[k];
     if(d.kind==='range'){v=+v;if(!isFinite(v))continue;v=Math.min(d.max,Math.max(d.min,v));}P[k]=v;n++;}else unk++;}
-  if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
+  if(!('islandGen' in s.params))P.islandGen=1;/* worlds saved before 4.35 keep their island layout */if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
   Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;

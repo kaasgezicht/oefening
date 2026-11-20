@@ -21,8 +21,8 @@ body{font:calc(14px*var(--txt,1))/1.4 system-ui,-apple-system,"Segoe UI",Roboto,
 #plStick{width:min(44vw,190px);height:min(44vw,190px);border-radius:50%;background:radial-gradient(circle,#ffffff22,#15191aa0);border:2px solid #c9a14a90;pointer-events:auto;touch-action:none;position:relative;display:flex;align-items:center;justify-content:center}
 #plKnob{width:56px;height:56px;border-radius:50%;background:#c9a14a;box-shadow:0 2px 8px #000a;pointer-events:none}.plRow{display:flex;gap:6px}
 body.flying #bar,body.flying .vlabel,body.flying .ilabel,body.flying #upNotes{display:none!important}
-#mainMenu{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#1e3b30cc,#0b0f10f2);backdrop-filter:blur(3px);overflow:auto;padding:16px}
-#mainMenu[hidden],.mm-page[hidden]{display:none!important}.mm-card{width:min(440px,94vw);display:flex;flex-direction:column;gap:10px;align-items:stretch;color:#f1e7d0}
+#mainMenu{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-start;justify-content:flex-start;background:radial-gradient(ellipse at 50% 30%,#1e3b30cc,#0b0f10f2);backdrop-filter:blur(3px);overflow:auto;padding:16px}
+#mainMenu[hidden],.mm-page[hidden]{display:none!important}.mm-card{margin:auto;width:min(440px,94vw);display:flex;flex-direction:column;gap:10px;align-items:stretch;color:#f1e7d0}
 .mm-logo{width:100%;max-width:340px;align-self:center;filter:drop-shadow(0 4px 10px #000a)}.mm-page{display:flex;flex-direction:column;gap:9px}
 .mm-b{font:600 calc(17px*var(--txt,1)) system-ui;padding:13px 16px;border-radius:14px;border:1px solid #c9a14a90;background:#1e3b30e6;color:#f1e7d0}.mm-b.go{background:var(--brass);color:var(--coal);border-color:var(--brass)}.mm-b:disabled{opacity:.45}
 .mm-h{font:italic 600 calc(24px*var(--txt,1)) Georgia,serif;text-align:center;margin:2px 0}.mm-note{font-size:calc(12px*var(--txt,1));opacity:.75;text-align:center}
@@ -296,4 +296,4 @@ body.fplan #bar,body.fplan #mapList{display:none}
 .mm-grid input[type=range]{min-height:32px}
 
 .mm-pre{display:grid;grid-template-columns:1fr 1fr;gap:6px}.mm-pre button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:9px 10px;border-radius:12px;border:1px solid #c9a14a70;background:#15191ae6;color:#f1e7d0;cursor:pointer}.mm-pre button b{font:600 calc(13.5px*var(--txt,1)) system-ui}.mm-pre button small{font-size:calc(11px*var(--txt,1));opacity:.75}.mm-pre button.on{background:var(--brass);color:var(--coal);border-color:var(--brass)}
-#mmStyle{flex-wrap:wrap}#mmStyle button{flex:1 1 40%}
+#mmStyle{flex-wrap:wrap}#mmStyle[hidden]{display:none!important}#mmStyle button{flex:1 1 40%}
