@@ -1,4 +1,4 @@
-# Trein handoff 103 (20 Nov 2026): v4.41.0 — improvement 2 (erosion) and the world-file match. Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 104 (20 Nov 2026): v4.42.0 — improvement 5 (shadow cache). Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,29 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.41.0, 20 Nov) — trein-improve.md step 2 (erosion) and a world-file fix
+### Latest (4.42.0, 20 Nov) — trein-improve.md step 5: a cached shadow layer
+- **Two shadow targets** (`R.shStTex/shStFb` beside `R.shTex/shFb`, same size). The static layer (terrain, wall, track, trees, Life's
+  buildings, kit houses) is drawn into shStFb only when needed; every frame it is blitted (depth) into shFb and the moving things are
+  drawn on top: `Life.draw(1)` with `R.shLayer='dyn'` (sails, mill caps, saw wheels, mine flywheel and carts, carried planks,
+  balloons), the grain arm (kit), vehicles. With `R.shLayer==='static'` those are skipped (`mv` in Life.draw).
+- **When it is redrawn**: the light matrix changed, or terrain (`R.terrVer`), track (`Net.ver`), trees (`R.vegVer`, new: bumped by
+  uploadVeg and clearVegRect), the set of instance buffers, any recorded buffer (`R.shRec` collects them during the static draw;
+  tree and kit buffers excepted, see below), the per-type count of kit houses, or the look key (season uniform at UBO 92–95 in 5 %
+  steps, snow cover at 87, trees on, kit LOD, world).
+  - `R.lightMatrix` holds still while it can: radius in steps of ×1.18 (≥ 1.15 × the old radius), centre snapped to a sixth of it,
+    the sun held until it moves 0.3°.
+  - `R.inst` no longer uploads (nor bumps `cver`) when the data is unchanged (≤ 4096 instances, compared against its own copy) or
+    stays empty: many buffers were re-uploaded identical every frame.
+  - Tree buffers change at the far edge of the view and swap near/far as the camera moves; kit houses swap LOD buckets and are
+    sorted by distance: those are judged by `R.vegVer` and per-type kit totals instead.
+- Measured: a still view redraws once; a pan at 15 m/s redraws 5 times in 60 frames (was every frame). Benchmark (software GPU,
+  412×915, CMP on/off, same frames): overview 1762 → 1161 ms (−34 %), street 2667 → 1277 ms (−52 %), triangles −35 %; SSIM 0.993/
+  0.996, the differences are specks in tree shadows (their wind sway is frozen in the cached layer until the next redraw).
+  Not measured on a phone; the setting `optShadowCache` (Experimental, on) turns it off.
+- tools/bench.js: its `town` view now looks into a cliff on today's terrain (the bench line is laid without regard to Mountain-island
+  relief); use the overview and street views, or fix the bench line next time.
+
+### Earlier (4.41.0, 20 Nov) — trein-improve.md step 2 (erosion) and a world-file fix
 - **Erosion on land only** (`genErosion`, maps with a sea): droplets that start below sea level are skipped (the rain on land is the
   same), a droplet stops when it runs 6 m under the sea, and the rockfall passes skip the deep sea floor. 8 km Mountain islands:
   erosion 7.2 → 2.8 s, a whole new world 20.4 → 14.7 s (desktop CPU). Land and peaks look the same; the shallow shelf round the coasts is

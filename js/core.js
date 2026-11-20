@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.41.1 (villages place faster: new worlds 12 s on 8 km)';
+const VERSION='4.42.0 (shadow cache: land, trees and buildings kept, only moving things redrawn)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -274,6 +274,7 @@ def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution sc
 def('dbgWater',{tab:'exp',label:'Water debug view (for screenshots to the developer)',kind:'select',options:[[0,'Off'],[1,'Depth'],[2,'Distance to shore'],[3,'Foam'],[4,'Flow']],def:0,apply:'live'});
 def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:1,apply:'live'});
 def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can drop (same picture, less memory traffic)',kind:'check',def:1,apply:'live'});
+def('optShadowCache',{tab:'exp',label:'Keep the shadows of land, trees and buildings and only redraw what moves (much cheaper shadows)',kind:'check',def:1,apply:'live'});
 def('optShadowHalf',{tab:'exp',label:'Update sun shadows every other frame (moving shadows lag one frame)',kind:'check',def:0,apply:'live'});
 def('optBackface',{tab:'exp',label:'Skip the far sides of building blocks (same picture)',kind:'check',def:1,apply:'live'});
 def('optPrepass',{tab:'exp',label:'Buildings depth-first (same picture; may help or hurt, measure)',kind:'check',def:0,apply:'live'});

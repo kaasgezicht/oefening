@@ -82,9 +82,9 @@ R.makeDepthTex=function(w,h,cmp){scratch();const t=gl.createTexture();gl.bindTex
   if(cmp){gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);}
   if(w===1){const f2=fbo([],{isTex:true,t});gl.bindFramebuffer(gl.FRAMEBUFFER,f2);gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.deleteFramebuffer(f2);}
   return t;};
-R.setupShadows=function(){if(R.shTex){gl.deleteTexture(R.shTex);gl.deleteFramebuffer(R.shFb);R.shTex=null;}
+R.setupShadows=function(){if(R.shTex){gl.deleteTexture(R.shTex);gl.deleteFramebuffer(R.shFb);R.shTex=null;}if(R.shStTex){gl.deleteTexture(R.shStTex);gl.deleteFramebuffer(R.shStFb);R.shStTex=null;R.shStFb=null;}R.shSt=null;
   const res=Math.min(+P.shadowRes,CAPS.maxTex);R.shRes=res;if(!res){R.bindSh(R.dummyShadow);Log.info('shadows off');return;}
-  R.shVP=null;R.shTex=R.makeDepthTex(res,res,true);R.shFb=fbo([],{isTex:true,t:R.shTex});R.bindSh(R.shTex);Log.info(`shadow map ${res}×${res}`);};
+  R.shVP=null;R.shTex=R.makeDepthTex(res,res,true);R.shFb=fbo([],{isTex:true,t:R.shTex});R.shStTex=R.makeDepthTex(res,res,true);R.shStFb=fbo([],{isTex:true,t:R.shStTex});/* the static layer (4.42) */R.bindSh(R.shTex);Log.info(`shadow map ${res}×${res}`);};
 
 // ---------------- static object meshes in one buffer (non-indexed flat triangles)
 R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
@@ -143,12 +143,12 @@ R.drawKit=function(pass){if(!R.kitVao)return;R.camPlanes=Cam.planes;const p=R.pK
   // depth first (experimental): the buildings' depth is laid down with a trivial shader, then the costly material shader runs once per visible pixel
   const pre=pass===0&&+P.optPrepass===1;
   for(let step=pre?0:1;step<2;step++){if(pre){if(step===0){gl.colorMask(false,false,false,false);gl.uniform1i(p.u('uPass'),2);}else{gl.colorMask(true,true,true,true);gl.uniform1i(p.u('uPass'),0);gl.depthFunc(gl.LEQUAL);}}
-  for(let l=0;l<4;l++)for(const t of KIT_TYPES){const b=R.instBufs['kit_'+t+'_'+l];if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];
+  for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==(t==='grainArm'))continue;const b=R.instBufs['kit_'+t+'_'+l];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];
     if(pass===0&&R.skip['kit'+l])continue;let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
     gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;}
   }if(pre)gl.depthFunc(gl.LESS);
   {const q=R.pKitF;gl.useProgram(q.p);gl.uniform1i(q.u('uPass'),pass);gl.uniform1f(q.u('uBackSkip'),+P.optBackface!==0?1:0);gl.uniform1f(q.u('uFlat'),R.skip.kitFlat?1:0);
-    for(let l=0;l<4;l++)for(const t of KIT_TYPES){const b=R.instBufs['kit_'+t+'_'+l+'f'];if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];if(pass===0&&R.skip['kit'+l])continue;
+    for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==(t==='grainArm'))continue;const b=R.instBufs['kit_'+t+'_'+l+'f'];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];if(pass===0&&R.skip['kit'+l])continue;
       let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
       gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;}
     gl.useProgram(p.p);}
@@ -182,10 +182,15 @@ R.drawGhost=function(){const g=R.ghost;if(!g||!R.kitVao||!R.kitMesh[g.type])retu
   gl.uniform1i(p.u('uPass'),0);gl.uniform4f(p.u('uGhost'),g.ok?0.25:0.95,g.ok?0.95:0.2,g.ok?0.35:0.15,0.62);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,1);
   gl.uniform4f(p.u('uGhost'),0,0,0,0);gl.disable(gl.BLEND);gl.depthMask(true);gl.depthFunc(gl.LESS);gl.bindVertexArray(null);};
 // instance buffers (8 floats: x y z scale | rot tint hash anim)
-R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:gl.createBuffer(),cap:0,n:0};}
+R.inst=function(key,data,n){let b=R.instBufs[key];if(!b){b=R.instBufs[key]={buf:gl.createBuffer(),cap:0,n:0,key};}
+  /* many callers upload the same instances every frame: unchanged data (up to 4096 instances) is neither uploaded nor counted as a change
+     (cver), so the shadow cache sees what really moved (4.42) */
+  if(!n&&!b.n&&b.cver){b.cpu=data;return b;}/* still empty */
+  if(n&&n===b.n&&n<=4096&&b.last&&b.last.length>=n*8){const L=b.last;let same=true;for(let i=0,e=n*8;i<e;i++)if(L[i]!==data[i]){same=false;break;}if(same){b.cpu=data;return b;}}
+  if(n&&n<=4096){if(!b.last||b.last.length<n*8)b.last=new Float32Array(Math.ceil(n*1.3)*8);b.last.set(data.subarray?data.subarray(0,n*8):data.slice(0,n*8));}else b.last=null;
   b.n=n;b.cpu=data;b.cver=(b.cver|0)+1;if(!n)return b;gl.bindBuffer(gl.ARRAY_BUFFER,b.buf);const bytes=n*32;
   if(bytes>b.cap){b.cap=Math.ceil(bytes*1.3);gl.bufferData(gl.ARRAY_BUFFER,b.cap,gl.DYNAMIC_DRAW);}gl.bufferSubData(gl.ARRAY_BUFFER,0,data.subarray(0,n*8));return b;};
-R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;let buf=b.buf,n=b.n;
+R.drawObj=function(meshKey,kind,b,pass,prog){if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)return;const m=R.mesh[meshKey];const p=prog||R.pObj;let buf=b.buf,n=b.n;
   // camera pass: leave out instances outside the view (birds fly far from their anchor, they are kept)
   if(!prog&&kind!==12&&+P.optCull!==0&&m.r&&m.count*b.n>=45000){const pl=pass===1?R.shPl:Cam.planes;/* only buffers of 15 000 triangles or more: below that, drawing costs less than sorting out */if(pl){const c=R.cullInst(b,0,m.r,pl,pass);if(c){buf=c.buf;n=c.n;}if(!n)return;}}
   gl.uniform1i(p.u('uKind'),kind);gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);
@@ -513,7 +518,7 @@ R.freeMesh=function(m){if(!m)return;try{gl.deleteVertexArray(m.vao);if(m.vb)gl.d
 R.buildVehicleMeshes=function(ms){R.veh=ms.map(M=>R.uploadVeh(M));Log.info(`rolling stock meshes: ${ms.map(m=>m.i.length/3).join(', ')} tris`);};
 
 // ---- vegetation: instances bucketed by chunk; near/far lists rebuilt when the view changes
-R.uploadVeg=function(T){const CN=16,cw=T.W/CN;R.vegB=[];const sets=[...T.veg.trees,T.veg.rocks];
+R.uploadVeg=function(T){R.vegVer=(R.vegVer|0)+1;const CN=16,cw=T.W/CN;R.vegB=[];const sets=[...T.veg.trees,T.veg.rocks];
   sets.forEach((arr,type)=>{const n=arr.length/8,cnt=new Int32Array(CN*CN+1),ck=new Int32Array(n);
     for(let k=0;k<n;k++){const c=clamp(Math.floor(arr[k*8+2]/cw),0,CN-1)*CN+clamp(Math.floor(arr[k*8]/cw),0,CN-1);ck[k]=c;cnt[c+1]++;}
     for(let c=0;c<CN*CN;c++)cnt[c+1]+=cnt[c];const pos=cnt.slice(),out=new Float32Array(arr.length);
@@ -559,7 +564,7 @@ R.patchTerrain=function(T,i0,j0,i1,j1){R.terrVer=(R.terrVer|0)+1;const N=T.N,cs=
   gl.bindTexture(gl.TEXTURE_2D,R.nTex);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,Ns);
   const cells=R.cells;for(const c of R.chunks||[]){if(c.gx>i1||c.gx+cells<i0||c.gz>j1||c.gz+cells<j0)continue;for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const y=H[j*N+i];c.y0=Math.min(c.y0,y-12);c.y1=Math.max(c.y1,y+2);}}};
 // trees and rocks inside a new plot (plus a margin) taken away, in the drawn lists and the world data
-R.clearVegRect=function(T,Q,m){let n=0;const rr=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+m+2;
+R.clearVegRect=function(T,Q,m){R.vegVer=(R.vegVer|0)+1;let n=0;const rr=Math.max(-Q.x0,Q.x1,-Q.z0,Q.z1)+m+2;
   const CN=16,cw=T.W/CN,c0=clamp(Math.floor((Q.x-rr)/cw),0,CN-1),c1=clamp(Math.floor((Q.x+rr)/cw),0,CN-1),r0=clamp(Math.floor((Q.z-rr)/cw),0,CN-1),r1=clamp(Math.floor((Q.z+rr)/cw),0,CN-1);
   for(const B of R.vegB||[]){const D=B.data;for(let cj=r0;cj<=r1;cj++)for(let ci=c0;ci<=c1;ci++){const ch=cj*CN+ci;for(let k=B.start[ch];k<B.start[ch+1];k++){const x=D[k*8],z=D[k*8+2];if(Math.abs(x-Q.x)>rr||Math.abs(z-Q.z)>rr||!(D[k*8+3]>0))continue;if(VG.inRect(Q,x,z,m)){D[k*8+3]=0;B.orig[k]=0;n++;}}}}
   for(const arr of [...((T.veg&&T.veg.trees)||[]),(T.veg&&T.veg.rocks)||[]])for(let k=0;k+3<arr.length;k+=8)if(Math.abs(arr[k]-Q.x)<rr&&Math.abs(arr[k+2]-Q.z)<rr&&VG.inRect(Q,arr[k],arr[k+2],m))arr[k+3]=0;
@@ -622,7 +627,12 @@ R.fillUBO=function(cam,A,lightVP){const U=R.U,T=R.world,E=A.E;
   const res=R.shRes&&A.keyUp?R.shRes:0;
   U.set([lights.length,0,res?R.shTexel:0,res?1/res:0],128);U.set(Weather.boltU(),324);U.set([Clouds.base,Clouds.thick,Clouds.M,Clouds.inv],328);U.set([-Clouds.off[0],-Clouds.off[1],E.dark+E.storm*0.3,Clouds.dens],332);U.fill(0,336,372);if(typeof Coast!=='undefined')Coast.beamU(U,A);
   gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferSubData(gl.UNIFORM_BUFFER,0,U);};
-R.lightMatrix=function(A){const F=R.focus,Lr=clamp(R.focusDist*0.95,140,1500)*(1+0.25*Math.abs(A.key[0]));let L=A.key;if(L[1]<0.08)L=[L[0],0.08,L[2]];const l=Math.hypot(...L);L=L.map(v=>v/l);
+R.lightMatrix=function(A){let F=R.focus,Lr=clamp(R.focusDist*0.95,140,1500)*(1+0.25*Math.abs(A.key[0]));let L=A.key;if(L[1]<0.08)L=[L[0],0.08,L[2]];const l=Math.hypot(...L);L=L.map(v=>v/l);
+  /* with the shadow cache (4.42) the frustum keeps still while it can: its size in steps of 18 %, its centre on a grid of a sixth of it
+     (15 % larger, so the snapped centre still covers the view), the sun held until it has moved 0.3°; the static layer is drawn again
+     only when one of these, or what it shows, changes */
+  if(R.shStFb&&+P.optShadowCache!==0){const st=1.18;Lr=140*Math.pow(st,Math.ceil(Math.log(Lr*1.15/140)/Math.log(st)));const g=Lr/6;F=[Math.round(F[0]/g)*g,Math.round(F[1]/g)*g,Math.round(F[2]/g)*g];
+    if(R.shL&&R.shL[0]*L[0]+R.shL[1]*L[1]+R.shL[2]*L[2]>0.999986)L=R.shL;else R.shL=L;}
   const eye=[F[0]+L[0]*3000,F[1]+L[1]*3000,F[2]+L[2]*3000],up=Math.abs(L[1])>0.95?[1,0,0]:[0,1,0];let view=M4.lookAt(eye,F,up);
   const res=R.shRes||1024,tex=2*Lr/res;const c=M4.xform(view,F[0],F[1],F[2],1);const sx=Math.round(c[0]/tex)*tex-c[0],sy=Math.round(c[1]/tex)*tex-c[1];
   view[12]+=sx;view[13]+=sy;R.shTexel=tex;return M4.mul(M4.ortho(-Lr,Lr,-Lr,Lr,100,6500),view);};
@@ -655,8 +665,22 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
   R.shKeyUp=A.keyUp;if(T&&R.shFb&&A.keyUp&&!S.shadow&&!shReuse){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
     gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1.6,4);
     R.bindSh(R.dummyShadow);
-    R.shPl=frustumPlanes(lightVP);R.drawTerrain(cam,1,R.shPl);R.drawWall(1);R.drawTrack(1);R.pm('sh-terrain');
-    gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),1);gl.bindVertexArray(R.objVao);R.drawVeg(1);R.pm('sh-veg');Life.draw(1);R.pm('sh-life');R.drawKit(1);R.pm('sh-kit');
+    R.shPl=frustumPlanes(lightVP);
+    const statics=()=>{R.drawTerrain(cam,1,R.shPl);R.drawWall(1);R.drawTrack(1);R.pm('sh-terrain');
+      gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),1);gl.bindVertexArray(R.objVao);R.drawVeg(1);R.pm('sh-veg');Life.draw(1);R.pm('sh-life');R.drawKit(1);R.pm('sh-kit');};
+    if(R.shStFb&&+P.optShadowCache!==0){
+      /* the cached static layer (land, wall, track, trees, buildings) is still right when the frustum is the same and nothing it drew
+         has been uploaded again since: every instance buffer it used is recorded with its upload count, plus the terrain and track versions */
+      /* trees and kit houses move between detail levels (buffers) as the camera moves: for those only each type's total count must stay (a
+         tree's shadow from its near or far mesh differs too little to matter until the next redraw) */
+      /* trees: which ones are in the buffers changes only at the far edge of the view (far outside the shadow area), so they count as changed only when trees are cleared or planted (R.vegVer) */
+      const grp=k=>{const m=/^(veg\d)_|^(kit_[A-Za-z]+?)_\d/.exec(k||'');return m?(m[1]||m[2]):null;},sums=()=>{const o={};for(const k in R.instBufs){const g=grp(k);if(g&&g[0]==='k')o[g]=(o[g]|0)+R.instBufs[k].n;}return o;};
+      const look=Array.from(R.U.subarray(92,96),v=>Math.round(v*20)).join(',')+'|'+Math.round((R.U[87]||0)*10)+'|'/* the season (leaves fall gradually) and the snow cover, in steps of 5 % / 10 % */+'|'+(+P.treesOn||0)+'|'+(+P.kitLod||1)+'|'+(R.world?R.world.W:0),S0=R.shSt,same=S0&&S0.look===look&&S0.terr===(R.terrVer|0)&&S0.veg===(R.vegVer|0)&&S0.net===Net.ver&&S0.nb===Object.keys(R.instBufs).length&&S0.vp.every((v,i)=>v===lightVP[i])&&S0.rec.every(q=>q[3]||(q[0].cver===q[1]&&q[0].n===q[2]))&&(()=>{const o=sums();for(const g in S0.sums)if(o[g]!==S0.sums[g])return false;return true;})();
+      if(!same){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shStFb);gl.clear(gl.DEPTH_BUFFER_BIT);R.shRec=[];R.shLayer='static';statics();R.shLayer=null;
+        R.shSt={look,vp:Array.from(lightVP),terr:R.terrVer|0,veg:R.vegVer|0,net:Net.ver,nb:Object.keys(R.instBufs).length,rec:R.shRec.map(b=>[b,b.cver,b.n,!!grp(b.key)]),sums:sums()};R.shRec=null;R.shRedraw=(R.shRedraw|0)+1;}
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.shStFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.shFb);gl.blitFramebuffer(0,0,R.shRes,R.shRes,0,0,R.shRes,R.shRes,gl.DEPTH_BUFFER_BIT,gl.NEAREST);gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);
+      gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),1);gl.bindVertexArray(R.objVao);R.shLayer='dyn';Life.draw(1);R.drawKit(1);R.shLayer=null;R.pm('sh-cache');}
+    else statics();
     R.drawVehicles(1);R.pm('sh-veh');
     gl.disable(gl.POLYGON_OFFSET_FILL);R.bindSh(R.shTex);}
   // opaque scene
