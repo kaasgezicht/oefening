@@ -90,6 +90,17 @@ async function coastShape(p,H,mmA,N,cs,W,y){let sea=null;const PK=p.mapStyle==='
         const t=smooth(0.2,0.7,m),hl=H[k]*smooth(0.45,1,m)*ramp*(p.mapStyle==='islands'||PK?0.6:1);H[k]=Math.max(0.5,lerp(sea-30-20*(1-m),sea+1.5+hl,t));mmA[k]*=smooth(0.5,1,m)*(0.3+0.7*ramp);}if(y&&j%64===0)await y(0.5+j/N*0.5,'Shaping the coast');}
     for(let i=0;i<N;i++)for(const c of [i,(N-1)*N+i,i*N,i*N+N-1])H[c]=sea;}
   return sea;}
+/* flat lake shores (4.31.0): after the water, the land within shoreW of a lake (not the sea, which coastShape shapes) is pulled toward the
+   lake's level, never below it, so banks become gentle and villages fit; water cells and the lakes themselves stay as they are */
+function flattenShores(p,T){const sf=clamp(+p.shoreFlat||0,0,2);if(!sf||!T.water)return 0;const N=T.N,cs=T.cs,H=T.H,Wt=T.water,D=new Float32Array(N*N),Lv=new Float32Array(N*N),INF=1e9,d1=cs,d2=cs*1.4142,shoreW=30+200*sf;
+  const isL=k=>Wt[k*4+3]>0.75&&Wt[k*4+3]<1.5&&!(T.sea!=null&&Math.abs(Wt[k*4]-T.sea)<0.7),big=new Uint8Array(N*N),seen=new Uint8Array(N*N),minC=Math.ceil(60000/(cs*cs));/* lakes of 6 ha and more */
+  for(let k0=0;k0<N*N;k0++){if(seen[k0]||!isL(k0))continue;const st=[k0],cells=[];seen[k0]=1;while(st.length){const k=st.pop();cells.push(k);const i=k%N,j=(k/N)|0;for(const q of [i>0?k-1:-1,i<N-1?k+1:-1,j>0?k-N:-1,j<N-1?k+N:-1])if(q>=0&&!seen[q]&&isL(q)){seen[q]=1;st.push(q);}}if(cells.length>=minC)for(const k of cells)big[k]=1;}
+  for(let k=0;k<N*N;k++){D[k]=big[k]?0:INF;Lv[k]=big[k]?Wt[k*4]:0;}
+  const relax=(k,q,d)=>{if(D[q]+d<D[k]){D[k]=D[q]+d;Lv[k]=Lv[q];}};
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;if(!D[k])continue;if(i>0)relax(k,k-1,d1);if(j>0){relax(k,k-N,d1);if(i>0)relax(k,k-N-1,d2);if(i<N-1)relax(k,k-N+1,d2);}}
+  for(let j=N-1;j>=0;j--)for(let i=N-1;i>=0;i--){const k=j*N+i;if(!D[k])continue;if(i<N-1)relax(k,k+1,d1);if(j<N-1){relax(k,k+N,d1);if(i<N-1)relax(k,k+N+1,d2);if(i>0)relax(k,k+N-1,d2);}}
+  let n=0;for(let k=0;k<N*N;k++){const d=D[k];if(d<=0||d>=shoreW||Wt[k*4+3]>0)continue;const lv=Lv[k]+0.4,h=H[k];if(h<=lv)continue;const r=Math.pow(d/shoreW,1.3);H[k]=lv+(h-lv)*r;n++;}
+  return n;}
 // ---- the new-game preview: the same land (terrain, big mountains, coast) at a coarse grid, without erosion, rivers and lakes; drawn as a
 // shaded relief map into a canvas. About 0.1-0.3 s for 192 x 192 cells, so the settings can be tweaked live.
 async function previewLand(p,n){const W=p.worldSize,cs=W/n,fn=makeTerrainFn(p),raw=new Float32Array(n*n),mm=new Float32Array(n*n),o={mm:0};let mn=1e9,mx=-1e9;

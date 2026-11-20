@@ -1,4 +1,4 @@
-# Trein handoff 91 (20 Nov 2026): v4.30.0 — low hills and mountains in one world, flat coastal land, bays with bay villages; the title is off the game screen
+# Trein handoff 92 (20 Nov 2026): v4.31.0 — flat lake shores on every map
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,14 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.30.0, 20 Nov) — relief variety, flat coasts, bays
+### Latest (4.31.0, 20 Nov) — flat lake shores
+- `flattenShores(p,T)` (gen.js, called in App.generate after the water, before H0): lakes of 6 ha and more (not the sea) get a band of
+  30 + 200 × shoreFlat m round them where the land is pulled toward the lake's level (never below it, + 0.4 m): h = lvl + (h - lvl) ×
+  (d / band)^1.3; water cells untouched, so the lakes stay as they are. The setting is now "Flat shores (sea coasts and lakes)".
+- Tested (4 km land, seed 4242, mountains 0.8, max height 600): rise over the first 100 m from the biggest lake: median 39 → 23 m, 80th
+  percentile 69 → 38 m; villages by lakes 7-8 of 8 either way. checks/lake-shores-off-on.jpg.
+
+### Earlier (4.30.0, 20 Nov) — relief variety, flat coasts, bays
 - The "Trein" title is gone from the game screen (#hud keeps the clock, stats and money).
 - **Low hills and mountains** (`reliefFn` in gen.js, applied after shapeHeight in genTerrain and the preview, before the big mountains):
   a large-scale mask (0.3 × world size) turns `reliefMix` (0.5) of the land into low rolling hills at `hillHeight` (0.15) of the height,

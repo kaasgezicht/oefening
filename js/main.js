@@ -151,7 +151,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
       if(from<=1){st=W[1];const B=this.base;const E={N:B.N,W:B.W,cs:B.cs,mm:B.mm,norm:B.norm,sea:B.sea,H:new Float32Array(B.H),flow:null,depo:null};
         if(P.erosionOn&&P.dropletsPerCell>0)await genErosion(P,E,y);this.eroded=E;times.push('erosion '+(performance.now()-t).toFixed(0));t=performance.now();}
       if(from<=2){st=W[2];const E=this.eroded;T={...E,H:new Float32Array(E.H),stats:{}};
-        await genWater(P,T,y);if(bigLakeArea(T)<Math.min(400000,T.W*T.W*0.025)){const T2={...E,H:new Float32Array(E.H),stats:{}},b=carveLakeBowl(T2,P.seed|0);await genWater(P,T2,y);T=T2;Log.info(`no big lake: carved a lake basin (r ${b.R.toFixed(0)} m) at ${b.x.toFixed(0)},${b.z.toFixed(0)}, now ${(bigLakeArea(T)/10000).toFixed(0)} ha`);}T.H0=new Float32Array(T.H);carveTrack(T);genMaps(P,T);times.push('water+maps '+(performance.now()-t).toFixed(0));t=performance.now();}
+        await genWater(P,T,y);if(bigLakeArea(T)<Math.min(400000,T.W*T.W*0.025)){const T2={...E,H:new Float32Array(E.H),stats:{}},b=carveLakeBowl(T2,P.seed|0);await genWater(P,T2,y);T=T2;Log.info(`no big lake: carved a lake basin (r ${b.R.toFixed(0)} m) at ${b.x.toFixed(0)},${b.z.toFixed(0)}, now ${(bigLakeArea(T)/10000).toFixed(0)} ha`);}{const nf=flattenShores(P,T);if(nf)Log.info(`flat lake shores: ${nf} cells`);}T.H0=new Float32Array(T.H);carveTrack(T);genMaps(P,T);times.push('water+maps '+(performance.now()-t).toFixed(0));t=performance.now();}
       else T=this.T;
       st=W[3];if(from<=3){await genVegetation(P,T,y);T.vegOrig=null;T.Hr=null;times.push('vegetation '+(performance.now()-t).toFixed(0));t=performance.now();
         if(+P.worldCache!==0&&!Bench.on)WorldCache.store(ckey||WorldCache.key(P),T);}
