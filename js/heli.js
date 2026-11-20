@@ -45,6 +45,11 @@ function heliMeshes(){
     for(const sd of [-1,1]){const ci=V(M,[c[0],c[1],z0+sd*th],[0,0,sd],col,mat);for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%n];M.i.push(ci,V(M,[a[0],a[1],z0+sd*th],[0,0,sd],col,mat),V(M,[b[0],b[1],z0+sd*th],[0,0,sd],col,mat));}}
     for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%n],e=nrm([b[1]-a[1],-(b[0]-a[0]),0]),en=[e[0],e[1],0];quad(M,[a[0],a[1],z0-th],[b[0],b[1],z0-th],[b[0],b[1],z0+th],[a[0],a[1],z0+th],en,col,mat);}};
   const X=d=>4.3-d,Y=h=>h-1.25;
+  // a crew member seated facing forward (or, with side, facing the right-hand door): flight suit, white helmet, dark visor
+  const person=(M,d,z,side)=>{const SU=side?[0.9,0.35,0.12]:SUIT;if(side){box(M,[X(d),Y(1.08),z],[0.18,0.24,0.14],SU,MATTE);ball(M,[X(d),Y(1.48),z+0.02],0.13,[1,1.1,1],HELM,PAINT,12);box(M,[X(d),Y(1.46),z+0.1],[0.1,0.05,0.05],BK,PAINT);
+      for(const s2 of [-1,1])box(M,[X(d)+s2*0.12,Y(0.95),z+0.2],[0.05,0.05,0.2],SU,MATTE);return;}
+    box(M,[X(d),Y(1.18),z],[0.14,0.24,0.18],SUIT,MATTE);ball(M,[X(d)+0.02,Y(1.58),z],0.13,[1,1.1,1],HELM,PAINT,12);box(M,[X(d)+0.1,Y(1.56),z],[0.05,0.05,0.1],BK,PAINT);
+    for(const s2 of [-1,1])box(M,[X(d)+0.22,Y(1.05),z+s2*0.12],[0.22,0.05,0.05],SUIT,MATTE);};
 
   // ================================================================ the fuselage: superelliptic sections along d
   const top=mono([[0,0.76],[0.06,0.98],[0.2,1.1],[0.55,1.22],[1.0,1.32],[1.25,1.5],[1.6,1.86],[1.95,2.1],[2.4,2.22],[4.6,2.22],[5.4,2.14],[6.4,1.98],[7.6,1.82],[9.0,1.72],[9.8,1.68]]),
@@ -57,9 +62,10 @@ function heliMeshes(){
   const sideZ=(d,h)=>{const tp=top(d),bt=bot(d),m=exf(d),yc=(tp+bt)/2,a=(tp-bt)/2,q=clamp(Math.abs((h-yc)/a),0,1);return hw(d)*Math.pow(Math.max(0,1-Math.pow(q,m)),1/m);};
   const rr=(d,h,d0,d1,h0,h1,r)=>{const cx=clamp(d,d0+r,d1-r),cy=clamp(h,h0+r,h1-r);return Math.hypot(d-cx,h-cy)<=r&&d>=d0&&d<=d1&&h>=h0&&h<=h1;};
   const WIN=[[2.16,2.95,1.33,2.0,0.1],[3.2,4.12,1.38,1.95,0.08]];
+  const DOOR=[3.08,4.36,0.95,2.1],inDoor=(d,h,z)=>z>0&&d>DOOR[0]&&d<DOOR[1]&&h>DOOR[2]&&h<DOOR[3];/* the right-hand sliding door */
   const glassAt=(d,h,z)=>{if(d>1.24&&d<2.06&&h>1.3&&(d<1.9||h<top(d)-0.07)&&Math.abs(z)>0.03)return true;for(const w of WIN)if(rr(d,h,...w))return true;return false;};
   const bandF=h=>7.25-(h-1.1)*0.62;// the white band's front edge leans forward at the top
-  const paint=(d,t)=>{const p=F(d,t),h=p[1]+1.25,z=p[2];if(glassAt(d,h,z))return null;
+  const paint=(d,t)=>{const p=F(d,t),h=p[1]+1.25,z=p[2];if(glassAt(d,h,z)||inDoor(d,h,z))return null;
     if(d<1.16+Math.max(0,h-0.95)*0.25&&h<1.42)return[BK,MATTE];// the radome
     if(d<2.08&&h>1.18&&d>1.0)return[BK,PAINT];// the windscreen frame
     for(const w of WIN)if(rr(d,h,w[0]-0.035,w[1]+0.035,w[2]-0.035,w[3]+0.035,w[4]+0.03))return[BK,PAINT];// window frames
@@ -70,23 +76,36 @@ function heliMeshes(){
   const body=vmesh(),dS=[];for(let d=0;d<9.75;d+=d<1.4||(d>6.2&&d<8.4)?0.02:0.04)dS.push(d);dS.push(9.75,2.08-0.012,2.08+0.012,3.0-0.012,3.0+0.012,3.08-0.012,3.08+0.012,4.36-0.012,4.36+0.012);
   const ds=[...new Set(dS.map(v=>+v.toFixed(4)))].sort((a,b)=>a-b),ts=range(0,Math.PI*2,112);
   surf(body,F,ds,ts,paint,{ev:1e-3});
-  const glass=vmesh();surf(glass,F,ds.filter(d=>d>1.2&&d<4.2),ts,(d,t)=>{const p=F(d,t);return glassAt(d,p[1]+1.25,p[2])?[GLs,GLASS]:null;},{ev:1e-3});
+  const glass=vmesh();surf(glass,F,ds.filter(d=>d>1.2&&d<4.2),ts,(d,t)=>{const p=F(d,t);return glassAt(d,p[1]+1.25,p[2])&&!inDoor(d,p[1]+1.25,p[2])?[GLs,GLASS]:null;},{ev:1e-3});
   // the end of the boom inside the tail rotor's shroud
   {const d=9.75,c0=V(body,[X(d)-0.01,Y((top(d)+bot(d))/2),0],[-1,0,0],OR,PAINT);for(let k=0;k<32;k++){const a=F(d,k/32*Math.PI*2),b=F(d,(k+1)/32*Math.PI*2);body.i.push(c0,V(body,b,[-1,0,0],OR,PAINT),V(body,a,[-1,0,0],OR,PAINT));}}
   // inside: a dark lining, the floor, the panel, seats
-  surf(body,(d,t)=>F(d,t,0.05),ds.filter(d=>d>1.15&&d<4.4),ts,(d,t)=>{const p=F(d,t);return glassAt(d,p[1]+1.25,p[2])?null:[INT,INTM];},{ev:1e-3,flip:true});/* open behind the glass */
+  surf(body,(d,t)=>F(d,t,0.05),ds.filter(d=>d>1.15&&d<4.4),ts,(d,t)=>{const p=F(d,t);return glassAt(d,p[1]+1.25,p[2])||inDoor(d,p[1]+1.25,p[2])?null:[INT,INTM];},{ev:1e-3,flip:true});/* open behind the glass and the door */
   box(body,[X(2.8),Y(0.62),0],[1.5,0.03,0.82],INT,INTM);box(body,[X(1.5),Y(1.28),0],[0.09,0.14,0.62],[0.08,0.08,0.09],MATTE);box(body,[X(1.45),Y(1.42),0],[0.16,0.02,0.64],[0.05,0.05,0.06],MATTE);
   for(const z of [-0.38,0.38]){box(body,[X(2.45),Y(0.82),z],[0.25,0.06,0.22],[0.2,0.2,0.22],INTM);box(body,[X(2.72),Y(1.2),z],[0.05,0.38,0.22],[0.2,0.2,0.22],INTM);}
   for(const z of [-0.45,0,0.45])box(body,[X(4.0),Y(0.85),z],[0.22,0.05,0.2],[0.25,0.25,0.27],INTM);
   // the white sill line, on the skin
   for(const sd of [-1,1]){let prv=null;for(let d=1.2;d<=6.3;d+=0.05){const ha=0.9,hb=0.955,za=sideZ(d,ha)+0.008,zb=sideZ(d,hb)+0.008,q=[V(body,[X(d),Y(ha),sd*za],[0,0,sd],WH,PAINT),V(body,[X(d),Y(hb),sd*zb],[0,0,sd],WH,PAINT)];if(prv)body.i.push(prv[0],q[0],q[1],prv[0],q[1],prv[1]);prv=q;}}
   // lettering from a canvas: one quad per run of pixels, laid on the skin; on the left side it reads from the nose back, on the right from the tail forward
-  const letter=(text,font,W,H,d0,len,h1,ht,col,zf)=>{if(typeof document==='undefined')return;const cv=document.createElement('canvas'),gx=cv.getContext('2d');cv.width=W;cv.height=H;gx.fillStyle='#000';gx.fillRect(0,0,W,H);
+  const letter=(text,font,W,H,d0,len,h1,ht,col,zf,M,sides)=>{M=M||body;sides=sides||[-1,1];if(typeof document==='undefined')return;const cv=document.createElement('canvas'),gx=cv.getContext('2d');cv.width=W;cv.height=H;gx.fillStyle='#000';gx.fillRect(0,0,W,H);
     gx.font=font;gx.textBaseline='middle';gx.fillStyle='#f00';gx.fillText(text,2,H/2+1);const dd=gx.getImageData(0,0,W,H).data;
-    for(const sd of [-1,1])for(let y=0;y<H;y++){let run=-1;for(let x=0;x<=W;x++){const on=x<W&&dd[(y*W+x)*4]>110;if(on&&run<0)run=x;if(!on&&run>=0){const fd=a=>sd<0?d0+(a/W)*len:d0+len-(a/W)*len,da=fd(run),db=fd(x),ha=h1-y/H*ht,hb=h1-(y+1)/H*ht,
-        P4=[[da,ha],[db,ha],[db,hb],[da,hb]].map(([d,h])=>[X(d),Y(h),sd*(zf(d,h)+0.011)]),ix=P4.map(p=>V(body,p,[0,0,sd],col,PAINT));body.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);run=-1;}}}};
-  letter('U.S. COAST GUARD','bold 30px Arial',330,40,4.55,2.05,1.7,0.26,NAVY,sideZ);
+    for(const sd of sides)for(let y=0;y<H;y++){let run=-1;for(let x=0;x<=W;x++){const on=x<W&&dd[(y*W+x)*4]>110;if(on&&run<0)run=x;if(!on&&run>=0){const fd=a=>sd<0?d0+(a/W)*len:d0+len-(a/W)*len,da=fd(run),db=fd(x),ha=h1-y/H*ht,hb=h1-(y+1)/H*ht,
+        P4=[[da,ha],[db,ha],[db,hb],[da,hb]].map(([d,h])=>[X(d),Y(h),sd*(zf(d,h)+0.011)]),ix=P4.map(p=>V(M,p,[0,0,sd],col,PAINT));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);run=-1;}}}};
+  letter('U.S. COAST GUARD','bold 30px Arial',330,40,4.95,1.85,1.72,0.24,NAVY,sideZ);
 
+  const insignia=(M,d,h,sd,zf)=>{const S=(dd,hh,o)=>[X(dd),Y(hh),sd*(zf(dd,hh)+0.011+(o||0))],r=0.17,tri=(a,b,c,col,o)=>{const ix=[a,b,c].map(q=>V(M,S(q[0],q[1],o),[0,0,sd],col,PAINT));M.i.push(...ix);};
+    for(const s2 of [-1,1]){const bx=d+s2*r*0.5,ex=d+s2*(r+0.2);for(const [h0,h1,col,o] of [[h-0.085,h+0.085,WH,0],[h-0.035,h+0.035,RED,0.002]]){tri([bx,h0],[ex,h0],[ex,h1],col,o);tri([bx,h0],[ex,h1],[bx,h1],col,o);}}
+    for(let k=0;k<24;k++){const a0=k/24*6.283,a1=(k+1)/24*6.283;tri([d,h],[d+Math.cos(a0)*r,h+Math.sin(a0)*r],[d+Math.cos(a1)*r,h+Math.sin(a1)*r],[0.08,0.14,0.42],0.003);}
+    for(let k=0;k<5;k++){const a=Math.PI/2+k*1.2566,ai=a+0.6283,R1=r*0.92,R2=R1*0.382;tri([d,h],[d+Math.cos(a)*R1,h+Math.sin(a)*R1],[d+Math.cos(ai)*R2,h+Math.sin(ai)*R2],WH,0.005);tri([d,h],[d+Math.cos(a-0.6283)*R2,h+Math.sin(a-0.6283)*R2],[d+Math.cos(a)*R1,h+Math.sin(a)*R1],WH,0.005);}};
+  insignia(body,3.95,1.18,-1,sideZ);
+  for(const sd of [-1,1]){tube(body,[X(1.42),Y(1.36),sd*0.22],[X(1.26),Y(1.62),sd*0.36],0.009,0.007,5,BK,MATTE,true);}// wipers
+  for(const [d,h,y2] of [[5.3,0.6,0.38],[6.2,0.95,0.78]])slab(body,[[d,h],[d+0.28,h],[d+0.34,y2],[d+0.2,y2]],0.012,BK,MATTE);// belly antennas
+  slab(body,[[6.3,2.0],[6.55,2.0],[6.62,2.32],[6.5,2.32]],0.012,BK,MATTE);// antenna on the boom
+  for(const h of [0.97,2.12])tube(body,[X(3.0),Y(h),0.925],[X(5.55),Y(h),sideZ(5.55,h)+0.03],0.012,0.012,5,GR,CHROME);// the door's rails
+  {const sx=X(DOOR[0]),ex=X(DOOR[1]);for(const [a,b] of [[[DOOR[0],DOOR[2]],[DOOR[0],DOOR[3]]],[[DOOR[1],DOOR[2]],[DOOR[1],DOOR[3]]],[[DOOR[0],DOOR[3]],[DOOR[1],DOOR[3]]],[[DOOR[0],DOOR[2]],[DOOR[1],DOOR[2]]]])
+    tube(body,[X(a[0]),Y(a[1]),sideZ(a[0],a[1])-0.01],[X(b[0]),Y(b[1]),sideZ(b[0],b[1])-0.01],0.025,0.025,6,BK,MATTE);}// the door frame
+  person(body,3.75,0.42,true);// the hoist operator, on the bench by the door
+  for(const sd of [-1,1])for(const d of [2.5,4.0])tube(body,[X(d),Y(0.62),sd*(sideZ(d,0.62)-0.02)],[X(d+0.25),Y(0.62),sd*(sideZ(d+0.25,0.62)-0.02)],0.02,0.02,5,GR,CHROME);// footsteps
   // ================================================================ the engine fairing on top, intakes, exhausts, the hoist
   const dtp=mono([[2.35,2.18],[2.55,2.55],[2.9,2.84],[3.4,2.95],[4.4,2.95],[5.0,2.8],[5.6,2.42],[5.8,2.25]]),dhw=mono([[2.35,0.12],[2.6,0.42],[3.0,0.6],[4.6,0.62],[5.3,0.5],[5.8,0.32]]);
   const G=(d,t)=>{const hb=2.05,ht=dtp(d),b=dhw(d);return[X(d),Y(hb+(ht-hb)*sp(Math.cos(t),3.4)),b*sp(Math.sin(t),3.4)];};
@@ -97,7 +116,7 @@ function heliMeshes(){
   {const z=1.02;tube(body,[X(3.2),Y(2.62),0.55],[X(3.25),Y(2.56),z],0.07,0.06,10,OR,PAINT,true);tube(body,[X(3.85),Y(2.52),z],[X(3.0),Y(2.52),z],0.16,0.16,16,OR,PAINT,true);ball(body,[X(3.0),Y(2.52),z],0.16,[1,1,1],BK,MATTE,14);
     tube(body,[X(3.4),Y(2.37),z],[X(3.4),Y(1.95),z],0.012,0.012,5,GR,CHROME);ball(body,[X(3.4),Y(1.93),z],0.05,[1,1,1],GR,CHROME,8);}// the hoist, its cable and hook
   // the rotor mast and hub (static part), the cap on top
-  tube(body,[0,Y(2.9),0],[0,Y(3.42),0],0.14,0.11,14,GR,CHROME);
+  tube(body,[0,Y(2.9),0],[0,Y(3.42),0],0.14,0.11,14,GR,CHROME);tube(body,[0,Y(2.88),0],[0,Y(3.05),0],0.52,0.42,24,OR,PAINT,true);// the mast and its fairing
   // ================================================================ the tail: shroud (fenestron), fin, number, tailplane, end plates
   const fc=[X(10.5),Y(1.55)],Ro=0.98,Ri=0.6,wz=0.2;
   {const ring=(r0,r1,col,sd)=>surf(body,(r,a)=>[fc[0]+Math.cos(a)*r,fc[1]+Math.sin(a)*r,sd*wz],[r0,r1],range(0,Math.PI*2,48),()=>[col,PAINT]);for(const sd of [-1,1]){ring(Ri,Ri+0.08,WH,sd);ring(Ri+0.08,Ro,OR,sd);}
@@ -107,9 +126,8 @@ function heliMeshes(){
     ball(body,[fc[0],fc[1],0.07],0.17,[1,1,0.5],LG,PAINT,16);}
   slab(body,[[10.08,2.15],[10.86,3.8],[11.26,3.8],[11.46,1.5],[10.6,1.6]],0.065,OR,PAINT);
   slab(body,[[10.75,0.62],[11.3,0.62],[11.38,0.3],[11.08,0.3]],0.04,OR,PAINT);// the little fin under the shroud
-  ball(body,[X(11.0),Y(3.83),0],0.065,[1.4,1,1],RED,PAINT,8);ball(body,[X(3.2),Y(0.33),0],0.06,[1.4,1,1],RED,PAINT,8);// beacons
   box(body,[X(9.38),Y(1.38),0],[0.28,0.035,1.46],OR,PAINT);
-  for(const sd of [-1,1])slab(body,[[9.05,0.78],[9.62,0.82],[9.78,1.95],[9.38,1.9]],0.03,OR,PAINT,sd*1.47);
+  for(const sd of [-1,1])slab(body,[[9.0,0.62],[9.68,0.66],[9.86,2.08],[9.4,2.02]],0.035,OR,PAINT,sd*1.48);// end plates
   {const finZ=(d,h)=>0.06;letter('6550','bold 34px Arial',90,40,10.62,0.62,3.32,0.3,BK,finZ);}
   // ================================================================ underneath and on the nose
   for(const sd of [-1,1])ball(body,[X(5.2),Y(0.74),sd*0.8],0.42,[1.05,0.42,0.5],OR,PAINT,16);// sponsons
@@ -120,30 +138,45 @@ function heliMeshes(){
   // the gear: twin nose wheels, single main wheels on legs from the sponsons
   const wheel=(M,c,R0,w)=>{surf(M,(a,b)=>{const r=w/2;return[c[0]+Math.cos(a)*(R0-r+r*Math.cos(b)),c[1]+Math.sin(a)*(R0-r+r*Math.cos(b)),c[2]+r*Math.sin(b)];},range(0,Math.PI*2,22),range(0,Math.PI*2,8),()=>[TY,MATTE],{ev:1e-3});
     for(const s2 of [-1,1])surf(M,(r,a)=>[c[0]+Math.cos(a)*r,c[1]+Math.sin(a)*r,c[2]+s2*w*0.42],[0.02,R0-w*0.45],range(0,Math.PI*2,14),()=>[LG,CHROME]);};
-  tube(body,[X(1.42),Y(0.46),0],[X(1.36),Y(0.23),0],0.05,0.045,8,LG,CHROME,true);tube(body,[X(1.36),Y(0.23),-0.2],[X(1.36),Y(0.23),0.2],0.025,0.025,6,LG,CHROME);
-  for(const sd of [-1,1])wheel(body,[X(1.36),Y(0.23),sd*0.16],0.22,0.12);
-  for(const sd of [-1,1]){const ax=[X(5.25),Y(0.29),sd*1.08];tube(body,[X(5.2),Y(0.72),sd*0.95],ax,0.06,0.05,8,LG,CHROME,true);tube(body,[X(4.65),Y(0.62),sd*0.85],[X(5.22),Y(0.36),sd*1.05],0.03,0.03,6,LG,CHROME);wheel(body,[ax[0],ax[1],sd*1.14],0.29,0.16);}
+  tube(body,[X(1.42),Y(0.62),0],[X(1.42),Y(0.44),0],0.06,0.055,8,LG,CHROME,true);// the nose leg's top (the fork below swivels)
+  const noseFork=vmesh();tube(noseFork,[0,0.02,0],[0.06,-0.23,0],0.045,0.04,8,LG,CHROME,true);tube(noseFork,[0.06,-0.23,-0.2],[0.06,-0.23,0.2],0.025,0.025,6,LG,CHROME);
+  const noseWheel=vmesh();for(const sd of [-1,1])wheel(noseWheel,[0,0,sd*0.16],0.22,0.12);
+  const mainWheel=vmesh();wheel(mainWheel,[0,0,0],0.29,0.16);
+  for(const sd of [-1,1]){const ax=[X(5.25),Y(0.29),sd*1.08];tube(body,[X(5.2),Y(0.72),sd*0.95],ax,0.06,0.05,8,LG,CHROME,true);tube(body,[X(4.65),Y(0.62),sd*0.85],[X(5.22),Y(0.36),sd*1.05],0.03,0.03,6,LG,CHROME);
+    tube(body,[ax[0],ax[1],sd*1.0],[ax[0],ax[1],sd*1.24],0.03,0.03,6,LG,CHROME);}
 
   // ================================================================ crew (the pilot on the right is left out in the cockpit view)
-  const person=(M,d,z)=>{box(M,[X(d),Y(1.18),z],[0.14,0.24,0.18],SUIT,MATTE);ball(M,[X(d)+0.02,Y(1.58),z],0.13,[1,1.1,1],HELM,PAINT,12);box(M,[X(d)+0.1,Y(1.56),z],[0.05,0.05,0.1],BK,PAINT);
-    for(const s2 of [-1,1])box(M,[X(d)+0.22,Y(1.05),z+s2*0.12],[0.22,0.05,0.05],SUIT,MATTE);};
   const pilot=vmesh();person(pilot,2.55,0.38);person(body,2.55,-0.38);
   // ================================================================ the main rotor (hub at the origin) and its blur disc; the tail fan
-  const rotor=vmesh();ball(rotor,[0,0.24,0],0.26,[1,0.55,1],LG,PAINT,16);
-  for(let k=0;k<4;k++){const a=k*Math.PI/2,ca=Math.cos(a),sa=Math.sin(a),ROT=(x,y,z)=>[x*ca-z*sa,y,x*sa+z*ca];
-    const arm=(r0,r1,c,th,col,mat)=>{const P=[[r0,-th,-c/2],[r1,-th,-c/2],[r1,th,-c/2],[r0,th,-c/2],[r0,-th,c/2],[r1,-th,c/2],[r1,th,c/2],[r0,th,c/2]].map(p=>ROT(p[0],p[1],p[2]));
-      for(const [f,n] of [[[0,1,2,3],[0,0,-1]],[[5,4,7,6],[0,0,1]],[[3,2,6,7],[0,1,0]],[[4,5,1,0],[0,-1,0]],[[1,5,6,2],[1,0,0]],[[4,0,3,7],[-1,0,0]]]){const nn=ROT(...n),ix=f.map(i=>V(rotor,P[i],nn,col,mat));rotor.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
-    arm(0.1,0.7,0.16,0.05,GR,CHROME);arm(0.7,5.25,0.36,0.03,[0.17,0.18,0.2],PAINT);[[5.25,5.42,WH],[5.42,5.59,BK],[5.59,5.76,WH],[5.76,5.95,BK]].forEach(([a0,a1,c])=>arm(a0,a1,0.36,0.03,c,PAINT));}
+  // the rotor head turns with the blades: a star plate (Starflex), a white dome; each blade (drawn four times) carries its sleeve, pitch horn
+  // and pitch link, and feathers about its own span while it flaps about the hub; the swashplate below rises and tilts with the controls
+  const hub=vmesh();ball(hub,[0,0.24,0],0.26,[1,0.55,1],WH,PAINT,16);
+  for(let k=0;k<4;k++){const a=k*Math.PI/2+Math.PI/4;tube(hub,[0,0.02,0],[Math.cos(a)*0.62,0.02,Math.sin(a)*0.62],0.11,0.05,8,GR,CHROME,true);}
+  tube(hub,[0,-0.06,0],[0,0.1,0],0.34,0.34,20,LG,CHROME,true);
+  const blade=vmesh(),bX=(r0,r1,c0,c1,th,col,mat)=>{const P=[[r0,-th,-c0/2],[r1,-th,-c1/2],[r1,th,-c1/2],[r0,th,-c0/2],[r0,-th,c0/2],[r1,-th,c1/2],[r1,th,c1/2],[r0,th,c0/2]];
+      for(const [f,n] of [[[0,1,2,3],[0,0,-1]],[[5,4,7,6],[0,0,1]],[[3,2,6,7],[0,1,0]],[[4,5,1,0],[0,-1,0]],[[1,5,6,2],[1,0,0]],[[4,0,3,7],[-1,0,0]]]){const ix=f.map(i=>V(blade,P[i],n,col,mat));blade.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
+  tube(blade,[0.3,0,0],[0.95,0,0],0.07,0.055,10,LG,CHROME,true);// the sleeve
+  box(blade,[0.45,0,0.17],[0.04,0.025,0.1],GR,CHROME);tube(blade,[0.45,-0.01,0.25],[0.45,-0.34,0.25],0.014,0.014,6,GR,CHROME,true);// pitch horn and link
+  bX(0.9,5.1,0.4,0.38,0.035,[0.2,0.21,0.23],PAINT);[[5.1,5.3,WH],[5.3,5.5,BK],[5.5,5.7,WH],[5.7,5.95,BK]].forEach(([a0,a1,c],i)=>bX(a0,a1,0.38-i*0.01,0.37-(i+1)*0.01-(a1>5.9?0.06:0),0.03,c,PAINT));
+  const swash=vmesh();tube(swash,[0,-0.03,0],[0,0.0,0],0.3,0.3,20,GR,CHROME,true);tube(swash,[0,0.01,0],[0,0.04,0],0.27,0.27,20,LG,CHROME,true);
   const disc=vmesh();surf(disc,(r,a)=>[Math.cos(a)*r,0.02,Math.sin(a)*r],[0.7,5.95],range(0,Math.PI*2,48),()=>[[0.3,0.31,0.33],12]);
-  const fan=vmesh();for(let k=0;k<10;k++){const a=k/10*Math.PI*2,c=Math.cos(a),s=Math.sin(a),r0=0.16,r1=0.58,P=[[c*r0-s*0.05,s*r0+c*0.05,0],[c*r1-s*0.05,s*r1+c*0.05,0],[c*r1+s*0.05,s*r1-c*0.05,0.03],[c*r0+s*0.05,s*r0-c*0.05,0.03]];quad(fan,P[0],P[1],P[2],P[3],[0,0,1],GR,MATTE);}
-  const list=[['body',body],['glass',glass],['pilot',pilot],['rotor',rotor],['disc',disc],['fan',fan]];list.forEach(([n],i)=>{HELI_PARTS[n]={i};});return list.map(l=>l[1]);}
+  const fanB=vmesh();{const r0=0.17,r1=0.57;quad(fanB,[r0,-0.05,0],[r1,-0.045,0],[r1,0.045,0],[r0,0.05,0],[0,0,1],[0.5,0.51,0.53],CHROME);quad(fanB,[r0,0.05,0],[r1,0.045,0],[r1,-0.045,0],[r0,-0.05,0],[0,0,-1],[0.5,0.51,0.53],CHROME);}
+  // the right-hand sliding door: a skin-following panel with its window, frame and the insignia; it slides back along the rails
+  const door=vmesh();{const DZ=(d,h)=>sideZ(d,h)+0.015,DF=(d,h)=>[X(d),Y(h),DZ(d,h)],W2=WIN[1];
+    surf(door,DF,range(DOOR[0],DOOR[1],32),range(DOOR[2],DOOR[3],28),(d,h)=>rr(d,h,...W2)?[GLs,GLASS]:rr(d,h,W2[0]-0.035,W2[1]+0.035,W2[2]-0.035,W2[3]+0.035,W2[4]+0.03)?[BK,PAINT]:Math.abs(d-DOOR[0])<0.03||Math.abs(d-DOOR[1])<0.03?[ORd,PAINT]:[OR,PAINT],{ev:1e-3});
+    surf(door,(d,h)=>[X(d),Y(h),DZ(d,h)-0.03],range(DOOR[0],DOOR[1],8),range(DOOR[2],DOOR[3],8),(d,h)=>rr(d,h,...W2)?null:[INT,INTM],{ev:1e-3,flip:true});
+    box(door,[X(3.3),Y(1.55),DZ(3.3,1.55)+0.03],[0.09,0.02,0.02],GR,CHROME);// the handle
+    insignia(door,3.95,1.18,1,(d,h)=>DZ(d,h)-0.011+0.003);}
+  const beacon=vmesh();ball(beacon,[X(11.0),Y(3.85),0],0.065,[1.4,1,1],RED,4,8);ball(beacon,[X(3.2),Y(0.33),0],0.06,[1.4,1,1],RED,4,8);
+  const nav=vmesh();ball(nav,[X(9.5),Y(2.08),1.5],0.04,[1,1,1],[0.1,1,0.2],4,6);ball(nav,[X(9.5),Y(2.08),-1.5],0.04,[1,1,1],[1,0.1,0.05],4,6);ball(nav,[X(11.47),Y(1.55),0],0.04,[1,1,1],[1,1,0.95],4,6);
+  const list=[['body',body],['glass',glass],['pilot',pilot],['hub',hub],['blade',blade],['swash',swash],['disc',disc],['fanB',fanB],['noseFork',noseFork],['noseWheel',noseWheel],['mainWheel',mainWheel],['door',door],['beacon',beacon],['nav',nav]];list.forEach(([n],i)=>{HELI_PARTS[n]={i};});return list.map(l=>l[1]);}
 
 // ===================================================================
 // flying it: rotor thrust along the mast, drag, attitude held by the stick (Assist: levels and stops over the ground when let go,
 // the collective's middle holds the height), turns coordinated in forward flight, three wheels on the ground
 // ===================================================================
 const Heli={
-  spawn(pl,at){const c=Cam.target,as=at&&at.n?Air.spawnSpot([at.x,0,at.z]):Air.spawnSpot(c);if(!as){UI.toast('The helicopter starts from an airfield: build an airstrip first (Build → Airstrip)');return false;}
+  spawn(pl,at){pl.an=null;const c=Cam.target,as=at&&at.n?Air.spawnSpot([at.x,0,at.z]):Air.spawnSpot(c);if(!as){UI.toast('The helicopter starts from an airfield: build an airstrip first (Build → Airstrip)');return false;}
     // on the strip, to one side of its first stretch (flat ground), nose along the runway
     const sx=-Math.sin(as.h),sz=Math.cos(as.h),x=as.x+Math.cos(as.h)*60+sx*8,z=as.z+Math.sin(as.h)*60+sz*8;
     pl.st={p:[x,0,z],v:[0,0,0],q:Q.axis([0,1,0],-as.h),w:[0,0,0]};pl.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:1};pl.parkBrake=true;pl.gear=1;pl.gearPos=1;pl.flaps=0;pl.flapPos=0;pl.bridges=0;pl.prevP=null;pl.crashed=false;pl.on=true;pl.prop=0;pl.fanA=0;pl.rot=0;
@@ -183,10 +216,33 @@ const Heli={
     const gb=pl.groundAt(s.p[0],s.p[2]);if(s.p[1]<gb+0.55){if(V>9)pl.crash('Crashed into the ground');s.p[1]=gb+0.55;if(s.v[1]<0)s.v[1]=0;}
     const W=App.T.W;if(s.p[0]<-2000||s.p[2]<-2000||s.p[0]>W+2000||s.p[2]>W+2000){s.v=s.v.map(v=>-v);UI.toast('The edge of the world: turned around');}
     if(s.p[1]>gb+4000){s.p[1]=gb+4000;if(s.v[1]>0)s.v[1]=0;}
-    if(onG&&!pl.onG)pl.touchV=Math.max(0,-s.v[1]);pl.V=V;pl.onG=onG;pl.onW=0;pl.stall=false;pl.alpha=0;},
+    if(onG&&!pl.onG)pl.touchV=Math.max(0,-s.v[1]);pl.V=V;pl.onG=onG;pl.onW=0;pl.stall=false;pl.alpha=0;
+    // what the linkages show: collective from the thrust, cyclic from the stick plus what the autopilot adds, pedals the same; eased
+    const A=pl.an||(pl.an={coll:0,lon:0,lat:0,ped:0,sw:0,wa:0,wn:0,door:1}),ek=Math.min(1,dt*5),err=k=>air?(wt[k]-s.w[k]):0;
+    A.coll+=(T/(m*g)-A.coll)*ek;A.lon+=(clamp(c.pitch*0.7+err(2)*0.6,-1,1)-A.lon)*ek;A.lat+=(clamp(c.roll*0.7+err(0)*0.6,-1,1)-A.lat)*ek;A.ped+=(clamp(c.yaw*0.8-err(1)*0.6,-1,1)-A.ped)*ek;
+    // wheels: roll with the ground speed, the nose wheels castor toward where they go
+    {const hf=[Fv[0],0,Fv[2]],hl=Math.hypot(hf[0],hf[2])||1,vf=(s.v[0]*hf[0]+s.v[2]*hf[2])/hl,vs=(-s.v[0]*hf[2]+s.v[2]*hf[0])/hl;if(onG){A.wa+=vf*dt/0.29;A.wn+=vf*dt/0.22;if(Math.hypot(vf,vs)>0.3)A.sw+=(clamp(Math.atan2(vs,Math.abs(vf))*Math.sign(vf||1),-1,1)-A.sw)*Math.min(1,dt*4);}}
+    // the right-hand door slides open once it stands on the ground with the collective down (and for the winch, step 3)
+    const want=(onG&&V<0.6&&c.thr<0.45)||pl.winchOpen?1:0;A.door+=clamp(want-A.door,-dt/2.2,dt/2.2);},
   spin(pl,dt){pl.prop=(pl.prop+dt*(pl.rot||0)*5.8*6.283)%6.283;pl.fanA=((pl.fanA||0)+dt*(pl.rot||0)*3.1*6.283)%6.283;},
   rpm(pl){return pl.crashed?0:600+(pl.rot||0)*900+(pl.T||0)/PLH.m*40;},
   draw(pl,p){if(!R.heliMesh)R.heliMesh=heliMeshes().map(m=>R.uploadVeh(m));const M=R.heliMesh,PP=HELI_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
-    gl.uniform1f(p.u('uDist'),0);dm('body',pl.mat());if(pl.cam!=='cockpit'){dm('pilot',pl.mat());dm('glass',pl.mat());}/* from the pilot's seat the glass is left out (at that angle it would look nearly opaque) */const K=PLH;
-    dm('rotor',pl.mat(K.hub,Q.axis([0,1,0],-pl.prop)));dm('fan',pl.mat(K.fan,Q.axis([0,0,1],pl.fanA||0)));
-    const da=clamp(((pl.rot||0)-0.35)/0.65,0,1)*0.3;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat(K.hub));gl.uniform2f(p.u('uOcc'),0,0);}}};
+    const K=PLH,A=pl.an||{coll:0,lon:0,lat:0,ped:0,sw:0,wa:0,wn:0,door:1},ro=pl.rot||0,ax=(v,a)=>Q.axis(v,a),mq=(...q)=>q.reduce((a,b)=>Q.mul(a,b));
+    gl.uniform1f(p.u('uDist'),0);dm('body',pl.mat());if(pl.cam!=='cockpit'){dm('pilot',pl.mat());dm('glass',pl.mat());}/* from the pilot's seat the glass is left out (at that angle it would look nearly opaque) */
+    // the rotor: hub, then four blades — feathering (collective + cyclic, once per turn) about the span, flapping (coning with the lift,
+    // drooping at rest, the disc tilting with the cyclic) about the hub; the swashplate rises with the collective and tilts with the cyclic
+    dm('hub',pl.mat(K.hub,ax([0,1,0],-pl.prop)));
+    const th0=0.02+0.1*clamp(A.coll,0,1.8),cone=-0.06*(1-ro*ro)+0.045*clamp(A.coll,0,1.8)*ro*ro;
+    for(let k=0;k<4;k++){const ps=pl.prop+k*Math.PI/2,c=Math.cos(ps),sn=Math.sin(ps),th=th0-A.lon*0.07*sn+A.lat*0.07*c,be=cone+(A.lon*0.045*c-A.lat*0.045*sn)*ro;
+      dm('blade',pl.mat(K.hub,mq(ax([0,1,0],-ps),ax([0,0,1],be),ax([1,0,0],-th))));}
+    dm('swash',pl.mat([K.hub[0],K.hub[1]-0.36+A.coll*0.04,K.hub[2]],mq(ax([0,0,1],A.lon*0.08),ax([1,0,0],-A.lat*0.08))));
+    // the fenestron's ten blades turn and change pitch with the pedals
+    for(let k=0;k<10;k++)dm('fanB',pl.mat(K.fan,mq(ax([0,0,1],(pl.fanA||0)+k*0.6283),ax([1,0,0],0.25+A.ped*0.35))));
+    // wheels: the nose fork castors, the wheels roll
+    {const pv=[2.88,-0.79,0],sw=ax([0,1,0],-A.sw),ao=Q.rot(sw,[0.06,-0.23,0]);dm('noseFork',pl.mat(pv,sw));dm('noseWheel',pl.mat([pv[0]+ao[0],pv[1]+ao[1],pv[2]+ao[2]],mq(sw,ax([0,0,1],-A.wn))));
+      for(const sd of [-1,1])dm('mainWheel',pl.mat([-0.95,-0.96,sd*1.14],ax([0,0,1],-A.wa)));}
+    // the sliding door: out a little, then back along its rails
+    {const o=clamp(A.door*4,0,1),sl=clamp((A.door-0.2)/0.8,0,1);dm('door',pl.mat([-1.28*sl,0,0.06*o]));}
+    // lights: steady position lights, the red anti-collision beacons flash
+    dm('nav',pl.mat());const on=((App.time||0)*1.1)%1<0.12;gl.uniform3f(p.u('uLamp'),on?2:0.04,on?2:0.04,on?2:0.04);dm('beacon',pl.mat());gl.uniform3f(p.u('uLamp'),1,1,1);
+    const da=clamp((ro-0.35)/0.65,0,1)*0.3;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat(K.hub));gl.uniform2f(p.u('uOcc'),0,0);}}};

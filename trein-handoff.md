@@ -1,4 +1,4 @@
-# Trein handoff 97 (20 Nov 2026): v4.35.0 — step 1 of 4 (New game). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 98 (20 Nov 2026): v4.36.0 — step 2 of 4 (helicopter looks and moving parts). Before that, v4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,24 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.35.0, 20 Nov) — step 1 of the user's 4-step list: New game
+### Latest (4.36.0, 20 Nov) — step 2 of 4: the helicopter, closer to the photos, every moving part animated
+- Parts (`HELI_PARTS`): body, glass, pilot, hub, blade (drawn 4×), swash, disc, fanB (drawn 10×), noseFork, noseWheel, mainWheel (2×), door,
+  beacon, nav.
+- **Rotor**: per blade `pl.mat(hub, Ry(−ψ)·Rz(β)·Rx(−θ))`. Feathering θ = 0.02 + 0.1 × collective (thrust / weight) ± 0.07 × cyclic
+  (once per turn); flapping β = coning (+0.045 × collective at speed, −0.06 droop at rest) ± 0.045 × cyclic (the disc tilts with the stick).
+  Each blade carries its sleeve, pitch horn and pitch link; the hub (Starflex star, white dome, plate) turns; the swashplate rises with the
+  collective and tilts with the cyclic. `pl.an` = eased linkage values (coll, lon, lat, ped) from the controls plus what Assist adds.
+- **Fenestron**: ten blades, each drawn feathered by the pedals (0.25 ± 0.35 rad).
+- **Wheels**: roll with the ground speed; the nose fork and twin wheels castor toward the motion.
+- **Right-hand sliding door** (its own skin-following panel with window, frame, handle and the insignia; the body and lining are cut open
+  behind it): pops out, then slides back 1.28 m along two rails when standing on the ground with the collective down
+  (`pl.winchOpen` will open it for the winch). A hoist operator sits by the door.
+- **Lights**: red anti-collision beacons (fin top, belly) flash (material 4 with `uLamp`), steady green/red/white position lights.
+- More detail from the photos: mast fairing, wipers, belly and boom antennas, door frame, footsteps, the national insignia (blue disc,
+  white star, white bars with a red stripe) on both sides, bigger tailplane end plates, lettering moved back as in the photos.
+  checks/heli2-*.png.
+
+### Earlier (4.35.0, 20 Nov) — step 1 of the user's 4-step list: New game
 The user's list (answers in brackets): (1) New game: only Mountain islands "for now", island size still capped, top buttons cut off;
 (2) helicopter more like the photos, every part that moves animated (blade pitch etc.), more detail; (3) helipad at the airstrip, bought
 in the store [the helicopter is the store item, the pad comes with it], a winch to lower and raise for rescue and supply missions
