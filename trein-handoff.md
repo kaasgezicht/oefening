@@ -30,6 +30,9 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   top-level const/let/class, and runs eslint 8 `no-undef` (globals made with `window.X=` count; `module`, `RT_TUNE` allowed). Clean now;
   verified it catches a re-inserted `window.Plane`. `package.json` holds only the dev tools (eslint, playwright); Pages ignores it.
 - **Rule from now on**: run `npm run lint` and `npm run smoke` before every push.
+- **7 and 4 measured** (details in trein-improve.md): bundling dropped (−18 % gzip only). Continue on an 8 km world: 5.5 s vs 23.7 s first
+  start; 2.8 s of it is building the house kit. Test world-file paths over http://localhost (Playwright `ctx.route` serving the repo):
+  on file:// OPFS refuses to write. A background `python3 -m http.server` was refused by the sandbox; the route trick needs no server.
 
 ### Earlier (4.38.0, 20 Nov) — step 4 of 4: fishing (new js/fishing.js, after rescue.js; runs from Coast.update / Coast.draw)
 - **Fishing grounds** (`Fish.G`): per harbour 2–3 spots 400–2000 m out, ≥ 6 m deep, 90 m clear water all round, reachable in a straight line

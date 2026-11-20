@@ -373,7 +373,6 @@ const ICONS=(()=>{const F=' fill="currentColor" stroke="none"';
     station:`<path d="M3 21V10.5L12 4l9 6.5V21z"/><path d="M10 21v-4.5h4V21"/><circle cx="12" cy="11.2" r="2.2"/><path d="M1.5 21h21"/>`,
     scenic:`<path d="M4 21c0-7 8-5 8-10S6 6 9 2.5"/><path d="M17 12.5c-2.2 0-3.5-1.8-3.5-3.8S15.5 4 17 2.5c1.5 1.5 3.5 4 3.5 6.2s-1.3 3.8-3.5 3.8zM17 12.5V18"/>`,
     direct:`<path d="M4.5 19.5l15-15M10 4.5h9.5V14"/>`,
-    tunnel:`<path d="M2.5 20.5h19M5.5 20.5v-8a6.5 6.5 0 0 1 13 0v8M9 20.5v-7a3 3 0 0 1 6 0v7"/>`,
     surface:`<path d="M2.5 17c3-6 5-6 7-3s4 3 6-2 4-5 6-2"/><path d="M2.5 21h19"/>`,
     follow:`<path d="M2 17c3-6 5.5-6.5 8.5-2.5S16 18 22 9"/><path d="M2 21h20" stroke-width="1.4"/>`,
     grade:`<path d="M2 18.5l20-11"/><path d="M2 21h20" stroke-width="1.4"/>`,
