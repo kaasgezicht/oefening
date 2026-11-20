@@ -30,6 +30,11 @@ float hash11(float p){p=fract(p*.1031);p*=p+33.33;p*=p+p;return fract(p);}
 float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);float a=hash12(i),b=hash12(i+vec2(1,0)),c=hash12(i+vec2(0,1)),d=hash12(i+vec2(1,1));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
 float hAt(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));return texelFetch(uHeight,c,0).r;}
 float cornerH(ivec2 g){return .25*(hAt(g-ivec2(1))+hAt(g-ivec2(0,1))+hAt(g-ivec2(1,0))+hAt(g));}
+// 8 m detail (tiles.js): uFineW window x0, z0, size m, cells; uFineP patch centre x, z, half-size, w: 0 off, 1 coarse ground (cut out), 2 the patch, 3 trees and rocks
+uniform sampler2D uFine;uniform vec4 uFineP;uniform vec4 uFineW;
+float fD(ivec2 c){int n=int(uFineW.w);if(c.x<0||c.y<0||c.x>=n||c.y>=n)return 0.;return texelFetch(uFine,c,0).r;}
+float fineAt(vec2 x){if(uFineP.w<1.5||uFineW.w<1.)return 0.;float e=clamp((uFineP.z-max(abs(x.x-uFineP.x),abs(x.y-uFineP.y)))/(uFineP.z*.15),0.,1.);if(e<=0.)return 0.;
+  vec2 u=(x-uFineW.xy)/(uFineW.z/uFineW.w)-.5,i=floor(u),f=u-i;ivec2 c=ivec2(i);return mix(mix(fD(c),fD(c+ivec2(1,0)),f.x),mix(fD(c+ivec2(0,1)),fD(c+ivec2(1,1)),f.x),f.y)*e;}
 float terrainH(vec2 xz){vec2 f=xz/uWorld.z-.5;vec2 i=floor(f);f-=i;ivec2 c=ivec2(i);return mix(mix(hAt(c),hAt(c+ivec2(1,0)),f.x),mix(hAt(c+ivec2(0,1)),hAt(c+ivec2(1,1)),f.x),f.y);}
 `;
 const GLSL_LIGHT=`
@@ -83,10 +88,26 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
 const VS_PATCH=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aP;out vec3 vW;
 void main(){vW=aP;gl_Position=uViewProj*vec4(aP,1.);}`;
+// ---- 8 m detail (tiles.js): a fine patch of ground round the camera on 24/32 km maps. Its height is the coarse ground exactly as the
+// coarse mesh draws it (the same two triangles per cell) plus the stored detail, read from a 512² window texture (uFineW: x0, z0, size m,
+// cells), fading to nothing at the patch edge so it meets the coarse ground there; the coarse terrain leaves the patch open (uFineP.w 1)
+const VS_FINE=GLSL_HEAD+GLSL_BASE+`
+layout(location=0) in vec2 aQ;out vec3 vW;
+float triH(vec2 x){vec2 g=x/uWorld.z,i=floor(g),f=g-i;ivec2 c=ivec2(i);float a=cornerH(c),b=cornerH(c+ivec2(1,0)),cc=cornerH(c+ivec2(0,1)),d=cornerH(c+ivec2(1,1));
+  return f.x+f.y<1.?a+(b-a)*f.x+(cc-a)*f.y:d+(cc-d)*(1.-f.x)+(b-d)*(1.-f.y);}
+void main(){vec2 p=uFineP.xy+(aQ*2.-1.)*uFineP.z;vW=vec3(p.x,triH(p)+fineAt(p),p.y);gl_Position=uViewProj*vec4(vW,1.);}`;
 const VS_TERRAIN_SH=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aG;uniform vec4 uChunk;out vec3 vW;
 void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5),ivec2(0),ivec2(N));float h=cornerH(g);
-  vec3 W=vec3(float(g.x)*uWorld.z,h-(aG.z>.5?6.:0.),float(g.y)*uWorld.z);vW=W;gl_Position=uLightVP*vec4(W,1.);}`;
+  vec3 W=vec3(float(g.x)*uWorld.z,h-(aG.z>.5?6.:0.),float(g.y)*uWorld.z);
+  /* under the 8 m patch the coarse ground sinks out of the shadow map (the patch casts the shadows there), fading in toward its edge */
+  if(uFineP.w>.5){float e=clamp((uFineP.z-max(abs(W.x-uFineP.x),abs(W.z-uFineP.y)))/(uFineP.z*.15),0.,1.);W.y-=8.*e;}
+  vW=W;gl_Position=uLightVP*vec4(W,1.);}`;
+const VS_FINE_SH=GLSL_HEAD+GLSL_BASE+`
+layout(location=0) in vec2 aQ;out vec3 vW;
+float triH(vec2 x){vec2 g=x/uWorld.z,i=floor(g),f=g-i;ivec2 c=ivec2(i);float a=cornerH(c),b=cornerH(c+ivec2(1,0)),cc=cornerH(c+ivec2(0,1)),d=cornerH(c+ivec2(1,1));
+  return f.x+f.y<1.?a+(b-a)*f.x+(cc-a)*f.y:d+(cc-d)*(1.-f.x)+(b-d)*(1.-f.y);}
+void main(){vec2 p=uFineP.xy+(aQ*2.-1.)*uFineP.z;vW=vec3(p.x,triH(p)+fineAt(p),p.y);gl_Position=uLightVP*vec4(vW,1.);}`;
 const VS_PATCH_SH=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aP;out vec3 vW;void main(){vW=aP;gl_Position=uLightVP*vec4(aP,1.);}`;
 const FS_DEPTH=GLSL_HEAD+`out vec4 o;void main(){o=vec4(0);}`;
@@ -122,6 +143,8 @@ vec3 setts(vec2 p){vec2 i=floor(p),f=fract(p);float d1=9.,d2=9.,id=0.;for(int y=
 in vec3 vW;uniform float uStep;uniform vec4 uChunk;uniform sampler2D uPatch;`+FS_OUT+`
 float rn(vec2 p,float a){float c=cos(a),s=sin(a);return vnoise(mat2(c,-s,s,c)*p);}// value noise turned, so no octave lines up with the 8 m grid
 void main(){vec3 W=vW;
+  /* the 8 m patch round the camera: the coarse ground leaves its square open (w 1), the patch draws only inside it (w 2) */
+  if(uFineP.w>.5){vec2 q=abs(W.xz-uFineP.xy);float m=max(q.x,q.y);if(uFineP.w<1.5){if(m<uFineP.z-1.5)discard;}else if(m>uFineP.z)discard;}
   // a cell replaced by a finer patch (a culvert trench): the full-detail terrain leaves it open, the patch fills it exactly
   if(uChunk.w==0.&&texelFetch(uPatch,clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1)),0).r>.5)discard;
   vec3 N=normalize(cross(dFdx(W),dFdy(W)));if(N.y<0.)N=-N;

@@ -33,7 +33,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 sp=p*iA.w;
   if((m==1||m==3)&&uKind<=4){float sway=sp.y*.012*uWind.y*(sin(t*1.7+hs*13.)+.6*sin(t*2.9+hs*7.));sp.xz+=normalize(uWind.xz+1e-4)*sway;}
   float c=cos(iB.x),s=sin(iB.x);sp=vec3(c*sp.x-s*sp.z,sp.y,s*sp.x+c*sp.z);n=vec3(c*n.x-s*n.z,n.y,s*n.x+c*n.z);
-  vec3 W=iA.xyz+sp;vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
+  vec3 W=iA.xyz+sp;if(uKind<=5)W.y+=fineAt(iA.xz);/* trees and rocks stand on the 8 m ground */vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
 const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];

@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.27.0 (lighthouse beams light the land, mist and clouds; 8 m detail tiles for 24/32 km, step 1)';
+const VERSION='4.28.0 (8 m ground drawn round the camera on 24/32 km maps; trees, rocks and vehicles on it)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -87,6 +87,7 @@ def('reflQuality',{tab:'water',label:'Reflections',kind:'select',options:[[0,'Sk
 def('oceanSwell',{tab:'water',label:'Ocean swell height (island maps)',min:0,max:20,step:0.5,def:4,unit:' m',apply:'live'});
 def('openSea',{tab:'water',label:'Open sea round island maps (instead of the table)',kind:'check',def:1,apply:'live'});
 // --- Sea and coast (4.26.0)
+def('fineDetail',{tab:'quality',label:'8 m ground on 24/32 km maps (made on the Saves page)',kind:'select',options:[[0,'Off'],[1,'1.5 km round the camera'],[2,'2 km round the camera']],def:1,apply:'live'});
 def('worldFile',{tab:'file',label:'Keep the whole generated world on this device (OPFS), so it is generated once',kind:'check',def:1,apply:'live'});
 def('lighthouses',{tab:'sea',label:'Lighthouses per big island',min:0,max:2,step:0.25,def:1,unit:'×',apply:'life'});
 def('coastVillages',{tab:'sea',label:'Villages by the sea (preference)',min:0,max:2,step:0.1,def:1,apply:'life'});

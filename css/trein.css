@@ -285,3 +285,5 @@ body.fplan #bar,body.fplan #mapList{display:none}
 .mm-grid label.mm-ck{flex-direction:row;align-items:center;justify-content:space-between}.mm-ck input{width:20px;height:20px;accent-color:#c9a14a}
 #progScene{display:block;width:100%;aspect-ratio:600/340;border-radius:8px;margin:0 0 10px;background:#8fb0cc}
 #prog:has(#progScene[style*="block"]){width:min(420px,88vw)}
+
+#finePill{position:fixed;left:50%;top:64px;transform:translateX(-50%);display:none;align-items:center;gap:8px;background:#1e3b30e6;color:#f1e7d0;border:1px solid #c9a14a60;border-radius:20px;padding:6px 14px;font:500 calc(13px*var(--txt,1)) system-ui;z-index:40}

@@ -222,7 +222,7 @@ R.clearTrackBed=function(T,segs){const N=T.N,cs=T.cs,Hr=T.Hr;if(!Hr||typeof Trac
         for(const [gx,gz,w,h] of tri){if(ex<=0)break;if(w<1e-3||h<=A)continue;const r=Math.min(h-A,ex/w);lower(gx,gz,r);ex-=w*r;dug+=r;}}}
     if(!bad)break;}
   if(dug>0)Log.info(`track bed: drawn ground dug down along the track (${pass} passes, ${pts.length/3} points, ${(performance.now()-t0).toFixed(0)} ms)`);return dug;};
-R.sampleHr=(T,x,z)=>sampleH(T,x,z,T.Hr||T.H);
+R.sampleHr=(T,x,z)=>sampleH(T,x,z,T.Hr||T.H)+(typeof Tiles!=='undefined'&&Tiles.cur&&T===App.T?Tiles.dAt(x,z):0);/* + the 8 m detail where it is drawn */
 // water surface for drawing: the flat level is carried a few cells onto the bank (where the ground stands above it),
 // so the shoreline is cut by the ground contour instead of a 4 m staircase of sloping edge triangles
 R.waterRender=function(T){const N=T.N,Wt=T.water,H=T.Hr||T.H,out=Float32Array.from(Wt),set=new Uint8Array(N*N),wv=new Float32Array(N*N),SH=T.shore;let nLake=0;
@@ -516,7 +516,7 @@ R.updateVegLists=function(cam,force){if(!R.vegB)return;const T=R.world,CN=16,cw=
       for(let c=0;c<vis.length;c++)if(vis[c]===ring){const s=B.start[c],k=keep(c);if(!k)continue;a.set(B.data.subarray(s*8,(s+k)*8),o*8);
         const f=fr[c]*g;if(f<0.98){const sc=Math.min(1.45,Math.pow(f,-0.25));for(let q=o;q<o+k;q++)a[q*8+3]*=sc;}o+=k;}
       R.inst(id,a,n);}});};
-R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;for(let t=0;t<6;t++){R.drawObj('t'+t+'n',t,R.instBufs['veg'+t+'_1'],pass);if(t<5)R.drawObj('t'+t+'f',t,R.instBufs['veg'+t+'_2'],pass);}};
+R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;const FP=typeof Tiles!=='undefined'&&pass!==1?Tiles.cur:null,w=FP&&Tiles.win;gl.useProgram(R.pObj.p);gl.uniform4f(R.pObj.u('uFineP'),FP?FP.cx:0,FP?FP.cz:0,FP?FP.half:0,FP?3:0);if(FP){gl.uniform4f(R.pObj.u('uFineW'),w.x0,w.z0,w.N*Tiles.FC,w.N);bindTU(TU.uFine,gl.TEXTURE_2D,w.tex);}for(let t=0;t<6;t++){R.drawObj('t'+t+'n',t,R.instBufs['veg'+t+'_1'],pass);if(t<5)R.drawObj('t'+t+'f',t,R.instBufs['veg'+t+'_2'],pass);}};
 
 // ---- a village plot levelled while playing: upload just that patch of heights and normals, widen the chunk bounds
 /* after ground was cut down (an airstrip): dry cells whose stored water surface now lies above the ground would show water on the slope;
@@ -704,16 +704,22 @@ R.benchThroughput=async function(t,K){R.benchStill=true;resizeCanvas();for(let k
 R.benchRead=function(){const pr=R.lastProf,X=R.tq;if(!pr||!X)return{};if(gl.getParameter(X.GPU_DISJOINT_EXT))return{disjoint:true};const out={};
   for(const [n,q] of pr.gpu){if(!gl.getQueryParameter(q,gl.QUERY_RESULT_AVAILABLE))return null;}
   for(const [n,q] of pr.gpu){out[n]=(out[n]||0)+gl.getQueryParameter(q,gl.QUERY_RESULT)/1e6;gl.deleteQuery(q);}pr.gpu=[];return out;};
+/* the 8 m ground patch round the camera (tiles.js): the terrain shading with the fine patch's vertex shader */
+R.drawFine=function(FP,lo,pass){const sh=pass===1,k=sh?'pFineSh':lo?'pFineLo':'pFine';if(!R[k])R[k]=sh?makeProgram('terrain-fine-shadow',VS_FINE_SH,FS_DEPTH_T):makeProgram(lo?'terrain-fine-lo':'terrain-fine',VS_FINE,lo?FS_TERRAIN_LO:FS_TERRAIN);const q=R[k],w=Tiles.win;gl.useProgram(q.p);bindTU(TU.uFine,gl.TEXTURE_2D,w.tex);
+  const F=R.roadFine;gl.uniform4f(q.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(q.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(q.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);
+  gl.uniform1f(q.u('uStep'),8);gl.uniform4f(q.u('uChunk'),0,0,0,0);gl.uniform4f(q.u('uFineP'),FP.cx,FP.cz,FP.half,2);gl.uniform4f(q.u('uFineW'),w.x0,w.z0,w.N*Tiles.FC,w.N);
+  const g=R.lakeGrid(FP.M*2);gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.count/3;gl.bindVertexArray(null);};
 R.chunkLod=function(c,cam){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
   const d=Math.hypot(dx,dz,dy);return d<P.terrainLod?0:d<P.terrainLod*2.2?1:d<P.terrainLod*5?2:3;};
 R.drawTerrain=function(cam,pass,pl){const T=R.world;const lo=pass!==1&&+P.terrainQ===0;if(lo&&!R.pTerrainLo){R.pTerrainLo=makeProgram('terrain-lo',VS_TERRAIN,FS_TERRAIN_LO);R.pPatchLo=makeProgram('terrain-patch-lo',VS_PATCH,FS_TERRAIN_LO);}/* Ground detail: Simple compiles the cheap variant the first time */
-  const p=pass===1?R.pTerrainSh:lo?R.pTerrainLo:R.pTerrain;gl.useProgram(p.p);if(pass!==1){const F=R.roadFine;gl.uniform4f(p.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
+  const p=pass===1?R.pTerrainSh:lo?R.pTerrainLo:R.pTerrain;gl.useProgram(p.p);const FP=typeof Tiles!=='undefined'?Tiles.patch(cam):null;gl.uniform4f(p.u('uFineP'),FP?FP.cx:0,FP?FP.cz:0,FP?FP.half:0,FP?1:0);if(pass!==1){const F=R.roadFine;gl.uniform4f(p.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(p.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(p.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);}
   const list=[];for(const c of R.chunks){if(!boxVisible(pl,c.x,c.y0,c.z,c.x+R.cw,c.y1,c.z+R.cw))continue;list.push([Math.hypot(c.x+R.cw/2-cam.pos[0],c.z+R.cw/2-cam.pos[2]),c]);}
   list.sort((a,b)=>a[0]-b[0]);
   for(const [,c] of list){const dx=Math.max(c.x-cam.pos[0],0,cam.pos[0]-c.x-R.cw),dz=Math.max(c.z-cam.pos[2],0,cam.pos[2]-c.z-R.cw),dy=Math.max(c.y0-cam.pos[1],0,cam.pos[1]-c.y1);
     const lod=R.chunkLod(c,cam);/* same detail in the shadow pass: a coarser shadow terrain lies above the ground in hollows and shadows it */
     const n=Math.max(2,lod===0&&R.fineBase?R.fineBase:R.gridBase>>lod),g=gridMesh(n);gl.uniform4f(p.u('uChunk'),c.gx,c.gz,R.cells,lod);if(pass===0)gl.uniform1f(p.u('uStep'),T.cs*R.cells/n);
     gl.bindVertexArray(g.vao);gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=g.tris;Stats.chunks++;}
+  if(FP)R.drawFine(FP,lo,pass);
   if(R.patches&&R.patches.length&&R.patchVao){const q=pass===1?R.pPatchSh:lo?R.pPatchLo:R.pPatch;gl.useProgram(q.p);if(pass!==1){const F=R.roadFine;gl.uniform4f(q.u('uRoadFW'),F&&F.on?F.x0:0,F&&F.on?F.z0:0,F?F.S:1,F&&F.on?1:0);gl.uniform1f(q.u('uRoadClear'),Life.roadClear==null?1:Life.roadClear);gl.uniform1f(q.u('uGrassVar'),P.grassVar==null?1:+P.grassVar);gl.uniform1f(q.u('uStep'),R.patchStep||1);}
     gl.uniform4f(q.u('uChunk'),0,0,R.cells,-1);gl.bindVertexArray(R.patchVao);
     for(const pc of R.patches){const c=R.chunks[pc.chunk];if(!c||R.chunkLod(c,cam)!==0)continue;if(pl&&!boxVisible(pl,pc.b[0],pc.b[1],pc.b[2],pc.b[3],pc.b[4],pc.b[5]))continue;gl.drawArrays(gl.TRIANGLES,pc.first,pc.count);Stats.draws++;}}

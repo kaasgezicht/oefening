@@ -1,4 +1,4 @@
-# Trein handoff 86 (17 Nov 2026): v4.27.0 — lighthouse beams as light (land, sea, mist, clouds); 8 m detail tiles for 24/32 km, step 1 of 3 (made and stored); next: step 2, draw the tiles round the camera
+# Trein handoff 87 (20 Nov 2026): v4.28.0 — 8 m ground drawn round the camera on 24/32 km maps (tiles from the device), trees, rocks and vehicles on it; next: tune and test on the phone
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,25 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.27.0, 17 Nov) — beams as light; 8 m detail tiles (step 1)
+### Latest (4.28.0, 20 Nov) — 8 m detail, steps 2 and 3: drawn round the camera
+- **Window** (`Tiles.update/loadWin`, called every frame from the main loop): 2 x 2 tiles (4 km, 512² cells) round the camera, chosen so the
+  camera is at least 1 km from its edge; the four tiles are read from the device and put into an R32F texture (TU 22, `uFine`); missing
+  tiles are zero. While it loads a pill "Loading the 8 m ground" shows (`#finePill`). Made or removed tiles reload it.
+- **Patch** (`Tiles.patch`, `R.drawFine`, VS_FINE + the terrain fragment shader): a 1.5 km square of 8 m quads (192², setting `fineDetail`:
+  off / 1.5 km / 2 km) centred a little ahead of the camera, snapped to 16 m, drawn when the camera is under 700 m above the ground. Its height
+  is the coarse ground exactly as the coarse mesh draws it (`triH`: the same two triangles per cell) plus the detail (`fineAt` in GLSL_BASE:
+  bilinear from the window, fading to 0 over the outer 15 % of the patch), so it meets the coarse ground at its edge. The coarse terrain
+  leaves the square open (`uFineP.w` 1: discard inside half - 1.5 m).
+  - **Shadows**: in the shadow pass the coarse ground sinks 8 m under the patch (fading in like the detail) and the patch is drawn into
+    the shadow map (`VS_FINE_SH`); without it the coarse ground shadowed the fine ground wherever the detail cuts in (dark blobs).
+- **Step 3**: trees and rocks (VS_OBJ, kinds ≤ 5) add `fineAt` at their foot (`uFineP.w` 3, set in R.drawVeg); `R.sampleHr` adds
+  `Tiles.dAt` (the same detail as drawn, 0 outside the patch), so vehicles, people and the camera stand on the fine ground. Houses, roads,
+  track and water are on protected ground (detail 0) and do not move.
+- Tested (24 km, seed 4242, a quarter of tiles): no errors; the patch adds 74-148 k triangles; checks/detail-8m-*.png (off/on pairs,
+  low morning sun). The relief is gentle (± a few metres, high-passed); stronger relief = raise `amp` in Tiles.refine.
+- Not done: the water and roads do not use the patch (they need not: protected); the map view and far views show the 16 m ground only.
+
+### Earlier (4.27.0, 17 Nov) — beams as light; 8 m detail tiles (step 1)
 - **Lighthouse beams as light** (user: "make the lighthouse emit actual light … see it in the mist and clouds"): the four beams nearest the
   camera go into the frame uniforms (`uBeamP[4]`, `uBeamD[4]`, `uBeamC`; UBO 336-371, R.U is now 372 floats; `Coast.beamU`). `beams(W,N,surf)`
   in GLSL_BASE: a cone from the lamp (half spread + 0.006 rad), soft edge, falloff (1 - d/reach)/(1 + (d/0.3 reach)²). Used in `pools()`
