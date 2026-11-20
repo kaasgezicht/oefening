@@ -69,9 +69,15 @@ const WorldFile={NAME:'world.trw',FMT:1,
       Log.info(`world file: ${(raw.size/1e6).toFixed(1)} MB packed in ${(t1-t0).toFixed(0)} ms, ${(z.size/1e6).toFixed(1)} MB written to the device (OPFS) in ${(performance.now()-t1).toFixed(0)} ms`);return true;}
     catch(e){Log.warn('world file: could not write ('+(e.message||e)+')');return false;}},
   async readRaw(){const d=await this.dir(),fh=await d.getFileHandle(this.NAME);return await fh.getFile();},
+  /* a stored world still matches when the only differences are settings added to the game after it was stored (absent from its key) that
+     now hold their default, or their "legacy" value (the one that reproduces the old behaviour, e.g. islandGen 1); before 4.41 every
+     new world or life setting made the stored world mismatch, and the whole world was generated again */
+  sameWorld(a,b){const i=a.indexOf('|'),j=b.indexOf('|');if(i<0||j<0||a.slice(0,i)!==b.slice(0,j))return false;let A,B;try{A=JSON.parse(a.slice(i+1));B=JSON.parse(b.slice(j+1));}catch(e){return false;}
+    for(const id in B){if(id in A){if(JSON.stringify(A[id])!==JSON.stringify(B[id]))return false;continue;}const d=PDEF[id];if(!d)continue;if(B[id]!==d.def&&!('legacy' in d&&B[id]===d.legacy))return false;}
+    Log.info('world file: matches (settings added since it was stored are at their defaults)');return true;},
   async load(key){if(!this.ok())return null;const t0=performance.now();try{let f;try{f=await this.readRaw();}catch(e){return null;}const ab=await (await this.gz(f,false)).arrayBuffer(),{root}=this.parse(ab);
       if(!root||root.fmt!==this.FMT||!root.T||!root.L){Log.warn('world file: unknown format, generating instead');return null;}
-      if(root.key!==key){Log.info('world file: made with other world settings, generating instead');return null;}const T=root.T;if(!T.H||T.H.length!==T.N*T.N||!T.veg){Log.warn('world file incomplete: generating instead');return null;}
+      if(root.key!==key&&!this.sameWorld(root.key,key)){Log.info('world file: made with other world settings, generating instead');return null;}const T=root.T;if(!T.H||T.H.length!==T.N*T.N||!T.veg){Log.warn('world file incomplete: generating instead');return null;}
       Log.info(`world file: read ${(f.size/1e6).toFixed(1)} MB in ${(performance.now()-t0).toFixed(0)} ms`);return root;}
     catch(e){Log.warn('world file unreadable ('+(e.message||e)+'): generating instead');return null;}},
   // ---- backups: download the file as it is stored; import one (its world settings come with it)

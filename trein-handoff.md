@@ -1,4 +1,4 @@
-# Trein handoff 102 (20 Nov 2026): v4.40.0 — improvement 3 (house kit in a worker). Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 103 (20 Nov 2026): v4.41.0 — improvement 2 (erosion) and the world-file match. Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,19 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.40.0, 20 Nov) — trein-improve.md step 3: the house kit is built in a Web Worker
+### Latest (4.41.0, 20 Nov) — trein-improve.md step 2 (erosion) and a world-file fix
+- **Erosion on land only** (`genErosion`, maps with a sea): droplets that start below sea level are skipped (the rain on land is the
+  same), a droplet stops when it runs 6 m under the sea, and the rockfall passes skip the deep sea floor. 8 km Mountain islands:
+  erosion 7.2 → 2.8 s, a whole new world 20.4 → 14.7 s (desktop CPU). Land and peaks look the same; the shallow shelf round the coasts is
+  a little wider (the seabed by the shore is no longer worn down). checks/erosion-*-4.41.png (old/new, same seed and view).
+- **Stored worlds no longer regenerate when a setting is added** (`WorldFile.sameWorld`): the world file's key is every world/water/
+  veg/life setting, so each setting added since (wildlife 4.34, islandGen 4.35) made a stored world mismatch and the whole world was
+  generated again (for a save, possibly with changed generation code under its track). Now a setting missing from the stored key is
+  accepted when it holds its default or its `legacy` value (new PDEF field; islandGen legacy 1). Rule: give a new world setting a
+  default (or `legacy`) that reproduces the old behaviour.
+- Smoke test: the Staggerwing check now gives it a 15 s take-off run (> 90 km/h); the 6 s run was borderline.
+
+### Earlier (4.40.0, 20 Nov) — trein-improve.md step 3: the house kit is built in a Web Worker
 - `kitBuildAll(KIT,TYPES,pack)` (render.js) is the old build loop made self-contained; `R.buildKitMeshes` starts a Blob worker that sets
   `self.window=self` (kit.js writes `window.KIT`), `importScripts` the buildings/*.js (from the page's own script tags), and runs
   `kitBuildAll` with `R.packKit` (its source is passed in with `toString()`); the packed ArrayBuffer is transferred back and

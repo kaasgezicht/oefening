@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.40.0 (house models built in a worker: Continue 3.4 s)';
+const VERSION='4.41.0 (erosion on land only: new worlds 30 % faster; stored worlds survive new settings)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -34,7 +34,7 @@ function def(id,o){o.id=id;o.kind=o.kind||'range';PDEF[id]=o;PORDER.push(id);P[i
 def('seed',{tab:'world',label:'Seed',min:1,max:99999,step:1,def:39536,apply:'world'});
 def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[12288,'12 × 12 km'],[16384,'16 × 16 km (heavy)'],[24576,'24 × 24 km (heavy)'],[32768,'32 × 32 km (heavy)']],def:8192,apply:'world'});
 def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands'],['peaks','Mountain islands']],def:'land',apply:'world'});
-def('islandGen',{tab:'world',label:'Island layout',min:1,max:2,step:1,def:2,apply:'world',hide:true});/* 1: the first mountain-island layout (fixed island sizes), kept for worlds saved before 4.35; 2: sized by the land share and the world */
+def('islandGen',{tab:'world',label:'Island layout',min:1,max:2,step:1,def:2,legacy:1,apply:'world',hide:true});/* 1: the first mountain-island layout (fixed island sizes), kept for worlds saved before 4.35; 2: sized by the land share and the world */
 def('landShare',{tab:'world',label:'Island size (share of land)',min:0.15,max:0.97,step:0.01,def:0.5,apply:'world'});
 def('mapRes',{tab:'world',label:'Height map detail (metres between height points)',kind:'select',options:[[0,'Auto (8 m; 12-16 m above 16 km)'],[16,'16 m (faster, coarser)'],[8,'8 m'],[4,'4 m (small worlds only, slow)']],def:0,apply:'world'});
 def('maxHeight',{tab:'world',label:'Mountain height',min:80,max:1200,step:10,def:480,unit:' m',apply:'world'});

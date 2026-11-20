@@ -198,8 +198,12 @@ async function genErosion(p,T,y){
   const drops=Math.floor(p.dropletsPerCell*N*N),inertia=p.inertia,capF=p.capacity,minCap=0.01,
         er=p.erodeRate,dep=p.depositRate,evap=p.evaporation,grav=p.gravity,life=p.maxLife|0;
   const lim=N-1;
+  // on maps with a sea (4.41): rain only falls on land (a raindrop that starts on the seabed changes nothing anyone sees), and a droplet
+  // that runs out to sea stops once it is 6 m under the surface; land gets the same rain as before, the work drops with the sea's share
+  const seaE=T.sea!=null?T.sea/E:null,wetE=seaE!=null?seaE-6/E:-1e9;
   for(let d=0;d<drops;d++){
     let px=rng()*(lim-1)+0.5,py=rng()*(lim-1)+0.5,dx=0,dy=0,sp=1,wa=1,sed=0;
+    if(seaE!=null&&H[(py|0)*N+(px|0)]<seaE){if((d&2047)===0)await y(d/drops*0.85,'Hydraulic erosion');continue;}
     for(let l=0;l<life;l++){
       const nx=px|0,ny=py|0,ci=ny*N+nx,fx=px-nx,fy=py-ny;
       const a=H[ci],b=H[ci+1],c=H[ci+N],e=H[ci+N+1];
@@ -211,6 +215,7 @@ async function genErosion(p,T,y){
       if(px<0||px>=lim||py<0||py>=lim)break;
       const mx=px|0,my=py|0,mi=my*N+mx,gx2=px-mx,gy2=py-my;
       const nh=H[mi]*(1-gx2)*(1-gy2)+H[mi+1]*gx2*(1-gy2)+H[mi+N]*(1-gx2)*gy2+H[mi+N+1]*gx2*gy2;
+      if(nh<wetE)break;
       const dh=nh-h,cap=Math.max(-dh*sp*wa*capF,minCap);
       if(sed>cap||dh>0){
         const amt=dh>0?Math.min(dh,sed):(sed-cap)*dep;
@@ -237,7 +242,7 @@ async function genErosion(p,T,y){
   for(let r=0;r<it;r++){
     for(let j=1;j<N-1;j++){
       for(let i=1;i<N-1;i++){
-        const c=j*N+i,hc=H[c];let best=-1,bd=0;
+        const c=j*N+i,hc=H[c];if(hc<wetE)continue;/* deep sea floor: nothing to slide */let best=-1,bd=0;
         for(let k=0;k<8;k++){const n=c+OY[k]*N+OX[k],d=hc-H[n]-(k<4?tal:tal2);if(d>bd){bd=d;best=n;}}
         if(best>=0){const m=bd*0.25;H[c]-=m;H[best]+=m;depo[best]+=m*0.5;}
       }

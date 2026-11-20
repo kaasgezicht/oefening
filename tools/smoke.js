@@ -33,7 +33,7 @@ const OUT=path.join(__dirname,'out');fs.mkdirSync(OUT,{recursive:true});const RO
     const bt=await p.evaluate(()=>{const h=Coast.H.find(h=>h.boats.some(b=>b.st==='moor'));if(!h)return null;Fish.take(h);return!!Fish.drv;});ok(bt,'a fishing boat was taken out');
     if(bt){await p.evaluate(()=>{Fish.inp.thr=0.5;});await frames(60,0.1);const v=await p.evaluate(()=>Fish.drv.v);ok(v>0.5,`the boat moves (${v.toFixed(1)} m/s)`);await shot('3-boat');await p.evaluate(()=>Fish.leave());}
     await p.evaluate(()=>{for(let i=0;i<400;i++)Coast.update(1);});const out=await p.evaluate(()=>Coast.H.reduce((a,h)=>a+h.boats.filter(b=>b.st!=='moor').length,0));ok(out>0,`harbour boats go out fishing (${out} out)`);
-    await p.evaluate(()=>{Plane.spawn(null,'stag');Plane.ctl.thr=1;});await frames(120);const sp=await p.evaluate(()=>{const r={V:Plane.V,crashed:Plane.crashed};Plane.exit();return r;});ok(sp.V>15&&!sp.crashed,`the Staggerwing takes off (${(sp.V*3.6).toFixed(0)} km/h)`);
+    await p.evaluate(()=>{Plane.spawn(null,'stag');Plane.ctl.thr=1;});await frames(300);const sp=await p.evaluate(()=>{const r={V:Plane.V,crashed:Plane.crashed};Plane.exit();return r;});ok(sp.V>25&&!sp.crashed,`the Staggerwing takes off (${(sp.V*3.6).toFixed(0)} km/h)`);
     console.log('4. save and load');
     const before=await p.evaluate(()=>{const s=snapshot();localStorage.setItem('smoke.save',JSON.stringify(s));return{m:Rescue.m&&Rescue.m.type,boats:Coast.H.map(h=>h.boats.map(b=>b.st).join(',')).join('|')};});
     await p.evaluate(()=>{const s=JSON.parse(localStorage.getItem('smoke.save'));applySnapshot(s);App.camLoaded=true;App.generate(0);});await p.waitForTimeout(500);await ready();
