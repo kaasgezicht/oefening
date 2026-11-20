@@ -32,7 +32,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     let cut=0,pier=0;if(!msg){for(let u=-L;u<=L+0.1;u+=20)for(const w of [-W,0,W]){const [x,z]=P(u,w),gh=R.sampleHr(T,x,z),d=gh-ln.at(u);dev=Math.max(dev,Math.abs(d));cut=Math.max(cut,d);pier=Math.max(pier,-d-AIR.fill);}
       if(cut>60)msg=`Too steep here: a ${Math.round(cut)} m cutting into the hill`;else if(pier>45)msg=`Too steep here: piers ${Math.round(pier)} m tall`;}a.cut=cut;a.pier=Math.max(0,pier);
     if(!msg&&Math.hypot(a.x-a.v.x,a.z-a.v.z)>AIR.maxDist)msg=`Too far from ${a.v.name} (at most ${AIR.maxDist/1000} km)`;
-    if(!msg){for(const hs of Life.houses){if(hs.gone)continue;const dx=hs.x-a.x,dz=hs.z-a.z,u=dx*Math.cos(a.h)+dz*Math.sin(a.h),w=-dx*Math.sin(a.h)+dz*Math.cos(a.h);if(Math.abs(u)<L+15&&Math.abs(w)<W+18){msg='Houses are in the way';break;}}}
+    if(!msg){for(const hs of Life.houses){if(hs.gone)continue;const dx=hs.x-a.x,dz=hs.z-a.z,u=dx*Math.cos(a.h)+dz*Math.sin(a.h),w=-dx*Math.sin(a.h)+dz*Math.cos(a.h);if(Math.abs(u)<L+15&&w<W+18&&w>-W-56){msg='Houses are in the way';break;}/* the apron and buildings lie on the -w side */}}
     if(!msg)for(let u=-L;u<=L;u+=15){const [x,z]=P(u,0);if(Net.nearestOnTrack(x,z,W+6)){msg='The railway is in the way';break;}}
     if(!msg)for(const o of this.list){if(o.water)continue;if(Math.hypot(o.x-a.x,o.z-a.z)<AIR.len+80){msg='Too close to airstrip '+o.n;break;}}
     const r={ok:!msg,msg,score:dev+(ln?Math.abs(ln.m)*100+ln.wet*0.05:99)};if(!quiet&&a===this.pl){this.pl.chk=r;(R.freeMesh(this.ghost),this.ghost=null);const el=$('#airMsg');if(el)el.textContent=r.ok?`${a.v.name} airstrip: ${(Math.hypot(a.x-a.v.x,a.z-a.v.z)/1000).toFixed(1)} km from the village, ${Math.round(Math.min(dev,a.cut+AIR.fill))} m of grading${a.pier>0.5?`, a concrete deck on piers up to ${Math.round(a.pier)} m`:''}${ln.wet?', the water passes under it':''}. ✓ builds it for €${Money.fmt(AIR.price)}`:r.msg;const ok=$('#airOK');if(ok)ok.disabled=!r.ok;}return r;},
@@ -90,24 +90,55 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   // ---- meshes in world coordinates: the mown grass runway (draped on the ground), edge markers, threshold bars, the big number at
   // both ends in the airstrip's colour, a windsock, a hangar and a number board
   mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),ln=s.ln||{m:0,c:R.sampleHr(T,s.x,s.z)},lineY=u=>ln.c+ln.m*clamp(u,-L,L),g=(u,w)=>{const [x,z]=P(u,w);return[x,Math.abs(u)<=L+0.1&&Math.abs(w)<=W+0.1?Math.max(R.sampleHr(T,x,z),lineY(u))+0.12:R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n),onDeck=(u,w)=>{const [x,z]=P(u,w);return R.sampleHr(T,x,z)<lineY(u)-0.4;};
-    const V=(p,n,cl,m)=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],cl[0],cl[1],cl[2],0,0,0,1,m);return M.n++;},q=(a,b,cc,d,cl,m)=>{const ix=[a,b,cc,d].map(p=>V(p,[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);};
-    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const stripe=Math.floor((u+L)/20)%2,edge=Math.abs(w)>=W-W/2-0.01&&(w===-W||w+W/2>=W-0.01),cl=onDeck(u+5,w+W/4)?(stripe?[0.66,0.66,0.63]:[0.6,0.6,0.58]):stripe?[0.62,0.78,0.34]:[0.5,0.68,0.26];/* mown stripes, lighter than the meadow around; concrete on the deck */q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
+    const V=(p,n,cl,m)=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],cl[0],cl[1],cl[2],0,0,0,1,m);return M.n++;},q=(a,b,cc,d,cl,m)=>{const ix=[a,b,cc,d].map(p=>V(p,[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);},lift0=(p,d)=>[p[0],p[1]+d,p[2]],lift=lift0;
+    /* 4.33.0 (the user's reference pictures): an asphalt runway with white edge lines and centre dashes; concrete on a deck */
+    for(let u=-L;u<L-0.1;u+=10)for(let w=-W;w<W-0.1;w+=W/2){const cl=onDeck(u+5,w+W/4)?[0.5,0.5,0.49]:((Math.floor((u+L)/10)+Math.floor((w+W)/(W/2)))%2?[0.25,0.25,0.26]:[0.27,0.27,0.28]);q(g(u,w),g(u+10,w),g(u+10,w+W/2),g(u,w+W/2),cl,0);}
+    {const wl=[0.93,0.93,0.9];for(const e of [-1,1])for(let u=-L+2;u<L-2;u+=10)q(lift0(g(u,e*(W-1.2)),0.02),lift0(g(u+10,e*(W-1.2)),0.02),lift0(g(u+10,e*(W-0.8)),0.02),lift0(g(u,e*(W-0.8)),0.02),wl,0);
+      for(let u=-L+30;u<L-30;u+=24)q(lift0(g(u,-0.3),0.02),lift0(g(u+12,-0.3),0.02),lift0(g(u+12,0.3),0.02),lift0(g(u,0.3),0.02),wl,0);}
     // the concrete deck: a fascia along both edges and square piers down to the ground every 15 m where the land falls away
     {const cc=[0.58,0.58,0.56],cd=[0.48,0.48,0.47];for(const e of [-1,1])for(let u=-L;u<L-0.1;u+=5){if(!onDeck(u+2.5,e*W*0.9))continue;const a=P(u,e*(W+0.3)),b=P(u+5,e*(W+0.3)),ya=lineY(u)+0.12,yb=lineY(u+5)+0.12;q([a[0],ya-1.3,a[1]],[b[0],yb-1.3,b[1]],[b[0],yb,b[1]],[a[0],ya,a[1]],cd,0);}
       for(let u=-L+6;u<=L-6;u+=15)for(const w of [-W+2,0,W-2]){const [x,z]=P(u,w),gy=R.sampleHr(T,x,z),top=lineY(u)-1.2;if(top-gy<0.6)continue;const hh=(top-gy+1)/2,T2=(a2,b2,d2)=>[x+c*a2-sn*d2,gy-1+hh+b2,z+sn*a2+c*d2];
         for(const f of [[[-0.8,-hh,-0.8],[0.8,-hh,-0.8],[0.8,hh,-0.8],[-0.8,hh,-0.8]],[[0.8,-hh,0.8],[-0.8,-hh,0.8],[-0.8,hh,0.8],[0.8,hh,0.8]],[[-0.8,-hh,0.8],[-0.8,-hh,-0.8],[-0.8,hh,-0.8],[-0.8,hh,0.8]],[[0.8,-hh,-0.8],[0.8,-hh,0.8],[0.8,hh,0.8],[0.8,hh,-0.8]]])q(T2(...f[0]),T2(...f[1]),T2(...f[2]),T2(...f[3]),cc,0);}}
-    const lift=(p,d)=>[p[0],p[1]+d,p[2]];
     for(const e of [-1,1]){for(let k=0;k<8;k++){const w=-W+3+k*(2*W-6)/7.5;q(lift(g(e*(L-4),w),0.02),lift(g(e*(L-14),w),0.02),lift(g(e*(L-14),w+1.4),0.02),lift(g(e*(L-4),w+1.4),0.02),[0.95,0.95,0.92],0);}
       // the number, painted big across the runway, readable when landing toward it
       if(typeof document!=='undefined'){const cv=document.createElement('canvas'),gx=cv.getContext('2d');cv.width=64;cv.height=64;gx.fillStyle='#000';gx.fillRect(0,0,64,64);gx.fillStyle='#fff';gx.font='bold 54px Arial';gx.textAlign='center';gx.textBaseline='middle';gx.fillText(String(s.n),32,34);const d=gx.getImageData(0,0,64,64).data,px=0.3;
         for(let y=0;y<64;y++){let run=-1;for(let x=0;x<=64;x++){const on=x<64&&d[(y*64+x)*4]>120;if(on&&run<0)run=x;if(!on&&run>=0){// image x → across the runway, image y → along it (toward the threshold)
-              const ua=e*(L-22-y*px),ub=e*(L-22-(y+1)*px),wa=-e*(run-32)*px,wb=-e*(x-32)*px;q(lift(g(ua,wa),0.03),lift(g(ub,wa),0.03),lift(g(ub,wb),0.03),lift(g(ua,wb),0.03),col,0);run=-1;}}}}}
-    for(let u=-L;u<=L+0.1;u+=42)for(const w of [-W-1,W+1]){const p=g(u,w);for(const [a,b,cc,d] of [[[-0.4,0,-0.2],[0.4,0,-0.2],[0.4,0.35,-0.2],[-0.4,0.35,-0.2]],[[-0.4,0,0.2],[0.4,0,0.2],[0.4,0.35,0.2],[-0.4,0.35,0.2]],[[-0.4,0.35,-0.2],[0.4,0.35,-0.2],[0.4,0.35,0.2],[-0.4,0.35,0.2]]]){const T2=v=>[p[0]+c*v[0]-sn*v[2],p[1]+v[1],p[2]+sn*v[0]+c*v[2]];q(T2(a),T2(b),T2(cc),T2(d),[0.98,0.98,0.95],0);}}
+              const ua=e*(L-22-y*px),ub=e*(L-22-(y+1)*px),wa=-e*(run-32)*px,wb=-e*(x-32)*px;q(lift(g(ua,wa),0.03),lift(g(ub,wa),0.03),lift(g(ub,wb),0.03),lift(g(ua,wb),0.03),[0.95,0.95,0.92],0);run=-1;}}}}}
+    for(let u=-L;u<=L+0.1;u+=40)for(const w of [-W-1,W+1]){const p=g(u,w);for(const [a,b,cc,d,cl] of [[[-0.15,0,-0.15],[0.15,0,-0.15],[0.15,0.35,-0.15],[-0.15,0.35,-0.15],[0.25,0.24,0.2]],[[-0.15,0,0.15],[0.15,0,0.15],[0.15,0.35,0.15],[-0.15,0.35,0.15],[0.25,0.24,0.2]],[[-0.2,0.35,-0.2],[0.2,0.35,-0.2],[0.2,0.6,-0.2],[-0.2,0.6,-0.2],[1,0.82,0.42]],[[-0.2,0.35,0.2],[0.2,0.35,0.2],[0.2,0.6,0.2],[-0.2,0.6,0.2],[1,0.82,0.42]],[[-0.2,0.6,-0.2],[0.2,0.6,-0.2],[0.2,0.6,0.2],[-0.2,0.6,0.2],[1,0.9,0.6]]]){const T2=v=>[p[0]+c*v[0]-sn*v[2],p[1]+v[1],p[2]+sn*v[0]+c*v[2]];q(T2(a),T2(b),T2(cc),T2(d),cl,0);}}/* edge lights, amber */
     // windsock near one end, hangar and number board beside the middle
     const ws=g(-L+40,-W-14),bx=(cx,cy,cz,hx,hy,hz,cl,m)=>{const T2=(a,b2,d)=>[cx+c*a-sn*d,cy+b2,cz+sn*a+c*d];const Pp=[[-hx,-hy,-hz],[hx,-hy,-hz],[hx,hy,-hz],[-hx,hy,-hz],[-hx,-hy,hz],[hx,-hy,hz],[hx,hy,hz],[-hx,hy,hz]].map(v=>T2(...v));for(const f of [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7]]){const ix=f.map(i=>V(Pp[i],[0,1,0],cl,m));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
     bx(ws[0],ws[1]+3,ws[2],0.08,3,0.08,[0.85,0.85,0.85],0);for(let k=0;k<5;k++)bx(ws[0]+c*(0.5+k*0.55),ws[1]+5.6-k*0.08,ws[2]+sn*(0.5+k*0.55),0.28,0.32-k*0.04,0.32-k*0.04,k%2?[0.98,0.98,0.96]:[0.98,0.42,0.08],0);
-    const hg=g(0,-W-34);bx(hg[0],hg[1]+2.6,hg[2],9,2.6,7,[0.5,0.52,0.54],0);bx(hg[0],hg[1]+5.6,hg[2],9.2,0.5,7.2,[0.34,0.36,0.38],0);bx(hg[0]+sn*7.05,hg[1]+2.1,hg[2]-c*7.05,6.5,2.1,0.05,[0.12,0.12,0.13],0);
-    const sg=g(28,-W-12);bx(sg[0],sg[1]+1.2,sg[2],0.06,1.2,0.06,[0.3,0.25,0.2],0);bx(sg[0],sg[1]+2.8,sg[2],1.1,0.9,0.06,col,0);
+    /* the airfield beside the middle of the runway (w < -W): concrete apron, arched hangar, control tower, fuel, a lean-to, a fence, a sign */
+    const by=lineY(0)+0.12,Lb=(u,y,w)=>{const [x,z]=P(u,w);return[x,by+y,z];},LB=(u0,y0,w0,hu,hy,hw,cl,m)=>{const pp=[[-hu,-hy,-hw],[hu,-hy,-hw],[hu,hy,-hw],[-hu,hy,-hw],[-hu,-hy,hw],[hu,-hy,hw],[hu,hy,hw],[-hu,hy,hw]].map(v=>Lb(u0+v[0],y0+v[1],w0+v[2]));
+      for(const f of [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7]]){const ix=f.map(i=>V(pp[i],[0,1,0],cl,m||0));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);}};
+    const LQ=(a,b2,cc,d,cl)=>q(Lb(...a),Lb(...b2),Lb(...cc),Lb(...d),cl,0);
+    // apron: concrete slabs with dark joints on a plinth that hides the slope, a yellow taxi line and a parking box
+    const aw0=-W-2,aw1=-W-50,au=48;LB(0,-1.4,(aw0+aw1)/2,au,1.5,(aw0-aw1)/2,[0.42,0.4,0.37]);
+    for(let u=-au;u<au;u+=8)for(let w=aw1;w<aw0;w+=8){const sh=((u/8+w/8)|0)%2?0.02:0;LQ([u+0.15,0.12,w+0.15],[u+7.85,0.12,w+0.15],[u+7.85,0.12,w+7.85],[u+0.15,0.12,w+7.85],[0.6+sh,0.57+sh,0.52+sh]);}
+    const yl=[0.92,0.76,0.18];for(let u=-au+2;u<au-2;u+=4)LQ([u,0.14,-W-6.2],[u+2.5,0.14,-W-6.2],[u+2.5,0.14,-W-5.8],[u,0.14,-W-5.8],yl);
+    for(const [a1,b1,c1,d1] of [[0,-W-14,0.3,-W-30],[18,-W-14,18.3,-W-30],[0,-W-14,18.3,-W-14.3],[0,-W-29.7,18.3,-W-30]])LQ([a1,0.14,b1],[c1,0.14,b1],[c1,0.14,d1],[a1,0.14,d1],yl);
+    // the hangar: green-grey walls, an arched corrugated roof (ridge across the runway), doors slid open to the apron, dark inside, a rooster vane
+    {const hu=-14,hw=-W-40,HX=11,HZ=9,wh=5,wall=[0.36,0.46,0.43],rf=[0.44,0.44,0.47],dk=[0.06,0.06,0.07];LB(hu,0.1,hw,HX+0.2,0.25,HZ+0.2,[0.45,0.44,0.42]);
+      LB(hu,wh/2,hw-HZ,HX,wh/2,0.2,wall);LB(hu-HX,wh/2,hw,0.2,wh/2,HZ,wall);LB(hu+HX,wh/2,hw,0.2,wh/2,HZ,wall);LB(hu,wh/2,hw,HX-0.3,wh/2,HZ-0.3,dk);
+      for(const sd of [-1,1]){LB(hu+sd*(HX-2.5),wh/2,hw+HZ+0.3,2.6,wh/2,0.15,wall);for(const dx of [-1.2,1.2])LB(hu+sd*(HX-2.5)+dx,wh/2,hw+HZ+0.47,0.08,wh/2-0.2,0.04,[0.9,0.88,0.82]);}
+      const NA=12;for(let k=0;k<NA;k++){const a0=Math.PI*k/NA,a1=Math.PI*(k+1)/NA,X0=Math.cos(a0)*(HX+0.4),Y0=Math.sin(a0)*3.4+wh,X1=Math.cos(a1)*(HX+0.4),Y1=Math.sin(a1)*3.4+wh;
+        LQ([hu+X0,Y0,hw-HZ-0.5],[hu+X1,Y1,hw-HZ-0.5],[hu+X1,Y1,hw+HZ+0.5],[hu+X0,Y0,hw+HZ+0.5],k%2?rf:[rf[0]*0.9,rf[1]*0.9,rf[2]*0.92]);
+        for(const e of [-1,1])LQ([hu+X0,wh,hw+e*HZ],[hu+X1,wh,hw+e*HZ],[hu+X1,Y1,hw+e*HZ],[hu+X0,Y0,hw+e*HZ],wall);}
+      LB(hu,wh+3.4+0.9,hw,0.05,0.9,0.05,[0.2,0.2,0.2]);LB(hu+0.2,wh+3.4+1.9,hw,0.45,0.3,0.06,[0.55,0.35,0.15]);LB(hu,wh+2.2,hw+HZ+0.6,1.4,0.9,0.08,[0.7,0.62,0.45]);}
+    // the control tower: a timber two-storey building, a glass cab with a railed gallery, a flat roof, an antenna with a red light
+    {const tu=20,tw=-W-42,wd=[0.5,0.34,0.22],tr=[0.36,0.25,0.17],gl=[0.95,0.75,0.4];LB(tu,3,tw,6,3,5,wd);LB(tu,6.2,tw,6.4,0.2,5.4,tr);
+      for(const [du,dy] of [[-3,1.6],[0,1.6],[3,1.6],[-3,4.4],[0,4.4],[3,4.4]])LB(tu+du,dy,tw+5.02,0.7,0.6,0.05,gl);LB(tu+4.5,1.1,tw+5.02,0.6,1.1,0.06,[0.3,0.22,0.16]);
+      LB(tu-1,8.2,tw,3,1.9,3,wd);LB(tu-1,11.4,tw,2.6,1.3,2.6,[0.15,0.2,0.24]);for(const e of [-1,1]){LB(tu-1+e*2.6,11.4,tw,0.1,1.3,2.7,tr);LB(tu-1,11.4,tw+e*2.6,2.7,1.3,0.1,tr);}LB(tu-1,11.4,tw,2.62,0.06,2.62,gl);
+      LB(tu-1,10.15,tw,3.8,0.12,3.8,tr);for(let k=0;k<12;k++){const a=k/12*6.283,ru=3.6;LB(tu-1+Math.cos(a)*ru,10.8,tw+Math.sin(a)*ru,0.06,0.6,0.06,tr);}LB(tu-1,11.35,tw+3.6,3.7,0.05,0.05,tr);LB(tu-1,11.35,tw-3.6,3.7,0.05,0.05,tr);LB(tu-4.6,11.35,tw,0.05,0.05,3.7,tr);LB(tu+2.6,11.35,tw,0.05,0.05,3.7,tr);
+      LB(tu-1,12.85,tw,3,0.15,3,[0.3,0.3,0.32]);LB(tu-1,14.6,tw,0.06,1.6,0.06,[0.6,0.6,0.62]);LB(tu-1,16.3,tw,0.2,0.2,0.2,[1,0.15,0.1]);}
+    // fuel: a white tank on cradles and a red pump; a lean-to shed with crates; a picnic table; a sign with a plane
+    {LB(-32,1.5,-W-22,2.3,1.1,1.1,[0.92,0.9,0.85]);for(const e of [-1.6,1.6])LB(-32+e,0.5,-W-22,0.15,0.5,1,[0.3,0.3,0.32]);LB(-27.5,1,-W-21,0.45,1,0.4,[0.78,0.12,0.1]);LB(-27.5,1.5,-W-20.58,0.3,0.25,0.03,[0.95,0.92,0.8]);
+      const su=-40,sw=-W-40,wd2=[0.45,0.33,0.22];for(const [du,dw] of [[-4,-3],[4,-3],[-4,3],[4,3]])LB(su+du,1.5,sw+dw,0.12,1.5,0.12,wd2);LQ([su-4.6,3.4,sw-3.6],[su+4.6,3.4,sw-3.6],[su+4.6,2.6,sw+3.6],[su-4.6,2.6,sw+3.6],[0.4,0.3,0.22]);
+      for(let k=0;k<5;k++)LB(su-2.5+k*1.2,0.4+((k*7)%3)*0.4,sw-1+((k*3)%2)*1.2,0.5,0.4,0.5,k%2?[0.55,0.42,0.26]:[0.3,0.38,0.3]);LB(su+2,0.8,sw+5.5,1.1,0.06,0.6,wd2);for(const e of [-1,1])LB(su+2,0.45,sw+5.5+e*1,1.1,0.05,0.18,wd2);
+      LB(-46,1.3,-W-6,0.08,1.3,0.08,[0.35,0.26,0.18]);LB(-46,2.9,-W-6,1.3,0.75,0.06,[0.86,0.8,0.66]);LB(-46,2.9,-W-5.92,0.8,0.12,0.02,[0.2,0.2,0.22]);LB(-46,2.9,-W-5.92,0.1,0.45,0.02,[0.2,0.2,0.22]);}
+    // a timber fence round the apron's back and ends
+    {const fc=[0.42,0.31,0.21];for(let u=-au;u<=au;u+=4){LB(u,0.6,aw1-1,0.08,0.6,0.08,fc);if(u<au){LB(u+2,0.85,aw1-1,2,0.05,0.04,fc);LB(u+2,0.45,aw1-1,2,0.05,0.04,fc);}}
+      for(const e of [-1,1])for(let w=aw1-1;w<aw0-4;w+=4){LB(e*(au+1),0.6,w,0.08,0.6,0.08,fc);LB(e*(au+1),0.85,w+2,0.04,0.05,2,fc);LB(e*(au+1),0.45,w+2,0.04,0.05,2,fc);}}
     return R.uploadVeh(M);},
   ghostMesh(a){const M=vmesh(),T=App.T,{L,W,P}=this.corners(a),ok=a.chk&&a.chk.ok,cl=ok?[0.15,1,0.3]:[1,0.2,0.1],g=(u,w)=>{const [x,z]=P(u,w);return[x,R.sampleHr(T,x,z)+0.4,z];};
     const V=(p,cl2)=>{M.v.push(p[0],p[1],p[2],0,1,0,cl2[0],cl2[1],cl2[2],0,0,0,1,4);return M.n++;},q=(a2,b,c,d)=>{const ix=[a2,b,c,d].map(p=>V(p,cl));M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);};
