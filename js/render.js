@@ -101,12 +101,27 @@ R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
   [[0,3,0],[1,3,12],[2,3,24],[3,1,36]].forEach(([l,n,off])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,40,off);});
   gl.enableVertexAttribArray(4);gl.enableVertexAttribArray(5);gl.vertexAttribDivisor(4,1);gl.vertexAttribDivisor(5,1);gl.bindVertexArray(null);
   Log.info(`low-poly meshes: ${list.length} models, ${(total/3)|0} triangles (${list.filter(([k])=>k[0]==='t'&&k.endsWith('n')).map(([k,M])=>k+' '+M.n/3).join(', ')})`);};
-R.buildKitMeshes=function(){const t0=performance.now(),parts=[];R.kitMesh={};let total=0;
-  R.kitBound={};for(const t of KIT_TYPES){R.kitMesh[t]=[];for(let l=0;l<4;l++){KIT.build(t,{game:true,lod:[0,0.5,1,2][l]});const a=new Float32Array(KIT.VB);a.cl=KIT.CL.slice();parts.push(a);R.kitMesh[t].push({first:total,count:a.length/16});total+=a.length/16;
-    if(l===0){let y0=1e9,y1=-1e9;for(let i=0;i<a.length;i+=16){y0=Math.min(y0,a[i+1]);y1=Math.max(y1,a[i+1]);}const ym=(y0+y1)/2;let r=0;for(let i=0;i<a.length;i+=16)r=Math.max(r,a[i]*a[i]+(a[i+1]-ym)*(a[i+1]-ym)+a[i+2]*a[i+2]);R.kitBound[t]=[ym,Math.sqrt(r)+1];}}}// bounding sphere per type (for culling)
-  // packed 32-byte vertices: position f32x3 | normal s8x4 | colour u8x3 + material u8 | uv s16x2 | half-size u16x2 (/16 m) | seed, aux u8x2
-  KIT.VB.length=0;const V=R.packKit(parts,total);R.kitVao=R.kitVaoOf(V);R.kitVbo=R.kitVao.vbo;
-  Log.info(`building kit: ${KIT_TYPES.map(t=>t+' '+R.kitMesh[t].map(m=>(m.count/3/1000).toFixed(1)+'k').join('/')).join(', ')} triangles (LOD 0/1/2), ${(V.byteLength/1048576).toFixed(1)} MB, built in ${(performance.now()-t0).toFixed(0)} ms`);};
+// the building kit: every type at four levels of detail, packed into one buffer (about 190 MB of vertices for a few seconds' work).
+// kitBuildAll is self-contained (it only uses KIT, the type list and the packer it is given) so that it can run in a Web Worker: since
+// 4.40 the kit is built there while the world loads; the houses appear when it arrives (until then the old station meshes stand in and
+// kit houses are not drawn). Where a worker cannot be made (file://, no Blob workers) it is built here, as before.
+function kitBuildAll(KIT,TYPES,pack){const parts=[],kitMesh={},kitBound={};let total=0;
+  for(const t of TYPES){kitMesh[t]=[];for(let l=0;l<4;l++){KIT.build(t,{game:true,lod:[0,0.5,1,2][l]});const a=new Float32Array(KIT.VB);a.cl=KIT.CL.slice();parts.push(a);kitMesh[t].push({first:total,count:a.length/16});total+=a.length/16;
+    if(l===0){let y0=1e9,y1=-1e9;for(let i=0;i<a.length;i+=16){y0=Math.min(y0,a[i+1]);y1=Math.max(y1,a[i+1]);}const ym=(y0+y1)/2;let r=0;for(let i=0;i<a.length;i+=16)r=Math.max(r,a[i]*a[i]+(a[i+1]-ym)*(a[i+1]-ym)+a[i+2]*a[i+2]);kitBound[t]=[ym,Math.sqrt(r)+1];}}}// bounding sphere per type (for culling)
+  KIT.VB.length=0;return{V:pack(parts,total),kitMesh,kitBound};}
+R.kitDone=function(r,t0,where){R.kitMesh=r.kitMesh;R.kitBound=r.kitBound;R.kitVao=R.kitVaoOf(r.V);R.kitVbo=R.kitVao.vbo;R.kitReady=true;
+  Log.info(`building kit (${where}): ${KIT_TYPES.map(t=>t+' '+R.kitMesh[t].map(m=>(m.count/3/1000).toFixed(1)+'k').join('/')).join(', ')} triangles (LOD 0/1/2), ${(r.V.byteLength/1048576).toFixed(1)} MB, ready ${(performance.now()-t0).toFixed(0)} ms after the start of the build`);};
+R.buildKitMeshes=function(){const t0=performance.now();R.kitMesh={};R.kitBound={};R.kitVao=null;R.kitReady=false;
+  const here=()=>R.kitDone(kitBuildAll(KIT,KIT_TYPES,R.packKit),t0,'main thread');
+  if(!/^https?:/.test(location.protocol)||!CAPS.blobWorker||/[?&]kitmain=1/.test(location.search)){here();return;}
+  try{const files=[...document.querySelectorAll('script[src^="buildings/"]')].map(e=>new URL(e.getAttribute('src'),location.href).href);
+    const src=`self.window=self;importScripts(${files.map(f=>JSON.stringify(f)).join(',')});const pack=${R.packKit.toString()};${kitBuildAll.toString()}
+onmessage=e=>{try{const r=kitBuildAll(KIT,e.data,pack);postMessage(r,[r.V]);}catch(err){postMessage({err:String(err&&err.stack||err)});}};`;
+    const w=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));let done=false;
+    const fall=why=>{if(done)return;done=true;try{w.terminate();}catch(e){}Log.warn('building kit: the worker failed ('+why+'), building it here');here();};
+    w.onmessage=e=>{if(done)return;if(e.data.err){fall(e.data.err.split('\n')[0]);return;}done=true;w.terminate();if(!gl||gl.isContextLost())return;R.kitDone(e.data,t0,'worker');};
+    w.onerror=e=>{e.preventDefault&&e.preventDefault();fall(e.message||'error');};w.postMessage(KIT_TYPES);}
+  catch(e){Log.warn('building kit: no worker ('+e.message+')');here();}};
 // packed 32-byte vertices: position f32x3 | normal s8x4 | colour u8x3 + material u8 | uv s16x2 | half-size u16x2 (/16 m) | seed, aux u8x2
 R.packKit=function(parts,total){const AB=new ArrayBuffer(total*32),f32=new Float32Array(AB),i8=new Int8Array(AB),u8=new Uint8Array(AB),i16=new Int16Array(AB),u16=new Uint16Array(AB);let v=0;
   const q8=x=>Math.max(-127,Math.min(127,Math.round(x*127))),u8c=x=>Math.max(0,Math.min(255,Math.round(x*255)));

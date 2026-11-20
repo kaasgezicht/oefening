@@ -1,4 +1,4 @@
-# Trein handoff 101 (20 Nov 2026): v4.39.0 — improvements 17, 29, 31, 32 from trein-improve.md. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 102 (20 Nov 2026): v4.40.0 — improvement 3 (house kit in a worker). Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,16 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.39.0, 20 Nov) — trein-improve.md steps 17, 29, 31, 32 (the user said "Continue": the suggested order, quick wins first)
+### Latest (4.40.0, 20 Nov) — trein-improve.md step 3: the house kit is built in a Web Worker
+- `kitBuildAll(KIT,TYPES,pack)` (render.js) is the old build loop made self-contained; `R.buildKitMeshes` starts a Blob worker that sets
+  `self.window=self` (kit.js writes `window.KIT`), `importScripts` the buildings/*.js (from the page's own script tags), and runs
+  `kitBuildAll` with `R.packKit` (its source is passed in with `toString()`); the packed ArrayBuffer is transferred back and
+  `R.kitDone` uploads it (`R.kitReady`). Until then kit houses are not drawn (every use was already guarded by `R.kitVao`).
+  Falls back to the main thread on file://, without Blob workers, on a worker error, or with `?kitmain=1`.
+- Continue on an 8 km world (page clock, served from localhost): playable at 3.4 s (was 5.6), houses in at 5.2 s. A first start is
+  unchanged (generation dominates; the kit now builds alongside it). checks/continue-houses-4.40.png. Lint and smoke test pass.
+
+### Earlier (4.39.0, 20 Nov) — trein-improve.md steps 17, 29, 31, 32 (the user said "Continue": the suggested order, quick wins first)
 - **17 Phone layout**: below 520 px the bottom bar's buttons share the width (`flex:1 1 0`, ≤ 58 px), so all seven fit on 412 px (Save was
   cut off). The stats line is off by default (`showStats` def 0, and off once for saves from before 4.39) and never runs under the corner
   buttons. `frameWorld` starts at the biggest village; a save without a camera (`camLoaded=!!saved.camera`) is framed too (a new world
