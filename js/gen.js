@@ -137,8 +137,10 @@ function bigMountains(p){const PK=p.mapStyle==='peaks',n=PK?0:Math.min(3,p.bigMt
 // normalise raw -> metres (shared by inner map and far ring so they meet)
 /* relief variety (4.30.0): a large-scale mask makes some regions low rolling hills (hillHeight of the full height, no rock) and leaves the
    rest mountainous; reliefMix is the share of lowland. Applied to the shaped heights before the big mountains and the coast */
-function reliefFn(p){const mix=clamp(+p.reliefMix||0,0,1);if(!mix)return null;const nz=makeNoise((p.seed|0)+4321),W=p.worldSize,hh=clamp(+p.hillHeight||0.25,0.05,1);
-  return(x,z)=>{const n=fbm(nz,x/(W*0.3)+1.7,z/(W*0.3)-2.9,3,0.5,2)*0.5+0.5,low=smooth(1-mix-0.08,1-mix+0.08,1-n);return 1-low*(1-hh);};}
+function reliefFn(p){const mix=clamp(+p.reliefMix||0,0,1),pm=clamp(+p.plainsMix||0,0,1);if(!mix&&!pm)return null;const nz=makeNoise((p.seed|0)+4321),n2=makeNoise((p.seed|0)+8765),W=p.worldSize,hh=clamp(+p.hillHeight||0.25,0.05,1),rs=clamp(+p.reliefScale||0.3,0.1,1);
+  /* three kinds of country: plains (plainsMix, almost flat), low hills (reliefMix) and the mountains in between, in regions of reliefScale × the world */
+  return(x,z)=>{const n=fbm(nz,x/(W*rs)+1.7,z/(W*rs)-2.9,3,0.5,2)*0.5+0.5,low=mix?smooth(1-mix-0.08,1-mix+0.08,1-n):0,f=1-low*(1-hh);
+    if(!pm)return f;const q=fbm(n2,x/(W*rs*0.8)+5.1,z/(W*rs*0.8)+0.4,3,0.5,2)*0.5+0.5,pl=smooth(1-pm-0.06,1-pm+0.06,q);return f*(1-pl*0.95)+pl*0.03;};}
 function shapeHeight(raw,norm,p,mm){
   let h01=(raw-norm.min)/(norm.max-norm.min);
   h01=Math.pow(Math.max(h01,0),p.valleyFlat);

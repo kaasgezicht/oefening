@@ -1,4 +1,4 @@
-# Trein handoff 94 (20 Nov 2026): v4.32.0 — route planner keeps to railway grades and tunnels through hills; track building rebuilds only the changed area; route buttons explain themselves; running costs
+# Trein handoff 95 (20 Nov 2026): v4.33.0 — world presets in New game, plains + hills + mountains in one world, the airfield from the user's pictures
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,22 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.32.0, 20 Nov) — the user's second save (route over the island's summit at 94 %)
+### Latest (4.33.0, 20 Nov) — presets, varied land, airfield
+- **World presets** (`MainMenu.PRESETS`, cards above the map style): Varied countryside, Gentle lowlands, Alpine valleys, Lake district,
+  Island, Many islands, Mountain islands, Flat archipelago. A preset resets the land settings to their defaults, then applies its own
+  (style, size 8 km, heights, relief mix, plains, lakes, shores, bays, big mountains); everything stays editable. The map style row wraps
+  to 2 × 2 (on a phone "Many islands" had been squeezed). checks/world-presets.png, world-presets-phone.png.
+- **Three kinds of country** (`reliefFn`): `plainsMix` (0.15, almost flat: 3 % of the height) from a second mask, `reliefMix` low hills,
+  the mountains between; `reliefScale` (0.3 × world) sets the size of those regions.
+- **Airfield** (air.js `mesh`, from the user's two pictures): asphalt runway (checker of two greys) with white edge lines, centre dashes,
+  threshold bars and a white number; amber edge lights every 40 m; on the -w side a concrete apron (8 m slabs, joints, a plinth down 2.9 m
+  to hide slopes) with a yellow taxi line and parking box; an arched green-grey hangar (12-segment corrugated roof, doors slid open, dark
+  inside, rooster vane, a sign); a timber control tower (lit windows, glass cab, railed gallery, roof, antenna with a red light); a white
+  fuel tank on cradles and a red pump; a lean-to with crates and a picnic table; a sign with a plane; a timber fence round the apron;
+  the windsock. Houses are kept off the apron side (the check now reaches w = -W-56). checks/airfield-new-1.png, -2.png.
+  - Known: a brook that crosses the runway is still drawn over the asphalt.
+
+### Earlier (4.32.0, 20 Nov) — the user's second save (route over the island's summit at 94 %)
 - **Route planner** (route.js): the cause was Maximum grade defaulting to 100 % and the last rung ("any grade") following the ground over
   the top. New ladder (`routeGrade` 4 %, `tunnelMax` 600 m in Settings › Track): 1) easy grade, soft penalty above it; 2) 2.25 × steeper,
   tunnels at 0.6 × cost; 3) tunnel mode, tunnels up to 3 × tunnelMax, grades ≤ 15 %; 4) a base tunnel up to 10 × tunnelMax, ≤ 12 %;

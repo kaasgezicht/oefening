@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.32.0 (route planner: railway grades, tunnels through hills; fast track building; button explanations; running costs)';
+const VERSION='4.33.0 (world presets, plains/hills/mountains, new airfield)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -43,6 +43,8 @@ def('roughness',{tab:'world',label:'Roughness',min:0.3,max:0.65,step:0.01,def:0.
 def('lacunarity',{tab:'world',label:'Detail spacing',min:1.7,max:2.4,step:0.01,def:2.0,apply:'world'});
 def('warp',{tab:'world',label:'Domain warp',min:0,max:1.5,step:0.01,def:0.55,apply:'world'});
 def('reliefMix',{tab:'world',label:'Low hills vs mountains (share of the land that is low and rolling)',min:0,max:1,step:0.01,def:0.5,apply:'world'});
+def('plainsMix',{tab:'world',label:'Flat plains (share of the land)',min:0,max:0.8,step:0.01,def:0.15,apply:'world'});
+def('reliefScale',{tab:'world',label:'Size of the regions (plains, hills, mountains)',min:0.1,max:1,step:0.01,def:0.3,apply:'world'});
 def('hillHeight',{tab:'world',label:'Low hills: height (share of the mountain height)',min:0.05,max:1,step:0.01,def:0.15,apply:'world'});
 def('shoreFlat',{tab:'world',label:'Flat shores (sea coasts and lakes)',min:0,max:2,step:0.05,def:0.8,apply:'world'});
 def('bays',{tab:'world',label:'Bays (island maps)',min:0,max:2,step:0.1,def:1,apply:'world'});

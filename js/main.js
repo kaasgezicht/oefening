@@ -13,6 +13,17 @@ const MainMenu={np:null,pt:0,
   page(p){for(const e of document.querySelectorAll('.mm-page'))e.hidden=e.dataset.p!==p;if(p==='new')this.initNew();if(p==='saves')this.saveInfo();if(p==='quality')this.initQ();},
   KEYS:['maxHeight','mountains','landShare','bigMtns','bigMtnHeight','bigMtnBase','bigMtnLong','villages'],
   SIZES:[1024,2048,4096,8192,12288,16384,24576,32768],
+  /* world presets (4.33.0): each sets the map style and the settings that shape the land; the rest stays as it was */
+  PRESETS:[['Varied countryside','Plains, rolling hills and a few mountains, rivers and lakes',{mapStyle:'land',worldSize:8192,maxHeight:420,mountains:0.55,reliefMix:0.45,plainsMix:0.2,hillHeight:0.15,reliefScale:0.3,bigMtns:1,bigMtnHeight:900,lakeFill:0.9}],
+    ['Gentle lowlands','Mostly flat farmland and low hills, wide rivers',{mapStyle:'land',worldSize:8192,maxHeight:260,mountains:0.25,reliefMix:0.7,plainsMix:0.4,hillHeight:0.12,reliefScale:0.35,bigMtns:0}],
+    ['Alpine valleys','High ridges and big peaks with green valleys between',{mapStyle:'land',worldSize:8192,maxHeight:700,mountains:0.85,reliefMix:0.3,plainsMix:0.1,hillHeight:0.2,reliefScale:0.25,bigMtns:2,bigMtnHeight:1800,bigMtnBase:3600}],
+    ['Lake district','Hills round many lakes, flat shores for lakeside villages',{mapStyle:'land',worldSize:8192,maxHeight:380,mountains:0.5,reliefMix:0.5,plainsMix:0.15,lakeFill:0.97,maxLakeDepth:22,minLakeArea:1500,shoreFlat:1,bigMtns:0}],
+    ['Island','One big island: coastal plains, bays, a mountain heart',{mapStyle:'island',worldSize:8192,landShare:0.55,maxHeight:450,mountains:0.6,reliefMix:0.45,plainsMix:0.2,bays:1,shoreFlat:0.9,bigMtns:1,bigMtnHeight:1200}],
+    ['Many islands','An archipelago of islands of every size',{mapStyle:'islands',worldSize:8192,landShare:0.5,maxHeight:380,mountains:0.5,reliefMix:0.5,plainsMix:0.2,shoreFlat:0.9,bigMtns:0}],
+    ['Mountain islands','A chain of islands, each round a big peak, bays and harbours',{mapStyle:'peaks',worldSize:8192,landShare:0.5,maxHeight:420,bigMtnHeight:1000,reliefMix:0.5,plainsMix:0.15,bays:1,shoreFlat:0.9}],
+    ['Flat archipelago','Low green islands and shallow sounds',{mapStyle:'islands',worldSize:8192,landShare:0.45,maxHeight:180,mountains:0.2,reliefMix:0.8,plainsMix:0.45,hillHeight:0.15,shoreFlat:1.2,bigMtns:0}]],
+  applyPreset(i){const pr=this.PRESETS[i];if(!pr)return;for(const id of [...this.KEYS,...this.genIds()])if(PDEF[id])this.np[id]=PDEF[id].def;Object.assign(this.np,pr[2]);this.fill();this.sync();this.preview();
+    for(const b of document.querySelectorAll('#mmPresets button'))b.classList.toggle('on',+b.dataset.pr===i);UI.toast(pr[0]+': '+pr[1]);},
   /* every setting that shapes a new world (applied when the world is made), in folding groups below the basics */
   GROUPS:[['Land shape',d=>d.tab==='world'&&!/^bigMtn/.test(d.id)],['Big mountains',d=>d.tab==='world'&&/^bigMtn/.test(d.id)],['Erosion',d=>d.tab==='erosion'],['Rivers and lakes',d=>d.tab==='water'],
     ['Coast and sea',d=>d.tab==='sea'],['Trees and rocks',d=>d.tab==='trees'],['Villages and countryside',d=>d.tab==='life']],
@@ -34,7 +45,7 @@ const MainMenu={np:null,pt:0,
   fill(){const np=this.np;for(const k of this.KEYS)$('#mm_'+k).value=np[k];for(const e of document.querySelectorAll('#mmMore [data-mk]')){const id=e.dataset.mk;if(PDEF[id].kind==='check')e.checked=!!+np[id];else e.value=np[id];this.showVal(id);}this.chips();
     const si=Math.max(0,this.SIZES.indexOf(+np.worldSize));$('#mmSize').value=si;this.sizeLabel();},
   sizeLabel(){const W=+this.np.worldSize,km=W/1024;$('#mmSizeV').textContent=`${km} × ${km} km`+(W>16384?' · heavy':W>=16384?' · large':'');},
-  initNew(){const np=this.np={...P};this.buildMore();$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},
+  initNew(){const np=this.np={...P};this.buildMore();{const pe=$('#mmPresets');if(pe&&!pe.dataset.built){pe.dataset.built=1;pe.innerHTML=this.PRESETS.map((q,i)=>`<button type="button" data-pr="${i}"><b>${q[0]}</b><small>${q[1]}</small></button>`).join('');for(const b of pe.querySelectorAll('button'))b.onclick=()=>this.applyPreset(+b.dataset.pr);}}$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},
   sync(){const np=this.np;for(const b of document.querySelectorAll('#mmStyle button'))b.classList.toggle('on',b.dataset.v===np.mapStyle);for(const e of document.querySelectorAll('.mm-grid .isl'))e.style.display=np.mapStyle==='land'?'none':'';
     for(const e of document.querySelectorAll('.mm-grid .bm'))e.style.opacity=np.bigMtns>0?1:0.4;},
   preview(){clearTimeout(this.pt);this.pt=setTimeout(async()=>{const np=this.np,t0=performance.now();try{const L=await previewLand(np,160);drawPreview($('#mmPrev'),L,np);$('#mmPrevNote').textContent=`Preview without rivers and lakes · ${np.worldSize/1000} km · seed ${np.seed}`;}catch(e){Log.warn('preview: '+e.message);}},120);},
