@@ -173,10 +173,12 @@ const MapUI={tab:'all',TABS:[['all','All','map'],['bus','Buses','bus'],['lorry',
       h+=L.map(b=>row(b,Fleet.color(b),`${Buses.route(b).length} stops · ${esc(Buses.status(b))} · ${yr(b)} this year`)).join('')||`<div class="fp-note">None yet.</div>`;}
     else if(this.tab==='train')h+=Trains.list.map(t=>row(t,'#ff5a4a',`${t.veh.length-2} ${t.veh.some(v=>v.k==='coach')?'coaches':'wagons'} · ${yr(t)} this year`)).join('')||`<div class="fp-note">No trains yet.</div>`;
     else{const nS=Air.list.filter(s=>!s.water).length,nJ=Air.list.length-nS;h+=row(Ledger.plane,'#ffe07a',`${nS} airstrip${nS===1?'':'s'} · ${yr(Ledger.plane)} this year`);if(Fleet.unlocks.beaver)h+=row(Ledger.beaver,'#f0a020',`${nJ} jett${nJ===1?'y':'ies'} · ${yr(Ledger.beaver)} this year`);if(!Air.list.length)h+=`<div class="fp-note">No airstrip yet: a town can buy one (tap the town).</div>`;}
-    p.innerHTML=h;},
+    /* the panel folds to one line (tap its title); on a short landscape screen it starts folded and sits at the left, so the map stays free */
+    const land=innerWidth>innerHeight&&innerHeight<760;if(this.fold==null)this.fold=land;p.classList.toggle('side',land);if(land){p.style.bottom='';}
+    h=`<button data-a="fold" class="ml-fold">${this.fold?'▸ Show the list':'▾ Hide the list'}</button>`+(this.fold?'':h);p.innerHTML=h;},
   key(o){return o===Ledger.beaver?'pb':o.isPlane?'p':Trains.list.includes(o)?'t'+o.id:'b'+o.id;},
   byKey(k){if(k==='pb')return Ledger.beaver;if(k==='p')return Ledger.plane;if(k[0]==='t')return Trains.list.find(t=>t.id===+k.slice(1));return Buses.list.find(b=>b.id===+k.slice(1));},
-  click(e){const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='tab'){this.tab=b.dataset.t;this.bar();this.list();return;}
+  click(e){const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='fold'){this.fold=!this.fold;this.list();return;}if(a==='tab'){this.tab=b.dataset.t;this.bar();this.list();return;}
     if(a==='add'){const g=this.tab==='lorry';MapView.close();Build.enter();Build.setTab('roads');Fleet.startPlace(g);return;}
     const o=this.byKey(b.dataset.k);if(!o)return;if(a==='eye'){o.mapHidden=!o.mapHidden;this.list();}else if(a==='st')StatsUI.open(o);}};
 

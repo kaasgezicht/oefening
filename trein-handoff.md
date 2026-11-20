@@ -1,4 +1,4 @@
-# Trein handoff 88 (20 Nov 2026): v4.28.1 — water glitches fixed (user: "a line or a square in the water at specific angles")
+# Trein handoff 89 (20 Nov 2026): v4.28.2 — glitch sweep: map view list no longer covers the map
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,15 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.28.1, 20 Nov) — water glitches ("a line or a square in the water")
+### Latest (4.28.2, 20 Nov) — glitch sweep (user: "look for glitches and fix them")
+- Swept a land and a Mountain-islands world (4 km, seed 777): overview, village, street, station with a train, water low and high, night,
+  mist, dusk, map view, store, New game, Saves, flying. No errors in the log on either.
+- **Map view**: the "This year" list sat in the middle of a landscape screen and covered most of the map. It now folds to one line
+  ("Show the list" / "Hide the list", `MapUI.fold`); on short landscape screens it starts folded and sits at the left under the HUD
+  (`#mapList.side`). checks/map-list-fold.jpg (landscape folded/open, phone open/folded).
+- Not glitches of the game (the test placed them by hand): a station put in the sea, the camera aimed inside an island.
+
+### Earlier (4.28.1, 20 Nov) — water glitches ("a line or a square in the water")
 Reproduced with low and grazing views on a lake (land map) and at the edge of a Mountain-islands map (checks/water-glitch-before.jpg):
 - **Open-sea rings drew walls**: their vertices over the map read the water level of land cells (0) and stretched triangles from the sea
   down to the bottom. The rings now always sit at sea level (`l=uSwell.y` when `uLakeP.w>1.5`).
