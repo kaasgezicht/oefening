@@ -177,7 +177,18 @@ R.drawObj=function(meshKey,kind,b,pass,prog){if(!b||!b.n)return;const m=R.mesh[m
   gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;Stats.objs+=n;};
 
 // ---------------- world upload
-R.computeRenderHeights=function(T){const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr||T.Hr.length!==N*N)T.Hr=new Float32Array(N*N);
+/* rc {i0,i1,j0,j1} (cells, 4.32.0): only that rectangle is recomputed (track building: the rest of the map is unchanged), done on a window
+   with a margin for the smoothing; the full pass took seconds on a 2048² map for every piece of track */
+R.computeRenderHeightsRect=function(T,rc){const N=T.N,s=P.terrainSmooth,m=5,i0=Math.max(0,rc.i0-m),i1=Math.min(N-1,rc.i1+m),j0=Math.max(0,rc.j0-m),j1=Math.min(N-1,rc.j1+m),w=i1-i0+1,h=j1-j0+1;
+  const sub=new Float32Array(w*h);for(let j=0;j<h;j++)for(let i=0;i<w;i++)sub[j*w+i]=T.H[(j+j0)*N+i+i0];
+  const blur=(src,r)=>{const A=new Float32Array(w*h),B=new Float32Array(w*h);for(let j=0;j<h;j++){let acc=0;const row=j*w;for(let i=-r;i<=r;i++)acc+=src[row+clamp(i,0,w-1)];for(let i=0;i<w;i++){A[row+i]=acc/(2*r+1);acc+=src[row+Math.min(i+r+1,w-1)]-src[row+Math.max(i-r,0)];}}
+    for(let i=0;i<w;i++){let acc=0;for(let j=-r;j<=r;j++)acc+=A[clamp(j,0,h-1)*w+i];for(let j=0;j<h;j++){B[j*w+i]=acc/(2*r+1);acc+=A[Math.min(j+r+1,h-1)*w+i]-A[Math.max(j-r,0)*w+i];}}return B;};
+  const S=blur(blur(sub,2),1),M=T.trackMask,Wt=T.water,TM=T.tunMask,RMk=T.roadMask,flat=T.flatMask;
+  for(let j=Math.max(0,rc.j0);j<=Math.min(N-1,rc.j1);j++)for(let i=Math.max(0,rc.i0);i<=Math.min(N-1,rc.i1);i++){let k=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++){const ii=clamp(i+di,0,N-1),jj=clamp(j+dj,0,N-1),n=jj*N+ii;
+      if(M&&M[n]>0)k=Math.max(k,M[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.25));if(Wt&&Wt[n*4+3]>0)k=Math.max(k,1-Math.max(Math.abs(di),Math.abs(dj))*0.3);if(TM&&TM[n]>0)k=Math.max(k,TM[n]/255*(1-Math.max(Math.abs(di),Math.abs(dj))*0.2));if(RMk&&RMk[n]>0&&di===0&&dj===0)k=Math.max(k,RMk[n]/255);}
+    const n=j*N+i,wt=s*(1-k),sv=S[(j-j0)*w+(i-i0)];T.Hr[n]=flat&&flat[n]&&k<0.05?T.flatH[n]:T.H[n]+(sv-T.H[n])*wt;}
+  R.clearTrackBed(T);if(T.sea!=null)for(let i=0;i<N;i++){const k=i;for(const [c,d] of [[k,2*N+k],[(N-1)*N+k,(N-3)*N+k],[k*N,k*N+2],[k*N+N-1,k*N+N-3]]){T.Hr[c]=Math.min(T.Hr[c],T.Hr[d],T.sea-12);}}};
+R.computeRenderHeights=function(T,rc){if(rc&&T.Hr&&T.Hr.length===T.N*T.N)return R.computeRenderHeightsRect(T,rc);const N=T.N,H=T.H,s=P.terrainSmooth;if(!T.Hr||T.Hr.length!==N*N)T.Hr=new Float32Array(N*N);
   const blur=(src,r)=>{const A=new Float32Array(N*N),B=new Float32Array(N*N);
     for(let j=0;j<N;j++){let acc=0;const row=j*N;for(let i=-r;i<=r;i++)acc+=src[row+clamp(i,0,N-1)];for(let i=0;i<N;i++){A[row+i]=acc/(2*r+1);acc+=src[row+Math.min(i+r+1,N-1)]-src[row+Math.max(i-r,0)];}}
     for(let i=0;i<N;i++){let acc=0;for(let j=-r;j<=r;j++)acc+=A[clamp(j,0,N-1)*N+i];for(let j=0;j<N;j++){B[j*N+i]=acc/(2*r+1);acc+=A[Math.min(j+r+1,N-1)*N+i]-A[Math.max(j-r,0)*N+i];}}return B;};
@@ -270,7 +281,7 @@ R.uploadFields=function(T){const F=new Float32Array(256*2*4);const L=T.fields||[
 // after Life regenerates: new fields, paths and flattened plots
 R.refreshGround=function(T){R.computeRenderHeights(T);scratch();gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
   gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);R.uploadFields(T);R.chunkBounds(T);R.uploadVeg(T);};
-R.chunkBounds=function(T){R.buildStreams(T);if(Life.T===T)Life.roadsDirty=true;const N=T.N,H=T.Hr||T.H;const CN=16,cw=T.W/CN,cells=N/CN;R.cw=cw;R.cells=cells;R.chunks=[];R.waterChunks=[];R.gridBase=Math.min(64,cells);/* 24 and 32 km (12-16 m cells): the nearest chunks get one quad per cell, as near as 16 km looks */R.fineBase=T.cs>=12&&cells>=128?cells:0;
+R.chunkBounds=function(T){const quick=R._quickBounds;R._quickBounds=false;/* after track building: streams and roads stay (App.trackChanged re-plans roads only when the new track touches one) */if(!quick){R.buildStreams(T);if(Life.T===T)Life.roadsDirty=true;}const N=T.N,H=T.Hr||T.H;const CN=16,cw=T.W/CN,cells=N/CN;R.cw=cw;R.cells=cells;R.chunks=[];R.waterChunks=[];R.gridBase=Math.min(64,cells);/* 24 and 32 km (12-16 m cells): the nearest chunks get one quad per cell, as near as 16 km looks */R.fineBase=T.cs>=12&&cells>=128?cells:0;
   for(let cj=0;cj<CN;cj++)for(let ci=0;ci<CN;ci++){let mn=1e9,mx=-1e9,wmn=1e9,wmx=-1e9,wet=false;
     for(let j=Math.max(cj*cells-1,0);j<=Math.min((cj+1)*cells,N-1);j++)for(let i=Math.max(ci*cells-1,0);i<=Math.min((ci+1)*cells,N-1);i++){const k=j*N+i,h=H[k];if(h<mn)mn=h;if(h>mx)mx=h;
       if(T.water[k*4+3]>0){wet=true;const w=T.water[k*4];if(w<wmn)wmn=w;if(w>wmx)wmx=w;}}
@@ -544,7 +555,7 @@ R.subRect=function(tex,N,ch,data,key){const tS=performance.now(),old=R[key];R[ke
   let i0=N,i1=-1,j0=N,j1=-1;for(let j=0;j<N;j++){const r=j*N*ch;let a=-1,b=-1;for(let k=0;k<N*ch;k++)if(old[r+k]!==data[r+k]){if(a<0)a=k;b=k;}if(a>=0){if(j<j0)j0=j;j1=j;i0=Math.min(i0,(a/ch)|0);i1=Math.max(i1,(b/ch)|0);}}
   if(i1<0)return;const w=i1-i0+1,h=j1-j0+1;Log.info(`texture update ${key}: ${w}×${h} of ${N}² (diff found in ${(performance.now()-tS).toFixed(0)} ms)`);if(w===N){gl.texSubImage2D(gl.TEXTURE_2D,0,0,j0,N,h,gl.RGBA,gl.FLOAT,data.subarray(j0*N*ch,(j1+1)*N*ch));return;}
   const S2=new Float32Array(w*h*ch);for(let j=0;j<h;j++)S2.set(data.subarray(((j0+j)*N+i0)*ch,((j0+j)*N+i1+1)*ch),j*w*ch);gl.texSubImage2D(gl.TEXTURE_2D,0,i0,j0,w,h,gl.RGBA,gl.FLOAT,S2);};
-R.updateTerrain=function(T){R.terrVer=(R.terrVer|0)+1;R.computeRenderHeights(T);scratch();
+R.updateTerrain=function(T,rc){R.terrVer=(R.terrVer|0)+1;R.computeRenderHeights(T,rc);R._quickBounds=!!rc;scratch();
   gl.bindTexture(gl.TEXTURE_2D,R.hTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RED,gl.FLOAT,T.Hr);
   gl.bindTexture(gl.TEXTURE_2D,R.aTex);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,T.N,T.N,gl.RGBA,gl.UNSIGNED_BYTE,R.makeAux(T));R.subNorm(T);R.subRect(R.wTex,T.N,4,R.waterRender(T),'_wLast');
   R.chunkBounds(T);R.applyVegMask(T);Life.applyTrackMask(T);R.rebuildTrackMesh();if(Life.T===T)Life.applyCulverts();};

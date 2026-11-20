@@ -14,7 +14,11 @@ const Ledger={days:0,simT:0,acc:0,SAMPLE:60,MAXS:360,plane:{name:'Staggerwing',i
   /* a game year is four seasons of P.daysPerSeason days; with the clock stopped, no year passes */
   year(){return Math.floor(this.days/(4*Math.max(1,P.daysPerSeason|0||1)));},
   of(o){if(!o.led)o.led={tot:{},yr:{},ly:{},yi:this.year(),ser:[],acc:{}};return o.led;},
-  add(o,k,v){if(!o||!v)return;const L=this.of(o);L.tot[k]=(L.tot[k]||0)+v;L.yr[k]=(L.yr[k]||0)+v;L.acc[k]=(L.acc[k]||0)+v;},
+  add(o,k,v){if(!o||!v)return;const L=this.of(o);L.tot[k]=(L.tot[k]||0)+v;L.yr[k]=(L.yr[k]||0)+v;L.acc[k]=(L.acc[k]||0)+v;
+    /* running costs (4.32.0): every km run costs money by vehicle (Settings › Trains › Running costs); paid as it goes, counted as 'cost' */
+    if(k==='km'&&+P.runCosts>0){const c=v*this.rate(o)*(+P.runCosts);L.tot.cost=(L.tot.cost||0)+c;L.yr.cost=(L.yr.cost||0)+c;if(Money.on()){this.owe=(this.owe||0)+c;if(this.owe>=50){Money.spend(Math.floor(this.owe),'running costs');this.owe-=Math.floor(this.owe);}}}},
+  /* € per km: a train 3 + 15 % per wagon, a bus 1.2, a double-decker 1.6, a lorry 1.4, the Staggerwing 6, the Beaver 5 */
+  rate(o){if(o===this.plane)return 6;if(o===this.beaver)return 5;if(o.veh)return 3*(1+0.15*Math.max(0,o.veh.length-2));if(o.goods)return 1.4;return o.type==='dd'?1.6:1.2;},
   all(){return[...Buses.list,...Trains.list,this.plane,...(Fleet.unlocks.beaver?[this.beaver]:[])];},
   /* the levels sampled (not summed): how full it is, people or goods waiting along its route, the last round's time */
   levels(o){if(o.isPlane)return{load:Air.cargo&&this.flown()===o?100:0};if(Trains.list.includes(o)){const C=o.veh.filter(v=>v.k==='coach').length*SEATS,W=o.veh.filter(v=>v.k==='wagon');let l=0;if(C)l=(o.pax||[]).length/C;else if(W.length)l=W.reduce((a,w)=>a+(w.n||0),0)/(W.length*20);return{load:Math.round(l*100)};}
@@ -202,12 +206,12 @@ const StatsUI={el:null,o:null,ch:null,
     if(this.ch)h+=`<div class="st-g"><div class="st-gt" id="stGT"></div><canvas id="stCv"></canvas></div>`;
     h+=`<table class="st-t"><tr><th></th><th>This year</th><th>Last year</th><th>In all</th></tr>`;
     for(const [key,n,u] of rows)h+=`<tr><th>${n}</th>${cell(key,'yr',L.yr[key],u)}${cell(key,'ly',L.ly[key],u)}${cell(key,'tot',L.tot[key],u)}</tr>`;
-    h+=`<tr class="st-c"><th>Running costs</th><td>—</td><td>—</td><td>—</td></tr><tr><th>Profit</th>${['yr','ly','tot'].map(s=>`<td>${fmtE(L[s].inc||0)}</td>`).join('')}</tr>`;
+    h+=`<tr class="st-c"><th>Running costs</th>${['yr','ly','tot'].map(s=>`<td>${fmtE(L[s].cost||0)}</td>`).join('')}</tr><tr><th>Profit</th>${['yr','ly','tot'].map(s=>`<td>${fmtE((L[s].inc||0)-(L[s].cost||0))}</td>`).join('')}</tr>`;
     const per=(a,b,u)=>['yr','ly','tot'].map(s=>`<td>${L[s][b]?this.fmt((L[s][a]||0)/L[s][b],u):'—'}</td>`).join('');
     h+=`<tr class="st-d"><th>Income per km</th>${per('inc','km','€')}</tr>`;if(L.tot.rounds!=null||k==='bus'||k==='lorry')h+=`<tr class="st-d"><th>Income per round</th>${per('inc','rounds','€')}</tr><tr class="st-d"><th>${k==='lorry'?'Goods':'Passengers'} per round</th>${per(k==='lorry'?'cargo':'pax','rounds')}</tr>`;
     h+=`</table><table class="st-t"><tr><th></th><th>Now</th><th>Average</th><th></th></tr>`;const S=L.ser,lvNow=Ledger.levels(o);
     for(const [key,n,u] of lv){const vals=S.map(q=>q[key]).filter(v=>v!=null&&(key!=='rt'||v>0)),avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;h+=`<tr><th>${n}</th>${cell(key,'now',lvNow[key],u)}<td>${this.fmt(avg,u)}</td><td></td></tr>`;}
-    h+=`</table><div class="st-note">Running costs are not in the game yet. Tap a number for its graph.</div>`;
+    h+=`</table><div class="st-note">Running costs are paid per km driven (Settings › Trains › Running costs). Tap a number for its graph.</div>`;
     p.innerHTML=h;if(this.ch)this.chart();},
   /* a single series: running totals for the flows (this year from its start, last year, in all), the sampled value for the levels */
   chart(){const o=this.o,L=Ledger.of(o),{k,s}=this.ch,lev=Ledger.LEVEL.has(k)||k==='load',k2=MapUI.kind(o),def=[...this.ROWS[k2],...this.LEVELS[k2]].find(r=>r[0]===k)||[k,k],u=def[2],Y=4*Math.max(1,P.daysPerSeason|0||1);

@@ -167,6 +167,16 @@ async function boot(){
   const on=(sel,fn)=>{for(const b of document.querySelectorAll(sel))b.onclick=()=>fn(b);};
   on('#buildBar [data-mode]',b=>Build.setMode(b.dataset.mode));on('#buildBar [data-btab]',b=>Build.setTab(b.dataset.btab));on('#buildBar [data-rtool]',b=>{Build.discard(true);Roads.tool=b.dataset.rtool;Roads.a=null;Build.ui();Build.hint();});$('#rAddBus').onclick=()=>Fleet.startPlace(false);$('#rAddLorry').onclick=()=>Fleet.startPlace(true);$('#rAirstrip').onclick=()=>Air.buildButton();$('#rBusList').onclick=()=>BusUI.toggle();on('#buildBar [data-v]',b=>Build.setProfile(b.dataset.v));
   on('#buildBar [data-dir]',b=>Build.setDir(+b.dataset.dir));on('#buildBar [data-slope]',b=>Build.setSlope(b.dataset.slope));on('#buildBar [data-prefer]',b=>Build.setPrefer(b.dataset.prefer));
+  /* what the route and track buttons do: a short explanation each time one is tapped (the labels alone were not clear) */
+  {const EX={scenic:'Scenic: the line follows the land, winding round hills and circling up mountains at an easy grade; short tunnels and bridges only where they save a long way round.',
+      direct:'Direct: the shortest line; deep cuttings, high banks, bridges and tunnels are all fine.',
+      tunnel:'Tunnels: a smooth, even grade straight toward the destination; hills in the way are tunnelled (up to the longest tunnel in Settings › Track).',
+      surface:'Surface: stays on the ground as much as it can; tunnels at most 50 m and bridges at most 100 m.',
+      rClear:'Start the route over: pick a new start and destination.',follow:'Follow ground: new track rises and falls with the land, with cuttings and banks only to smooth it.',
+      grade:'Even grade: new track keeps one steady grade from end to end, cutting through rises and banking over dips.',
+      bBridges:'Bridges: when on, track may cross valleys and water on bridges; when off it goes round.',bTunnels:'Tunnels: when on, track may go under hills in tunnels; when off it goes over or round.',
+      bBridgeType:'Bridge style: which kind of bridge new track gets.'};
+    const bb=document.getElementById('buildBar');if(bb)bb.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.prefer||(b.closest('#bProfile')?b.dataset.v:null)||b.id;const t=EX[k];if(t)UI.toast(t);});}
   $('#pLenMinus').onclick=()=>Build.addLen(-10);$('#pLenPlus').onclick=()=>Build.addLen(10);$('#pRotL').onclick=()=>Build.rotStart(1);$('#pRotR').onclick=()=>Build.rotStart(-1);
   $('#pNew').onclick=()=>Build.newLine();$('#pBranch').onclick=()=>Build.branchMode();$('#pDemolish').onclick=()=>Build.demolish();$('#pPlace').onclick=()=>Build.place();$('#rClear').onclick=()=>Build.routeClear();
   on('#buildBar [data-sig]',b=>Build.setSig(b.dataset.sig));$('#btnClearAll').onclick=()=>Build.clearAll();

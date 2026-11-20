@@ -181,7 +181,14 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     else if(Pending.veg){Pending.veg=false;Pending.life=Pending.smooth=false;this.generate(3);}
     else if(Pending.life||Pending.smooth){Pending.life=Pending.smooth=false;this.generate(4);}
   },
-  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now();T.H.set(T.H0);carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T);if(Life.rc)R.buildRoadRibbons(Life.rc);
+  /* 4.32.0: only the area round the track pieces added or removed since the last time is rebuilt (heights restored and carved, drawn heights);
+     the roads are re-planned only when that area touches one. A full rebuild took seconds per piece on big maps */
+  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now(),N=T.N,cs=T.cs,sig=new Map();for(const s of Track.segs)sig.set(s.id,s);
+    const old=this._segSig;this._segSig=sig;let rc=null;
+    if(old){const ch=[...[...sig.values()].filter(s=>old.get(s.id)!==s),...[...old.values()].filter(s=>!sig.has(s.id))];if(ch.length&&ch.length<40){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const s of ch)for(let i=0;i<=16;i++){const p=segPoint(s,s.L*i/16);x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
+      const mg=110;rc={i0:Math.max(0,Math.floor((x0-mg)/cs)),i1:Math.min(N-1,Math.ceil((x1+mg)/cs)),j0:Math.max(0,Math.floor((z0-mg)/cs)),j1:Math.min(N-1,Math.ceil((z1+mg)/cs))};}}
+    if(rc){for(let j=rc.j0;j<=rc.j1;j++){const r=j*N;T.H.set(T.H0.subarray(r+rc.i0,r+rc.i1+1),r+rc.i0);}}else T.H.set(T.H0);
+    carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T,rc);if(rc&&Life.roads&&Life.roads.some(r=>{const p=r.p||r;for(let k=0;k+1<p.length;k+=2){const i=p[k]/cs,j=p[k+1]/cs;if(i>=rc.i0&&i<=rc.i1&&j>=rc.j0&&j<=rc.j1)return true;}return false;}))Life.roadsDirty=true;if(Life.rc)R.buildRoadRibbons(Life.rc);
     Log.info(`track earthworks rebuilt in ${(performance.now()-t0).toFixed(0)} ms (${Track.segs.length} pieces, ${Track.length().toFixed(0)} m)`);},
   /* a recent compact save is always there: every 3 minutes of play and whenever the page is hidden (app switched, screen off) */
   autosave(){if(Bench.on||!App.T||App.busy)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));}catch(e){}},

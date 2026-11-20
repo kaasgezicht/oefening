@@ -11,18 +11,26 @@
    a way the old rule (follow the ground at any grade the settings allow). res.steep says which rung found it (0 easy, 1 steeper, 2 any). */
 async function planRoute(a,b,prefer,progress){
   const gy=b.node?b.node.y:ground0(b.x,b.z)+FORMATION_DROP,dy=Math.abs(gy-a.y);
-  const tries=[{gc:0.05,gwF:1,lim:Math.round(90000+Math.min(110000,dy*300))},{gc:0.09,gwF:0.7,lim:70000},{gc:1e9,gwF:0,lim:90000}];
-  for(let i=0;i<tries.length;i++){const res=await planRouteOnce(a,b,prefer,progress&&((f,d)=>progress((i+f)/tries.length,d)),tries[i]);if(res){res.steep=i;return res;}}
+  /* 4.32.0: the planner keeps to railway grades whatever Maximum grade says (it defaults to 100 %, which let the last rung run straight up
+     and over a summit, a tunnel only where it cut the top): easy grades first (routeGrade, 4 %), then a little steeper with cheaper
+     tunnels, then tunnel mode; never steeper than 2.5 x routeGrade (10 %). Ridges are crossed by circling up or in tunnels of at most tunnelMax */
+  const rg=clamp((+P.routeGrade||4)/100,0.01,0.1);
+  const dist=Math.hypot(b.x-a.x,b.z-a.z),L0=Math.round(Math.min(160000,60000+dist*25));
+  const tries=[{gc:rg,gwF:1,lim:Math.round(L0+Math.min(110000,dy*300))},{gc:rg*2.25,gwF:0.7,tunF:0.6,lim:L0},
+    /* the old last rung followed the ground at ANY grade (Maximum grade defaults to 100 %): now tunnels first, then hard caps */
+    {gc:rg*1.5,cap:0.15,gwF:0.6,tun:true,tunX:3,lim:L0},{gc:rg*1.5,cap:0.12,gwF:0.6,tun:true,tunX:10,tunF:0.5,lim:L0},{gc:1e9,cap:0.3,gwF:0,lim:90000}];
+  for(let i=0;i<tries.length;i++){const res=await planRouteOnce(a,b,prefer,progress&&((f,d)=>progress((i+f)/tries.length,d)),tries[i]);if(res){res.steep=i;res.steepWarn=i===tries.length-1;return res;}}
   return null;}
 async function planRouteOnce(a,b,prefer,progress,opt){
-  const T=R.world,Rmin=Math.max(P.minRadius,20),Rg=Math.max(Rmin*2.4,170),STEP=16,gmax=P.maxGrade/100,W=T.W,M=14;
+  const T=R.world,Rmin=Math.max(P.minRadius,20),Rg=Math.max(Rmin*2.4,170),STEP=16,gmax=Math.min(P.maxGrade/100,opt.cap||1),W=T.W,M=14;
   const KS=[0,1/Rg,-1/Rg,1/Rmin,-1/Rmin];
   /* four ways to weigh a line: scenic (winding round the hills), direct (short, earthworks are cheap), tunnel (straight through the hills on a
      smooth grade: tunnels are cheap, the line does not follow every rise) and surface (hug the ground; tunnels only 10-50 m long, bridges at most 100 m) */
   const w=prefer==='direct'?{earth:0.18,tunnel:2.2,bridge:1.8,curve:0.12,heur:1.6}:prefer==='tunnel'?{earth:0.5,tunnel:0.35,bridge:1.6,curve:0.15,heur:1.6}
     :prefer==='surface'?{earth:1.1,tunnel:2.5,bridge:2.5,curve:0.25,heur:1.3}:{earth:0.6,tunnel:7,bridge:5,curve:0.35,heur:1.35};
+  if(opt.tunF)w.tunnel*=opt.tunF;
   w.heur*=2;/* greedy: the grade and earthwork costs make many lines nearly equal, and a plain A* would comb through all of them */
-  const SURF=prefer==='surface',TUN=prefer==='tunnel',TMAX=50,BMAX=100;
+  const SURF=prefer==='surface',TUN=prefer==='tunnel'||!!opt.tun,TMAX=SURF?50:Math.max(50,(+P.tunnelMax||600)*(opt.tunX||1)),BMAX=100;
   /* grades: up to GC (5% on the first rung) is free, steeper costs more and more (10% costs about ten times a level step), so a big climb winds round the
      mountain at an easy grade (a spiral on a cone, loops and switchbacks on a ridge) and steep runs are the last resort. The heuristic knows a
      climb needs length (height / HG), so near a mountain the search keeps circling upward instead of rushing at the summit. */
@@ -57,15 +65,15 @@ async function planRouteOnce(a,b,prefer,progress,opt){
         if(wt[1]>0){if(!P.trackBridges){c=Infinity;}else{c=w.bridge*STEP/2;kind=1;}}
         else if(dd>0){if(dd<P.bridgeMin||!P.trackBridges)c=dd*dd*w.earth*STEP/8;else{c=w.bridge*STEP/2+dd*0.3;kind=1;}}
         else{if(-dd<P.tunnelMin||!P.trackTunnels){c=dd*dd*w.earth*STEP/8;if(TUN&&P.trackTunnels)c=Math.min(c,w.tunnel*STEP/2+2);/* a tunnel mouth's cutting costs no more than the tunnel */}else{c=w.tunnel*STEP/2;kind=2;}}
-        br=kind===1?br+STEP/2:0;tr=kind===2?tr+STEP/2:0;if(SURF&&(br>BMAX||tr>TMAX))c=Infinity;
+        br=kind===1?br+STEP/2:0;tr=kind===2?tr+STEP/2:0;if((SURF&&br>BMAX)||tr>TMAX)c=Infinity;else if(kind===2&&tr>200&&!(opt.tunX>=10))c+=Math.min(24,(tr-200)*0.04);/* long tunnels cost more and more; never over tunnelMax */
         cost+=c;}
       if(!isFinite(cost))continue;
-      const ng=n.g+cost,kk=key(e[0],e[1],e[2],SURF?Math.min(3,Math.ceil(tr/16))*4+Math.min(3,Math.ceil(br/34)):0,y1);const prev=best.get(kk);if(prev!==undefined&&prev<=ng)continue;best.set(kk,ng);
+      const ng=n.g+cost,kk=key(e[0],e[1],e[2],SURF?Math.min(3,Math.ceil(tr/16))*4+Math.min(3,Math.ceil(br/34)):Math.min(3,Math.ceil(tr/Math.max(64,TMAX/3))),y1);const prev=best.get(kk);if(prev!==undefined&&prev<=ng)continue;best.set(kk,ng);
       push({x:e[0],z:e[1],h:e[2],y:y1,g:ng,k,p:id,tr,br});}}
     if(performance.now()-last>18){progress&&progress(exp/LIM,d);await new Promise(r=>setTimeout(r,0));last=performance.now();}
   }
   if(window.RT_TUNE&&RT_TUNE.dbg){let bi=-1,bv=1e18;for(let i=0;i<nodes.length;i++){const q=nodes[i];if(!q.closed)continue;const v=HY(q.x,q.z,q.y);if(v<bv){bv=v;bi=i;}}const q=nodes[bi];let len=0;for(let i=bi;nodes[i].p>=0;i=nodes[i].p)len+=STEP;window.RT_PATH=[];for(let i=bi;i>=0;i=nodes[i].p)window.RT_PATH.push([nodes[i].x,nodes[i].z,nodes[i].y]);window.RT_DBG=`best: d ${H(q.x,q.z).toFixed(0)} m, y ${q.y.toFixed(0)} (start ${a.y.toFixed(0)}, goal ${gy.toFixed(0)}), path ${len} m, g ${q.g.toFixed(0)}, nodes ${nodes.length}`;}
-  Log.info(`route search: ${exp} steps, ${found>=0?'found':'no route'} (${prefer}, grades ${opt.gc>1?'any':(opt.gc*100).toFixed(0)+'%'})`);
+  Log.info(`route search: ${exp} steps, ${found>=0?'found':'no route'} (${prefer}, grades ${(opt.gc*100).toFixed(1)}% easy, ${(gmax*100).toFixed(1)}% at most)`);
   if(found<0)return null;
   const ks=[],ys=[];for(let i=found;nodes[i].p>=0;i=nodes[i].p){ks.push(nodes[i].k);ys.push(nodes[i].y);}ks.reverse();ys.reverse();
   let st=nodes[found];while(st.p>=0)st=nodes[st.p];

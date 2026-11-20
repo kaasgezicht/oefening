@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.31.1 (height map detail in metres, never coarser than 16 m)';
+const VERSION='4.32.0 (route planner: railway grades, tunnels through hills; fast track building; button explanations; running costs)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -197,6 +197,8 @@ def('vegBudget',{tab:'quality',label:'Plant budget (drawn per frame)',min:20000,
 def('treeDist',{tab:'trees',label:'Tree draw distance',min:300,max:5000,step:50,def:3200,unit:' m',apply:'live',q:1});
 // --- Track
 def('minRadius',{tab:'track',label:'Minimum curve radius',min:20,max:400,step:5,def:20,unit:' m',apply:'live'});
+def('routeGrade',{tab:'track',label:'Route planner: easy grade (it winds round and tunnels to keep to it)',min:1,max:8,step:0.5,def:4,unit:' %',apply:'live'});
+def('tunnelMax',{tab:'track',label:'Route planner: longest tunnel',min:100,max:3000,step:50,def:600,unit:' m',apply:'live'});
 def('maxGrade',{tab:'track',label:'Maximum grade (100% = 45°)',min:0.5,max:100,step:0.5,def:100,unit:' %',apply:'live'});
 def('curveRadius',{tab:'track',label:'Curve radius (curve + straight)',min:20,max:600,step:5,def:160,unit:' m',apply:'live'});
 def('toyGrades',{tab:'track',label:'Toy physics: trains climb any grade',kind:'check',def:1,apply:'live'});
@@ -230,6 +232,7 @@ def('fareRate',{tab:'trains',label:'Fare level',min:0.25,max:4,step:0.05,def:1,u
 def('goodsRate',{tab:'trains',label:'Goods production',min:0.2,max:4,step:0.1,def:1,unit:'×',apply:'live'});
 def('dwell',{tab:'trains',label:'Station stop time',min:10,max:90,step:1,def:30,unit:' s',apply:'live'});
 // breakdowns and fuel (4.29.0; repair and refuelling stations come later: until then Repair / Refuel in the train list, or the crew mends it)
+def('runCosts',{tab:'trains',label:'Running costs per km (trains, buses, lorries, planes)',min:0,max:3,step:0.1,def:1,unit:'×',apply:'live'});
 def('breakdowns',{tab:'trains',label:'Trains break down now and then',kind:'check',def:0,apply:'live'});
 def('breakdownRate',{tab:'trains',label:'Breakdowns: how often (per 100 km of running)',min:0.1,max:5,step:0.1,def:0.8,apply:'live'});
 def('repairTime',{tab:'trains',label:'Breakdowns: the crew mends it themselves after',min:1,max:60,step:1,def:8,unit:' min',apply:'live'});

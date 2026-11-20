@@ -1,4 +1,4 @@
-# Trein handoff 93 (20 Nov 2026): v4.31.1 — the user's save (12 km island, Height map detail 256 = 48 m cells): detail now in metres, never coarser than 16 m
+# Trein handoff 94 (20 Nov 2026): v4.32.0 — route planner keeps to railway grades and tunnels through hills; track building rebuilds only the changed area; route buttons explain themselves; running costs
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,30 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.31.1, 20 Nov) — the user's save: "so many problems"
+### Latest (4.32.0, 20 Nov) — the user's second save (route over the island's summit at 94 %)
+- **Route planner** (route.js): the cause was Maximum grade defaulting to 100 % and the last rung ("any grade") following the ground over
+  the top. New ladder (`routeGrade` 4 %, `tunnelMax` 600 m in Settings › Track): 1) easy grade, soft penalty above it; 2) 2.25 × steeper,
+  tunnels at 0.6 × cost; 3) tunnel mode, tunnels up to 3 × tunnelMax, grades ≤ 15 %; 4) a base tunnel up to 10 × tunnelMax, ≤ 12 %;
+  5) the old rule capped at 30 % (with a message). Tunnels cost a little more past 200 m (capped) and never exceed the rung's limit
+  (all modes now, not only Surface). Search budget grows with distance (≤ 160 k steps).
+  - Tested (4 km hilly land, seed 4242, two villages 3.7 km apart, 133 m climb): Tunnels mode finds a 3.74 km line with eleven tunnels
+    16-336 m (rung 2, 3 s). Scenic finds none for that pair (neither did 4.31). The user's 12 km island (a 1.7 km range in the way):
+    nothing within railway grades in the search budget; it falls back to rung 5 (≤ 30 %) with the message to route in shorter legs.
+  - Tried and reverted: 32 height bands in the search key (8 × more states: searches ran out of budget).
+- **Route and track buttons explain themselves**: tapping Scenic / Direct / Tunnels / Surface / Start over / Follow ground / Even grade /
+  Bridges / Tunnels / Bridge style shows a toast saying what it does (bench.js, `#buildBar` click listener).
+- **Track building no longer rebuilds the world**: `App.trackChanged` compares the segments with the last time and rebuilds only the
+  rectangle round the added or removed pieces (+110 m): heights restored from H0 there, `R.computeRenderHeightsRect`, and `R.updateTerrain(T,rc)`
+  skips the stream rebuild and the road re-plan (`R._quickBounds`); roads are re-planned only when a road passes through that rectangle.
+  Measured on the user's 12 km save (2048², 80 pieces, software GL): a piece 14.5 s + 5 s road re-plan → 2.0 s, no road re-plan. Still full:
+  carve (0.26 s), normals (0.28), aux/normal/water textures (~1 s).
+- **Running costs** (was "not in the game yet" in the statistics): € per km by vehicle (`Ledger.rate`: train 3 + 15 % per wagon, bus 1.2,
+  double-decker 1.6, lorry 1.4, Staggerwing 6, Beaver 5) × `runCosts` (1, Settings › Trains); paid in € 50 steps, shown per year / last
+  year / total with the profit. Tested: 10 km flight € 60.
+- Other unfinished items noted in this file, still open: route planners for trains and planes; the grain arm swings across the track
+  and the hopper doors do not open; station footprints inside villages are not reserved.
+
+### Earlier (4.31.1, 20 Nov) — the user's save: "so many problems"
 - Their save (12 km island, seed 20317) had Height map detail 256 (picked from the New game buttons): on 12 km that is 48 m cells: lakes as
   flat squares, streams drawn over grass, bridges over flat land, blocky shores (checks/user-save-48m-before.jpg).
 - `gridN(p)` (gen.js): Height map detail is now metres per cell: Auto / 16 m / 8 m / 4 m. Old saves' grid sizes (256-2048) are read as
