@@ -1,4 +1,4 @@
-# Trein handoff 104 (20 Nov 2026): v4.42.0 — improvement 5 (shadow cache). Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 105 (20 Nov 2026): v4.43.0 — the user's flying list. Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,34 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.42.0, 20 Nov) — trein-improve.md step 5: a cached shadow layer
+### Latest (4.43.0, 20 Nov) — the user's list for flying
+- **Left stick** (`#plLStick`, replaces the throttle slider and the rudder buttons): up/down moves the throttle at 0.75/s and it stays
+  (`Plane.lstick`, applied in `Plane.update`), sideways is the rudder (pedals on the helicopter, collective up/down). A bar beside it
+  shows the throttle (`#plThrBar`). Brake button stays under the right stick.
+- **Mission-complete card** (`MissionDone.show({title,sub,stars,rows,pay})`, air.js): pops in, stars for the touchdown (< 1.5 m/s
+  three, < 3 two), lines one by one, money counting up, coins flying, a chime (`Sfx.chime`); Continue or 9 s. Used for cargo
+  deliveries and rescue/supply missions.
+- **Airfield at night**: runway lamp heads glow (material 4), light pools along both edges every 100 m, at the apron and the helipad
+  (`Air.lights`, from `Life.lights`).
+- **Lights button** (`#plLights`, `Plane.lights`; follows the dark, `R.A.night > 0.08`, until switched): red/green wingtip, white
+  tail, flashing beacon (`Plane.drawNav`, `K.nav` points from the meshes: Staggerwing tips ±4.95, Beaver ±7.45), a landing-light pool
+  ahead on the ground below 120 m (`Plane.lightPool`). The helicopter's position lights and beacons follow it too.
+- **Pause button** (`#plPause` → `PlaneUI.pause`, card with Resume; the controller's Start uses the same).
+- **Compass**: only the cargo's destination is marked (not the airstrip it came from); it is drawn last, larger, pulsing, "DEST" and
+  a pointer, an arrow at the edge when off the tape.
+- **Engine sounds** (`Sfx.plane`, `planeStop`): radial (saw + square at rpm/60 × 4.5 through a throttle low-pass, prop/wind noise
+  rising with speed); helicopter (rotor thump: noise beaten at the blade-passing rate, turbine whine). Louder inside.
+- **Cockpit view**: the eye was 3 cm under the cabin roof and the windscreen glass was half opaque at that angle. Eye now
+  [0.8,0.7,-0.22]; from inside the windscreen is clear (`uOcc.y<-0.5`) and the roof and pillars round the head are cut away in the
+  shader (`uOcc = (eye.y−0.02, −(10+eye.x+0.7))`: discard in a box above the panel), so the view is the panel and nose with open sky.
+  Drag to look around (`Plane.look`; eases back when let go). Same for the Beaver.
+- **Chase zoom**: two fingers (or the wheel) scale the chase distance 0.6–1.8 (`Plane.pinch`, `Plane.zoom`).
+- **Front view** (`'nose'` in the camera list, label Front): ahead of the propeller (`K.nose`), nothing in the way; look around too.
+- **FOV per view**: settings `fov_chase/cockpit/nose/wing/tower/orbit` (UI tab), and under the clock: a ⚙ opens sliders
+  (`Sky.fovUI`), applied in `Cam.update` while flying.
+- checks/fly-*.png.
+
+### Earlier (4.42.0, 20 Nov) — trein-improve.md step 5: a cached shadow layer
 - **Two shadow targets** (`R.shStTex/shStFb` beside `R.shTex/shFb`, same size). The static layer (terrain, wall, track, trees, Life's
   buildings, kit houses) is drawn into shStFb only when needed; every frame it is blitted (depth) into shFb and the moving things are
   drawn on top: `Life.draw(1)` with `R.shLayer='dyn'` (sails, mill caps, saw wheels, mine flywheel and carts, carried planks,

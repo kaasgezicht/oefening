@@ -8,7 +8,7 @@
 const PL={span:9.75,len:8.18,S:27.5,m:1900,P:336000,cg:[0,0,0],
   // contact points in body frame (gear down): left/right main wheels, tailwheel (about 11.6° nose up on the ground); gear up: the belly
   wheels:[[1.15,-1.81,-1.0],[1.15,-1.81,1.0],[-4.45,-0.75,0]],belly:[[1.1,-0.95,-0.7],[1.1,-0.95,0.7],[-4.4,-0.2,0],[2.4,-0.8,0]],
-  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.45,0.75,-0.27]};
+  gearHinge:[1.05,-0.69],gearZ:1.0,propX:3.07,eye:[0.8,0.7,-0.22],nose:[3.9,0.25,0],nav:{l:[-0.3,1.14,-4.95],r:[-0.3,1.14,4.95],t:[-4.66,0.3,0]}};
 const PLANE_PARTS={};
 function planeMeshes(){
   const RD=[0.80,0.045,0.035],RDd=[0.55,0.03,0.025],MR=[0.30,0.025,0.04],GD=[0.96,0.74,0.30],CH=[0.92,0.92,0.94],AL=[0.62,0.62,0.64],BK=[0.04,0.04,0.045],
@@ -225,7 +225,7 @@ tube(M,[0.065,-0.42,wz],[0.065,-0.69,wz],0.03,0.03,8,CH,CHROME);
 const Q={mul(a,b){return[a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];},
   rot(q,v){const p=[0,v[0],v[1],v[2]],r=Q.mul(Q.mul(q,p),[q[0],-q[1],-q[2],-q[3]]);return[r[1],r[2],r[3]];},inv(q){return[q[0],-q[1],-q[2],-q[3]];},
   norm(q){const l=Math.hypot(...q)||1;return q.map(v=>v/l);},axis(ax,a){const s=Math.sin(a/2);return[Math.cos(a/2),ax[0]*s,ax[1]*s,ax[2]*s];}};
-const Plane={kind:'stag',K:PL,on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:0},gear:1,gearPos:1,flaps:0,flapPos:0,easy:true,coord:true,prop:0,crashed:false,
+const Plane={lookYaw:0,lookPitch:0,zoom:1,lights:false,kind:'stag',K:PL,on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,roll:0,yaw:0,brake:0},gear:1,gearPos:1,flaps:0,flapPos:0,easy:true,coord:true,prop:0,crashed:false,
   /* which plane: the Staggerwing, or (once bought) a choice */
   choose(at){let el=$('#plChoose');if(!el){el=document.createElement('div');el.id='plChoose';el.className='fp';document.body.appendChild(el);el.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;el.hidden=true;if(b.dataset.k==='store'){Store.open();return;}if(b.dataset.k!=='x')this.spawn(this._chAt,b.dataset.k);});}
     this._chAt=at||null;el.innerHTML='<div class="fp-h"><div><b>Fly</b><span>which plane?</span></div><button data-k="x">✕</button></div><div class="pl-ch"><button data-k="stag"><b>Staggerwing</b><span>fast biplane, airstrips</span></button>'+(Fleet.unlocks.beaver?'<button data-k="beaver"><b>DHC-2 Beaver</b><span>floats and wheels: water, jetties and airstrips</span></button>':'')+(Fleet.unlocks.heli?'<button data-k="heli"><b>Rescue helicopter</b><span>from a helipad: winch, rescue and supply missions</span></button>':'<button data-k="store"><b>Rescue helicopter</b><span>in the store (with helipads at your airfields)</span></button>')+'</div>';el.hidden=false;},
@@ -246,13 +246,17 @@ const Plane={kind:'stag',K:PL,on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,ro
     const q0=Q.axis([0,1,0],-h),qp=Q.axis([0,0,1],air?0:0.19);
     this.st={p:[x,y,z],v:air?Q.rot(q0,[60,0,0]):[0,0,0],q:Q.norm(Q.mul(q0,qp)),w:[0,0,0]};if(!air)this.settle();this.ctl={thr:air?0.7:0,pitch:0,roll:0,yaw:0,brake:air?0:1};this.parkBrake=!air;this.gear=air?0:1;this.gearPos=this.gear;this.bridges=0;this.prevP=null;this.flaps=0;this.flapPos=0;this.crashed=false;this.on=true;this.prop=0;
     if(Build.active)Build.exit();if(Drive.active)Drive.exit();if(MapView.on)MapView.close();this.setCam(this.cam||'chase');PlaneUI.show(true);UI.toast(air?'Flying: no flat ground nearby, so you start in the air':'Ready on a flat field: full throttle, keep it straight, lift off at about 110 km/h');},
-  exit(){this.on=false;PlaneUI.show(false);Rescue.ui(false);Rescue.winchIn(0);Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=60;}},
+  exit(){this.on=false;PlaneUI.show(false);this.paused=false;$('#plPaused').hidden=true;Sfx.planeStop&&Sfx.planeStop();Rescue.ui(false);Rescue.winchIn(0);Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=60;}},
   groundAt(x,z){const T=App.T;if(!T)return 0;const g=R.sampleHr(T,clamp(x,0,T.W),clamp(z,0,T.W)),w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W)),d=(typeof Air!=='undefined')?Air.deckAt(x,z):null,hp=typeof Rescue!=='undefined'?Rescue.padAt(x,z):null;return Math.max(w[1]>0?Math.max(g,w[0]):g,d!=null?d:-1e9,hp!=null?hp:-1e9);/* an airstrip on a concrete deck counts as ground */},
   water(x,z){const T=App.T;const w=sampleWater(T,clamp(x,0,T.W),clamp(z,0,T.W));return w[1]>0&&w[0]>R.sampleHr(T,x,z)+0.1;},
+  /* one finger in the cockpit or front view: look around (it eases back when you let go); two fingers in the chase view: zoom (× 0.6 – 1.8, a factor 3) */
+  look(dx,dy){if(this.cam!=='cockpit'&&this.cam!=='nose')return;this.lookHeld=true;this.lookYaw=clamp((this.lookYaw||0)+dx*0.006,-2.6,2.6);this.lookPitch=clamp((this.lookPitch||0)-dy*0.005,-0.9,0.8);},
+  pinch(ds){if(this.cam!=='chase')return;this.zoom=clamp((this.zoom||1)*Math.exp(-ds),0.6,1.8);},
   setCam(c){this.cam=c;Cam.anim=null;if(c==='orbit'){Cam.mode='free';Cam.up=null;if(this.st){Cam.target=this.st.p.slice();Cam.dist=25;}}else Cam.mode='plane';PlaneUI.refresh();},
-  update(dt){if(!this.on||!this.st)return;PlanePad.poll(dt);if(this.paused)return;if(this.parkBrake&&this.ctl.thr>0.08){this.parkBrake=false;if(this.ctl.brake>=1)this.ctl.brake=0;}/* the parking brake lets go when the throttle opens (it used to stay on until the brake button was tapped) */const n=Math.max(1,Math.ceil(dt/0.008)),hl=this.kind==='heli';for(let i=0;i<n;i++)hl?Heli.step(this,dt/n):this.step(dt/n);if(hl)Heli.spin(this,dt);
+  update(dt){if(!this.on||!this.st)return;PlanePad.poll(dt);if(this.paused)return;if(this.lstick){const v=this.lstick[1];if(Math.abs(v)>0.1)this.ctl.thr=clamp(this.ctl.thr-(v-Math.sign(v)*0.1)*dt*0.75,0,1);}
+    if(!this.lightsSet)this.lights=!!(R.A&&R.A.night>0.08);/* until switched, the lights follow the dark */Sfx.plane&&Sfx.plane(this,dt);if(this.parkBrake&&this.ctl.thr>0.08){this.parkBrake=false;if(this.ctl.brake>=1)this.ctl.brake=0;}/* the parking brake lets go when the throttle opens (it used to stay on until the brake button was tapped) */const n=Math.max(1,Math.ceil(dt/0.008)),hl=this.kind==='heli';for(let i=0;i<n;i++)hl?Heli.step(this,dt/n):this.step(dt/n);if(hl)Heli.spin(this,dt);
     this.gearPos+=clamp(this.gear-this.gearPos,-dt/4,dt/4);this.flapPos+=clamp(this.flaps/2-this.flapPos,-dt/2,dt/2);try{this.bridgeCheck();}catch(e){if(!this._bErr){this._bErr=1;Log.warn('bridge check: '+e.message);}}
-    if(!hl)this.prop=(this.prop+dt*this.rpm()/60*6.283)%6.283;if(this.cam==='orbit'){const p=this.st.p;for(let k=0;k<3;k++)Cam.target[k]+=(p[k]-Cam.target[k])*Math.min(1,dt*8);}Sfx.plane&&Sfx.plane(this);},
+    if(!hl)this.prop=(this.prop+dt*this.rpm()/60*6.283)%6.283;if(this.cam==='orbit'){const p=this.st.p;for(let k=0;k<3;k++)Cam.target[k]+=(p[k]-Cam.target[k])*Math.min(1,dt*8);}},
   // bridges as deck lines [ax,az,ay,bx,bz,by]: rail bridge spans (sampled every 6 m) and road bridges; rebuilt when the track or roads change
   bridgeLines(){const key=Net.ver+'|'+(Life.bridges?Life.bridges.length:0);if(this._bk===key)return this._bl;const L=[];
     for(const s of Track.segs){if(!s.spans)continue;for(const sp of s.spans){if(sp[2]!=='b')continue;let prev=null;for(let t=sp[0];t<=sp[1]+0.01;t+=Math.max(2,Math.min(6,(sp[1]-sp[0])/2))){const q=segPoint(s,Math.min(t,sp[1])),y=segY(s,Math.min(t,sp[1]));if(prev)L.push([prev[0],prev[1],prev[2],q[0],q[1],y]);prev=[q[0],q[1],y];}}}
@@ -310,7 +314,7 @@ const Plane={kind:'stag',K:PL,on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,ro
   mat(off,extra){const s=this.st,qq=extra?Q.mul(s.q,extra):s.q,X=Q.rot(qq,[1,0,0]),Y=Q.rot(qq,[0,1,0]),Z=Q.rot(qq,[0,0,1]),o=Q.rot(s.q,off||[0,0,0]);
     return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,s.p[0]+o[0],s.p[1]+o[1],s.p[2]+o[2],1]);},
   draw(p){if(!this.on||!this.st)return;if(this.kind==='beaver'){Beaver.draw(this,p);return;}if(this.kind==='heli'){Heli.draw(this,p);return;}if(!R.planeMesh)return;const M=R.planeMesh,PP=PLANE_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
-    gl.uniform1f(p.u('uDist'),0);dm('body',this.mat());const r=this.rpm(),c=this.ctl;
+    gl.uniform1f(p.u('uDist'),0);const inC=this.cam==='cockpit';if(inC)gl.uniform2f(p.u('uOcc'),this.K.eye[1]-0.02,-(10+this.K.eye[0]+0.7));/* from inside the windscreen is clear */dm('body',this.mat());if(inC)gl.uniform2f(p.u('uOcc'),0,0);const r=this.rpm(),c=this.ctl;
     dm('prop',this.mat([this.K.propX,0,0],Q.axis([1,0,0],this.prop)));if(this.cam!=='cockpit')dm('pilot',this.mat());dm('pax',this.mat());
     const ga=(1-this.gearPos)*Math.PI/2;/* the legs fold inward, in line with the lower wing, toward the fuselage; the big fairing plate turns underneath and closes the bay */dm('gearL',this.mat([this.K.gearHinge[0],this.K.gearHinge[1],-this.K.gearZ],Q.axis([1,0,0],-ga)));dm('gearR',this.mat([this.K.gearHinge[0],this.K.gearHinge[1],this.K.gearZ],Q.axis([1,0,0],ga)));
     dm('tailw',this.mat([-4.4,-0.12,0],Q.axis([0,0,1],-(1-this.gearPos)*1.2)));
@@ -318,29 +322,46 @@ const Plane={kind:'stag',K:PL,on:false,cam:'chase',st:null,ctl:{thr:0,pitch:0,ro
     const hg=(n,a)=>{const q=PP[n];dm(n,this.mat(q.o,Q.axis(q.ax,a)));};
     hg('elev',-c.pitch*0.35);hg('rud',c.yaw*0.4);hg('ailL',-c.roll*0.4);hg('ailR',-c.roll*0.4);hg('flapL',-this.flapPos*0.7);hg('flapR',this.flapPos*0.7);
     // the propeller disc: faint, in the transparent pass, when the engine turns fast
+    this.drawNav(p);
     const da=clamp((r-500)/1400,0,1)*0.42;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',this.mat([this.K.propX,0,0]));gl.uniform2f(p.u('uOcc'),0,0);}},
+  /* navigation lights (red left, green right, white tail) and a flashing red beacon, when the lights are on; a landing light pool on the ground (Life.lights) */
+  drawNav(p){if(!this.lights||!this.K.nav)return;if(!R.navMesh){const mk=(col,r)=>{const M=vmesh();vbox(M,[0,0,0],[r,r,r],col,4);return R.uploadVeh(M);};R.navMesh={r:mk([1,0.08,0.05],0.09),g:mk([0.1,1,0.2],0.09),w:mk([1,1,0.95],0.08)};}
+    const N=this.K.nav,M=R.navMesh,on=((App.time||0)*1.2)%1<0.1,dm=(m,o,k)=>{gl.uniform3f(p.u('uLamp'),k,k,k);gl.uniformMatrix4fv(p.u('uModel'),false,this.mat(o));gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);};
+    dm(M.r,N.l,2.5);dm(M.g,N.r,2.5);dm(M.w,N.t,on?3:1.5);if(N.b)dm(M.r,N.b,on?3.5:0.05);gl.uniform3f(p.u('uLamp'),1,1,1);},
+  lightPool(add){if(!this.on||!this.st||!this.lights||this.crashed)return;const s=this.st,F=Q.rot(s.q,[1,0,0]),U=Q.rot(s.q,[0,1,0]),g=this.groundAt(s.p[0],s.p[2]),h=s.p[1]-g;if(h>120)return;
+    const d=clamp(h*2.2+12,12,90),x=s.p[0]+F[0]*d,z=s.p[2]+F[2]*d;add(x,this.groundAt(x,z)+3,z,26+h*0.25,[2.2,2.0,1.7].map(v=>v*clamp(1.4-h/120,0.3,1.2)));},
   // camera modes: chase (behind and above, smoothed), cockpit (pilot's eye, rolls with the plane), wing (on the left wing looking in),
   // tower (a fixed spot watching it pass, moved on when far), orbit (the free camera around the plane: drag to turn, pinch to zoom)
   camera(dt){const s=this.st,P0=s.p,F=Q.rot(s.q,[1,0,0]),U=Q.rot(s.q,[0,1,0]),Zr=Q.rot(s.q,[0,0,1]);let p,look,up=[0,1,0],cab=false;
     const lb=this.lookBack?-1:1;/* RT held on a controller: look back */
-    if(this.cam==='cockpit'){const e=Q.rot(s.q,this.K.eye);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];look=[p[0]+F[0]*20*lb-U[0]*1.2,p[1]+F[1]*20*lb-U[1]*1.2,p[2]+F[2]*20*lb-U[2]*1.2];up=U;cab=true;}/* a little down: panel, nose and horizon */
+    if(this.cam==='cockpit'||this.cam==='nose'){/* cockpit: the pilot's eye; nose: ahead of the propeller, nothing in the way. Drag to look around (springs back slowly) */
+      const e=Q.rot(s.q,this.cam==='nose'?(this.K.nose||[this.K.propX+0.9,0.2,0]):this.K.eye);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];
+      if(!this.lookHeld){this.lookYaw*=Math.max(0,1-dt*0.8);this.lookPitch*=Math.max(0,1-dt*0.8);}const ly=(this.lookYaw||0)+(lb<0?Math.PI:0),lp=(this.lookPitch||0)-(this.cam==='cockpit'?0.06:0.02);
+      const d=[Math.cos(lp)*Math.cos(ly),Math.sin(lp),Math.cos(lp)*Math.sin(ly)];look=[p[0]+(F[0]*d[0]+U[0]*d[1]+Zr[0]*d[2])*20,p[1]+(F[1]*d[0]+U[1]*d[1]+Zr[1]*d[2])*20,p[2]+(F[2]*d[0]+U[2]*d[1]+Zr[2]*d[2])*20];up=U;cab=true;}
     else if(this.cam==='wing'){const e=Q.rot(s.q,this.K.wing||[-2.6,2.6,-7.2]);p=[P0[0]+e[0],P0[1]+e[1],P0[2]+e[2]];look=[P0[0]+F[0]*1.5,P0[1]+F[1]*1.5,P0[2]+F[2]*1.5];up=U;cab=true;}
     else if(this.cam==='tower'){if(!this.tw||Math.hypot(this.tw[0]-P0[0],this.tw[2]-P0[2])>700){const v=s.v,vl=Math.hypot(v[0],v[2])||1,ax=P0[0]+v[0]/vl*350+(-v[2]/vl)*120,az=P0[2]+v[2]/vl*350+(v[0]/vl)*120;this.tw=[ax,this.groundAt(ax,az)+6,az];}p=this.tw.slice();look=P0.slice();}
-    else{const hd=Math.hypot(F[0],F[2])>0.1?[F[0],0,F[2]]:[s.v[0],0,s.v[2]],hl=Math.hypot(hd[0],hd[2])||1,cd=this.K.chase||[12,3.2],want=[-hd[0]/hl*cd[0]*lb,cd[1],-hd[2]/hl*cd[0]*lb];/* the camera's place relative to the plane eases round as it turns; it never trails the plane's speed, so fast forward cannot shake it */if(!this.co)this.co=want.slice();const k=Math.min(1,dt*3.5);for(let i=0;i<3;i++)this.co[i]+=(want[i]-this.co[i])*k;p=[P0[0]+this.co[0],P0[1]+this.co[1],P0[2]+this.co[2]];look=[P0[0]+F[0]*4*lb,P0[1]+1,P0[2]+F[2]*4*lb];}
+    else{const hd=Math.hypot(F[0],F[2])>0.1?[F[0],0,F[2]]:[s.v[0],0,s.v[2]],hl=Math.hypot(hd[0],hd[2])||1,cd=this.K.chase||[12,3.2],zm=this.zoom||1,want=[-hd[0]/hl*cd[0]*zm*lb,cd[1]*zm,-hd[2]/hl*cd[0]*zm*lb];/* the camera's place relative to the plane eases round as it turns; it never trails the plane's speed, so fast forward cannot shake it */if(!this.co)this.co=want.slice();const k=Math.min(1,dt*3.5);for(let i=0;i<3;i++)this.co[i]+=(want[i]-this.co[i])*k;p=[P0[0]+this.co[0],P0[1]+this.co[1],P0[2]+this.co[2]];look=[P0[0]+F[0]*4*lb,P0[1]+1,P0[2]+F[2]*4*lb];}
     const gh=this.groundAt(p[0],p[2])+0.6;if(p[1]<gh)p[1]=gh;return{p,look,up,cab};}};
 // ---- the flying controls: throttle slider (left), stick (right: pitch and roll), rudder and brake buttons, gear, flaps, camera, reset, exit
 const PlaneUI={show(on){$('#planeUI').hidden=!on;document.body.classList.toggle('flying',on);if(on)this.refresh();},
-  refresh(){if(!Plane.on)return;{const hl=Plane.kind==='heli';Rescue.ui(hl);$('#plGear').hidden=hl;$('#plFlaps').hidden=hl;const lb=$('#plLeft span');if(lb)lb.textContent=hl?'Collective':'Throttle';}$('#plGear').textContent=(Plane.kind==='beaver'?'Wheels ':'Gear ')+(Plane.gear?'▼':'▲');$('#plFlaps').textContent='Flaps '+['0','½','1'][Plane.flaps];$('#plCam').textContent='📷 '+{chase:'Chase',cockpit:'Cockpit',wing:'Wing',tower:'Tower',orbit:'Orbit'}[Plane.cam];$('#plEasy').classList.toggle('on',Plane.easy);},
-  hud(){if(!Plane.on||!Plane.st)return;const s=Plane.st,F=Q.rot(s.q,[1,0,0]),hd=((Math.atan2(F[2],F[0])*180/Math.PI+90)%360+360)%360,gy=Plane.groundAt(s.p[0],s.p[2]);
+  refresh(){if(!Plane.on)return;{const hl=Plane.kind==='heli';Rescue.ui(hl);$('#plGear').hidden=hl;$('#plFlaps').hidden=hl;const lb=$('#plLName');if(lb)lb.textContent=hl?'Collective · pedals':'Throttle · rudder';}$('#plGear').textContent=(Plane.kind==='beaver'?'Wheels ':'Gear ')+(Plane.gear?'▼':'▲');$('#plFlaps').textContent='Flaps '+['0','½','1'][Plane.flaps];$('#plCam').textContent='📷 '+{chase:'Chase',cockpit:'Cockpit',nose:'Front',wing:'Wing',tower:'Tower',orbit:'Orbit'}[Plane.cam];$('#plLights').classList.toggle('on',!!Plane.lights);$('#plEasy').classList.toggle('on',Plane.easy);},
+  hud(){if(!Plane.on||!Plane.st)return;{const b=$('#plThrBar');if(b){const v=Math.round(Plane.ctl.thr*100);b.firstChild.style.height=v+'%';b.lastChild.textContent=v+'%';}}const s=Plane.st,F=Q.rot(s.q,[1,0,0]),hd=((Math.atan2(F[2],F[0])*180/Math.PI+90)%360+360)%360,gy=Plane.groundAt(s.p[0],s.p[2]);
     $('#plHud').innerHTML=`<b>${Math.round((Plane.V||0)*3.6)}</b> km/h · ${Math.round(s.p[1]-gy)} m · ${(s.v[1]>=0?'+':'')}${s.v[1].toFixed(1)} m/s · ${String(Math.round(hd)).padStart(3,'0')}° · ${Math.round(Plane.ctl.thr*100)}%`+(Plane.kind==='heli'&&Plane.rot<1?` · rotor ${Math.round(Plane.rot*100)}%`:'')+(Plane.stall?' · <span style="color:#ff6a5a">STALL</span>':'')+(Plane.gearPos>0&&Plane.gearPos<1?' · gear moving':'')+(Plane.kind==='heli'?Rescue.hudText():Air.hudText())+(Plane.paused?' · <b>PAUSED</b> (Start)':'');},
   gear(){if(Plane.kind==='heli')return;Plane.gear=Plane.gear?0:1;const bv=Plane.kind==='beaver',onLand=Plane.onG&&!Plane.onW;if(onLand&&!Plane.gear){Plane.gear=1;UI.toast(bv?'Not on land: the floats would scrape':'Not on the ground');}else UI.toast(bv?(Plane.gear?(Plane.onW?'Wheels down: taxi slowly up a ramp only — on the water they would flip it over':'Wheels down: for a runway'):'Wheels up: for the water'):(Plane.gear?'Gear down':'Gear up'));this.refresh();},
+  pause(on){Plane.paused=on;$('#plPaused').hidden=!on;document.body.classList.toggle('padmenu',on&&document.body.classList.contains('padfly'));if(typeof Sfx!=='undefined'&&Sfx.planeStop&&on)Sfx.planeStop();},
   setFlaps(n){if(Plane.kind==='heli')return;Plane.flaps=clamp(n,0,2);this.refresh();},
-  nextCam(d){const L=['chase','cockpit','wing','tower','orbit'];Plane.setCam(L[(L.indexOf(Plane.cam)+(d||1)+L.length)%L.length]);},
+  nextCam(d){const L=['chase','cockpit','nose','wing','tower','orbit'];Plane.setCam(L[(L.indexOf(Plane.cam)+(d||1)+L.length)%L.length]);},
   easy(){Plane.easy=!Plane.easy;UI.toast(Plane.easy?'Assists on: bank and pitch limits, no stall':'Assists off: it can stall and spin');this.refresh();},
   bind(){const on=(id,f)=>{$(id).onclick=f;};on('#plGear',()=>this.gear());on('#plFlaps',()=>this.setFlaps((Plane.flaps+1)%3));
     on('#plCam',()=>this.nextCam(1));on('#plExit',()=>Plane.exit());on('#plReset',()=>Plane.spawn());on('#plEasy',()=>this.easy());
-    const hold=(id,k,v)=>{const e=$(id);e.onpointerdown=ev=>{ev.preventDefault();Plane.ctl[k]=v;};e.onpointerup=e.onpointerleave=e.onpointercancel=()=>{Plane.ctl[k]=0;};};hold('#plRudL','yaw',-1);hold('#plRudR','yaw',1);hold('#plBrake','brake',1);
-    const th=$('#plThr');th.oninput=()=>{Plane.ctl.thr=+th.value/100;};
+    const hold=(id,k,v)=>{const e=$(id);e.onpointerdown=ev=>{ev.preventDefault();Plane.ctl[k]=v;};e.onpointerup=e.onpointerleave=e.onpointercancel=()=>{Plane.ctl[k]=0;};};hold('#plBrake','brake',1);
+    on('#plLights',()=>{Plane.lights=!Plane.lights;Plane.lightsSet=true;UI.toast(Plane.lights?'Lights on: navigation lights, beacon and landing light':'Lights off');this.refresh();});
+    on('#plPause',()=>this.pause(true));on('#plResume',()=>this.pause(false));
+    /* the left stick: up/down moves the throttle (it stays where it is left), sideways is the rudder */
+    {const st=$('#plLStick'),kn=$('#plLKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,R=r.width/2-14;let dx=(ev.clientX-cx)/R,dy=(ev.clientY-cy)/R;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}
+        Plane.lstick=[dx,dy];Plane.ctl.yaw=Math.abs(dx)<0.08?0:dx;kn.style.transform=`translate(${dx*R}px,${dy*R}px)`;};
+      st.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};
+      st.onpointerup=st.onpointercancel=ev=>{if(ev.pointerId!==id)return;id=null;Plane.lstick=null;Plane.ctl.yaw=0;kn.style.transform='';};}
     const st=$('#plStick'),kn=$('#plKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,R=r.width/2-14;let dx=(ev.clientX-cx)/R,dy=(ev.clientY-cy)/R;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}
       Plane.ctl.roll=dx;Plane.ctl.pitch=dy;/* stick back (finger down) = nose up */kn.style.transform=`translate(${dx*R}px,${dy*R}px)`;};
     st.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};st.onpointerup=st.onpointercancel=ev=>{if(ev.pointerId!==id)return;id=null;Plane.ctl.roll=0;Plane.ctl.pitch=0;kn.style.transform='';};}};
@@ -356,14 +377,14 @@ const PlanePad={prev:[],act:{},seen:false,
     if(!this.seen){this.seen=true;UI.toast('Controller ready: left stick throttle (up/down) and rudder (sideways), right stick pitch and roll, LB/RB rudder too, A gear, B camera. Start shows the menu');}
     document.body.classList.add('padfly');/* the touch controls are hidden while a controller flies; Start pauses and shows them */
     const ax=i=>{const v=g.axes[i]||0;return Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;},bt=i=>{const b=g.buttons[i];return b?(typeof b==='object'?(b.value||(b.pressed?1:0)):+b):0;},pr=i=>bt(i)>0.5,ed=i=>pr(i)&&!this.prev[i];
-    const ly=ax(1);if(ly){c.thr=clamp(c.thr-ly*dt*0.7,0,1);const th=$('#plThr');if(th)th.value=Math.round(c.thr*100);}
+    const ly=ax(1);if(ly){c.thr=clamp(c.thr-ly*dt*0.7,0,1);}
     const ex=v=>v*(0.5+0.5*v*v),rx=ax(2),ry=ax(3);/* the right stick: roll sideways, pitch up/down (4.20.0) */if(rx||ry){c.roll=ex(rx);c.pitch=ex(ry);this.act.stick=true;}else if(this.act.stick){c.roll=c.pitch=0;this.act.stick=false;}
     const yw=clamp(ex(ax(0))+(pr(5)?1:0)-(pr(4)?1:0),-1,1);/* rudder: left stick sideways, or LB / RB */if(yw){c.yaw=yw;this.act.yaw=true;}else if(this.act.yaw){c.yaw=0;this.act.yaw=false;}
     const br=bt(6);if(br>0.05){c.brake=br;this.act.br=true;}else if(this.act.br){c.brake=0;this.act.br=false;}
     Plane.lookBack=pr(7);
     if(ed(0))PlaneUI.gear();if(ed(1))PlaneUI.nextCam(1);if(ed(2))PlaneUI.setFlaps((Plane.flaps+1)%3);if(ed(3))PlaneUI.easy();
     if(ed(13))PlaneUI.setFlaps(Plane.flaps+1);if(ed(12))PlaneUI.setFlaps(Plane.flaps-1);if(ed(14))PlaneUI.nextCam(-1);if(ed(15))PlaneUI.nextCam(1);
-    if(ed(9)){Plane.paused=!Plane.paused;document.body.classList.toggle('padmenu',Plane.paused);UI.toast(Plane.paused?'Paused: the menu is shown (Start to fly on)':'Flying');}if(ed(8)){Plane.paused=false;Plane.spawn();}
+    if(ed(9)){PlaneUI.pause(!Plane.paused);document.body.classList.toggle('padmenu',Plane.paused);}if(ed(8)){Plane.paused=false;Plane.spawn();}
     this.prev=g.buttons.map((b,i)=>pr(i));}};
 addEventListener('gamepadconnected',e=>Log.info('controller connected: '+e.gamepad.id+' ('+(e.gamepad.mapping||'no standard mapping')+')'));
 addEventListener('gamepaddisconnected',()=>{document.body.classList.remove('padfly','padmenu');PlanePad.seen=false;});

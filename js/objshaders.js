@@ -143,6 +143,8 @@ const FS_VEH=GLSL_HEAD+GLSL_COMMON+`
 uniform int uPass;uniform int uGlass;uniform vec3 uLamp;uniform vec2 uOcc;in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;in vec3 vL;`+FS_OUT+`
 float person(vec2 q){return 1.-smoothstep(0.,.025,min(length(q-vec2(0.,.12))-.11,length(vec2(q.x/.22,(q.y+.24)/.17))*.17-.17));}
 void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
+  /* the cockpit view (uOcc.y = -(10 + front edge), uOcc.x = cut height): the cabin roof and pillars round the pilot's head are not drawn, so the view is open above the panel and nose */
+  if(uOcc.y<-9.5&&vL.y>uOcc.x&&vL.y<uOcc.x+.38&&vL.x<-uOcc.y-10.&&vL.x>-1.2&&abs(vL.z)<1.15)discard;
   vec3 V=normalize(uCamPos.xyz-vW);vec3 N=normalize(vN);if(dot(N,V)<0.)N=-N;int m=int(vMat+.5);bool pg=m==13;if(pg)m=2;/* 13: the plane's cabin glass: like glass, more reflective, no lamplight */vec3 c=L(vC);vec3 em=vec3(0);float sil=0.;
   if(m==2&&uOcc.x>0.&&abs(vL.z)>1.39){float wi=floor((vL.x+6.97)/1.74),sd=sign(vL.z),wx=-6.1+wi*1.74;// coach windows: who sits where is a hash of window, side and train
     for(int k=0;k<2;k++){float h=fract(sin(wi*12.9898+sd*78.233+uOcc.y*37.71+float(k)*5.17)*43758.5453);if(h<uOcc.x)sil=max(sil,person(vec2(vL.x-wx-(float(k)-.5)*.5-(fract(h*7.)-.5)*.12,vL.y-2.55)));}
@@ -166,7 +168,7 @@ void main(){int m0=int(vMat+.5);if(uPass==1){o=vec4(0);return;}
   if(m==2&&!pg)em=L(vec3(1.,.80,.48))*uMisc.x*1.8*(1.-sil*.85);
   if(m==12){float a=uOcc.x;o=vec4(fogc(col*.8,vW)*a,a);return;}
   if(m==4)em=vC*uLamp*(1.2+4.*uSunCol.w);
-  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=pg?clamp(.45+.5*F,0.,.95):clamp(.14+.75*F+uMisc.x*.1,0.,.95);if(pg)col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),.5)*.55*(.3+.7*uSunDir.w);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
+  if(uGlass==1){float F=pow(1.-max(dot(N,V),0.),4.),a=pg?(uOcc.y<-.5?.05:clamp(.45+.5*F,0.,.95)):clamp(.14+.75*F+uMisc.x*.1,0.,.95);if(pg)col+=mix(L(uSkyH.rgb),L(uSkyZ.rgb),.5)*.55*(.3+.7*uSunDir.w);o=vec4(fogc(col*.6+em*.35,vW)*a,a);return;}
   o=vec4(fogc(col+em,vW),1.);}`;
 
 // ---------------- track: ballast, sleepers, rails, stone viaducts and tunnel portals

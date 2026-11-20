@@ -98,7 +98,7 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
     if(Money.on())Money.spend(fee,'mission cancelled');this.lost+=m.type==='supply'?1:lives;if(m.ring&&R.freeMesh)R.freeMesh(m.ring);this.m=null;this.load=null;
     const msg=`Mission cancelled${Money.on()?` (−€${Money.fmt(fee)})`:''}. ${G[Math.floor(Math.random()*G.length)](m.place)}`;UI.toast(msg);Log.info('rescue: '+msg);this.board(null);},
   complete(how){const m=this.m;if(!m)return;if(Money.on())Money.earn(m.pay,m.type==='supply'?'supplies delivered':'rescue',Plane.st.p[0],Plane.st.p[1],Plane.st.p[2]);this.saved+=m.type==='supply'?0:m.need;if(m.ring&&R.freeMesh)R.freeMesh(m.ring);
-    UI.toast(how+(Money.on()?` +€${Money.fmt(m.pay)}`:''));this.m=null;this.load=null;this.offers=[];},
+    MissionDone.show({title:m.type==='supply'?'Supplies delivered':'Rescue complete',sub:how,rows:[['Mission',this.title(m)],['Distance',(m.d/1000).toFixed(1)+' km'],...(m.need?[['Lives saved',String(m.need)]]:[]),['Time',Math.round((App.time-(m.t0||App.time))/60)+' min']],pay:Money.on()?m.pay:0});this.m=null;this.load=null;this.offers=[];},
   // ---- the missions board: from the airfield's panel, or the Missions button when landed on a pad
   board(p){this.revive();let el=$('#rsBoard');if(!el){el=document.createElement('div');el.id='rsBoard';el.className='fp';document.body.appendChild(el);el.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
       if(a==='x'){el.hidden=true;return;}if(a==='cancel'){if(confirm('Cancel this mission? People are counting on you.'))this.cancel();return;}if(a==='acc'){const o=this.offers[+b.dataset.i];if(o)this.accept(o,this._bp);return;}

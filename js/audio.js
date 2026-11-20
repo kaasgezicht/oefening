@@ -29,6 +29,23 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
   spatial(p){if(!p)return[0,0];const dx=p[0]-Cam.pos[0],dy=p[1]-Cam.pos[1],dz=p[2]-Cam.pos[2],d=Math.hypot(dx,dy,dz);
     const r=Cam.right||[1,0,0];const pan=clamp((dx*r[0]+dz*r[2])/Math.max(d,1),-1,1)*0.8;return[1/(1+d/35),pan];},
   out(vol,pan){const c=this.ctx,g=c.createGain();g.gain.value=vol;const p=c.createStereoPanner();p.pan.value=pan;g.connect(p);p.connect(this.master);return g;},
+  /* aircraft engines (4.43), built once and kept running while flying: piston planes a nine-cylinder radial (a saw and a square at the
+     firing rate through a low-pass that opens with the throttle) plus propeller and wind noise; the helicopter a turbine whine and
+     the rotor's thump (low noise beaten at the blade-passing rate). Louder inside, quieter from far away */
+  plane(pl,dt){if(!this.on||!this.ctx||!pl.st)return;const c=this.ctx,t=c.currentTime;if(!this.pe){const out=c.createGain();out.gain.value=0;const pan=c.createStereoPanner();out.connect(pan);pan.connect(this.master);
+      const lp=c.createBiquadFilter();lp.type='lowpass';lp.Q.value=2;const o1=c.createOscillator(),o2=c.createOscillator();o1.type='sawtooth';o2.type='square';const g1=c.createGain(),g2=c.createGain();g1.gain.value=0.5;g2.gain.value=0.25;o1.connect(g1);o2.connect(g2);g1.connect(lp);g2.connect(lp);
+      const eng=c.createGain();lp.connect(eng);eng.connect(out);const nz=c.createBufferSource();nz.buffer=this.noise;nz.loop=true;const bp=c.createBiquadFilter();bp.type='bandpass';bp.Q.value=0.7;const wg=c.createGain();wg.gain.value=0;nz.connect(bp);bp.connect(wg);wg.connect(out);
+      const rl=c.createBiquadFilter();rl.type='lowpass';rl.frequency.value=180;const rg=c.createGain();rg.gain.value=0;const am=c.createGain();am.gain.value=0;const lfo=c.createOscillator();lfo.type='sine';const lg=c.createGain();lg.gain.value=0.5;lfo.connect(lg);lg.connect(am.gain);
+      nz.connect(rl);rl.connect(am);am.connect(rg);rg.connect(out);const tw=c.createOscillator();tw.type='sine';const tg=c.createGain();tg.gain.value=0;tw.connect(tg);tg.connect(out);
+      for(const o of [o1,o2,lfo,tw,nz])o.start();this.pe={out,pan,lp,o1,o2,eng,bp,wg,rg,am,lfo,tw,tg};}
+    const E=this.pe,heli=pl.kind==='heli',cab=pl.cam==='cockpit'||pl.cam==='nose',[v,pn]=this.spatial(pl.st.p),vol=(cab?0.55:0.4)*clamp(v*6,0.05,1)*(pl.paused||pl.crashed?0:1),k=Math.min(1,dt*6+0.05),set=(a,x)=>a.setTargetAtTime(x,t,0.08);
+    set(E.out.gain,vol);E.pan.pan.setTargetAtTime(cab?0:pn,t,0.1);const V=pl.V||0;
+    if(heli){const ro=pl.rot||0,bl=ro*5.8*4;set(E.eng.gain,0);set(E.lfo.frequency,Math.max(1,bl));set(E.am.gain,0.5*ro);set(E.rg.gain,1.6*ro);set(E.tw.frequency,2600+ro*2400+(pl.T||0)/PLH.m*60);set(E.tg.gain,0.05*ro);set(E.wg.gain,Math.min(0.5,V*V/4000));set(E.bp.frequency,900);}
+    else{const rpm=pl.rpm(),f=rpm/60*4.5,th=pl.ctl.thr;set(E.o1.frequency,f);set(E.o2.frequency,f/2);set(E.lp.frequency,250+th*1100+rpm*0.1);set(E.eng.gain,0.6+th*0.5);set(E.rg.gain,0);set(E.tg.gain,0);
+      set(E.wg.gain,Math.min(0.7,0.08+V*V/5000));set(E.bp.frequency,500+V*12);}},
+  planeStop(){if(!this.pe||!this.ctx)return;this.pe.out.gain.setTargetAtTime(0,this.ctx.currentTime,0.15);},
+  /* a short bright two-note chime (mission complete) */
+  chime(){if(!this.on||!this.ctx)return;const c=this.ctx,t=c.currentTime;[[784,0],[1175,0.13],[1568,0.26]].forEach(([f,d])=>{const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(0.18,t+d+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+d+0.6);o.connect(g);g.connect(this.master);o.start(t+d);o.stop(t+d+0.7);});},
   burst(dur,t0){const s=this.ctx.createBufferSource();s.buffer=this.noise;s.start(t0,Math.random()*1.5,dur+0.05);return s;},
   chuff(tr,str){if(!this.on||P.chuffVol<=0)return;const [v,pan]=this.spatial(locoPoint(tr,4.5,3.5,0));if(v<0.01)return;const c=this.ctx,t=c.currentTime;
     const sp=Math.abs(tr.v),dur=clamp(0.32-sp*0.006,0.07,0.3),amp=(0.18+0.8*str)*v*P.chuffVol*(tr.poses[0].inTunnel?1.8:1);

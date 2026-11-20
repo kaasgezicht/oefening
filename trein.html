@@ -15,9 +15,9 @@
 <div id="hud"><div id="clock"></div><div id="stats"></div></div>
 <div id="bar"><button id="btnHome" data-ic="home">Menu</button><button id="btnMenu" data-ic="gear">Settings</button><button id="btnBuild" data-ic="build">Build</button><button id="btnDrive" data-ic="trains">Trains</button><button id="btnGen" data-ic="generate">Generate</button><button id="btnMap" data-ic="map">Map</button><button id="btnSave" data-ic="save">Save</button></div>
 <canvas id="mapOv" hidden></canvas>
-<div id="planeUI" hidden><div id="plHud"></div><div id="plTop"><button id="plCam">📷 Chase</button><button id="plGear">Gear ▼</button><button id="plFlaps">Flaps 0</button><button id="plEasy" class="on">Assist</button><button id="plReset">Reset</button><button id="plExit">✕</button></div>
-<div id="plLeft"><input id="plThr" type="range" min="0" max="100" value="0" aria-label="Throttle"><span>Throttle</span></div>
-<div id="plRight"><div id="plStick"><div id="plKnob"></div></div><div class="plRow"><button id="plRudL">◀ Rudder</button><button id="plBrake">Brake</button><button id="plRudR">Rudder ▶</button></div></div></div>
+<div id="planeUI" hidden><div id="plHud"></div><div id="plTop"><button id="plCam">📷 Chase</button><button id="plGear">Gear ▼</button><button id="plFlaps">Flaps 0</button><button id="plEasy" class="on">Assist</button><button id="plLights">💡 Lights</button><button id="plPause">⏸ Pause</button><button id="plReset">Reset</button><button id="plExit">✕</button></div><div id="plPaused" hidden><b>Paused</b><span>Tap ▶ to fly on</span><button id="plResume">▶ Resume</button></div>
+<div id="plLeft"><div class="plLWrap"><div id="plThrBar" aria-label="Throttle"><i></i><em>0%</em></div><div id="plLStick"><div id="plLKnob"></div><span class="plLab t">▲</span><span class="plLab b">▼</span><span class="plLab l">◀</span><span class="plLab r">▶</span></div></div><span id="plLName">Throttle · rudder</span></div>
+<div id="plRight"><div id="plStick"><div id="plKnob"></div></div><div class="plRow"><button id="plBrake">Brake</button></div></div></div>
 <div id="mainMenu" hidden><div class="mm-card"><svg class="mm-logo" viewBox="0 0 320 120" aria-label="Trein"><defs><linearGradient id="lgB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d68a"/><stop offset="1" stop-color="#b8873a"/></linearGradient></defs>
 <g fill="#e9e3d6" opacity=".85"><circle cx="246" cy="22" r="9"/><circle cx="262" cy="14" r="12"/><circle cx="282" cy="10" r="9"/></g>
 <g fill="url(#lgB)" stroke="#2a1a08" stroke-width="1.5"><rect x="214" y="44" width="56" height="26" rx="3"/><rect x="262" y="30" width="30" height="40" rx="2"/><rect x="226" y="30" width="10" height="16"/><path d="M204 70h96l-6 8h-86z"/></g>
@@ -51,10 +51,12 @@
 </div></div><div id="mapBar" hidden><span id="mapTabs"></span><button id="mapStore" class="ic2" aria-label="Store" title="Store"></button><button id="mapClose" aria-label="Close the map">✕<span class="lbl"> Close</span></button><span id="mapLegend"></span></div>
 <div id="cornerBox"><button id="btnFF" class="corner" aria-label="Fast forward">1×</button><button id="btnSky" class="corner" aria-label="Time, season and weather">10:30</button><button id="btnSound" class="corner" data-ic="soundOff">Sound off</button></div>
 <div id="skySheet" hidden>
-  <h4>Time of day</h4><input type="range" id="skyTime" min="0" max="24" step="0.05">
+  <div class="skyHead"><h4>Time of day</h4><button id="skyCog" aria-label="Camera settings" title="Camera settings">⚙</button></div>
+  <input type="range" id="skyTime" min="0" max="24" step="0.05">
   <div class="row2"><button data-speed="0" data-ic="pause">Paused</button><button data-speed="30" data-ic="play">Slow</button><button data-speed="120" data-ic="fast">Fast</button><button data-speed="400" data-ic="faster">Very fast</button></div>
   <h4>Season</h4><div class="row2"><button data-season="spring" data-ic="spring">Spring</button><button data-season="summer" data-ic="summer">Summer</button><button data-season="autumn" data-ic="autumn">Autumn</button><button data-season="winter" data-ic="winter">Winter</button></div>
   <h4>Weather</h4><div class="row2"><button data-wx="auto" data-ic="wxAuto">By itself</button><button data-wx="clear" data-ic="clear">Clear</button><button data-wx="fair" data-ic="fair">Fair</button><button data-wx="cloudy" data-ic="cloudy">Cloudy</button><button data-wx="mist" data-ic="mist">Mist</button><button data-wx="rain" data-ic="rain">Rain</button><button data-wx="storm" data-ic="storm">Storm</button><button data-wx="snow" data-ic="snow">Snow</button></div>
+  <div id="skyCam" hidden><h4>Field of view when flying</h4><div id="skyFov"></div></div>
   <div class="foot"><button id="skyMusic" data-ic="music">Music on</button><button id="skyClose" data-ic="close">Close</button></div>
 </div>
 <canvas id="ovl"></canvas>

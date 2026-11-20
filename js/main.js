@@ -212,13 +212,19 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
 };
 
 // ---- quick sky sheet: time, speed, season and weather without opening the settings
-const Sky={bind(){$('#btnSky').onclick=()=>{const s=$('#skySheet');s.hidden=!s.hidden;this.refresh();};
+const Sky={
+  /* the camera settings under the clock's ⚙: a field-of-view slider for each flying view (the change shows at once) */
+  fovUI(){const el=$('#skyFov');el.innerHTML=[['chase','Chase'],['cockpit','Cockpit'],['nose','Front'],['wing','Wing'],['tower','Tower'],['orbit','Orbit']].map(([k,n])=>`<label><span>${n}</span><input type="range" min="30" max="110" step="1" data-fov="${k}" value="${P['fov_'+k]}"><b>${P['fov_'+k]}°</b></label>`).join('')+'<button id="skyFovReset" style="margin-top:4px">Reset</button>';
+    for(const i of el.querySelectorAll('[data-fov]'))i.oninput=()=>{P['fov_'+i.dataset.fov]=+i.value;i.nextElementSibling.textContent=i.value+'°';UI.refresh&&UI.refresh('fov_'+i.dataset.fov);};
+    $('#skyFovReset').onclick=()=>{for(const k of ['chase','cockpit','nose','wing','tower','orbit'])P['fov_'+k]=PDEF['fov_'+k].def;this.fovUI();};},
+  bind(){$('#btnSky').onclick=()=>{const s=$('#skySheet');s.hidden=!s.hidden;this.refresh();};
     $('#skyTime').oninput=e=>{P.timeOfDay=+e.target.value;UI.refresh('timeOfDay');this.clock();};
     for(const b of document.querySelectorAll('#skySheet [data-speed]'))b.onclick=()=>{P.timeSpeed=+b.dataset.speed;UI.refresh('timeSpeed');this.refresh();};
     for(const b of document.querySelectorAll('#skySheet [data-season]'))b.onclick=()=>{P.season=b.dataset.season;UI.refresh('season');this.refresh();};
     for(const b of document.querySelectorAll('#skySheet [data-wx]'))b.onclick=()=>{P.weather=b.dataset.wx;UI.refresh('weather');if(P.weather==='auto')Weather.autoT=0;this.refresh();};
     $('#skyMusic').onclick=()=>{P.music=P.music?0:1;UI.refresh('music');if(P.music&&!Sfx.on)Sfx.start();Sfx.setPref(Sfx.on?(P.music?'all':'sfx'):'off');Sfx.syncBtn();this.refresh();};
     $('#skyClose').onclick=()=>{$('#skySheet').hidden=true;};
+    $('#skyCog').onclick=()=>{const c=$('#skyCam');c.hidden=!c.hidden;if(!c.hidden)this.fovUI();};
     {const mb=$('#skyMusic');if(mb&&!$('#skyMusicMgr')){const b=document.createElement('button');b.id='skyMusicMgr';b.textContent='♪ Music…';b.className=mb.className.replace(/\bon\b/,'');b.onclick=()=>{$('#skySheet').hidden=true;MusicMgr.open();};mb.after(b);}}},
   refresh(){const s=$('#skySheet');if(!s||s.hidden)return;$('#skyTime').value=P.timeOfDay;
     for(const b of s.querySelectorAll('[data-speed]'))b.classList.toggle('on',+b.dataset.speed===P.timeSpeed);

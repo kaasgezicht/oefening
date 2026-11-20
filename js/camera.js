@@ -13,6 +13,7 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
   ground(x,z){const T=R.world;if(!T)return 0;let h;if(x>=0&&z>=0&&x<=T.W&&z<=T.W){h=sampleH(T,x,z);const w=sampleWater(T,x,z);if(w[1]>0)h=Math.max(h,w[0]);}else h=0;return h;},
   update(dt){
     const cv=gl.canvas;this.aspect=cv.width/cv.height;this.fovy=(this.aspect<1?64:50)*Math.PI/180;
+    if(typeof Plane!=='undefined'&&Plane.on&&(this.mode==='plane'||Plane.cam==='orbit')){const f=+P['fov_'+Plane.cam];if(f>0)this.fovy=f*Math.PI/180;}/* each flying view has its own field of view (clock menu ⚙) */
     if(this.anim){const a=this.anim;a.t=Math.min(1,a.t+dt*1.6);const e=a.t*a.t*(3-2*a.t);for(let k=0;k<3;k++)this.target[k]=lerp(a.from[k],a.to[k],e);this.dist=lerp(a.d0,a.d1,e);if(a.t>=1)this.anim=null;}
     const T=R.world;if(T){this.target[0]=clamp(this.target[0],20,T.W-20);this.target[2]=clamp(this.target[2],20,T.W-20);
       // follow the average ground around the target (not every bump) so panning over hills stays smooth
@@ -80,7 +81,7 @@ function initInput(cv){
   cv.addEventListener('pointermove',e=>{const p=pts.get(e.pointerId);if(!p)return;
     if(e.pointerId===buildPtr){(Build.active?Build:Drive).move(e);p.x=e.clientX;p.y=e.clientY;return;}const dx=e.clientX-p.x,dy=e.clientY-p.y;moved+=Math.abs(dx)+Math.abs(dy);if(moved>=12&&Build.holdT)Build.holdEnd();
     // one finger pans, two fingers rotate (twist), tilt (move up/down together) and zoom (pinch); mouse: left pans, right rotates
-    if(pts.size===1){if(p.b===2||p.shift||e.buttons===2){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else if(Cam.mode==='cab'||Cam.mode==='coach'){Cam.lookYaw-=dx*0.005;Cam.lookPitch=clamp(Cam.lookPitch-dy*0.004,-0.8,0.6);}else if(Cam.mode!=='free'){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else grabPan(p.x,p.y,e.clientX,e.clientY);}
+    if(pts.size===1){if(p.b===2||p.shift||e.buttons===2){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else if(Cam.mode==='cab'||Cam.mode==='coach'){Cam.lookYaw-=dx*0.005;Cam.lookPitch=clamp(Cam.lookPitch-dy*0.004,-0.8,0.6);}else if(Cam.mode==='plane'&&Plane.on){Plane.look(dx,dy);}else if(Cam.mode!=='free'){Cam.yaw+=dx*0.0055;Cam.pitch+=dy*0.0045;}else grabPan(p.x,p.y,e.clientX,e.clientY);}
     p.x=e.clientX;p.y=e.clientY;
     TouchLog.ev(e,pts);});
   // called once per frame by the main loop
@@ -95,6 +96,7 @@ function initInput(cv){
     Input.prev=new Map(ent.map(([id,q])=>[id,{x:q.x,y:q.y}]));
     if(!Input.acc)Input.acc={a:0,s:0,x:0,y:0};const A=Input.acc;A.a+=da;A.s+=ds;A.x+=dx;A.y+=dy;
     if(!Input.live){if(Math.abs(A.a)*n.d*0.5+Math.abs(A.s)*n.d*0.5+Math.hypot(A.x,A.y)>4)Input.live=true;else{g=n;TouchLog.frame('-',{da,ds,dx,dy});return;}}
+    if(Cam.mode==='plane'&&Plane.on){Plane.pinch(ds);g=n;return;}/* flying: two fingers zoom the chase camera */
     if(Build.active){Input.mode='build';Cam.dist*=Math.exp(-ds);Cam.yaw+=da;pan(dx,dy);TouchLog.frame('build',{da,ds,dx,dy});g=n;return;}
     Input.mode='free';
     // rotation and zoom: noise-gated a little so a pure tilt does not wobble, zoom keeps the ground point under the fingers
@@ -103,7 +105,7 @@ function initInput(cv){
     if(zoomOK){const f=Math.exp(-ds),Q=groundUnder(n.cx,n.cy);Cam.dist=clamp(Cam.dist*f,8,MapView.on&&App.T?App.T.W*2.4:7000);if(Q&&Cam.mode==='free'){Cam.target[0]=Q[0]+(Cam.target[0]-Q[0])*f;Cam.target[2]=Q[2]+(Cam.target[2]-Q[2])*f;}}
     if(par)Cam.pitch=clamp(Cam.pitch+par*0.0065,-0.2,1.55);
     TouchLog.frame(par?(rotOK||zoomOK?'tilt+twist':'tilt'):'twist',{da,ds,dx,dy});g=n;};
-  const up=e=>{if(!pts.has(e.pointerId))return;if(Build.holdT)Build.holdEnd();pts.delete(e.pointerId);g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;Input.live=false;TouchLog.ev(e,pts);
+  const up=e=>{if(!pts.has(e.pointerId))return;if(typeof Plane!=='undefined')Plane.lookHeld=false;if(Build.holdT)Build.holdEnd();pts.delete(e.pointerId);g=pinfo();Input.mode=null;Input.acc=null;Input.prev=null;Input.live=false;TouchLog.ev(e,pts);
     if(pts.size===0){const now2=performance.now();if(Input.pv&&now2-Input.pvT<90&&Math.hypot(Input.pv[0],Input.pv[1])>2)Input.vel=Input.pv.slice();Input.pv=null;if(Math.abs(Input.spin)<0.3)Input.spin=0;}else Input.spin=0;
     if(e.pointerId===buildPtr){buildPtr=null;const tl=Build.active?Build:Drive;if(e.type==='pointerup')tl.up(e);else tl.cancel();return;}
     const now=performance.now();if(Build.active&&pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup'){Build.tap(e);return;}
@@ -115,7 +117,7 @@ function initInput(cv){
       else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}}}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
-  cv.addEventListener('wheel',e=>{e.preventDefault();Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});
+  cv.addEventListener('wheel',e=>{e.preventDefault();if(Cam.mode==='plane'&&Plane.on){Plane.pinch(-e.deltaY*0.0012);return;}Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});
   const keys={};addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;keys[e.key.toLowerCase()]=1;});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=0;});
   // a key held while the window loses focus never sends keyup: forget held keys so the camera does not drift on
   addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});

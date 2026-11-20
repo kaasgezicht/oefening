@@ -15,7 +15,7 @@ const PLB={a0:-0.07,span:14.64,len:9.22,S:23.2,m:2300,P:336000,cd0:0.034,thr0:64
   wheels:[[3.52,-2.45,-1.35],[3.52,-2.45,1.35],[-0.05,-2.61,-1.78],[-0.05,-2.61,1.78]],
   // the float keels: points along each keel (bow to stern), used on water and on land with the wheels up
   keel:(()=>{const o=[];for(const z of [-1.35,1.35])for(const [x,y] of [[3.55,-1.98],[2.6,-2.2],[1.5,-2.25],[0.4,-2.26],[-0.25,-2.26],[-1.2,-2.13],[-2.3,-2.02],[-3.4,-1.88]])o.push([x,y,z]);return o;})(),
-  noseHinge:[3.3,-1.58,1.35],mainHinge:[-0.1,-1.62,1.78],propX:3.27,eye:[0.95,0.8,-0.33],floatZ:1.35};
+  noseHinge:[3.3,-1.58,1.35],mainHinge:[-0.1,-1.62,1.78],propX:3.27,eye:[0.95,0.8,-0.33],floatZ:1.35,nose:[4.1,0.1,0],nav:{l:[0.8,1.1,-7.45],r:[0.8,1.1,7.45],t:[-5.8,0.4,0],b:[0.2,1.15,0]}};
 const BEAVER_PARTS={};
 function beaverMeshes(){
   const YL=[0.98,0.70,0.03],YLd=[0.9,0.62,0.02],OR=[0.93,0.33,0.06],ORd=[0.8,0.26,0.05],PS=[0.24,0.09,0.04],CH=[0.92,0.92,0.94],AL=[0.74,0.75,0.77],ALd=[0.6,0.61,0.63],
@@ -201,14 +201,14 @@ const Beaver={
   waterY(x,z){const T=App.T;if(!T)return null;const cx=clamp(x,0,T.W),cz=clamp(z,0,T.W),w=sampleWater(T,cx,cz);if(!(w[1]>0&&w[0]>R.sampleHr(T,cx,cz)+0.05))return null;
     if(T.sea!=null&&Math.abs(w[0]-T.sea)<0.6&&(typeof Sea!=='undefined')&&Sea.amp&&Sea.amp())return Sea.height(cx,cz);return w[0];},
   draw(pl,p){if(!R.beaverMesh){R.beaverMesh=beaverMeshes().map(m=>R.uploadVeh(m));}const M=R.beaverMesh,PP=BEAVER_PARTS,dm=(n,mat)=>{const m=M[PP[n].i];if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
-    gl.uniform1f(p.u('uDist'),0);dm('body',pl.mat());const r=pl.rpm(),c=pl.ctl,K=PLB;
+    gl.uniform1f(p.u('uDist'),0);const inC=pl.cam==='cockpit';if(inC)gl.uniform2f(p.u('uOcc'),PLB.eye[1]-0.02,-(10+PLB.eye[0]+0.7));dm('body',pl.mat());if(inC)gl.uniform2f(p.u('uOcc'),0,0);const r=pl.rpm(),c=pl.ctl,K=PLB;
     dm('prop',pl.mat([K.propX,0.02,0],Q.axis([1,0,0],pl.prop)));if(pl.cam!=='cockpit')dm('pilot',pl.mat());dm('pax',pl.mat());
     // wheels: the nose wheels swing up and forward into the float bows, the main wheels up and back along the float sides
     const g=1-pl.gearPos,nh=K.noseHinge,mh=K.mainHinge;
     for(const sd of [-1,1]){dm(sd<0?'noseL':'noseR',pl.mat([nh[0],nh[1],sd*nh[2]],Q.axis([0,0,1],g*1.66)));dm(sd<0?'mainL':'mainR',pl.mat([mh[0],mh[1],sd*mh[2]],Q.axis([0,0,1],-g*1.75)));}
     const hg=(n,a)=>{const q=PP[n];dm(n,pl.mat(q.o,Q.axis(q.ax,a)));};
     hg('elev',-c.pitch*0.35);hg('rud',c.yaw*0.4);hg('ailL',-c.roll*0.4);hg('ailR',-c.roll*0.4);hg('flapL',-pl.flapPos*0.6);hg('flapR',pl.flapPos*0.6);
-    const da=clamp((r-500)/1400,0,1)*0.42;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat([K.propX,0.02,0]));gl.uniform2f(p.u('uOcc'),0,0);}},
+    pl.drawNav(p);const da=clamp((r-500)/1400,0,1)*0.42;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat([K.propX,0.02,0]));gl.uniform2f(p.u('uOcc'),0,0);}},
   /* contact forces: the float keels in the water (buoyancy, planing lift, drag that rises to a hump and falls once the floats run on the
      step, keel side force, water rudders), the keels on dry ground (a hard slide), the wheels on land. Returns the world force, the body
      moment and how many points touch */

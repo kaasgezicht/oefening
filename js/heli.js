@@ -14,7 +14,7 @@
 // holds the height, up climbs, down sinks), the stick tilts it (Assist: let go and it levels and stops over the ground), the rudder
 // buttons turn it.
 // ===================================================================
-const PLH={m:4000,I:[9000,26000,22000],eye:[2.3,0.3,0.36],wheels:[[2.95,-1.25,0],[-0.95,-1.25,-1.08],[-0.95,-1.25,1.08]],hub:[0,2.22,0],rotorR:5.95,fan:[-6.2,0.3,0],
+const PLH={nose:[4.6,-0.35,0],m:4000,I:[9000,26000,22000],eye:[2.3,0.3,0.36],wheels:[[2.95,-1.25,0],[-0.95,-1.25,-1.08],[-0.95,-1.25,1.08]],hub:[0,2.22,0],rotorR:5.95,fan:[-6.2,0.3,0],
   chase:[17,5.2],wing:[-1.6,1.0,-6.5],cg:1.25};
 const HELI_PARTS={};
 function heliMeshes(){
@@ -244,6 +244,6 @@ const Heli={
     // the sliding door: out a little, then back along its rails
     {const o=clamp(A.door*4,0,1),sl=clamp((A.door-0.2)/0.8,0,1);dm('door',pl.mat([-1.28*sl,0,0.06*o]));}
     // lights: steady position lights, the red anti-collision beacons flash
-    dm('nav',pl.mat());const on=((App.time||0)*1.1)%1<0.12;gl.uniform3f(p.u('uLamp'),on?2:0.04,on?2:0.04,on?2:0.04);dm('beacon',pl.mat());gl.uniform3f(p.u('uLamp'),1,1,1);
+    if(pl.lights){dm('nav',pl.mat());}const on=pl.lights&&((App.time||0)*1.1)%1<0.12;gl.uniform3f(p.u('uLamp'),on?2:0.04,on?2:0.04,on?2:0.04);dm('beacon',pl.mat());gl.uniform3f(p.u('uLamp'),1,1,1);
     Rescue.draw(pl,p);
     const da=clamp((ro-0.35)/0.65,0,1)*0.3;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);dm('disc',pl.mat(K.hub));gl.uniform2f(p.u('uOcc'),0,0);}}};
