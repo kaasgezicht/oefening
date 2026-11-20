@@ -88,6 +88,7 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
     if(m.type==='hiker'){T.push({kind:'lying',x:m.x,z:m.z,y:m.y,person:true});const a=Math.random()*6.283;T.push({kind:'stand',x:m.x+Math.cos(a)*2.2,z:m.z+Math.sin(a)*2.2,y:Plane.groundAt(m.x+Math.cos(a)*2.2,m.z+Math.sin(a)*2.2),wave:true});}
     if(m.type==='sea'){T.push({kind:'boat',x:m.x,z:m.z,y:App.T.sea,rot:Math.random()*6.283});for(const s of [-1,1])T.push({kind:'swim',x:m.x+s*5,z:m.z+3,y:App.T.sea,person:true,swim:true});}
     if(m.type==='supply'){const c=Math.cos(p.h),sn=Math.sin(p.h);T.push({kind:'crate',x:p.x+c*4-sn*6,z:p.z+sn*4+c*6,y:p.y,crate:true});m.ring=this.ringMesh(m.x,m.z,12);}
+    for(const t of T){t.ox=t.x;t.oz=t.z;t.oy=t.y;}
     this.m={...m,T,pad:p,need:T.filter(t=>t.person).length,aboard:0,t0:App.time};this.offers=this.offers.filter(o=>o!==m);this.board(p);
     UI.toast(`Mission: ${this.title(m)} — ${this.what(m)}`);},
   GRIEF:{hiker:[n=>`Nobody else could reach the slope above ${n} in time. The hiker died of the cold that night.`,n=>`The mountain rescue team found the hiker above ${n} the next morning. Too late.`],
@@ -99,7 +100,7 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
   complete(how){const m=this.m;if(!m)return;if(Money.on())Money.earn(m.pay,m.type==='supply'?'supplies delivered':'rescue',Plane.st.p[0],Plane.st.p[1],Plane.st.p[2]);this.saved+=m.type==='supply'?0:m.need;if(m.ring&&R.freeMesh)R.freeMesh(m.ring);
     UI.toast(how+(Money.on()?` +€${Money.fmt(m.pay)}`:''));this.m=null;this.load=null;this.offers=[];},
   // ---- the missions board: from the airfield's panel, or the Missions button when landed on a pad
-  board(p){let el=$('#rsBoard');if(!el){el=document.createElement('div');el.id='rsBoard';el.className='fp';document.body.appendChild(el);el.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+  board(p){this.revive();let el=$('#rsBoard');if(!el){el=document.createElement('div');el.id='rsBoard';el.className='fp';document.body.appendChild(el);el.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
       if(a==='x'){el.hidden=true;return;}if(a==='cancel'){if(confirm('Cancel this mission? People are counting on you.'))this.cancel();return;}if(a==='acc'){const o=this.offers[+b.dataset.i];if(o)this.accept(o,this._bp);return;}
       if(a==='fly'){el.hidden=true;Air.missionPanelClose&&Air.missionPanelClose();if(!Plane.on||Plane.kind!=='heli')Plane.spawn(this._bp?{n:this._bp.s.n,x:this._bp.s.x,z:this._bp.s.z}:null,'heli');}});}
     if(p===undefined)p=this._bp;if(!p)p=Plane.st?this.nearestPad(Plane.st.p[0],Plane.st.p[2]):this.nearestPad(Cam.target[0],Cam.target[2]);this._bp=p;if(!p){el.hidden=true;return;}
@@ -112,7 +113,7 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
   // ---- the winch, the hook and its load; markers; mission progress (once per frame while the helicopter flies)
   anchor(pl){const s=pl.st,o=Q.rot(s.q,RESCUE.hoist);return[s.p[0]+o[0],s.p[1]+o[1],s.p[2]+o[2]];},
   winchIn(d){this._in=d;},
-  update(pl,dt){if(!pl.st)return;const A=this.anchor(pl),an=pl.an||{door:0};let dir=this._in||0;const g=typeof PlanePad!=='undefined'?PlanePad.pad():null;if(g&&g.buttons){if(g.buttons[13]&&g.buttons[13].pressed)dir=-1;if(g.buttons[12]&&g.buttons[12].pressed)dir=1;}
+  update(pl,dt){this.revive();if(!pl.st)return;const A=this.anchor(pl),an=pl.an||{door:0};let dir=this._in||0;const g=typeof PlanePad!=='undefined'?PlanePad.pad():null;if(g&&g.buttons){if(g.buttons[13]&&g.buttons[13].pressed)dir=-1;if(g.buttons[12]&&g.buttons[12].pressed)dir=1;}
     pl.winchOpen=this.wL>0.05||dir<0;if(dir<0&&an.door<0.95){if(!this._dt||App.time-this._dt>4){this._dt=App.time;UI.toast('Opening the door for the winch');}}
     else if(dir<0)this.wL=Math.min(RESCUE.maxL,this.wL+dt*3);else if(dir>0)this.wL=Math.max(0,this.wL-dt*2);
     // the hook: a damped pendulum hung from the hoist, at most wL below it; on the ground it rests, on water it floats
@@ -170,5 +171,10 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
       const hold=(id,d)=>{const e=$(id);e.onpointerdown=ev=>{ev.preventDefault();this.winchIn(d);};e.onpointerup=e.onpointerleave=e.onpointercancel=()=>{this.winchIn(0);};};hold('#rsDown',-1);hold('#rsUp',1);
       $('#rsBoardB').onclick=()=>{const p=Plane.st&&this.onPad(Plane);if(!p&&!this.m){UI.toast('Missions are taken at an airfield: land on a helipad');return;}this.board(p||undefined);};}
     w.hidden=!on;if(!on&&this._lb)this._lb.style.display='none';},
-  serialize(){return{saved:this.saved,lost:this.lost};},
-  load_(d){this.saved=d&&d.saved|0||0;this.lost=d&&d.lost|0||0;this.m=null;this.offers=[];this.wL=0;this.load=null;this.resetPads();}};
+  /* saved: the counts and a mission in progress (its people and crate as they stand; whoever hangs on the line goes back where they were) */
+  serialize(){const m=this.m||this.pendM;return{saved:this.saved,lost:this.lost,m:m?{type:m.type,x:m.x,z:m.z,y:m.y,d:m.d,place:m.place,kind:m.kind,pay:m.pay,need:m.need,aboard:m.aboard,
+      pad:m.pad&&m.pad.s?m.pad.s.n:m.pad|0,T:m.T.map(t=>{const o={...t};if(o.hooked&&!o.aboard&&!o.dropped){o.x=o.ox;o.z=o.oz;o.y=o.oy;o.inside=false;}o.hooked=false;return o;})}:null};},
+  load_(d){this.saved=d&&d.saved|0||0;this.lost=d&&d.lost|0||0;this.m=null;this.pendM=d&&d.m||null;this.offers=[];this.wL=0;this.load=null;this.resetPads();},
+  /* a saved mission comes back once the airstrips are restored */
+  revive(){const d=this.pendM;if(!d||!App.T||!Air.list.length)return;this.pendM=null;const S=Air.list.find(s=>s.n===d.pad&&!s.water),p=S?this.pad(S):this.nearestPad(d.x,d.z);if(!p)return;
+    this.m={...d,pad:p,T:d.T.map(t=>({...t}))};if(d.type==='supply')this.m.ring=this.ringMesh(d.x,d.z,12);Log.info('rescue: mission restored: '+this.title(this.m));}};

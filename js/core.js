@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.38.0 (fishing: boats go out and fish, steer one, nets, sell the catch; fishermen on the quays)';
+const VERSION='4.39.0 (phone layout, missions and boats saved, smoke test and lint)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -285,7 +285,7 @@ def('terrainLod',{tab:'quality',label:'Terrain detail distance',min:60,max:800,s
 def('shadowRes',{tab:'quality',label:'Shadows',kind:'select',options:[[0,'Off'],[1024,'1024'],[2048,'2048'],[4096,'4096']],def:2048,apply:'shadow',q:1});
 def('nightLights',{tab:'quality',label:'Light pools at night',min:0,max:32,step:1,def:16,apply:'live',q:1});
 // --- File / debug
-def('showStats',{tab:'file',label:'Show stats',kind:'check',def:1,apply:'live'});
+def('showStats',{tab:'file',label:'Show stats',kind:'check',def:0,apply:'live'});
 def('craneSpeed',{tab:'trains',label:'Timber crane speed',min:0.5,max:6,step:0.5,def:2.5,unit:'×',apply:'live'});
 def('btnCaps',{tab:'file',label:'Words under the button icons',kind:'check',def:0,apply:'live'});
 
@@ -836,7 +836,7 @@ const VillageUI={els:new Map(),panel:null,cur:null,
     p.querySelector('#vpX').onclick=()=>{p.hidden=true;this.why=null;};p.querySelector('#vpG10').onclick=()=>Life.addGrowth(v,10);p.querySelector('#vpT20').onclick=()=>{v.trans=(v.trans||0)+20;this.refresh(v);};for(const ub of p.querySelectorAll('.vpUp'))ub.onclick=()=>{Life.buyUpg(v,ub.dataset.up);this.refresh(v);};p.querySelector('#vpG50').onclick=()=>Life.addGrowth(v,50);p.querySelector('#vpGrow').onclick=()=>Life.growNow(v);}};
 function snapshot(){
   return{app:'Trein',saveVersion:SAVE_VERSION,build:VERSION,savedAt:new Date().toISOString(),params:{...P},camera:Cam.state(),
-    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),explore:Explore.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops,led:Ledger.save(b),hid:!!b.mapHidden}))},fleet:{rescue:Rescue.serialize(),unlocks:{...Fleet.unlocks},days:Ledger.days,simT:Math.round(Ledger.simT),plane:Ledger.save(Ledger.plane),planeHid:!!Ledger.plane.mapHidden,beaver:Ledger.save(Ledger.beaver),beaverHid:!!Ledger.beaver.mapHidden},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
+    clock:{timeOfDay:P.timeOfDay},track:Track.serialize(),trains:Trains.serialize(),airstrips:Air.serialize(),explore:Explore.serialize(),villages:Life.villages.map(v=>({gp:v.gp||0,level:v.level|0,farm:!!v.farmOwned,saw:!!v.sawOwned,mine:!!v.mineOwned,bank:!!v.bankOwned,docks:!!v.docksOwned,air:!!v.airOwned,trans:v.trans||0,log:v.log||[]})),roads:Roads.list.map(r=>({p:Array.from(r.p),w:r.w,kind:r.kind})),buses:{stops:Buses.stops.map(s=>({id:s.id,x:s.x,z:s.z,rx:s.rx,rz:s.rz,rot:s.rot,name:s.name,sawmill:s.sawmill,workshop:s.workshop})),n:Buses.list.length,list:Buses.list.map(b=>({name:b.name,goods:!!b.goods,type:b.type||'',earned:Math.round(b.earned||0),trips:b.trips||0,stops:b.stops.slice(),allStops:!!b.allStops,led:Ledger.save(b),hid:!!b.mapHidden}))},fleet:{rescue:Rescue.serialize(),fish:Fish.serialize(),unlocks:{...Fleet.unlocks},days:Ledger.days,simT:Math.round(Ledger.simT),plane:Ledger.save(Ledger.plane),planeHid:!!Ledger.plane.mapHidden,beaver:Ledger.save(Ledger.beaver),beaverHid:!!Ledger.beaver.mapHidden},money:{cash:Money.cash,loan:Money.loan,paid:[...Money.paid]}};
 }
 function applySnapshot(s){
   if(!s||s.app!=='Trein')throw new Error('Not a Trein save file');
@@ -845,13 +845,13 @@ function applySnapshot(s){
   const v1=(s.saveVersion||1)<2,keepTabs=new Set(['world','erosion','water','track','trains','sound']),skipV1=new Set(['maxGrade','buildGrade','gravityScale','locoTE','locoPower','waterGreen','waveStrength','foam']);
   let n=0,unk=0;for(const k in s.params){if(PDEF[k]){const d=PDEF[k];if(v1&&(!keepTabs.has(d.tab)||skipV1.has(k)))continue;let v=s.params[k];
     if(d.kind==='range'){v=+v;if(!isFinite(v))continue;v=Math.min(d.max,Math.max(d.min,v));}P[k]=v;n++;}else unk++;}
-  if(!('islandGen' in s.params))P.islandGen=1;/* worlds saved before 4.35 keep their island layout */if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
+  if(!('islandGen' in s.params))P.islandGen=1;if(parseFloat(s.build)<4.39)P.showStats=0;/* the debug line is off unless turned on again *//* worlds saved before 4.35 keep their island layout */if(parseFloat(s.build)<3){if(+P.autoRes===30)P.autoRes=55;if(+P.msaa===4)P.msaa=0;}if(parseFloat(s.build)<4.2){P.optOrder=1;P.fxUpscale=1;}P.dbgWater=0;/* switches proven on the phone are on for older saves too; the debug view never comes back from a save */if(parseFloat(s.build)<3.1){if(+P.dwell<30)P.dwell=30;P.timetable=0;}
   if(unk)Log.info(`save: ${unk} settings from an older build ignored`);if(v1)Log.info('save from build '+s.build+': kept world, track and train settings, new look defaults');
   UI.refreshAll();if(s.camera)Cam.setState(s.camera);Track.load(s.track||null);App.pendingTrains=s.trains||null;
   Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.pending=s.airstrips&&s.airstrips.length?s.airstrips:null;Air.cargo=null;Air.job=null;Explore.pending=s.explore||null;Explore.M=null;Explore.fresh=false;
   Roads.list=(s.roads||[]).map(r=>({...r,player:true}));Buses.stops=(s.buses&&s.buses.stops||[]).map(q=>({...q,waiting:0,v:null}));Buses.nextId=1+Math.max(0,...Buses.stops.map(q=>q.id));Buses.list=[];Buses.pending=s.buses?s.buses.n:0;Buses.pendingList=s.buses&&s.buses.list||null;Life.roadsDirty=true;
   Life.pendingV=s.villages||null;
-  {const F=s.fleet||{};Fleet.unlocks={dd:false,...(F.unlocks||{})};Rescue.load_(F.rescue);Ledger.days=+F.days||0;Ledger.simT=+F.simT||0;Ledger.plane.led=null;Ledger.load(Ledger.plane,F.plane);Ledger.plane.mapHidden=!!F.planeHid;Ledger.beaver.led=null;Ledger.load(Ledger.beaver,F.beaver);Ledger.beaver.mapHidden=!!F.beaverHid;}
+  {const F=s.fleet||{};Fleet.unlocks={dd:false,...(F.unlocks||{})};Rescue.load_(F.rescue);Fish.load_(F.fish);Ledger.days=+F.days||0;Ledger.simT=+F.simT||0;Ledger.plane.led=null;Ledger.load(Ledger.plane,F.plane);Ledger.plane.mapHidden=!!F.planeHid;Ledger.beaver.led=null;Ledger.load(Ledger.beaver,F.beaver);Ledger.beaver.mapHidden=!!F.beaverHid;}
   if(s.money){Money.cash=s.money.cash;Money.loan=s.money.loan;Money.paid=new Map(s.money.paid||[]);Money.inited=false;Money.paidSt=new Set(Track.stations.map(q=>q.id));Money.paidTr=new Set();Money.loadedTrains=true;}
   Log.info(`snapshot applied: ${n} params, build ${s.build}, saved ${s.savedAt}`);
 }

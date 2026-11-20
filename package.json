@@ -1,0 +1,14 @@
+{
+  "name": "trein",
+  "private": true,
+  "description": "Trein, a WebGL2 toy train sim (served as static files; this file is only for the developer tools)",
+  "scripts": {
+    "lint": "node tools/lint.js",
+    "smoke": "node tools/smoke.js",
+    "check": "node tools/lint.js && node tools/smoke.js"
+  },
+  "devDependencies": {
+    "eslint": "8.57.1",
+    "playwright": "1.63.0"
+  }
+}

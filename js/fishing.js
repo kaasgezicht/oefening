@@ -25,7 +25,7 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       // each boat: moored, with a wait before its first trip; fishermen on the quay
       for(const b of h.boats){const m=this.moor(h,b);Object.assign(b,{st:'moor',x:m[0],z:m[1],hd:h.rot,v:0,wait:20+rng()*240,net:0,kg:0});}
       h.men=[0,1,2].slice(0,2+Math.floor(rng()*2)).map(i=>({at:5+i*7+rng()*2,side:rng()<0.5?-1:1,ph:rng()*6,job:i%2}));}
-    Log.info(`fishing: ${this.G.length} fishing grounds off ${Coast.H.length} harbours`);},
+    Log.info(`fishing: ${this.G.length} fishing grounds off ${Coast.H.length} harbours`);this.apply();},
   moor(h,b){const c=Math.cos(h.rot),s=Math.sin(h.rot),lz=b.side*4.6;return[h.x+c*b.at-s*lz,h.z+s*b.at+c*lz];},
   nearestG(x,z){let b=null,bd=1e18;for(const g of this.G){const d=Math.hypot(g.x-x,g.z-z);if(d<bd){bd=d;b=g;}}return b?{g:b,d:bd}:null;},
   nearestH(x,z){let b=null,bd=1e18;for(const h of Coast.H){const d=Math.hypot(h.x-x,h.z-z);if(d<bd){bd=d;b=h;}}return b?{h:b,d:bd}:null;},
@@ -54,7 +54,7 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
     this.drv=b;b.h=h;b.st='player';b.v=0;b.kg=b.kg||0;b.net=0;b.netT=0;this.inp.steer=this.inp.thr=0;this.cam='chase';Cam.mode='boat';Cam.anim=null;this.ui(true);
     if(!b.gulls){b.gulls=[];for(let i=0;i<4;i++){const g={cx:b.x,cz:b.z,r:18+Math.random()*16,y:7+Math.random()*6,a:Math.random()*6.283,w:(Math.random()<0.5?-1:1)*7,ph:Math.random()*20,sit:null,follow:b};Coast.gulls.push(g);b.gulls.push(g);}}
     UI.toast(`Your boat at ${h.v?h.v.name:'the harbour'}: stick up for ahead. Gulls over the water show the fishing grounds (⚑ on the compass)`);},
-  leave(){const b=this.drv;if(!b)return;this.drv=null;b.st='back';b.leg=0;b.net=0;this.ui(false);Cam.mode='free';Cam.target=[b.x,App.T.sea,b.z];Cam.dist=60;if(b.kg>0)UI.toast(`The crew takes the boat home (${Math.round(b.kg)} kg unsold go with it)`);b.kg=0;},
+  leave(){const b=this.drv;if(!b)return;this.drv=null;b.st='back';b.leg=0;b.net=0;this.ui(false);Cam.mode='free';Cam.target=[b.x,App.T.sea,b.z];Cam.dist=60;UI.toast(b.kg>0?`The crew takes the boat home; your ${Math.round(b.kg)} kg stay in its hold for next time`:'The crew takes the boat home');},
   drive(dt){const b=this.drv,T=App.T,i=this.inp;const netOut=b.net>0;
     const vmax=netOut?FISH.netV:FISH.speed,tv=i.thr>=0?i.thr*vmax:i.thr*3;b.v+=clamp(tv-b.v,-dt*1.2,dt*0.9);
     b.hd=wrapPi(b.hd+i.steer*clamp(Math.abs(b.v)/3,0.15,1)*Math.sign(b.v||1)*0.32*dt);
@@ -132,4 +132,10 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
         const cyc=(t*0.5+m.ph)%12,rest=cyc>10,bend=rest?0.15:0.75+Math.sin(t*1.8+m.ph)*0.1,pull=rest?0:Math.sin(t*1.8+m.ph);
         dm(M.man,at(x,y,z,face));const hq=Q.mul(Q.axis([0,1,0],-face),Q.axis([0,0,1],-bend)),hip=[x,y+0.88,z];dm(M.torso,at(hip[0],hip[1],hip[2],0,hq));
         for(const sd of [-1,1]){const sh=Q.rot(hq,[0,0.58,sd*0.25]),aq=Q.mul(hq,Q.axis([0,0,1],(rest?0.1:1.0+pull*0.6*sd)));dm(M.arm,at(hip[0]+sh[0],hip[1]+sh[1],hip[2]+sh[2],0,aq));}}}},
-  serialize(){return null;}};
+  /* saved: every boat's day (where it is, what it does, its catch) and how much fish each ground holds; your boat goes home with its crew */
+  serialize(){if(!Coast.H||!Coast.H.length)return this.pending||null;return{H:Coast.H.map(h=>h.boats.map(b=>({st:b===this.drv?'back':b.st,x:+(b.x||0).toFixed(1),z:+(b.z||0).toFixed(1),hd:+(b.hd||0).toFixed(3),wait:Math.round(b.wait||0),
+      g:b.g?this.G.indexOf(b.g):-1,leg:b===this.drv?0:b.leg|0,net:+(b.net||0).toFixed(2),kg:Math.round(b.kg||0),fish:b.fish||null,price:b.price||0}))),G:this.G.map(g=>+g.stock.toFixed(3))};},
+  load_(d){this.pending=d||null;this.key='';if(this.drv){this.ui(false);this.drv=null;}},
+  apply(){const d=this.pending;this.pending=null;if(!d||!d.H||d.H.length!==Coast.H.length)return;d.G&&d.G.forEach((s,i)=>{if(this.G[i])this.G[i].stock=s;});
+    Coast.H.forEach((h,i)=>h.boats.forEach((b,k)=>{const q=d.H[i]&&d.H[i][k];if(!q)return;Object.assign(b,q);b.g=q.g>=0?this.G[q.g]:null;if(!b.g&&b.st!=='moor'&&b.st!=='back'){b.st='back';b.leg=0;}if(b.st==='fish'){b.fishT=60;b.a=Math.atan2(b.z-b.g.z,b.x-b.g.x);}if(b.st==='haul')b.haulT=20;}));
+    Log.info('fishing: boats restored from the save');}};

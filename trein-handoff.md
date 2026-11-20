@@ -1,4 +1,4 @@
-# Trein handoff 100 (20 Nov 2026): v4.38.0 — step 4 of 4 (fishing). Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 101 (20 Nov 2026): v4.39.0 — improvements 17, 29, 31, 32 from trein-improve.md. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,24 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.38.0, 20 Nov) — step 4 of 4: fishing (new js/fishing.js, after rescue.js; runs from Coast.update / Coast.draw)
+### Latest (4.39.0, 20 Nov) — trein-improve.md steps 17, 29, 31, 32 (the user said "Continue": the suggested order, quick wins first)
+- **17 Phone layout**: below 520 px the bottom bar's buttons share the width (`flex:1 1 0`, ≤ 58 px), so all seven fit on 412 px (Save was
+  cut off). The stats line is off by default (`showStats` def 0, and off once for saves from before 4.39) and never runs under the corner
+  buttons. `frameWorld` starts at the biggest village; a save without a camera (`camLoaded=!!saved.camera`) is framed too (a new world
+  used to open on empty sea).
+- **29 Save everything**: `Rescue.serialize` keeps a mission in progress (its people and crate; whoever hangs on the line goes back to
+  where they started, `ox/oz/oy`); `Rescue.revive()` brings it back once the airstrips are restored (from update and board).
+  `Fish.serialize` keeps every boat's state, position, ground, nets and catch, and each ground's stock (`fleet.fish`); `Fish.apply` after
+  `Fish.init`. Your boat goes home with its crew on save; its catch now stays in its hold when you leave it (was lost).
+- **31 Smoke test** `tools/smoke.js` (`npm run smoke`): phone-sized headless run on a fresh 4 km world, 13 checks (bar fits, stats off,
+  villages/harbours, airstrip, helicopter on pad and climbing, a mission, boat out and moving, AI boats out, Staggerwing takes off,
+  mission and boats kept over save/load), fails on any page error; pictures in tools/out/ (ignored). Passes in ~150 s here.
+- **32 Lint** `tools/lint.js` (`npm run lint`): joins the scripts in trein.html's order (one global scope), flags `window.X` of a
+  top-level const/let/class, and runs eslint 8 `no-undef` (globals made with `window.X=` count; `module`, `RT_TUNE` allowed). Clean now;
+  verified it catches a re-inserted `window.Plane`. `package.json` holds only the dev tools (eslint, playwright); Pages ignores it.
+- **Rule from now on**: run `npm run lint` and `npm run smoke` before every push.
+
+### Earlier (4.38.0, 20 Nov) — step 4 of 4: fishing (new js/fishing.js, after rescue.js; runs from Coast.update / Coast.draw)
 - **Fishing grounds** (`Fish.G`): per harbour 2–3 spots 400–2000 m out, ≥ 6 m deep, 90 m clear water all round, reachable in a straight line
   from the harbour mouth (`h.gate`, 60 m out from the quay). Each has a fish (herring €18, mackerel €22, plaice €26, cod €30 per kg) and a
   stock 0–1 (recovers 0.0015/s, fished down by hauls). Five gulls circle over each ground (the visible sign).

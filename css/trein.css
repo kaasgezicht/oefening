@@ -317,3 +317,7 @@ body.fplan #bar,body.fplan #mapList{display:none}
 body.boatdrive #bar,body.boatdrive .vlabel,body.boatdrive .ilabel,body.boatdrive #upNotes,body.boatdrive #hud,body.boatdrive #money{display:none!important}
 #fbPanel{position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top));transform:translateX(-50%);width:min(420px,94vw);z-index:40}#fbPanel[hidden]{display:none}
 .fbIcon span{background:#2a5d7a}
+
+/* phone layout (4.39.0): the bottom bar always fits (buttons share the width), the stats line stays clear of the corner buttons */
+@media (max-width:520px){#bar{gap:5px;padding-left:calc(6px + env(safe-area-inset-left));padding-right:calc(6px + env(safe-area-inset-right))}#bar button.ic{flex:1 1 0;min-width:0!important;max-width:58px;padding:8px 4px}}
+#stats{max-width:calc(100vw - 210px)}

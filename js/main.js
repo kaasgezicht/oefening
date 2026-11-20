@@ -48,7 +48,7 @@ const MainMenu={np:null,pt:0,
   preview(){clearTimeout(this.pt);this.pt=setTimeout(async()=>{const np=this.np,t0=performance.now();try{const L=await previewLand(np,160);drawPreview($('#mmPrev'),L,np);$('#mmPrevNote').textContent=`Preview without rivers and lakes · ${np.worldSize/1000} km · seed ${np.seed}`;}catch(e){Log.warn('preview: '+e.message);}},120);},
   start(){const np=this.np;if(!np)return;if(Bench.on){UI.toast('Leave the benchmark world first');return;}
     for(const k of ['worldSize','seed','mapStyle',...this.KEYS,...this.genIds()])P[k]=np[k];P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
-    Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Rescue.load_(null);Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Ledger.beaver.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
+    Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Rescue.load_(null);Fish.load_(null);Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Ledger.beaver.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
     App.camLoaded=false;App.placedCam=false;UI.refreshAll();this.hide();App.generate(0);},
   saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes. Two files: the save (your game, small) and the world file (the generated world, kept on this device; back it up to keep a world without generating it again).';try{Tiles.ui();}catch(e){}},
   initQ(){for(const b of document.querySelectorAll('#mmPreset button'))b.classList.toggle('on',b.dataset.v===P.preset);for(const k of ['kitLod','renderScale'])$('#mmq_'+k).value=P[k];},
@@ -180,7 +180,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
     UI.progress(false);LoadScene.show(false);this.busy=false;
     if(this.pendingFrom<99){const f=this.pendingFrom;this.pendingFrom=99;this.generate(f);}
   },
-  frameWorld(){const T=this.T;const v=Life.villages[0];const x=v?v.x:T.W*0.5,z=v?v.z:T.W*0.5;Cam.target=[x,sampleH(T,x,z),z];Cam.dist=v?420:T.W*0.6;Cam.pitch=0.55;Cam.yaw=0.8;},
+  frameWorld(){const T=this.T;const v=Life.villages.slice().sort((a,b)=>(b.houses?b.houses.length:0)-(a.houses?a.houses.length:0))[0];/* the biggest village */const x=v?v.x:T.W*0.5,z=v?v.z:T.W*0.5;Cam.target=[x,sampleH(T,x,z),z];Cam.dist=v?420:T.W*0.6;Cam.pitch=0.55;Cam.yaw=0.8;},
   applyPending(){
     if(Pending.shadow){Pending.shadow=false;R.setupShadows();}
     if(Pending.track){Pending.track=false;this.trackChanged();}
@@ -208,7 +208,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   exportLog(){const s=snapshot();download(`trein-log-${stamp()}.txt`,Log.text()+'\n\n--- state ---\n'+JSON.stringify(s,null,1),'text/plain');UI.toast('Debug log exported');},
   resetAll(){if(Bench.on){UI.toast('Leave the benchmark world first (Bench > Exit)');return;}if(!confirm('Reset every setting to its default and remove all track, trains and roads? This cannot be undone.'))return;for(const id of PORDER)P[id]=PDEF[id].def;Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
     // roads, bus stops, buses, village growth and money used to survive a reset
-    Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Rescue.load_(null);Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;applyPreset(P.preset,true);UI.refreshAll();this.camLoaded=false;this.placedCam=false;R.setupShadows();this.generate(0);}
+    Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Rescue.load_(null);Fish.load_(null);Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;applyPreset(P.preset,true);UI.refreshAll();this.camLoaded=false;this.placedCam=false;R.setupShadows();this.generate(0);}
 };
 
 // ---- quick sky sheet: time, speed, season and weather without opening the settings

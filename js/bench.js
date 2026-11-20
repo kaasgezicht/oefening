@@ -197,7 +197,7 @@ async function boot(){
     if(!saved&&bb){try{saved=JSON.parse(bb);Log.info('the page was reloaded inside the benchmark world: your game is restored');}catch(e){}}
     if(!saved){try{saved=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(e){}}
     if(recovered){Log.warn('recovering after a graphics reset');if(saved.recoverLog)for(const l of saved.recoverLog)Log.info('(before reset) '+l);}
-    if(saved){try{applySnapshot(saved);App.camLoaded=true;Log.info('restored last save');}catch(e){Log.warn('could not restore save: '+e.message);}}
+    if(saved){try{applySnapshot(saved);App.camLoaded=!!saved.camera;/* a save without a camera starts at the biggest village */Log.info('restored last save');}catch(e){Log.warn('could not restore save: '+e.message);}}
     else applyPreset(P.preset,true);
     resizeCanvas();R.init();Trains.init();Particles.init();initInput(gl.canvas);
     requestAnimationFrame(loop);
