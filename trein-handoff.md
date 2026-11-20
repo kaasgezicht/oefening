@@ -25,6 +25,12 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
   accepted when it holds its default or its `legacy` value (new PDEF field; islandGen legacy 1). Rule: give a new world setting a
   default (or `legacy`) that reproduces the old behaviour.
 - Smoke test: the Staggerwing check now gives it a 15 s take-off run (> 90 km/h); the 6 s run was borderline.
+- **4.41.1 villages faster**: clearing trees out of villages tested every tree against every clearing zone (1.2 s); the zones now sit in
+  a 64 m grid (`ZG`). Villages 4.7 → 3.2 s; a new 8 km world about 12 s. Note: generation is not exactly repeatable run to run (the old
+  code keeps 197,986 or 198,003 trees on the same seed), so tree counts are no test of identical output.
+- Profile of a new world (CDP sampling, tools-style): erosion 2.3 s, terrain noise 1.4 s, water (priority flood) 1.3 s, road planning
+  0.6 s, village steps 0.4 s — nothing else big. Moving generation to a worker (improvement 1) would make the loading screen smooth but
+  would not make it much shorter.
 
 ### Earlier (4.40.0, 20 Nov) — trein-improve.md step 3: the house kit is built in a Web Worker
 - `kitBuildAll(KIT,TYPES,pack)` (render.js) is the old build loop made self-contained; `R.buildKitMeshes` starts a Blob worker that sets

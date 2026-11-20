@@ -242,8 +242,10 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     yield [0.94,'Clearing trees'];
     // --- clear trees out of villages, plots and fields
     const inField=(x,z)=>{const id=fieldId[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)];return id>0;};
+    /* the clearing zones in a 64 m grid, so each tree only checks the zones near it (same result; it checked every zone, 1.2 s) */
+    const ZG=new Map(),zc=64;for(const c of clearZones){const r=c[2];for(let j=Math.floor((c[1]-r)/zc);j<=Math.floor((c[1]+r)/zc);j++)for(let i=Math.floor((c[0]-r)/zc);i<=Math.floor((c[0]+r)/zc);i++){const k=i*65536+j;let L=ZG.get(k);if(!L)ZG.set(k,L=[]);L.push(c);}}
     let cleared=0;const clearArr=(arr,isRock)=>{for(let k=0;k<arr.length;k+=8){const x=arr[k],z=arr[k+2];let kill=inField(x,z);
-      if(!kill)for(const c of clearZones)if(Math.hypot(c[0]-x,c[1]-z)<c[2]){kill=true;break;}
+      if(!kill){const L=ZG.get(Math.floor(x/zc)*65536+Math.floor(z/zc));if(L)for(const c of L)if(Math.hypot(c[0]-x,c[1]-z)<c[2]){kill=true;break;}}
       if(!kill&&!isRock)for(const v of this.villages)if(Math.hypot(v.x-x,v.z-z)<v.R+10&&arr[k+6]>0.18&&arr[k+3]>7){kill=true;break;}
       if(!kill&&(path[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)]>40||(this.carvedM&&this.carvedM[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)])||onRoad(x,z)||sledKill[clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1)]))kill=true;if(kill){arr[k+3]=0;cleared++;}}};
     veg.trees.forEach((a,i)=>clearArr(a,false));clearArr(veg.rocks,true);
