@@ -1,4 +1,4 @@
-# Trein handoff 92 (20 Nov 2026): v4.31.0 — flat lake shores on every map
+# Trein handoff 93 (20 Nov 2026): v4.31.1 — the user's save (12 km island, Height map detail 256 = 48 m cells): detail now in metres, never coarser than 16 m
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,15 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.31.0, 20 Nov) — flat lake shores
+### Latest (4.31.1, 20 Nov) — the user's save: "so many problems"
+- Their save (12 km island, seed 20317) had Height map detail 256 (picked from the New game buttons): on 12 km that is 48 m cells: lakes as
+  flat squares, streams drawn over grass, bridges over flat land, blocky shores (checks/user-save-48m-before.jpg).
+- `gridN(p)` (gen.js): Height map detail is now metres per cell: Auto / 16 m / 8 m / 4 m. Old saves' grid sizes (256-2048) are read as
+  before but never coarser than 16 m, at most 2048 cells, a multiple of 64. Their save now loads at 768² (16 m): rivers, lakes, coasts and
+  villages as they should be (checks/user-save-16m-after.jpg). The land differs from what they had, so the few houses their villages grew
+  and their one road land elsewhere.
+
+### Earlier (4.31.0, 20 Nov) — flat lake shores
 - `flattenShores(p,T)` (gen.js, called in App.generate after the water, before H0): lakes of 6 ha and more (not the sea) get a band of
   30 + 200 × shoreFlat m round them where the land is pulled toward the lake's level (never below it, + 0.4 m): h = lvl + (h - lvl) ×
   (d / band)^1.3; water cells untouched, so the lakes stay as they are. The setting is now "Flat shores (sea coasts and lakes)".

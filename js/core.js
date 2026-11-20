@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.31.0 (flat lake shores)';
+const VERSION='4.31.1 (height map detail in metres, never coarser than 16 m)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -35,7 +35,7 @@ def('seed',{tab:'world',label:'Seed',min:1,max:99999,step:1,def:39536,apply:'wor
 def('worldSize',{tab:'world',label:'World size',kind:'select',options:[[1024,'1 × 1 km'],[2048,'2 × 2 km'],[3072,'3 × 3 km'],[4096,'4 × 4 km'],[8192,'8 × 8 km'],[12288,'12 × 12 km'],[16384,'16 × 16 km (heavy)'],[24576,'24 × 24 km (heavy)'],[32768,'32 × 32 km (heavy)']],def:8192,apply:'world'});
 def('mapStyle',{tab:'world',label:'Map style',kind:'select',options:[['land','Land'],['island','Island in the ocean'],['islands','Many islands'],['peaks','Mountain islands']],def:'land',apply:'world'});
 def('landShare',{tab:'world',label:'Island size (share of land)',min:0.15,max:0.85,step:0.01,def:0.5,apply:'world'});
-def('mapRes',{tab:'world',label:'Height map detail',kind:'select',options:[[0,'Auto (8 m cells, 1024 at 8 km)'],[256,'256 (fast)'],[512,'512'],[1024,'1024 (slow)'],[2048,'2048 (very slow)']],def:0,apply:'world'});
+def('mapRes',{tab:'world',label:'Height map detail (metres between height points)',kind:'select',options:[[0,'Auto (8 m; 12-16 m above 16 km)'],[16,'16 m (faster, coarser)'],[8,'8 m'],[4,'4 m (small worlds only, slow)']],def:0,apply:'world'});
 def('maxHeight',{tab:'world',label:'Mountain height',min:80,max:1200,step:10,def:480,unit:' m',apply:'world'});
 def('featureScale',{tab:'world',label:'Feature size',min:250,max:3000,step:10,def:1100,unit:' m',apply:'world'});
 def('octaves',{tab:'world',label:'Detail layers',min:3,max:9,step:1,def:7,apply:'world'});

@@ -151,8 +151,12 @@ function shapeHeight(raw,norm,p,mm){
   return hm;
 }
 
+/* the height grid (4.31.1): Height map detail is metres per cell (16, 8, 4; 0 = auto); old saves stored a grid size (256-2048), read as
+   such. Never coarser than 16 m (a 256 grid on a 12 km world made 48 m cells: square lakes, streams over grass, bridges over flat land) and
+   at most 2048 cells across (memory); a multiple of 64 */
+function gridN(p){const W=p.worldSize,mr=p.mapRes|0;let N=!mr?(W>8192?2048:W>4096?1024:W>2048?512:256):mr<64?W/mr:mr;N=Math.max(N,W/16);N=Math.min(2048,Math.max(128,Math.round(N/64)*64));return N;}
 async function genTerrain(p,y){
-  const N=(p.mapRes|0)||(p.worldSize>8192?2048:p.worldSize>4096?1024:p.worldSize>2048?512:256),W=p.worldSize,cs=W/N,fn=makeTerrainFn(p);
+  const N=gridN(p),W=p.worldSize,cs=W/N,fn=makeTerrainFn(p);
   const raw=new Float32Array(N*N),mmA=new Float32Array(N*N),o={mm:0};
   let mn=1e9,mx=-1e9;
   for(let j=0;j<N;j++){
