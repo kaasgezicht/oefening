@@ -143,12 +143,12 @@ R.drawKit=function(pass){if(!R.kitVao)return;R.camPlanes=Cam.planes;const p=R.pK
   // depth first (experimental): the buildings' depth is laid down with a trivial shader, then the costly material shader runs once per visible pixel
   const pre=pass===0&&+P.optPrepass===1;
   for(let step=pre?0:1;step<2;step++){if(pre){if(step===0){gl.colorMask(false,false,false,false);gl.uniform1i(p.u('uPass'),2);}else{gl.colorMask(true,true,true,true);gl.uniform1i(p.u('uPass'),0);gl.depthFunc(gl.LEQUAL);}}
-  for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==(t==='grainArm'))continue;const b=R.instBufs['kit_'+t+'_'+l];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];
+  for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==KIT_DYN.has(t))continue;const b=R.instBufs['kit_'+t+'_'+l];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];
     if(pass===0&&R.skip['kit'+l])continue;let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
     gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;}
   }if(pre)gl.depthFunc(gl.LESS);
   {const q=R.pKitF;gl.useProgram(q.p);gl.uniform1i(q.u('uPass'),pass);gl.uniform1f(q.u('uBackSkip'),+P.optBackface!==0?1:0);gl.uniform1f(q.u('uFlat'),R.skip.kitFlat?1:0);
-    for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==(t==='grainArm'))continue;const b=R.instBufs['kit_'+t+'_'+l+'f'];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];if(pass===0&&R.skip['kit'+l])continue;
+    for(let l=0;l<4;l++)for(const t of KIT_TYPES){if(R.shLayer&&(R.shLayer==='dyn')!==KIT_DYN.has(t))continue;const b=R.instBufs['kit_'+t+'_'+l+'f'];if(R.shRec&&b)R.shRec.push(b);if(!b||!b.n)continue;const m=R.kitMesh[t][pass===1?Math.min(3,l+1):l];if(pass===0&&R.skip['kit'+l])continue;
       let buf=b.buf,n=b.n;if(+P.optCull!==0&&R.kitBound&&R.kitBound[t]){const c=R.cullInst(b,R.kitBound[t][0],R.kitBound[t][1],pass===1?R.shPl:R.camPlanes,pass);if(c){buf=c.buf;n=c.n;}}if(!n)continue;
       gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(4,4,gl.FLOAT,false,32,0);gl.vertexAttribPointer(5,4,gl.FLOAT,false,32,16);gl.drawArraysInstanced(gl.TRIANGLES,m.first,m.count,n);Stats.draws++;Stats.tris+=m.count/3*n;}
     gl.useProgram(p.p);}

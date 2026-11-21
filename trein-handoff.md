@@ -1,4 +1,4 @@
-# Trein handoff 115 (21 Nov 2026): v4.51.0 — harbour buildings in the house kit. Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 116 (21 Nov 2026): v4.52.0 — harbour machinery and collier in the house kit (rivets, lattice, machinery houses). Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,48 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.51.0, 21 Nov) — the harbour's buildings at the village houses' detail (user: "Victorian, textured brick and bump maps,
+### Latest (4.52.0, 21 Nov) — harbour step 4a: the machinery and the collier at the houses' detail (user: "rivets, lattice detail and
+painted machinery houses")
+- Two new kit materials (buildings/kit.js MATS, both shaders): **25 riveted plate** (`K.M.rivet`: snap-head rivets 9.5 cm apart in rows
+  4.5 cm in from every face edge, rivet columns across plate seams every 1.2 m on long faces, strake seams every 1 m on tall faces, a
+  seam line, orange peel, per-plate tone, rust patches and streaks; all relief in the shader, so a girder face costs 2 triangles) and
+  **26 corrugated iron** (`K.M.corr`: 7.6 cm waves across the wall / down the roof slope from world xz like brick 24, sheets 0.61 m,
+  laps every 1.83 m, rust). Both are in the cavity-shading list.
+- New buildings/harbourworks.js: `KIT.works(K, O)` writes models in the harbour's local frame (x, y inland, z up) relative to O
+  (kit x = O.x − x, y = z, z = y − O.y; rot = heading + π). Toolkit: bx, ob (oriented box), bm, cy, qd, ic, flat bars, `lattice`
+  (channel chords, verticals, double X lattice, gusset plates), `pgirder` (web, flanges, flange angles, stiffeners every 1.2 m),
+  `tower` (laced column: corner angles, zigzag lacing on 4 faces, battens, cap and base plates with bolts), `rail` (handrail),
+  `ladder` (with safety hoops), `window` (lit glass behind a painted frame with glazing bars and a sill), `door`, `house` (machinery
+  house: timber sill, corrugated walls, cream corner flashings and eaves band, windows, door, corrugated roof along the long side with
+  bargeboards, ridge roll, gutters, a louvred ventilator and a stove pipe).
+- Models (tris LOD 0/0.5/1/2): portGantry 9k (laced legs on granite pedestals, plate girders with crab rails and end stops, lattice end
+  girders, knee braces with gussets, tie rods with a turnbuckle, walkway and caged ladder; the riveted hopper with ribs, grate, coal,
+  braced legs, feeder and tail pulley), portBelt 24k (lattice side trusses up the incline and along the quay, troughed and return
+  idlers, the belt, walkway with rail, five braced trestle bents, the elevated head house, the tail steam-engine house with its
+  chimney and drive shaft, the loader rails with buffers), portCrab 3k (end carriages with flanged wheels, plate cross girders, the
+  winding house, the driver's cab hanging below, rope sheaves), portLoader 12k (bogies, laced portal legs, plate portal girders,
+  lattice cross girders, deck with rails, machinery house, an A-frame with stays, the lattice boom with belt and walkway, tripper,
+  counterweight, transfer hopper, three-section telescopic chute, boom lamp), portWagon 2k (planked red-oxide coal wagon: strapping,
+  corner plates, side door, solebars, W-irons, spoked wheels, buffers, coupling, brake), portShip 13k / 4k (the collier: riveted hull
+  in ~1.2 m plates with sheer, raked stem, counter stern, red bottom, white boot line; forecastle and poop, planked decks leaving the
+  three hatches open, bulwarks with buff inner face and teak rail, coamings with coal in the holds and hatch boards stacked, masts
+  with shrouds, ratlines, stays, topped derricks and a crow's nest, windlass, anchors, bitts, the white deckhouse with portholes, the
+  teak wheelhouse with wings, dodgers, side lights, binnacle, the raked buff funnel with black top, bands, steam pipe and whistle,
+  cowl vents, lifeboats on curved davits, the ensign). Masts moved to the ends (u −19.5 and +7) so the shiploader's boom clears them;
+  the bow is west, the bridge and funnel aft (x 70–77).
+- Moving kit models: `KIT_DYN` (js/objshaders.js: grainArm, portCrab, portLoader, portShip, portWagon) are skipped by Life.kitInst0
+  and written every frame in Life.armInst from `Port.dynPut` (size-on-screen level like the rest; drawn in the dynamic shadow layer:
+  render.js uses KIT_DYN.has(t)). The ship rides a small heave.
+- Gone: `PortCoal.fixed` and the vehicle-shader crab, shiploader and wagons; the Ship_* blocks (ARCH filter). Still vehicle meshes:
+  the grab (now head, arms, hinge beam and curved shells), its ropes, the coal on the belt and in the wagons. Pour particles come from
+  the chute at y −8.
+- tools/render_building.js renders port* models standalone (kit + station + harbour + harbourworks). Scratch: kitcount.js counts
+  triangles per LOD; vp8/vp9 views. NOTE for tours: App.hold freezes Life.kitInst, so call `Life.kitInst(n=>new Float32Array(...))`
+  after moving the camera or the moving models keep their old detail level.
+- Next (step 4b): ships carrying cargo between harbours, coal and iron ore mines, trains feeding the freight siding (then the real
+  wagons replace portWagon's shunting loop).
+
+### Earlier (4.51.0, 21 Nov) — the harbour's buildings at the village houses' detail (user: "Victorian, textured brick and bump maps,
 detailed shingles, not blocky")
 - The hand-made architecture (PortArch, vehicle shader, flat colours) is gone. The harbour's buildings are now kit models drawn with
   the houses (Life's kit pass, LOD levels, fading, culling): new buildings/harbour.js with portWareA (3 storeys, 22×16: loading doors

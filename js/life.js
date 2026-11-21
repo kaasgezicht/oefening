@@ -1188,7 +1188,11 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const c=Math.cos(tw.rot),s=Math.sin(tw.rot),px=tw.x+c*G.pivot[0]-s*G.pivot[2],pz=tw.z+s*G.pivot[0]+c*G.pivot[2];let rot=tw.rot,sc=1;
       if(tw.si){const st=Crane.S.get('st:'+tw.st.id),gx=st&&st.ax!==undefined?st.ax:tw.a,si=tw.si,dx=si.x+si.dx*gx-px,dz=si.z+si.dz*gx-pz;rot=Math.atan2(dx,-dz);sc=Math.hypot(dx,dz)/G.reach;}
       L[d<140?0:d<320?1:d<700?2:3].push([px,tw.y-(sc-1)*G.pivot[1],pz,sc,rot,0.5,0.5,0]);}
-    for(let l=0;l<4;l++){const a=B(L[l].length);L[l].forEach((r,i)=>a.set(r,i*8));R.inst('kit_grainArm_'+l,a,L[l].length);}},
+    for(let l=0;l<4;l++){const a=B(L[l].length);L[l].forEach((r,i)=>a.set(r,i*8));R.inst('kit_grainArm_'+l,a,L[l].length);}
+    /* the harbour's moving machinery and colliers (Port.dynPut): picked by size on screen like the other kit types, written every frame */
+    const ls=clamp(+P.kitLod||1,0.1,3),PS=innerHeight/(2*Math.tan((Cam.fovy||1)/2)),D={};for(const t of KIT_DYN)if(t!=='grainArm')D[t]=[[],[],[],[]];
+    if(typeof Port!=='undefined')Port.dynPut((t,o)=>{const d=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(d>2200||!D[t])return;const r=clamp((R.kitBound[t]||[0,14])[1],8,16),k=r*PS/Math.max(d,1)*ls;D[t][k>=150?0:k>=93?1:k>=29?2:3].push([o.x,o.y,o.z,1,o.rot,0.5,o.hash==null?0.5:o.hash,0]);});
+    for(const t in D)for(let l=0;l<4;l++){const a=B(D[t][l].length);D[t][l].forEach((r,i)=>a.set(r,i*8));R.inst('kit_'+t+'_'+l,a,D[t][l].length);}},
   kitInst0(B){const cp=Cam.pos||[0,0,0],lp=this.kitCP;if(!this.uploaded)this.kitDirty=true;const ps0=innerHeight/(2*Math.tan((Cam.fovy||1)/2));if(!this.kitDirty&&lp&&Math.hypot(cp[0]-lp[0],cp[1]-lp[1],cp[2]-lp[2])<4&&Math.abs(ps0/(this.kitPS||ps0)-1)<0.03)return;this.kitPS=ps0;this.kitDirty=false;this.kitCP=[cp[0],cp[1],cp[2]];/* detail levels by SIZE ON SCREEN (a building's radius in pixels), not by one fixed distance: 0 whole detail >= 150 px, 0.5 no single roof
        tiles >= 93 px, 1 no small stones/grass >= 29 px, 2 big parts only; the pixel limits shrink with Quality > Building detail distance
        (x2 = twice the distance). A cottage keeps its old 110 m / 350 m switches; a culvert (radius counted as 8 m at least) switches near; every building
@@ -1224,11 +1228,11 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
     if(typeof Port!=='undefined')Port.kitPut((t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<2200)KB[t+LVL(t,dp)].push(o);});/* the harbour's buildings, quay, paving and foundations */
     /* fading between levels: an instance whose size on screen lies within a band around a switch point is drawn by both levels
        (buckets kit_<t>_<l>f, the dithering shader), the finer one taking the share u of the pixels and the coarser one the rest */
-    {const TH=[150,93,29],BD=1.22,lb=Math.log(BD);for(const t of KIT_TYPES){if(t==='grainArm')continue;const r=clamp((R.kitBound[t]||[0,14])[1],8,16);for(let l=0;l<4;l++){KB[t+l+'f']=KB[t+l+'f']||[];}
+    {const TH=[150,93,29],BD=1.22,lb=Math.log(BD);for(const t of KIT_TYPES){if(KIT_DYN.has(t))continue;const r=clamp((R.kitBound[t]||[0,14])[1],8,16);for(let l=0;l<4;l++){KB[t+l+'f']=KB[t+l+'f']||[];}
       for(let l=0;l<4;l++){const L=KB[t+l],keep=[];for(const h of L){const k=r*PS/Math.max(Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]),1)*ls;let done=false;
           for(let i=0;i<3&&!done;i++){const T=TH[i];if(k>T/BD&&k<T*BD){const u=clamp((Math.log(k/T)/lb+1)/2,0.02,0.98);KB[t+i+'f'].push({...h,fw:1+u});KB[t+(i+1)+'f'].push({...h,fw:-(1+u)});done=true;}}
           if(!done)keep.push(h);}KB[t+l]=keep;}}}
-    for(const t of KIT_TYPES)if(t!=='grainArm')for(let l=0;l<4;l++)for(const fd of ['','f']){const L=KB[t+l+fd]||[],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,h.fw||0],i*8));R.inst('kit_'+t+'_'+l+fd,a,L.length);}},
+    for(const t of KIT_TYPES)if(!KIT_DYN.has(t))for(let l=0;l<4;l++)for(const fd of ['','f']){const L=KB[t+l+fd]||[],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,h.fw||0],i*8));R.inst('kit_'+t+'_'+l+fd,a,L.length);}},
   prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
     if(!this.uploaded){this.uploaded=true;
       for(let v=0;v<R.houseDefs.length;v++){if(R.houseDefs[v].kit){R.inst('house'+v,B(0),0);continue;}const L=this.houses.filter(h=>h.v===v&&!h.shop&&!(h.bank&&h.village&&h.village.bankOwned)&&this.houseOn(h)),a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('house'+v,a,L.length);}

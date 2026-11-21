@@ -36,7 +36,8 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;if(uKind<=5)W.y+=fineAt(iA.xz);/* trees and rocks stand on the 8 m ground */vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt','portGantry','portBelt','portCrab','portLoader','portShip','portWagon'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_DYN=new Set(['grainArm','portCrab','portLoader','portShip','portWagon']);/* kit types whose instances move: written every frame (Life.armInst), redrawn in the dynamic shadow layer */
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -60,7 +61,7 @@ void main(){`+(fade?`/* detail levels fade into each other: the finer copy keeps
   {float u=abs(vFade)-1.,d=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));if(vFade>0.?d>=u:d<u)discard;}`:'')+`if(uPass>=1){o=vec4(0);return;}
   vec3 Ng=normalize(vN),V=normalize(uCamPos.xyz-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;
   if(uFlat>.5){o=vec4(fogc(L(vC)*(uSunCol.rgb*.5+ambient(Ng)),vW),1.);return;}// benchmark test only: the cost of the building materials
-  int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);vec3 Nd=Ng;float hc=0.;
+  int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);if(m==26)q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);vec3 Nd=Ng;float hc=0.;
   float fade=smoothstep(140.,60.,length(uCamPos.xyz-vW));
   if(m>=4&&m!=13&&fade>0.){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -77,7 +78,7 @@ void main(){`+(fade?`/* detail levels fade into each other: the finer copy keeps
   else if(m==3)col=L(vC)*(.45+3.*uMisc.x);
   else if(m==22){vec3 sg=L(stainedC(q)),Rf=reflect(-V,Ng);col=sg*(uSunCol.rgb*.1*max(dot(Ng,uL),0.)+ambient(Ng)*.4+.04+2.6*uMisc.x)+L(mix(uSkyH.rgb,uSkyZ.rgb,clamp(Rf.y*1.5,0.,1.)))*.12*(1.-uMisc.x);}
   else{float nl=dot(Nd,uL),ramp=smoothstep(-.03,.16,nl)*.6+smoothstep(.38,.6,nl)*.4,lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,dot(Ng,uL));
-    float cav=(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19)?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;col=A*(uSunCol.rgb*lit+ambient(Nd)*cav);}
+    float cav=(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19||m==25||m==26)?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;col=A*(uSunCol.rgb*lit+ambient(Nd)*cav);}
   if(uGhost.a>0.){/* station ghost: the lit building tinted green (red when it cannot stand), see-through, brighter at the rim */float rim=pow(1.-max(dot(Ng,V),0.),2.);vec3 gc=mix(col*.6,uGhost.rgb,.5)+uGhost.rgb*.22*rim;o=vec4(gc*uGhost.a,uGhost.a);return;}
   o=vec4(fogc(col,vW),1.);}`;
 const FS_OBJ=GLSL_HEAD+GLSL_COMMON+`

@@ -7,7 +7,8 @@
 // collier moored alongside. Every harbour town has a site reserved when the world is made (Port.find, after the coast); the town
 // offers the harbour as an upgrade, and once bought the ground is levelled to the deck and the terminal stands there, partly over the
 // water on foundations.
-// Step 1 draws every structure as a block at its planned place and size (flat colours: the silhouette test of the brief). Later steps:
+// Step 1 drew every structure as a block at its planned place and size (flat colours: the silhouette test of the brief); since 4.51 /
+// 4.52 the buildings, machinery and collier are kit models (buildings/harbour.js, buildings/harbourworks.js). Steps:
 // 2 the architecture and real tracks, 3 the moving coal handling, 4 the collier, shipping and coal / iron mines.
 //
 // THE DIMENSION SCHEDULE (the brief's CONFIG): one local frame per site. x along the quay (west → east, 0..120), y inland (north,
@@ -136,8 +137,14 @@ const Port={S:[],key:'',meshes:new Map(),
     for(let x=5;x<PORT.W;x+=10)for(let y=20;y<PORT.D;y+=10)at('portPave',x,y,0.005,(x*7+y*3)%1);
     at('portWareA',85,31,0,0.2);at('portWareA',108,33,0,0.7);at('portWareB',10,42,0,0.4);
     at('portShed',60,(PORT.track.pass[0]+PORT.track.pass[1])/2,0.4,0.5);
+    at('portGantry',20,20,0,0.5);at('portBelt',47,16,0,0.5);/* the coal handling's fixed ironwork (buildings/harbourworks.js) */
     for(let x=0;x<=PORT.W;x+=10)for(let y=0;y<=PORT.D;y+=10){const w=this.xz(s,Math.min(PORT.W-0.5,Math.max(0.5,x)),Math.min(PORT.D-0.5,Math.max(0.5,y)));if(R.sampleHr(T,w[0],w[1])>s.deckY-1.2)continue;at(y<=20?'portPier':'portStilt',x,y,0,(x+y)%1);}
     s.kit=L;return L;},
+  // the moving machinery and the collier as kit instances, written every frame (Life.armInst): the gantry's crab, the shiploader and
+  // the moored collier riding the swell
+  dynPut(put){const cp=Cam.pos||[0,0,0],t=performance.now()/1000;for(const s of this.S){if(!s.built||Math.hypot(s.x-cp[0],s.z-cp[2])>2300)continue;const c=PortCoal.st(s),rot=Math.atan2(s.t[1],s.t[0])+Math.PI,
+      at=(k,x,y,z)=>{const p=this.P(s,x,y,z);put(k,{x:p[0],y:p[1],z:p[2],rot,hash:0.5});};
+    at('portCrab',20,c.crabY,10.47);at('portLoader',c.lx,0,0);const wy=PORT.track.freight;at('portWagon',c.wagX,wy,0.25);if(c.ph!=='swap'&&c.ph!=='in')at('portWagon',7,wy,0.25);at('portShip',60,PORT.ship.y0+4.5,-PORT.deck+0.06*Math.sin(t*0.7+s.x));}},
   kitPut(put){const cp=Cam.pos||[0,0,0];for(const s of this.S){if(!s.built||Math.hypot(s.x-cp[0],s.z-cp[2])>2400)continue;for(const o of this.kitList(s))put(o.t,o);}},
   townOf(st){const s=this.S.find(q=>st.port===Math.round(q.x)+','+Math.round(q.z));return s?s.v:null;},
   update(dt){const T=App.T;if(!T||T.sea==null||!Coast.T||Coast.T!==T)return;const key=Coast.key;if(key!==this.key){this.key=key;this.find();}for(const s of this.S){if(s.v.portOwned&&!s.built)this.build(s);if(s.built)PortCoal.step(s,Math.min(0.1,dt||0.016));}},
@@ -150,7 +157,7 @@ const Port={S:[],key:'',meshes:new Map(),
       q(p(x0,y0,z0),p(x1,y0,z0),p(x1,y0,z1),p(x0,y0,z1),Nv(0,-1,0),col);q(p(x1,y1,z0),p(x0,y1,z0),p(x0,y1,z1),p(x1,y1,z1),Nv(0,1,0),col);
       q(p(x1,y0,z0),p(x1,y1,z0),p(x1,y1,z1),p(x1,y0,z1),Nv(1,0,0),col);q(p(x0,y1,z0),p(x0,y0,z0),p(x0,y0,z1),p(x0,y1,z1),Nv(-1,0,0),col);};
     const tri=(a,b,c,n,col)=>q(a,b,c,c,n,col);
-    const ARCH=/^(Quay_|Yard_|Track_Passenger|Track_Freight_01$|Platform_|Station_|Warehouse_|Coal_|Shiploader_)/;/* step 2: these are built in detail by PortArch */
+    const ARCH=/^(Quay_|Yard_|Track_Passenger|Track_Freight_01$|Platform_|Station_|Warehouse_|Coal_|Shiploader_|Ship_)/;/* step 2: these are built in detail by PortArch */
     for(const [nm,x0,x1,y0,y1,z0,z1,zone,shape] of PORT.B){if(ARCH.test(nm))continue;const col=C[zone]||[0.5,0.5,0.5],p=(x,y,z)=>W(x,y,z),ym=(y0+y1)/2,xm=(x0+x1)/2;
       if(shape==='gable'){/* ridge along x at ym */const ny=Math.hypot(z1-z0,(y1-y0)/2);q(p(x0,y0,z0),p(x1,y0,z0),p(x1,ym,z1),p(x0,ym,z1),Nv(0,-(z1-z0)/ny,((y1-y0)/2)/ny),col);q(p(x1,y1,z0),p(x0,y1,z0),p(x0,ym,z1),p(x1,ym,z1),Nv(0,(z1-z0)/ny,((y1-y0)/2)/ny),col);
         tri(p(x0,y1,z0),p(x0,y0,z0),p(x0,ym,z1),Nv(-1,0,0),col);tri(p(x1,y0,z0),p(x1,y1,z0),p(x1,ym,z1),Nv(1,0,0),col);continue;}
@@ -168,7 +175,7 @@ const Port={S:[],key:'',meshes:new Map(),
       box(x0,x1,y0,y1,z0,z1,col);}
     // step 2: the architecture (deck and quay, foundations, platforms, train shed, station, warehouses) in detail
     const ground=(x,y)=>{const w=this.xz(s,x,y);return R.sampleHr(T,w[0],w[1])-s.deckY;};
-    box(0,PORT.W,0,PORT.D,-0.6,-0.02,[0.45,0.43,0.4]);/* the deck slab (the paving, quay, buildings and foundations are kit models: Port.kitPut) */void ground;PortCoal.fixed({box,q,tri,W,Nv,C});
+    box(0,PORT.W,0,PORT.D,-0.6,-0.02,[0.45,0.43,0.4]);/* the deck slab (the paving, quay, buildings and foundations are kit models: Port.kitPut) */void ground;void tri;
     m=R.uploadVeh(M);this.meshes.set(s,m);return m;},
   draw(p,pass){if(!this.S.length)return;const cp=Cam.pos||[0,0,0];for(const s of this.S){if(!s.built||Math.hypot(s.x-cp[0],s.z-cp[2])>(pass===1?600:5000))continue;const m=this.mesh(s);
       gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;if(Math.hypot(s.x-cp[0],s.z-cp[2])<(pass===1?500:2500))PortCoal.draw(s,p);}},
@@ -181,36 +188,6 @@ const Port={S:[],key:'',meshes:new Map(),
 // empty a wagon, which then rolls out east and a full one rolls in. The belt runs all the time; the shiploader pours into a hatch and
 // moves on to the next (x 44 → 53 → 62 → 53 → …).
 const PortCoal={M:null,
-  fixed(h){const {box,q,tri,W,Nv}=h,iron=[0.2,0.21,0.23],iron2=[0.3,0.31,0.33],belt=[0.15,0.15,0.16],grey=[0.55,0.55,0.53],coal=[0.07,0.07,0.08],red=[0.45,0.16,0.12];
-    const quad=(a,b,c,d,n,col)=>q(W(...a),W(...b),W(...c),W(...d),Nv(...n),col);
-    const beam=(p0,p1,w,t,col)=>{const d=[p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]],l=Math.hypot(...d)||1,u=d.map(v=>v/l);let sx=[u[1],-u[0],0];let sl=Math.hypot(...sx);if(sl<1e-3){sx=[1,0,0];sl=1;}sx=sx.map(v=>v/sl);
-      const up=[u[1]*sx[2]-u[2]*sx[1],u[2]*sx[0]-u[0]*sx[2],u[0]*sx[1]-u[1]*sx[0]],P=(p,a,b)=>[p[0]+sx[0]*a+up[0]*b,p[1]+sx[1]*a+up[1]*b,p[2]+sx[2]*a+up[2]*b],hw=w/2,ht=t/2;
-      for(const [a1,b1,a2,b2,n] of [[-hw,ht,hw,ht,up],[hw,-ht,-hw,-ht,up.map(v=>-v)],[hw,ht,hw,-ht,sx],[-hw,-ht,-hw,ht,sx.map(v=>-v)]])quad(P(p0,a1,b1),P(p0,a2,b2),P(p1,a2,b2),P(p1,a1,b1),n,col);};
-    // portal gantry: two side frames (x 16 and 24) with legs at y 11 and 29, top girders, cross girders, braces, crab rails, a ladder
-    for(const x of [16,24]){for(const y of [11,29]){box(x-0.35,x+0.35,y-0.35,y+0.35,0,9.4,iron);box(x-0.6,x+0.6,y-0.6,y+0.6,0,0.4,grey);}
-      box(x-0.45,x+0.45,10.4,29.6,9.4,10.4,iron);box(x-0.12,x+0.12,10.6,29.4,10.4,10.55,iron2);
-      beam([x,11,0.4],[x,15,9.4],0.25,0.25,iron);beam([x,29,0.4],[x,25,9.4],0.25,0.25,iron);}
-    for(const y of [11,29]){box(15.6,24.4,y-0.35,y+0.35,8.9,9.8,iron);beam([16,y,4.5],[24,y,8.9],0.2,0.2,iron);beam([24,y,4.5],[16,y,8.9],0.2,0.2,iron);}
-    for(let z=0.6;z<9.2;z+=0.4)box(15.55,15.62,11.35,11.95,z,z+0.05,iron2);box(15.5,15.56,11.35,11.4,0,9.3,iron2);box(15.5,15.56,11.9,11.95,0,9.3,iron2);
-    // receiving hopper: a tapered bin on four legs, a grate over it, the outlet onto the belt
-    {const x0=17,x1=23,y0=13,y1=19,z0=1.4,z1=4,ix=2,iy=2,a=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],b=[[x0+ix,y0+iy],[x1-ix,y0+iy],[x1-ix,y1-iy],[x0+ix,y1-iy]];
-      for(let k=0;k<4;k++){const k2=(k+1)%4,dx=a[k2][0]-a[k][0],dy=a[k2][1]-a[k][1],l=Math.hypot(dx,dy);quad([b[k][0],b[k][1],z0],[b[k2][0],b[k2][1],z0],[a[k2][0],a[k2][1],z1],[a[k][0],a[k][1],z1],[dy/l,-dx/l,0.5],iron);}
-      box(x0-0.1,x1+0.1,y0-0.1,y0+0.1,z1-0.3,z1+0.1,iron2);box(x0-0.1,x1+0.1,y1-0.1,y1+0.1,z1-0.3,z1+0.1,iron2);box(x0-0.1,x0+0.1,y0,y1,z1-0.3,z1+0.1,iron2);box(x1-0.1,x1+0.1,y0,y1,z1-0.3,z1+0.1,iron2);
-      quad([x0+0.3,y0+0.3,z1-0.6],[x1-0.3,y0+0.3,z1-0.6],[x1-0.3,y1-0.3,z1-0.6],[x0+0.3,y1-0.3,z1-0.6],[0,0,1],coal);for(let x=x0+0.6;x<x1;x+=0.6)box(x-0.04,x+0.04,y0,y1,z1-0.05,z1,iron2);
-      for(const [lx,ly] of [[x0+0.3,y0+0.3],[x1-0.3,y0+0.3],[x0+0.3,y1-0.3],[x1-0.3,y1-0.3]])box(lx-0.2,lx+0.2,ly-0.2,ly+0.2,0,z1-0.3,iron);
-      box(19,21,15,17,0.9,z0,iron);box(21,23.5,15.2,16.8,0.9,1.3,iron);}
-    // the conveyor: an inclined gallery (x 23 → 40, 18°), then level on trestles to x 70, side trusses, the belt on top, a walkway on
-    // the north side, the tail pulley housing at the hopper and the head housing at x 70
-    const zA=(x)=>x<=40?1.4+(x-23)/17*5.6:7;
-    for(const yy of [15,17]){beam([23,yy,zA(23)],[40,yy,7],0.18,0.25,iron);beam([23,yy,zA(23)+1.1],[40,yy,8.1],0.15,0.15,iron);beam([40,yy,7],[70,yy,7],0.18,0.25,iron);beam([40,yy,8.1],[70,yy,8.1],0.15,0.15,iron);
-      for(let x=24;x<70;x+=2){beam([x,yy,zA(x)],[x,yy,zA(x)+1.1],0.08,0.08,iron);if(x+2<=70)beam([x,yy,zA(x)],[x+2,yy,zA(x+2)+1.1],0.07,0.07,iron2);}}
-    {const ny=Math.hypot(5.6,17),nz=17/ny,nx=-5.6/ny;quad([23,15.4,zA(23)+0.28],[40,15.4,7.28],[40,16.6,7.28],[23,16.6,zA(23)+0.28],[nx,0,nz],belt);quad([40,15.4,7.28],[70,15.4,7.28],[70,16.6,7.28],[40,16.6,7.28],[0,0,1],belt);
-      quad([23,17.1,zA(23)+0.1],[40,17.1,7.1],[40,17.9,7.1],[23,17.9,zA(23)+0.1],[nx,0,nz],grey);box(40,70,17.1,17.9,7,7.1,grey);}
-    for(const x of [30,35])for(const yy of [15,17])box(x-0.15,x+0.15,yy-0.15,yy+0.15,0,zA(x),iron);
-    for(const x of [45,55,65]){for(const yy of [14.8,17.6]){box(x-0.18,x+0.18,yy-0.18,yy+0.18,0,7,iron);}beam([x,14.8,0.3],[x,17.6,6.8],0.12,0.12,iron);box(x-0.2,x+0.2,14.6,17.8,6.7,7,iron);}
-    box(21.8,23.6,14.6,17.4,0.9,2.6,iron2);box(69.5,71.5,14.6,17.4,6.4,8.8,iron2);
-    // shiploader rails with end stops (the shiploader itself moves)
-    for(const y of [2,12]){box(34,72,y-0.3,y+0.3,0,0.12,grey);box(34,72,y-0.08,y+0.08,0.12,0.3,iron2);for(const x of [33.4,72.6]){box(x-0.4,x+0.4,y-0.6,y+0.6,0,1,red);box(x-0.45,x+0.45,y-0.65,y+0.65,1,1.15,iron);}}},
   // ---- the moving parts: meshes in local coordinates (vertex = x, z up, y), origin at the site's x 0, y 0, deck level
   meshes(){if(this.M)return this.M;const mk=()=>vmesh(),L=(x,y,z)=>[x,z,y],Ln=(x,y,z)=>[x,z,y];
     const box=(M,x0,x1,y0,y1,z0,z1,col)=>{const p=L;const q=(a,b,c,d,n)=>vq(M,a,b,c,d,Ln(...n),col,3);
@@ -219,29 +196,20 @@ const PortCoal={M:null,
     const beam=(M,p0,p1,w,col)=>{const d=[p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]],l=Math.hypot(...d)||1,u=d.map(v=>v/l);let sx=[u[1],-u[0],0];let sl=Math.hypot(...sx);if(sl<1e-3){sx=[1,0,0];sl=1;}sx=sx.map(v=>v/sl);
       const up=[u[1]*sx[2]-u[2]*sx[1],u[2]*sx[0]-u[0]*sx[2],u[0]*sx[1]-u[1]*sx[0]],P=(p,a,b)=>L(p[0]+sx[0]*a+up[0]*b,p[1]+sx[1]*a+up[1]*b,p[2]+sx[2]*a+up[2]*b),h=w/2;
       for(const [a1,b1,a2,b2,n] of [[-h,h,h,h,up],[h,-h,-h,-h,up.map(v=>-v)],[h,h,h,-h,sx],[-h,-h,-h,h,sx.map(v=>-v)]])vq(M,P(p0,a1,b1),P(p0,a2,b2),P(p1,a2,b2),P(p1,a1,b1),Ln(...n),col,3);};
-    const iron=[0.2,0.21,0.23],iron2=[0.3,0.31,0.33],coal=[0.07,0.07,0.08],cream=[0.86,0.82,0.7],red=[0.45,0.16,0.12],wheel=[0.12,0.12,0.12];
-    // crab (on the gantry girders at x 16 and 24; origin at x 20, y 0, the girder top)
-    const crab=mk();box(crab,15.6,24.4,-1.6,1.6,10.55,11.1,iron);box(crab,17.6,22.4,-1.4,1.4,11.1,12.8,[0.36,0.34,0.3]);box(crab,17.4,22.6,-1.55,1.55,12.8,13,iron);for(const x of [16,24])for(const y of [-1.2,1.2])box(crab,x-0.25,x+0.25,y-0.3,y+0.3,10.4,10.8,wheel);
+    const iron=[0.2,0.21,0.23],iron2=[0.3,0.31,0.33],green=[0.2,0.3,0.23],coal=[0.07,0.07,0.08];
     // the hoist ropes: unit length (scaled down by the hoist), from z 0 to −1 at x 19.4 / 20.6
     const rope=mk();for(const x of [19.4,20.6])box(rope,x-0.03,x+0.03,-0.03,0.03,-1,0,[0.1,0.1,0.1]);
     // grab bucket (two halves; origin at its top), open = halves apart
-    const grab=mk();box(grab,18.9,21.1,-0.3,0.3,-0.4,0,iron);for(const sd of [-1,1]){beam(grab,[20,0,-0.3],[20+sd*1.1,0,-2],0.18,iron);box(grab,sd<0?18.6:20,sd<0?20:21.4,-0.9,0.9,-2.4,-1.4,iron2);}
+    // the grab: a head with the rope sheaves, four arms to the shells, the hinge beam, two curved shells of riveted plate with side plates
+    const grab=mk();box(grab,19.2,20.8,-0.35,0.35,-0.55,0,green);for(const x of [19.4,20.6])box(grab,x-0.12,x+0.12,-0.2,0.2,-0.1,0.25,iron2);
+    for(const sx of [-1,1])for(const sy of [-1,1])beam(grab,[20+sx*0.6,sy*0.3,-0.45],[20+sx*1.12,sy*0.8,-1.45],0.09,iron);box(grab,19.75,20.25,-0.95,0.95,-2.5,-2.2,green);
+    for(const sd of [-1,1]){let pr=null;for(let k=0;k<=5;k++){const th=k/5*1.45,q=[20+sd*1.25*Math.sin(th),0,-1.2-1.25*Math.cos(th)];if(pr){for(const y of [-0.62,0,0.62])beam(grab,[pr[0],y,pr[2]],[q[0],y,q[2]],0.62,green);for(const y of [-0.92,0.92])beam(grab,[pr[0],y,pr[2]],[q[0],y,q[2]],0.08,iron);}pr=q;}
+      box(grab,sd<0?18.72:21.18,sd<0?18.82:21.28,-0.95,0.95,-1.45,-1.25,iron);}
     const grabFull=mk();box(grabFull,18.8,21.2,-0.85,0.85,-1.5,-1.25,coal);
     // coal lumps on the belt (spacing 1.6 m): the incline (23 → 40) and the level run (40 → 70); drawn shifted by the belt's phase
     const lumpsA=mk(),lumpsB=mk();for(let x=23-1.6;x<40;x+=1.6){const z=1.4+(x-23)/17*5.6+0.3;box(lumpsA,x,x+0.9,15.6,16.4,z,z+0.35,coal);}for(let x=40-1.6;x<70;x+=1.6)box(lumpsB,x,x+0.9,15.6,16.4,7.3,7.65,coal);
-    // the shiploader (origin at its centre line x 0): bogies on the rails, four legs, the deck, the machinery house, the tripper over
-    // the belt, the boom out over the ship, the transfer hopper at its tip, the chute down into the hatch, a counterweight
-    const sl=mk();for(const y of [2,12]){box(sl,-4,4,y-0.5,y+0.5,0.3,1.2,iron);for(const x of [-3,-1,1,3]){box(sl,x-0.4,x+0.4,y-0.25,y+0.25,0,0.8,wheel);}}
-    for(const x of [-3.5,3.5])for(const y of [2,12]){box(sl,x-0.35,x+0.35,y-0.35,y+0.35,1.2,7.6,iron);}for(const x of [-3.5,3.5]){beam(sl,[x,2,1.4],[x,12,7.2],0.2,iron);beam(sl,[x,12,1.4],[x,2,7.2],0.2,iron);}
-    box(sl,-4.2,4.2,1,13,7.6,8.4,iron);box(sl,-2.5,2.5,5,10.5,8.4,11.2,cream);box(sl,-2.7,2.7,4.8,10.7,11.2,11.5,red);
-    box(sl,-2.4,2.4,13,17.6,8,8.5,iron);for(const y of [14.4,17.4])for(const x of [-2.2,2.2])box(sl,x-0.15,x+0.15,y-0.15,y+0.15,7.2,8,iron);box(sl,-1.1,1.1,14.8,17.2,8.5,9.6,iron2);
-    for(const sd of [-0.6,0.6]){beam(sl,[sd,16,9.4],[sd,-8,11.2],0.25,iron);beam(sl,[sd,16,10.4],[sd,-8,12],0.18,iron);for(let k=0;k<=12;k++){const y=16-k*2,z0=9.4+(11.2-9.4)*k/12,z1=10.4+(12-10.4)*k/12;beam(sl,[sd,y,z0],[sd,y,z1],0.1,iron);}}
-    box(sl,-1.6,1.6,-9.6,-6.4,9.6,11.6,iron2);box(sl,-0.7,0.7,-8.7,-7.3,3,9.6,iron);box(sl,-0.55,0.55,-8.55,-7.45,0.5,3,iron2);
-    box(sl,-2,2,13.5,15.5,8.4,10.4,[0.4,0.38,0.34]);
-    // a coal wagon (origin at its centre on the siding axis): frame, wheels, a hopper body; its load drawn separately (scaled)
-    const wag=mk();box(wag,-3.6,3.6,-1.1,1.1,0.4,0.9,iron);for(const x of [-2.4,2.4])for(const y of [-0.8,0.8])box(wag,x-0.45,x+0.45,y-0.1,y+0.1,0.05,0.95,wheel);box(wag,-3.4,3.4,-1.2,-1.05,0.9,2.6,[0.26,0.22,0.2]);box(wag,-3.4,3.4,1.05,1.2,0.9,2.6,[0.26,0.22,0.2]);box(wag,-3.4,-3.25,-1.2,1.2,0.9,2.6,[0.26,0.22,0.2]);box(wag,3.25,3.4,-1.2,1.2,0.9,2.6,[0.26,0.22,0.2]);
-    const load=mk();for(let x=-3.1;x<3.1;x+=0.9)for(let y=-0.9;y<0.9;y+=0.6){const hh=0.35+0.25*Math.sin(x*3.1+y*5.3)*Math.sin(x*1.7);box(load,x,x+0.85,y,y+0.55,0,0.5+hh,coal);}
-    this.M={crab,rope,grab,grabFull,lumpsA,lumpsB,sl,wag,load};for(const k in this.M)this.M[k]=R.uploadVeh(this.M[k]);return this.M;},
+    const load=mk();for(let x=-2.7;x<2.65;x+=0.45)for(let y=-1.05;y<1.0;y+=0.35){const pk=1-Math.pow(Math.abs(x+0.22)/3,2)*0.6-Math.pow(Math.abs(y+0.17)/1.2,2)*0.5,hh=0.55*pk+0.12*Math.sin(x*7.1+y*9.3);box(load,x,x+0.47,y,y+0.37,0,0.35+hh,coal);}
+    this.M={rope,grab,grabFull,lumpsA,lumpsB,load};for(const k in this.M)this.M[k]=R.uploadVeh(this.M[k]);return this.M;},
   // ---- the state of a site's machinery
   st(s){if(!s.coal)s.coal={t:0,ph:'down',crabY:PORT.crab.y,hook:0,full:false,load:1,wagX:20,next:-1,belt:0,lx:PORT.loader.x,lT:0,lDir:1,lTarget:0,pour:0};return s.coal;},
   step(s,dt){const c=this.st(s),cp=Cam.pos||[0,0,0];if(Math.hypot(s.x-cp[0],s.z-cp[2])>2500)return;dt*=Math.max(1,Math.min(4,App.ff||1));
@@ -258,19 +226,17 @@ const PortCoal={M:null,
     else if(c.ph==='in'){c.wagX=Math.min(20,c.wagX+dt*3);if(c.wagX>=20)c.ph='down';}
     void sp;void z0;void zTop;
     // the shiploader: pours for 25 s, then travels to the next hatch
-    const Ls=PORT.loader,hs=PORT.ship.hatch;if(c.lT>0){c.lT-=dt;c.pour=1;if(P.smoke&&Math.random()<dt*6){const w=Port.P(s,c.lx,-6.5,0.6);Particles.spawn(w[0],w[1],w[2],(Math.random()-0.5),0.6,(Math.random()-0.5),2,0.5,2.2,0);}}
+    const Ls=PORT.loader,hs=PORT.ship.hatch;if(c.lT>0){c.lT-=dt;c.pour=1;if(P.smoke&&Math.random()<dt*6){const w=Port.P(s,c.lx,-8,0.4);Particles.spawn(w[0],w[1],w[2],(Math.random()-0.5),0.6,(Math.random()-0.5),2,0.5,2.2,0);}}
     else{c.pour=0;const tx=hs[c.lTarget];if(Math.abs(c.lx-tx)<0.05){c.lx=tx;c.lT=25;let n=c.lTarget+c.lDir;if(n<0||n>=hs.length){c.lDir=-c.lDir;n=c.lTarget+c.lDir;}c.lTarget=n;}else c.lx+=Math.sign(tx-c.lx)*Math.min(Math.abs(tx-c.lx),dt*0.6);}
     void Ls;},
   // the site's frame as a model matrix (local x along t, z up, y along n), shifted by (dx, dy, dz) in the local frame; sy scales z
   mat(s,dx,dy,dz,sz){const O=Port.P(s,0,0,0),t=s.t,n=s.n;return new Float32Array([t[0],0,t[1],0,0,sz||1,0,0,n[0],0,n[1],0,O[0]+t[0]*dx+n[0]*dy,O[1]+(dz||0),O[2]+t[1]*dx+n[1]*dy,1]);},
   draw(s,p){const M=this.meshes(),c=this.st(s),dm=(m,mat)=>{gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;};
     // crab at c.crabY; the grab hangs c.hook of the way down to the wagon (z 3.4 above the deck when down)
-    const top=10.4,low=3.1,gz=top-0.3-(top-0.3-low)*c.hook-2.4*(1-c.hook)*0;
-    dm(M.crab,this.mat(s,0,c.crabY,0));const len=Math.max(0.3,top-gz);dm(M.rope,this.mat(s,0,c.crabY,top,len));dm(M.grab,this.mat(s,0,c.crabY,gz));if(c.full)dm(M.grabFull,this.mat(s,0,c.crabY,gz));
+    const top=10.67,low=3.1,gz=top-0.55-(top-0.55-low)*c.hook;/* the ropes hang from the crab's sheaves (buildings/harbourworks.js) */const len=Math.max(0.3,top-gz);dm(M.rope,this.mat(s,0,c.crabY,top,len));dm(M.grab,this.mat(s,0,c.crabY,gz));if(c.full)dm(M.grabFull,this.mat(s,0,c.crabY,gz));
     // the belt's coal
     dm(M.lumpsA,this.mat(s,c.belt,0,c.belt*5.6/17));dm(M.lumpsB,this.mat(s,c.belt,0,0));
     // wagons: the one under the gantry (or rolling), one waiting behind
-    const wy=PORT.track.freight;dm(M.wag,this.mat(s,c.wagX,wy,0.25));if(c.load>0.02)dm(M.load,this.mat(s,c.wagX,wy,0.25+2.1,Math.max(0.05,c.load)));
-    if(c.ph!=='swap'&&c.ph!=='in'){dm(M.wag,this.mat(s,7,wy,0.25));dm(M.load,this.mat(s,7,wy,2.35));}
-    // the shiploader at c.lx
-    dm(M.sl,this.mat(s,c.lx,0,0));}};
+    const wy=PORT.track.freight;if(c.load>0.02)dm(M.load,this.mat(s,c.wagX,wy,0.25+1.85,Math.max(0.05,c.load)));/* the wagons themselves are kit models (Port.dynPut) */
+    if(c.ph!=='swap'&&c.ph!=='in')dm(M.load,this.mat(s,7,wy,0.25+1.85));
+    /* the crab, the shiploader and the collier are kit models (Port.dynPut) */}};

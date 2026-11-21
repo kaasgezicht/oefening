@@ -12,7 +12,7 @@ const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]
 K.v={add,sub,mul,dot,cross,len,norm,neg,clamp,lerp,mix3,rot};
 let SEED=7;const rnd=()=>{SEED=(SEED*16807)%2147483647;return(SEED-1)/2147483646;},rr=(a,b)=>a+(b-a)*rnd(),pick=a=>a[(rnd()*a.length)|0];
 K.rnd=rnd;K.rr=rr;K.pick=pick;K.seed=n=>{SEED=n;};
-K.M={brick:24,paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23};
+K.M={brick:24,paint:0,leaf:1,glass:2,glow:3,shingle:4,plaster:5,wood:6,stone:8,grass:9,soil:10,metal:11,deck:12,blade:13,endgrain:14,bark:15,stave:16,lane:17,clay:18,cobble:19,stained:22,courses:23,rivet:25,corr:26};
 K.C={timber:[0.36,0.24,0.15],plaster:[0.90,0.83,0.68],mortar:[0.56,0.52,0.46],glow:[1,0.8,0.5],iron:[0.2,0.19,0.19],
   stone:[[0.72,0.66,0.57],[0.64,0.6,0.54],[0.76,0.7,0.6],[0.6,0.55,0.48],[0.7,0.62,0.52],[0.66,0.64,0.6]],
   shingle:[[0.66,0.47,0.3],[0.6,0.42,0.27],[0.72,0.53,0.34],[0.55,0.4,0.28],[0.62,0.5,0.38]],
@@ -217,6 +217,13 @@ float hgt(int m,vec2 q){float sd=vSeed*31.;float e=edgeD(q);
   if(m==20){vec3 R=roofRC();float id=h2(vec2(R.x,floor(R.z)));return (.5-R.y)*.012+(R.y<.14?-.004:0.)-(fract(R.z)<.05?.004:0.)+(id-.5)*.002;}
   if(m==21){float r=floor(q.y/.24),f=fract(q.y/.24),s=q.x/(.36+.24*h2(vec2(r,3.)))+h2(vec2(r,1.)),fs=fract(s);float ed=min(min(f,1.-f)*.24,min(fs,1.-fs)*.3);return sqrt(clamp(ed/.07,0.,1.))*.025+fbm(q*9.)*.006;}
   if(m==24){vec4 b=brickC(q);return smoothstep(.002,.008,b.w)*.005+fbm(q*14.)*.0012;}
+  if(m==25){/* riveted iron plate (4.52.0): snap-head rivets 9.5 cm apart in rows 4.5 cm in from every edge, across the plate seams (plates 1.2 m long,
+     strakes 1 m high on wide faces), a fine seam line, paint orange peel */bool lx=vHS.x>=vHS.y;vec2 g=lx?q:q.yx,hs=lx?vHS:vHS.yx;float h=smoothstep(0.,.006,e)*.002+fbm(q*25.)*.0008;if(hs.y<.03)return h;
+    float P=.095,R=.016,ax=(fract(g.x/P)-.5)*P,ay=(fract(g.y/P)-.5)*P,d=length(vec2(ax,hs.y-abs(g.y)-.045));d=min(d,length(vec2(hs.x-abs(g.x)-.045,ay)));
+    if(hs.x>.7&&hs.y>.1){float ds=(fract((g.x+hs.x)/1.2+.5)-.5)*1.2;d=min(d,length(vec2(abs(ds)-.045,ay)));h-=smoothstep(.004,0.,abs(ds))*.0016;}
+    if(hs.y>.6){float dz=(fract((g.y+hs.y)+.5)-.5);d=min(d,length(vec2(ax,abs(dz)-.045)));h-=smoothstep(.004,0.,abs(dz))*.0016;}
+    return h+sqrt(max(0.,1.-d*d/(R*R)))*.0075;}
+  if(m==26)return sin(q.x*82.67)*.006+fbm(q*20.)*.0006;/* corrugated iron: 7.6 cm waves (q.x across them) */
   return 0.;}
 vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
   if(m==4){float gr=vn(vec2(q.x*60.+sd,q.y*3.5));c*=.8+.32*gr;c*=mix(.66,1.,smoothstep(-vHS.y,-vHS.y*.25,q.y));c*=mix(.55,1.,smoothstep(0.,.012,e));
@@ -245,6 +252,10 @@ vec3 albedo(int m,vec2 q,vec3 c){float sd=vSeed*31.;float e=edgeD(q);
     return (f<.08||fs<.05)?vec3(.38,.35,.31):k;}
   if(m==24){vec4 b=brickC(q);vec3 k=c*(.74+.5*b.x);k=mix(k,k*vec3(.72,.6,.72),step(.86,b.x));k=mix(k,k*vec3(1.08,.95,.82),step(b.x,.1));k*=.86+.22*fbm(q*5.+b.x*9.);
     vec3 mo=vec3(.66,.62,.55);float fw=clamp(length(fwidth(q))*9.,0.,1.);vec3 avg=mix(c*.98,mo,.16);return mix(mix(mo,k,smoothstep(.0,.004,b.w)),avg,fw);}
+  if(m==25){bool lx=vHS.x>=vHS.y;vec2 g=lx?q:q.yx,hs=lx?vHS:vHS.yx;float pid=h2(vec2(floor((g.x+hs.x)/1.2),floor(g.y+hs.y)+sd));vec3 k=c*(.9+.16*pid)*(.9+.14*fbm(q*3.+sd));
+    float rs=smoothstep(.66,.84,fbm(q*2.2+sd*3.))*.5+smoothstep(.78,.96,vn(vec2(g.x*22.+sd,g.y*1.1)))*.22+smoothstep(.02,0.,e)*.2;return mix(k,vec3(.34,.16,.08)*(.75+.5*fbm(q*9.)),rs);}
+  if(m==26){float sh=floor(q.x/.61),lap=floor(q.y/1.83);vec3 k=c*(.84+.22*h2(vec2(sh,lap+sd)))*(.93+.09*sin(q.x*82.67));float rs=smoothstep(.62,.82,fbm(vec2(q.x*.9,q.y*.35)+sd))*.45;
+    k=mix(k,vec3(.4,.2,.1)*(.8+.4*fbm(q*6.)),rs);return fract(q.y/1.83)<.012?k*.7:k;}
   return c;}
 vec3 weather(int m,vec3 c,vec3 N,vec2 q){float y=vW.y;
   if(m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==12||m==15){float mm=fbm(vW.xz*.9+vW.y*.45+vec2(3,7));
@@ -274,7 +285,7 @@ layout(location=0) out vec4 oC;layout(location=1) out vec4 oN;layout(location=2)
 ${NOISE}
 ${MATS}
 float shadowAt(){vec3 p=vL.xyz/vL.w*.5+.5;if(p.x<0.||p.y<0.||p.x>1.||p.y>1.)return 1.;float s=0.;for(int i=-1;i<=1;i++)for(int j=-1;j<=1;j++)s+=texture(uSh,vec3(p.xy+vec2(i,j)*.7*uShT,p.z-.0004));return s/9.;}
-void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);
+void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN=Ng;int m=vM;vec2 q=vUV*vHS;if(m==9)q=vW.xz;if(m==23){q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);m=21;}if(m==24)q=abs(Ng.y)>.7?vW.xz*.62:vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);if(m==26)q=vec2(dot(vW.xz,normalize(vec2(-Ng.z,Ng.x)+1e-5)),vW.y);
   vec3 Nd=Ng;float hc=0.;
   if(m>=4&&m!=13){vec3 dp1=dFdx(vW),dp2=dFdy(vW);vec2 du1=dFdx(q),du2=dFdy(q);vec3 p2=cross(dp2,Ng),p1=cross(Ng,dp1);vec3 T=p2*du1.x+p1*du2.x,Bv=p2*du1.y+p1*du2.y;
     float iv=inversesqrt(max(max(dot(T,T),dot(Bv,Bv)),1e-12));T*=iv;Bv*=iv;float ep=.0025;hc=hgt(m,q);float hx=(hgt(m,q+vec2(ep,0))-hc)/ep,hy=(hgt(m,q+vec2(0,ep))-hc)/ep;
@@ -288,7 +299,7 @@ void main(){vec3 Ng=normalize(vN),V=normalize(uEye-vW);if(dot(Ng,V)<0.)Ng=-Ng;gN
   else if(m==3){col=vC*1.6;inkW=.6;}
   else if(m==22){vec3 sg=stainedC(q);vec3 Rf=reflect(-V,Ng);col=sg*(.32+.25*max(dot(Ng,uL),0.))+mix(uGnd,uSky,clamp(Rf.y*1.5,0.,1.))*.18;inkW=.7;}
   else{float ramp=smoothstep(-.03,.16,ndl)*.6+smoothstep(.38,.6,ndl)*.4;float lit=ramp*smoothstep(.25,.75,sh)*smoothstep(-.2,.05,ndg);
-    float cav=m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
+    float cav=m==4||m==18||m==20||m==21||m==24||m==8||m==6||m==16||m==19||m==25||m==26?mix(.72,1.,smoothstep(-.002,.01,hc+.002)):1.;
     col=alb*(uSun*lit+mix(uGnd,uSky,Nd.y*.5+.5)*cav);if(m==9||m==10||m==17)inkW=0.;else if(m==4||m==8||m==18)inkW=.5;else if(m==19)inkW=.35;}
   float id=fract(vSeed*7.31+float(m)*.173+dot(floor(vC*64.),vec3(.013,.029,.047)));
   oC=vec4(col,1.);oN=vec4(Ng*.5+.5,1.);oX=vec4(id,inkW,0.,1.);}`;
