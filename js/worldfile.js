@@ -36,7 +36,7 @@ const LoadScene={on:false,raf:0,cv:null,S:null,t0:0,puffs:[],
 // trains, money, growth...) stays in the compact save; this file only replaces generating. Format: "TRW1", a JSON header (an object graph
 // with references, so shared and circular objects come back as they were) and the typed arrays as one binary block, all gzip-compressed.
 // If the file is missing, damaged or from other settings, the world is generated as before (and written again).
-const WorldFile={NAME:'world.trw',FMT:1,
+const WorldFile={NAME:'world.trw',FMT:2,/* 2 (4.57): the factories are part of the generated world */
   ok(){return!!(typeof navigator!=='undefined'&&navigator.storage&&navigator.storage.getDirectory&&typeof CompressionStream!=='undefined');},
   key(p){const o={};for(const id of PORDER){const a=PDEF[id].apply;if(a==='world'||a==='water'||a==='veg'||a==='life')o[id]=p[id];}return'F'+this.FMT+'|'+JSON.stringify(o);},
   // ---- object graph <-> header + binary
@@ -83,7 +83,7 @@ const WorldFile={NAME:'world.trw',FMT:1,
   // ---- backups: download the file as it is stored; import one (its world settings come with it)
   async exportFile(){if(!this.ok()){UI.toast('This browser has no file storage for worlds');return;}try{const f=await this.readRaw();const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=`trein-world-${P.seed}-${P.worldSize/1024}km.trw`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
       UI.toast(`World file: ${(f.size/1e6).toFixed(1)} MB`);}catch(e){UI.toast('No world file yet: it is written after a world has been generated');}},
-  async importFile(file){try{UI.toast('Reading the world file…');const ab=await (await this.gz(file,false)).arrayBuffer(),{root}=this.parse(ab);if(!root||root.fmt!==this.FMT||!root.params)throw new Error('not a world file of this version');
+  async importFile(file){try{UI.toast('Reading the world file…');const ab=await (await this.gz(file,false)).arrayBuffer(),{root}=this.parse(ab);if(!root||!(root.fmt>=1&&root.fmt<=this.FMT)||!root.params)throw new Error('not a world file of this version');/* an older one gives its settings; the world is then made afresh (and stored in the new format) */
       const d=await this.dir(),fh=await d.getFileHandle(this.NAME,{create:true}),ws=await fh.createWritable();await ws.write(file);await ws.close();
       for(const k in root.params)if(k in PDEF)P[k]=root.params[k];UI.refreshAll&&UI.refreshAll();UI.toast('World file loaded: opening that world (your track and trains stay as they are)');App.generate(0);}
     catch(e){UI.toast('Could not load that world file: '+(e.message||e));}}};

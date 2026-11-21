@@ -69,11 +69,11 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
   open(){if(!App.T||this.on)return;if(Build.active)Build.exit();if(Drive.active)Drive.exit();this.on=true;this.cam=Cam.state();this.keep={mode:Cam.mode,fog:P.fogDensity,bokeh:P.bokeh,skip:R.skip};
     P.fogDensity=0;P.bokeh=0;R.skip={...R.skip,clouds:1,mist:1};const T=App.T;Cam.mode='free';Cam.anim=null;Cam.target=[T.W/2,0,T.W/2];const asp=innerWidth/innerHeight,fy=(asp<1?64:50)*Math.PI/180;Cam.dist=T.W/2/(Math.tan(fy/2)*Math.min(1,asp))*1.05;Cam.pitch=1.52;Cam.yaw=0;
     document.body.classList.add('mapmode');$('#mapOv').hidden=false;$('#mapBar').hidden=!!Fleet.draft;this.paths.clear();this.legend();MapUI.bar();MapUI.list();},
-  close(){if(!this.on)return;this.on=false;P.fogDensity=this.keep.fog;P.bokeh=this.keep.bokeh;R.skip=this.keep.skip||{};Cam.mode=this.keep.mode==='free'?'free':this.keep.mode;
+  close(){if(!this.on)return;this.on=false;this.focus=null;P.fogDensity=this.keep.fog;P.bokeh=this.keep.bokeh;R.skip=this.keep.skip||{};Cam.mode=this.keep.mode==='free'?'free':this.keep.mode;
     if(this.fly){Cam.setState(this.cam);Cam.flyTo(this.fly,160);this.fly=null;}else Cam.setState(this.cam);
     document.body.classList.remove('mapmode');$('#mapOv').hidden=true;$('#mapBar').hidden=true;$('#mapKey').hidden=true;MapUI.list();StatsUI.close();Store.close();if(Fleet.draft&&Fleet.draft.tab==='map'){Fleet.draft.tab='list';FleetUI.refresh();}},
   /* the colour key (top left, folds to its title): the dot / ring colour of each kind of place, and the route lines */
-  KEY:[['town','#ffe066','Town'],['village','#f29e4c','Village'],['hamlet','#8fd16a','Hamlet'],['station','#ff5a4a','Station'],['farm','#d4b483','Farm'],['mine','#9aa3b5','Mine'],['saw','#2ec4b6','Sawmill · workshop'],['castle','#b39cff','Castle'],['harbour','#5fb3ff','Harbour'],['stop','#ffffff','Bus / lorry stop'],['air','#ffe07a','Airstrip']],
+  KEY:[['town','#ffe066','Town'],['village','#f29e4c','Village'],['hamlet','#8fd16a','Hamlet'],['station','#ff5a4a','Station'],['farm','#d4b483','Farm'],['mine','#9aa3b5','Mine'],['factory','#e2794f','Factory'],['saw','#2ec4b6','Sawmill · workshop'],['castle','#b39cff','Castle'],['harbour','#5fb3ff','Harbour'],['stop','#ffffff','Bus / lorry stop'],['air','#ffe07a','Airstrip']],
   col(k){const e=this.KEY.find(q=>q[0]===k);return e?e[1]:'#c9a14a';},
   legend(){const el=$('#mapKey');if(!el)return;el.hidden=false;if(this.keyFold==null)this.keyFold=innerWidth<500;
     el.innerHTML=`<button class="mk-h">${this.keyFold?'▸':'▾'} Legend</button>`+(this.keyFold?'':`<div class="mk-l">${this.KEY.map(([k,c,n])=>`<span><i style="background:${c}"${k==='air'?' class="sq"':''}></i>${n}</span>`).join('')}<span><b style="color:#ff5a4a">━</b> Railway</span><span><b style="color:#4fb4ff">┅</b> Bus route</span><span><b style="color:#ffb340">· ·</b> Lorry route</span></div><div class="mk-n">Zoomed out, places that would overlap become dots</div>`);
@@ -130,7 +130,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     for(const si of Life.stInfo||[]){if(si.parent)continue;sym(si.x,si.z,si.st.farm?'🌾':si.cargo?'🚂':'🚉',si.st.name,18,'station');}
     for(const c of Life.castleList())sym(c.x,c.z,'🏯',c.name,18,'castle');
     for(const fm of Life.farms())if(fm&&fm.v.farmOwned)sym(fm.x,fm.z,'🌾',fm.v.name+' farm',16,'farm');
-    for(const [kind,L] of Life.inds())L.forEach(m=>{if(!Life.indOn(kind,m))return;sym(m.x,m.z,kind==='sawmill'?'🪚':kind==='mine'?'⛏️':'🪑',kind==='mine'?(ORE[m.type]?ORE[m.type].name+' mine':'Mine'):kind==='sawmill'?'Sawmill':'Workshop',16,kind==='mine'?'mine':'saw');});
+    for(const [kind,L] of Life.inds())L.forEach(m=>{if(!Life.indOn(kind,m))return;sym(m.x,m.z,Life.indIcon(kind),Life.indLabel(kind,m),16,kind==='mine'?'mine':kind==='factory'?'factory':'saw');});
     for(const d of Life.docks||[])if(d.v&&d.v.docksOwned)sym(d.sx,d.sz,'⚓','',14,'harbour');
     if(typeof Port!=='undefined')for(const s of Port.S)if(s.built){const c=Port.centre(s);sym(c[0],c[2],'🏗️',s.v.name+' harbour',18,'harbour');}
     for(const st of Buses.stops)sym(st.x,st.z,st.sawmill||st.workshop?'🚚':'🚏',st.name,14,'stop');
@@ -141,7 +141,16 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     const boxes=[];for(const o of SY){if(o.dot)continue;const q=o.q,r=o.r;let name=o.name;g.fillStyle='#15191ae6';g.strokeStyle=o.col;g.lineWidth=2.5;g.beginPath();g.arc(q[0],q[1],r,0,6.283);g.fill();g.stroke();
       g.font=`${o.size}px system-ui`;g.textAlign='center';g.textBaseline='middle';g.fillText(o.icon,q[0],q[1]+1);if(name){g.font=`600 ${o.size>20?14:12}px system-ui`;const tw=g.measureText(name).width/2+3,bx=[q[0]-tw,q[1]+r+2,q[0]+tw,q[1]+r+17];if(boxes.some(b=>b[0]<bx[2]&&b[2]>bx[0]&&b[1]<bx[3]&&b[3]>bx[1]))name='';else boxes.push(bx);}
       if(name){g.lineWidth=3;g.strokeStyle='#000c';g.strokeText(name,q[0],q[1]+r+9);g.fillStyle='#fff';g.fillText(name,q[0],q[1]+r+9);}this.hits.push({x:q[0],y:q[1],r:r+6,wx:o.x,wz:o.z});}
-    if(plan)this.drawPlan(plan,line,S,g);},
+    if(plan)this.drawPlan(plan,line,S,g);
+    if(this.focus)this.drawFocus(this.focus,S,g,W);},
+  /* 4.57: the mine panel's "Show on the map": gold lines from the mine to each place that takes its ore (dashed across the sea, by
+     harbour and collier), pulsing rings, and a note at the top */
+  drawFocus(f,S,g,W){const a=S(f.x,f.z);if(!a)return;const t=(performance.now()-f.t0)/1000,pl=0.5+0.5*Math.sin(t*4);
+    for(const d of f.D){const b=S(d.x,d.z);if(!b)continue;g.setLineDash(d.same?[]:[9,7]);g.lineCap='round';g.strokeStyle='#000a';g.lineWidth=6;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();
+      g.strokeStyle=d.hb?'#5fb3ff':'#ffd24a';g.lineWidth=3;g.stroke();g.setLineDash([]);g.lineWidth=3;g.beginPath();g.arc(b[0],b[1],20+pl*6,0,6.283);g.stroke();}
+    g.strokeStyle='#ffd24a';g.lineWidth=4;g.beginPath();g.arc(a[0],a[1],18+pl*5,0,6.283);g.stroke();
+    const F=f.D.filter(d=>!d.hb),near=F.find(d=>d.same),msg=!F.length?`Nothing takes this ore yet${f.D.length?': the blue lines go to the harbours that ship it':''}`:near?`${f.name}: nearest by rail is ${near.name}`:`${f.name}: nothing on this island takes it. Ship it: train to a harbour here, collier across, train on to the factory (dashed)`;
+    g.font='600 14px system-ui';const tw=Math.min(W-24,g.measureText(msg).width+24);g.fillStyle='#15191ae6';g.fillRect((W-tw)/2,58,tw,28);g.fillStyle='#ffd24a';g.textAlign='center';g.textBaseline='middle';g.fillText(msg,W/2,72,W-36);},
   /* planning a route on the map: every place it can visit gets a ring (gold, numbered in driving order, when chosen) and the route is drawn
      over the roads, thick, from the vehicle's start */
   drawPlan(d,line,S,g){const R2=d.route;if(R2.length>1)for(let k=0;k<R2.length;k++){const a=R2[k],c=R2[(k+1)%R2.length],p=Fleet.dist(a,c).path;line(p,'#fff',4,null,'#000c');}

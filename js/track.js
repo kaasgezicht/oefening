@@ -161,7 +161,7 @@ function carveTrack(T){
       continue;}
     const i0=clamp(Math.floor((c[0]-R2)/cs),0,N-1),i1=clamp(Math.ceil((c[0]+R2)/cs),0,N-1),j0=clamp(Math.floor((c[1]-R2)/cs),0,N-1),j1=clamp(Math.ceil((c[1]+R2)/cs),0,N-1);
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=(i+0.5)*cs,z=(j+0.5)*cs,[t,d]=segNearest(s,x,z),k=j*N+i;if(d<=hw)continue;const along=Math.abs(t-st.t);
-      const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:st.farm?4:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
+      const AL=Math.max(28,(st.len||44)/2+6);const w=clamp((AL-along)/5,0,1)*clamp(((st.mine?24:st.sawmill||st.workshop?21:st.farm?4:st.factory?12:18)-d)/6,0,1);if(w<=0)continue;H[k]+=(yP-H[k])*w;const m=Math.round(255*w);if(m>mask[k])mask[k]=m;}}
   if(typeof Life!=='undefined'&&Life.rc&&Life.T===T)Life.carveRoads(T);/* the country roads' earthworks, again after every track change */
 }
 

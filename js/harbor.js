@@ -103,7 +103,7 @@ const Port={S:[],key:'',meshes:new Map(),
             // from the town to the back of the site stays on land (trains have to get there)
             {let n=0,nl=0;for(let lx=0;lx<=PORT.W;lx+=10)for(let ly=50;ly<=PORT.D;ly+=10){n++;if(Hs(...this.xz(s,lx,ly))>sea+0.5)nl++;}if(nl<n*0.7)continue;
               const b=this.xz(s,PORT.W/2,PORT.D),L=Math.hypot(b[0]-v.x,b[1]-v.z);let wet=0;for(let k=1;k<20;k++){const f=k/20;if(Hs(v.x+(b[0]-v.x)*f,v.z+(b[1]-v.z)*f)<sea+0.2)wet++;}if(wet>1||L>1700)continue;}
-            const cs=this.cornersOf(s),bad=Life.houses.some(h=>h.fixed&&!h.gone&&this.inside(s,h.x,h.z,10))||(Life.mines||[]).some(m=>this.inside(s,m.x,m.z,30))||Coast.H.some(h=>this.inside(s,h.x,h.z,25))||Coast.L.some(l=>this.inside(s,l.x,l.z,25))||this.S.some(o=>Math.hypot(o.x-s.x,o.z-s.z)<260)||cs.some(c=>c[0]<60||c[1]<60||c[0]>W-60||c[1]>W-60);
+            const cs=this.cornersOf(s),bad=Life.houses.some(h=>h.fixed&&!h.gone&&this.inside(s,h.x,h.z,10))||(Life.mines||[]).some(m=>this.inside(s,m.x,m.z,30))||(Life.factories||[]).some(m=>this.inside(s,m.x,m.z,45))||Coast.H.some(h=>this.inside(s,h.x,h.z,25))||Coast.L.some(l=>this.inside(s,l.x,l.z,25))||this.S.some(o=>Math.hypot(o.x-s.x,o.z-s.z)<260)||cs.some(c=>c[0]<60||c[1]<60||c[0]>W-60||c[1]>W-60);
             if(bad)continue;const sc=cut*0.6+low*0.4+r*0.02;if(!best||sc<best.sc)best={...s,sc,cut};break;}}}
       if(best)this.S.push(best);}
     Log.info(`harbour: ${this.S.length} terminal sites for ${towns.length} harbour towns`+this.S.map(s=>` · ${s.v.name} (${s.x.toFixed(0)},${s.z.toFixed(0)}${s.cut>0?', cut '+s.cut.toFixed(0):''})`).join(''));},
@@ -228,29 +228,51 @@ const PortCoal={M:null,
      collier's holds while there is stock (step 4b-2: the colliers you run carry it away) */
   st(s){if(!s.coal)s.coal={ph:'idle',t:0,gx:20,crabY:PORT.crab.min,hook:0,grab:null,task:null,belt:0,lx:PORT.loader.x,lT:0,lDir:1,lTarget:0,pour:0,stock:{coal:0,iron:0},hold:0};
     if(s.coal.gx==null){s.coal.gx=20;s.coal.ph='idle';s.coal.stock=s.coal.stock||{coal:0,iron:0};s.coal.hold=s.coal.hold||0;}
-    if(s.v&&s.v.portCoal){const q=s.v.portCoal;s.v.portCoal=null;s.coal.stock={coal:+q.c||0,iron:+q.i||0};s.coal.hold=+q.h||0;}return s.coal;},
+    if(s.v&&s.v.portCoal){const q=s.v.portCoal;s.v.portCoal=null;s.coal.stock=q.s?{...q.s}:{coal:+q.c||0,iron:+q.i||0};s.coal.imp=q.m?{...q.m}:{};s.coal.hold=+q.h||0;}if(!s.coal.imp)s.coal.imp={};return s.coal;},
   REACH:[8,34],
   // the train at the coal staithe and its bulk hoppers (in the site's frame: lx along the siding, ly across, top height above the deck)
   train(s){const st=Port.freightOf(s);if(!st)return null;const tr=Trains.list.find(t=>t.atSt===st.id&&Math.abs(t.v||0)<0.15&&t.poses);if(!tr)return null;const cars=[];
-    tr.veh.forEach((w,i)=>{if(w.k!=='wagon'||!ORE[w.ctype]||!ORE[w.ctype].bulk)return;const ps=tr.poses[i];if(!ps)return;const m=ps.m,[lx,ly]=Port.local(s,m[12],m[14]);if(Math.abs(ly-PORT.track.freight)>2)return;cars.push({w,lx,y:m[13]-s.deckY});});
+    tr.veh.forEach((w,i)=>{if(w.k!=='wagon'||!ORE[w.ctype])return;/* 4.57: every kind of ore hopper */const ps=tr.poses[i];if(!ps)return;const m=ps.m,[lx,ly]=Port.local(s,m[12],m[14]);if(Math.abs(ly-PORT.track.freight)>2)return;cars.push({w,lx,y:m[13]-s.deckY});});
     return{tr,st,cars};},
-  work(s){const T=this.train(s);if(!T)return null;const R2=this.REACH,c=T.cars.filter(q=>(q.w.n||0)>=0.5&&q.lx>=R2[0]&&q.lx<=R2[1]);return c.length?{T,cars:c}:null;},
+  work(s){const T=this.train(s);if(!T)return null;const R2=this.REACH,key=this.key(s),c=T.cars.filter(q=>(q.w.n||0)>=0.5&&q.w.from!==key&&q.lx>=R2[0]&&q.lx<=R2[1]);return c.length?{T,cars:c}:null;},
+  key(s){const st=Port.freightOf(s);return st?'st:'+st.id:'port';},
+  sum(o){let n=0;for(const t in o||{})n+=o[t]||0;return n;},
+  /* 4.57: the import stock (what colliers brought, s.coal.imp) goes out by rail: with nothing to unload, the gantry fills hoppers in its
+     reach that are not full, of a kind of ore the harbour holds and some factory takes, and that it did not empty on this visit
+     (c.unl), 4 units a grab from the receiving hopper. Filled hoppers carry the staithe as their origin (paid at the factory by distance from here) */
+  canFill(s,c,w){return(c.imp[w.ctype]||0)>=1&&(w.n||0)<19.5&&!(c.unl&&c.unl.has(w))&&!((w.n||0)>=0.5&&w.from!==this.key(s))&&this.factWants(w.ctype);},
+  needs(s,c,w){return((w.n||0)>=0.5&&w.from!==this.key(s))||this.canFill(s,c,w);},/* a hopper the gantry still has to empty or fill */
+  factWants(t){return(Life.factories||[]).some(f=>FACTORY[f.type]&&FACTORY[f.type].takes.includes(t));},
+  fillWork(s){const T=this.train(s);if(!T)return null;const c=this.st(s),R2=this.REACH;if(c.unlTr!==T.tr.id){c.unlTr=T.tr.id;c.unl=new Set();}
+    const ok=T.cars.filter(q=>q.lx>=R2[0]&&q.lx<=R2[1]&&this.canFill(s,c,q.w));
+    if(!ok.length)return null;let car=ok[0];for(const q of ok)if(Math.abs(q.lx-c.gx)<Math.abs(car.lx-c.gx))car=q;return{T,car};},
   /* where a goods train stops at the coal staithe: its first loaded coal or iron hopper at x 28 (the next one then stands at x 16,
      both in the gantry's reach), never past x 114 (the buffer is at 117); Crane.stopAt asks. With every hopper in reach empty and loaded
      ones further back, the train draws up (tr.grainMove, the farm's way) */
-  headOff(tr){const back=(tr.rev||1)<0,V=back?tr.veh.slice().reverse():tr.veh;let front=0;for(const v of V){if(v.k==='wagon'&&ORE[v.ctype]&&ORE[v.ctype].bulk&&(v.n||0)>=0.5)return front+v.len/2;front+=v.len+COUPLE;}return null;},
-  stopAt(tr,st,base){const s=Port.S.find(q=>Math.round(q.x)+','+Math.round(q.z)===st.port);const c=this.headOff(tr);if(!s||c==null)return base;const g=segById(st.sid);if(!g)return base;
+  headOff(tr,s){const back=(tr.rev||1)<0,V=back?tr.veh.slice().reverse():tr.veh,c=this.st(s);let front=0;for(const v of V){if(v.k==='wagon'&&ORE[v.ctype]&&this.needs(s,c,v))return front+v.len/2;front+=v.len+COUPLE;}return null;},/* the front-most hopper to empty or fill */
+  stopAt(tr,st,base){const s=Port.S.find(q=>Math.round(q.x)+','+Math.round(q.z)===st.port);const c=s?this.headOff(tr,s):null;if(!s||c==null)return base;const g=segById(st.sid);if(!g)return base;
     const pc=segPoint(g,st.t),xc=Port.local(s,pc[0],pc[1])[0];return Math.min(28+c,114)-xc;},
-  drawUp(s,T){const tr=T.tr;if(tr.grainMove)return true;const ld=T.cars.filter(q=>(q.w.n||0)>=0.5&&q.lx<this.REACH[0]);if(!ld.length)return false;const nxt=ld.reduce((a,b)=>b.lx>a.lx?b:a),ps=tr.poses,hd=ps&&ps[0]?Port.local(s,ps[0].m[12],ps[0].m[14])[0]:0,
+  drawUp(s,T){const tr=T.tr;if(tr.grainMove)return true;const c=this.st(s),ld=T.cars.filter(q=>this.needs(s,c,q.w)&&q.lx<this.REACH[0]);if(!ld.length)return false;const nxt=ld.reduce((a,b)=>b.lx>a.lx?b:a),ps=tr.poses,hd=ps&&ps[0]?Port.local(s,ps[0].m[12],ps[0].m[14])[0]:0,
     hx=Math.max(hd,ps&&ps.length?Port.local(s,ps[ps.length-1].m[12],ps[ps.length-1].m[14])[0]:0),D=Math.min(28-nxt.lx,114-hx);if(D>2){tr.grainMove=D;return true;}return false;},
-  holds(hold){for(const s of Port.S){if(!s.built||!s.coal)continue;const c=s.coal;if(c.task&&c.task.tr&&Trains.list.includes(c.task.tr)){hold.set(c.task.tr.id,'harbour');continue;}const w=this.work(s);if(w){hold.set(w.T.tr.id,'harbour');continue;}const T=this.train(s);if(T&&T.cars.some(q=>(q.w.n||0)>=0.5)&&(c.ph!=='idle'||this.drawUp(s,T)))hold.set(T.tr.id,'harbour');}},/* hold while a draw-up can bring more within reach */
+  holds(hold){for(const s of Port.S){if(!s.built||!s.coal)continue;const c=s.coal;if(c.task&&c.task.tr&&Trains.list.includes(c.task.tr)){hold.set(c.task.tr.id,'harbour');continue;}const w=this.work(s)||this.fillWork(s);if(w){hold.set(w.T.tr.id,'harbour');continue;}const T=this.train(s);if(T&&T.cars.some(q=>this.needs(s,c,q.w))&&(c.ph!=='idle'||this.drawUp(s,T)))hold.set(T.tr.id,'harbour');}},/* hold while a draw-up can bring more within reach */
   step(s,dt){const c=this.st(s),cp=Cam.pos||[0,0,0];dt*=Math.max(1,Math.min(4,App.ff||1));const near=Math.hypot(s.x-cp[0],s.z-cp[2])<2500;
     const H=PORT.crab,mv=(k,to,v)=>{const d=to-c[k];if(Math.abs(d)<=v*dt){c[k]=to;return true;}c[k]+=Math.sign(d)*v*dt;return false;};c.t+=dt;
-    if(c.ph==='idle'){c.hook=Math.max(0,c.hook-dt/2);const w=this.work(s);if(w){let car=w.cars[0];for(const q of w.cars)if(Math.abs(q.lx-c.gx)<Math.abs(car.lx-c.gx))car=q;c.task={tr:w.T.tr,w:car.w,lx:car.lx,y:car.y};c.ph='out';}
-      else{mv('gx',20,1.8);mv('crabY',H.min,2.2);}}
+    if(c.ph==='idle'){c.hook=Math.max(0,c.hook-dt/2);if(c.unlTr!=null){const fs=Port.freightOf(s),t=Trains.list.find(q=>q.id===c.unlTr);if(!t||!fs||t.atSt!==fs.id){c.unl=null;c.unlTr=null;}}/* the train has left the staithe (not just drawing up): a new visit starts afresh */const w=this.work(s);if(w){let car=w.cars[0];for(const q of w.cars)if(Math.abs(q.lx-c.gx)<Math.abs(car.lx-c.gx))car=q;c.task={tr:w.T.tr,w:car.w,lx:car.lx,y:car.y};c.ph='out';}
+      else{const f=this.fillWork(s);if(f){c.task={tr:f.T.tr,w:f.car.w,lx:f.car.lx,y:f.car.y,fill:true};c.atH=true;c.ph='fdown';}else{mv('gx',20,1.8);mv('crabY',H.min,2.2);}}}
+    /* filling (4.57): down into the receiving hopper, bite from the import stock, up, out over the hopper wagon, down, open, up */
+    else if(c.ph==='fdown'){const a=mv('gx',20,1.8),b=mv('crabY',H.min,2.2);if(a&&b){c.hook=Math.min(1,c.hook+dt/2.5);if(c.hook>=1){c.ph='fbite';c.t=0;}}}
+    else if(c.ph==='fbite'){if(c.t>0.9){const w=c.task.w,t=w.ctype,n=Math.min(4,c.imp[t]||0,20-(w.n||0));c.imp[t]=Math.max(0,(c.imp[t]||0)-n);c.grab={type:t,n};c.ph='fup';}}
+    else if(c.ph==='fup'){c.hook=Math.max(0,c.hook-dt/2.5);if(c.hook<=0){c.ph='fout';c.atH=false;}}
+    else if(c.ph==='fout'){const a=mv('gx',c.task.lx,1.8),b=mv('crabY',H.max,2.2);if(a&&b)c.ph='fdrop';}
+    else if(c.ph==='fdrop'){c.hook=Math.min(1,c.hook+dt/2.5);if(c.hook>=1){c.ph='fopen';c.t=0;}}
+    else if(c.ph==='fopen'){if(c.t>0.3&&c.grab){const g=c.grab,w=c.task.w,tr=c.task.tr,gone=!tr||!Trains.list.includes(tr)||!tr.veh.includes(w);c.grab=null;
+        if(gone)c.imp[g.type]=(c.imp[g.type]||0)+g.n;else{const o=Port.P(s,c.task.lx,H.max,4);w.n=Math.min(20,(w.n||0)+g.n);w.fx=o[0];w.fz=o[2];w.from=this.key(s);
+          if(P.smoke&&near)for(let k=0;k<6;k++){const q=Port.P(s,c.task.lx+(Math.random()-0.5)*2,H.max+(Math.random()-0.5)*1.5,5);Particles.spawn(q[0],q[1],q[2],0,-2,0,1.2,0.3,1.4,0);}}}
+      if(c.t>1.2)c.ph='fup2';}
+    else if(c.ph==='fup2'){c.hook=Math.max(0,c.hook-dt/2.5);if(c.hook<=0){c.task=null;c.ph='idle';}}
     else if(c.ph==='out'){const a=mv('gx',c.task.lx,1.8),b=mv('crabY',H.max,2.2);if(a&&b){c.ph='down';}}
     else if(c.ph==='down'){c.hook=Math.min(1,c.hook+dt/2.5);if(c.hook>=1){c.ph='bite';c.t=0;}}
-    else if(c.ph==='bite'){if(c.t>0.9){const w=c.task.w,n=Math.min(4,w.n||0);w.n=Math.max(0,(w.n||0)-n);if(w.n<0.5)w.n=0;c.grab={type:w.ctype,n,fx:w.fx,fz:w.fz,from:w.from};c.ph='up';}}
+    else if(c.ph==='bite'){if(c.t>0.9){const w=c.task.w,n=Math.min(4,w.n||0);if(c.unlTr!==c.task.tr.id||!c.unl){c.unlTr=c.task.tr.id;c.unl=new Set();}c.unl.add(w);w.n=Math.max(0,(w.n||0)-n);if(w.n<0.5)w.n=0;c.grab={type:w.ctype,n,fx:w.fx,fz:w.fz,from:w.from};c.ph='up';}}
     else if(c.ph==='up'){c.hook=Math.max(0,c.hook-dt/2.5);if(c.hook<=0)c.ph='back';}
     else if(c.ph==='back'){const a=mv('gx',20,1.8),b=mv('crabY',H.min,2.2);if(a&&b){c.ph='open';c.t=0;}}
     else if(c.ph==='open'){if(c.t>0.3&&c.grab){const g=c.grab,st=Port.freightOf(s),o=Port.P(s,20,H.min,6);c.grab=null;
@@ -260,15 +282,15 @@ const PortCoal={M:null,
       if(c.t>1.2){c.task=null;c.ph='idle';}}
     // the belt and the shiploader: while there is stock and the collier's holds have room
     /* 4.56: the shiploader fills a collier lying at the berth (js/ships.js) that is loading */
-    const sh=typeof Ships!=='undefined'?Ships.at(s):null,stock=(c.stock.coal||0)+(c.stock.iron||0),run=stock>0.05&&!!sh&&!sh.unl&&Ships.load(sh)<SHIP.cap;if(run)c.belt=(c.belt+dt*1.5)%1.6;c.run=run;c.hold=sh?Ships.load(sh):0;
-    const hs=PORT.ship.hatch;if(c.lT>0&&run){c.lT-=dt;c.pour=1;const a=Math.min(dt*1.2,stock,SHIP.cap-Ships.load(sh)),fc=(c.stock.coal||0)/Math.max(stock,1e-6);c.stock.coal=Math.max(0,(c.stock.coal||0)-a*fc);c.stock.iron=Math.max(0,(c.stock.iron||0)-a*(1-fc));sh.cargo.coal=(sh.cargo.coal||0)+a*fc;sh.cargo.iron=(sh.cargo.iron||0)+a*(1-fc);
+    const sh=typeof Ships!=='undefined'?Ships.at(s):null,stock=this.sum(c.stock),run=stock>0.05&&!!sh&&!sh.unl&&Ships.load(sh)<SHIP.cap;if(run)c.belt=(c.belt+dt*1.5)%1.6;c.run=run;c.hold=sh?Ships.load(sh):0;
+    const hs=PORT.ship.hatch;if(c.lT>0&&run){c.lT-=dt;c.pour=1;const a=Math.min(dt*1.2,stock,SHIP.cap-Ships.load(sh));for(const t in c.stock){const q=a*(c.stock[t]||0)/Math.max(stock,1e-6);c.stock[t]=Math.max(0,(c.stock[t]||0)-q);sh.cargo[t]=(sh.cargo[t]||0)+q;}
       if(P.smoke&&near&&Math.random()<dt*6){const w=Port.P(s,c.lx,-8,0.4);Particles.spawn(w[0],w[1],w[2],(Math.random()-0.5),0.6,(Math.random()-0.5),2,0.5,2.2,0);}}
     else{c.pour=0;if(!run)return;const tx=hs[c.lTarget];if(Math.abs(c.lx-tx)<0.05){c.lx=tx;c.lT=25;let n=c.lTarget+c.lDir;if(n<0||n>=hs.length){c.lDir=-c.lDir;n=c.lTarget+c.lDir;}c.lTarget=n;}else c.lx+=Math.sign(tx-c.lx)*Math.min(Math.abs(tx-c.lx),dt*0.6);}},
   // the site's frame as a model matrix (local x along t, z up, y along n), shifted by (dx, dy, dz) in the local frame; sy scales z
   mat(s,dx,dy,dz,sz){const O=Port.P(s,0,0,0),t=s.t,n=s.n;return new Float32Array([t[0],0,t[1],0,0,sz||1,0,0,n[0],0,n[1],0,O[0]+t[0]*dx+n[0]*dy,O[1]+(dz||0),O[2]+t[1]*dx+n[1]*dy,1]);},
   draw(s,p){const M=this.meshes(),c=this.st(s),dm=(m,mat)=>{gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;};
     // crab at c.crabY; the grab hangs c.hook of the way down to the wagon (z 3.4 above the deck when down)
-    const top=10.67,low=c.task&&c.task.y!=null?c.task.y+3.0+1.2*Math.min(1,(c.task.w.n||0)/20):3.1,gz=top-0.55-(top-0.55-low)*c.hook,dx=c.gx-20;/* the ropes hang from the crab's sheaves (buildings/harbourworks.js); the grab bottoms on the load */const len=Math.max(0.3,top-gz);dm(M.rope,this.mat(s,dx,c.crabY,top,len));dm(M.grab,this.mat(s,dx,c.crabY,gz));if(c.grab&&c.grab.n>0)dm(M.grabFull,this.mat(s,dx,c.crabY,gz));
+    const top=10.67,low=c.task&&c.task.y!=null&&!c.atH?c.task.y+3.0+1.2*Math.min(1,(c.task.w.n||0)/20):3.1,gz=top-0.55-(top-0.55-low)*c.hook,dx=c.gx-20;/* the ropes hang from the crab's sheaves (buildings/harbourworks.js); the grab bottoms on the load */const len=Math.max(0.3,top-gz);dm(M.rope,this.mat(s,dx,c.crabY,top,len));dm(M.grab,this.mat(s,dx,c.crabY,gz));if(c.grab&&c.grab.n>0)dm(M.grabFull,this.mat(s,dx,c.crabY,gz));
     // the belt's coal (while it runs)
     if(c.run){dm(M.lumpsA,this.mat(s,c.belt,0,c.belt*5.6/17));dm(M.lumpsB,this.mat(s,c.belt,0,0));}
     // wagons: the one under the gantry (or rolling), one waiting behind

@@ -606,7 +606,7 @@ function stationMesh(){const M=vmesh(),wall=[0.95,0.88,0.72],roof=[0.78,0.30,0.2
 // ===================================================================
 const Crane={S:new Map(),F:[],hold:new Map(),
   rows(n){return Math.min(3,Math.floor((n||0)/CRN.unit+1e-6));},
-  ind(kind,q){return((kind==='sawmill'?Life.sawmills:kind==='mine'?Life.mines:Life.workshops)||[])[q.mi]||null;},
+  ind(kind,q){return((kind==='sawmill'?Life.sawmills:kind==='mine'?Life.mines:kind==='factory'?Life.factories:Life.workshops)||[])[q.mi]||null;},
   // loading points with their frame: origin o, along-track X and across Z (the yard lies on -Z)
   frames(){const out=[];for(const si of Life.stInfo||[]){const st=si.st,kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null;if(!kind||st.farm)continue;const m=this.ind(kind,st[kind]);if(!Life.indOn(kind,m))continue;
       out.push({key:'st:'+st.id,kind,st,si,v:si.v,name:st.name,ore:kind==='mine'?m.type:null,o:[si.x,si.y,si.z],X:[si.dx,si.dz],Z:[-si.dz,si.dx]});}

@@ -8,12 +8,15 @@ const LH={lamp:13.25,/* the lamp above the tower's foot (m) */rock:0};
 const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
   sea(T,x,z){return T.sea!=null&&(x<0||z<0||x>T.W||z>T.W||R.sampleHr(T,x,z)<T.sea-0.25);},
   // ---- placement (once per world, after the villages)
-  init(){const T=App.T;this.L=[];this.H=[];this.gulls=[];if(!T||T.sea==null||!Life.villages)return;const W=T.W,sea=T.sea,rng=mulberry32((P.seed|0)*313+29),Hs=(x,z)=>R.sampleHr(T,x,z),isSea=(x,z)=>this.sea(T,x,z);
+  /* the island (land component) at x, z: -1 at sea; 0 everywhere on a land world */
+  isleAt(x,z){const I=this.isle;if(!I||!App.T||App.T.sea==null)return 0;const G=I.G,i0=Math.floor(x/I.gc),j0=Math.floor(z/I.gc);for(let r=0;r<=3;r++)for(let dj=-r;dj<=r;dj++)for(let di=-r;di<=r;di++){if(Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const i=i0+di,j=j0+dj;if(i<0||j<0||i>=G||j>=G)continue;const c=I.comp[j*G+i];if(c>=0)return c;}return -1;},
+  init(){const T=App.T;this.L=[];this.H=[];this.gulls=[];this.isle=null;if(!T||T.sea==null||!Life.villages)return;const W=T.W,sea=T.sea,rng=mulberry32((P.seed|0)*313+29),Hs=(x,z)=>R.sampleHr(T,x,z),isSea=(x,z)=>this.sea(T,x,z);
     // islands: land components on a coarse grid
     const G=Math.min(256,T.N),gc=W/G,land=new Uint8Array(G*G),comp=new Int32Array(G*G).fill(-1),C=[];for(let j=0;j<G;j++)for(let i=0;i<G;i++)land[j*G+i]=Hs((i+0.5)*gc,(j+0.5)*gc)>sea+1?1:0;
     for(let n0=0;n0<G*G;n0++){if(!land[n0]||comp[n0]>=0)continue;const id=C.length,st=[n0],coast=[];comp[n0]=id;let n1=0;
       while(st.length){const n=st.pop();n1++;const i=n%G,j=(n/G)|0;let edge=false;for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj;if(a<0||b<0||a>=G||b>=G){edge=true;continue;}const m=b*G+a;if(!land[m]){edge=true;continue;}if(comp[m]<0){comp[m]=id;st.push(m);}}if(edge)coast.push(n);}
       C.push({id,area:n1*gc*gc/1e6,coast});}
+    this.isle={G,gc,comp};/* 4.57: which island a place is on (Coast.isleAt; the mine panel's routes) */
     const want=+P.lighthouses||0,vill=Life.villages;
     for(const c of C.sort((a,b)=>b.area-a.area)){if(c.area<1.2||!want)continue;const n=Math.max(1,Math.min(6,Math.round(Math.sqrt(c.area)/2.0*want))),spacing=Math.max(1100,Math.sqrt(c.area)*1000/Math.max(1.5,n)*0.9),cand=[];
       for(const g of c.coast){const x0=(g%G+0.5)*gc,z0=(((g/G)|0)+0.5)*gc;let sx=0,sz=0,ns=0;for(let a=0;a<24;a++){const dx=Math.cos(a*0.2618),dz=Math.sin(a*0.2618);if(isSea(x0+dx*110,z0+dz*110)){sx+=dx;sz+=dz;ns++;}}

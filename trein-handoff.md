@@ -1,4 +1,4 @@
-# Trein handoff 122 (21 Nov 2026): v4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 123 (21 Nov 2026): v4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,42 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.56.0, 21 Nov) — harbour step 4b part 2: colliers you run (user: "player-run like buses")
+### Latest (4.57.0, 21 Nov) — processing factories (user: "Victorian set"; "tapping a mine shows where its ore goes"; "sometimes on another island")
+- New buildings/factories.js (kit models, ground y 0, plot x ±24, z ±18; `KIT.FACT={hx:24,hz:18,slots:34}`): factGas (retort house,
+  two gasholders in guide frames, purifier house, coal store, square chimney), factIron (blast furnace with lift tower, three riveted
+  stoves, casting house, blowing-engine house, round chimney, bins, slag tip), factMint (classical stone, portico, flag, bullion yard),
+  factDiamond (brick workshop, north-light cutting shop, chimneys, yard). 58–84k triangles at LOD 0. In KIT_TYPES (not KIT_DYN).
+- `FACTORY` (core.js; not `FACTS`, that name is facts.js's list) = what each takes: gas ← coal; iron ← iron + coal; mint ← gold +
+  silver; diamond ← diamonds. `FACT_BONUS` 1.6: ore delivered at a factory's own station pays 1.6× (Goods.deliver), and stamps
+  `f.lastT` (chimneys smoke thick and dark for 15 min of game time, a thin wisp otherwise: Life.FACT_SMOKE points per type).
+- World gen: `Life.placeFactories` right after the sawmills (own rng `seed*4409+71`, so nothing earlier moves). Counts by villages
+  (gas nv/10, iron nv/14, mint nv/25, diamond nv/30, at least 1 each), interleaved, one per village, preferring big villages away from
+  the same type. Site 120–500 m out: dry, off roads/tracks (also a saved game's own track: Track.segs sampled), ≤ 8 m fall, clear of
+  houses/fields/industries/castles/farms, and **inland** (no sea within 220 m, then 110 m as a second pass: the shore is for the
+  harbours; the first try blocked the only harbour site of the test world). Plot levelled (levelPlot 24×18, margin 10), trees cleared
+  r 48, a lane to the village. Houses keep 62 m off (fitsRect), track building refuses r 26, harbour sites keep 45 m off.
+- Stations: kind 'factory' in Life.inds()/indLabel/indIcon/sawSlots (two slots: k1 (0, +34), k2 (0, −34), along the plot's x;
+  marked by `m.fact`, because 'iron' is both an ORE and a FACTORY key), Crane.ind, stInfo cargo, Net.destOf/arrived/stop rules,
+  station grading width 12, the goods platform mesh (veh[10]). `Goods.factOf(k)/factTakes(k,t)`; accepts() says yes first for ore
+  at a factory station (bulk coal/iron included). Bus stops can't take ore (lorries carry only mail/produce/grain/wood).
+- Harbour (PortCoal) generalised to every ORE type: stock and the new **import stock `c.imp`** are objects by type; the shiploader
+  pours proportionally; colliers carry any type (`Ships.load` sums). A collier unloading at a harbour pays the sea leg as before and
+  puts the cargo into that harbour's `imp` (≤ 600 per type). **Gantry filling**: with nothing to unload, it fills hoppers in reach
+  (`fillWork`/`canFill`: type in imp ≥ 1, not full, some factory takes it, not emptied on this visit `c.unl`, not carrying another
+  origin's load) — phases fdown/fbite/fup/fout/fdrop/fopen/fup2, 4 units a grab, origin = the staithe (`w.from=key`, so `work()` never
+  unloads it again and the factory pays by distance from the staithe). headOff stops the front-most hopper that needs work at x 28,
+  draw-up brings later ones in (needs()). Tested: 50 imported → 20/20/10 in three empties, the loaded one emptied, train left.
+- Save: villages[].pc is now {s: stock, m: import, h}; old {c,i,h} still read. Ship cargo saved as {type: t}. WorldFile.FMT 2 (the
+  world file holds Life's generated state: old files regenerate once; importing an old file takes its settings and regenerates).
+- Mine panel (IndUI.info): "Where it goes" — factories that take the ore, towns with a bank (gold/silver/diamonds), with km and the
+  1.6× note; on another island (Coast.isleAt: land components from Coast.init, 0 on land worlds) it spells out harbour → collier →
+  train. "🗺️ Show on the map" opens the map with `MapView.focus`: gold lines to factories/banks (dashed across the sea), blue to
+  harbours, pulsing rings, a note at the top; cleared on close. Exploration: only places already seen. Factory panel explains what it
+  takes/makes and the import route. Map legend: Factory (#e2794f), 🏭 icons.
+- Checks (checks/): fac57_four.png (the four in a world), fac57_panel.png, fac57_map.png. Not verified on the phone: load time with
+  four more kit models in the worker, smoke cost, the whole chain played by hand.
+
+### Earlier (4.56.0, 21 Nov) — harbour step 4b part 2: colliers you run (user: "player-run like buses")
 - New js/ships.js (`Ships`, `SHIP`: price €150,000, 400 t, 6.5 m/s, sea rate 40 per t·km): bought from a store card ("Collier",
   outside Store.ITEMS: no 3D preview, ⚓🚢 header; "Your colliers (n)" opens the panel). The panel (#shipPanel): pick a ship, tap
   built harbours to add/remove them in route order (≥ 2 to sail), show her, sell (half back).

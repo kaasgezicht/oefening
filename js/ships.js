@@ -4,8 +4,8 @@
 // COLLIERS (4.56.0, harbour step 4b part 2; the user: "player-run like buses"). Buy colliers in the store and give each a route: two or
 // more of your coal & ore harbours, in order. A collier sails its route over real sea paths (A* on a 64 m sea grid round the islands,
 // then straightened), berths alongside the harbour's quay (one ship at a berth, the others wait at anchor off the harbour), and at each
-// harbour first unloads what it brought from elsewhere (until the processing factories come, the cargo is sold there: paid by sea
-// distance like other goods), then takes what the harbour has in stock: the shiploader pours it into the holds (PortCoal). It leaves
+// harbour first unloads what it brought from elsewhere (paid there by sea distance; since 4.57 it goes into that
+// harbour's import stock, which its gantry loads into empty hoppers for the processing factories), then takes what the harbour has in stock: the shiploader pours it into the holds (PortCoal). It leaves
 // when it is full, or when the stock has run out and it has waited a while. It rides the drawn sea (Sea.surf, slow heave, pitch and roll).
 // ===================================================================
 const SHIP={price:150000,cap:400,speed:6.5,turn:0.05,unload:2.0,wait:45,cell:64,rate:40,berth:[60,-6.5],approach:[60,-70]};
@@ -38,7 +38,7 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
     const s=this.built()[0],bp=this.berthPose(s),ap=this.appr(s),n=this.nextId++;const sh={id:n,name:['Collier','Northumbria','Tyne Lass','Black Diamond','Wear Pride','Collier Queen','Seaham','Blyth'][n%8]+(n>8?' '+Math.ceil(n/8):''),
       x:ap[0],z:ap[1],hd:bp.hd,v:0,route:[this.key(s)],leg:0,st:'wait',t:0,cargo:{coal:0,iron:0},from:{},py:null,pt:0,rl:0,earned:0};
     this.list.push(sh);UI.toast(`${sh.name} is yours: give her a route of two or more harbours`);this.openPanel(sh);},
-  load(sh){return(sh.cargo.coal||0)+(sh.cargo.iron||0);},
+  load(sh){let n=0;for(const t in sh.cargo)n+=sh.cargo[t]||0;return n;},
   at(s){const k=this.key(s);return this.list.find(q=>q.st==='berth'&&q.route[q.leg]===k)||null;},
   // ---- the voyage
   update(dt){if(!this.list.length||!App.T||App.T.sea==null)return;dt=Math.min(dt,0.25)*Math.max(1,Math.min(8,App.ff||1));for(const sh of this.list)this.step(sh,dt);},
@@ -51,9 +51,9 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
     else if(sh.st==='in'||sh.st==='out'){/* tugs: sideways between the anchorage and the berth, turning parallel to the quay (90 s) */const f=clamp(sh.t/90,0,1),e=f*f*(3-2*f),A=sh.st==='in'?sh.p0:[bp.x,bp.z,bp.hd],B=sh.st==='in'?[bp.x,bp.z,bp.hd]:[ap[0],ap[1],bp.hd];
       sh.x=A[0]+(B[0]-A[0])*e;sh.z=A[1]+(B[1]-A[1])*e;sh.hd=A[2]+wrapPi(B[2]-A[2])*e;sh.v=0;if(f>=1){if(sh.st==='in'){sh.st='berth';sh.t=0;sh.idle=0;sh.unl=this.load(sh)>0.5;}else{sh.leg=(sh.leg+1)%sh.route.length;sh.st='sail';sh.path=null;sh.t=0;}}}
     else if(sh.st==='berth'){sh.x=bp.x;sh.z=bp.z;sh.hd=bp.hd;
-      if(sh.unl){/* unload what came from another harbour: sold here (paid by distance; the factories will take it instead) */const L=this.load(sh);if(L>0.01){const a=Math.min(SHIP.unload*dt,L),fc=(sh.cargo.coal||0)/L;sh.cargo.coal=Math.max(0,(sh.cargo.coal||0)-a*fc);sh.cargo.iron=Math.max(0,(sh.cargo.iron||0)-a*(1-fc));sh.sold=(sh.sold||0)+a;}
+      if(sh.unl){/* unload what came from another harbour: paid by distance, into the import stock */const L=this.load(sh);if(L>0.01){const a=Math.min(SHIP.unload*dt,L),im=PortCoal.st(s).imp;for(const t in sh.cargo){const q=a*(sh.cargo[t]||0)/L;sh.cargo[t]=Math.max(0,(sh.cargo[t]||0)-q);im[t]=Math.min(600,(im[t]||0)+q);}sh.sold=(sh.sold||0)+a;}/* 4.57: into the harbour's import stock */
         else{sh.unl=false;const km=(sh.fromX!=null?Math.hypot(bp.x-sh.fromX,bp.z-sh.fromZ):0)/1000,pay=Math.round((sh.sold||0)*km*SHIP.rate*(+P.fareRate||1)/10)*10;if(pay>0&&Money.on()){Money.earn(pay,`${sh.name}: ${Math.round(sh.sold)} t to ${s.v.name}`,bp.x,App.T.sea+6,bp.z);}sh.earned+=pay;if(sh.sold>0.5)Icons.add(bp.x,App.T.sea+8,bp.z,`−${Math.round(sh.sold)} ⚫`);sh.sold=0;}}
-      else{const c=PortCoal.st(s),st=(c.stock.coal||0)+(c.stock.iron||0);if(this.load(sh)>0.5&&sh.fromX==null){sh.fromX=bp.x;sh.fromZ=bp.z;}
+      else{const c=PortCoal.st(s),st=PortCoal.sum(c.stock);if(this.load(sh)>0.5&&sh.fromX==null){sh.fromX=bp.x;sh.fromZ=bp.z;}
         if(this.load(sh)>=SHIP.cap-0.5||(st<0.05&&(sh.idle=(sh.idle||0)+dt)>SHIP.wait)||sh.route.length<2&&sh.t>20){if(sh.route.length>=2){sh.st='out';sh.t=0;if(this.load(sh)>0.5){sh.fromX=bp.x;sh.fromZ=bp.z;}else sh.fromX=null;}}
         else if(st>=0.05)sh.idle=0;}}
     this.ride(sh,dt);},
@@ -80,5 +80,5 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
   mapDraw(g,S){for(const sh of this.list){const R2=sh.route.map(k=>this.site(k)).filter(Boolean);if(R2.length>1){g.setLineDash([3,6]);g.strokeStyle='#1d2a3acc';g.lineWidth=3;g.beginPath();
         for(let i=0;i<R2.length;i++){const a=this.appr(R2[i]),b=this.appr(R2[(i+1)%R2.length]),pth=this.path(a,b)||[a,b];pth.forEach((q,j)=>{const sp=S(q[0],q[1]);if(!sp)return;if(i===0&&j===0)g.moveTo(sp[0],sp[1]);else g.lineTo(sp[0],sp[1]);});}g.stroke();g.setLineDash([]);}
       const q=S(sh.x,sh.z);if(q){g.fillStyle='#1d2a3a';g.strokeStyle='#e8c35a';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],6,0,6.283);g.fill();g.stroke();}}},
-  serialize(){return{n:this.nextId,L:this.list.map(q=>({id:q.id,name:q.name,x:+q.x.toFixed(1),z:+q.z.toFixed(1),hd:+q.hd.toFixed(3),route:q.route,leg:q.leg,st:q.st==='in'||q.st==='out'?'wait':q.st,cargo:{coal:+(q.cargo.coal||0).toFixed(1),iron:+(q.cargo.iron||0).toFixed(1)},fromX:q.fromX,fromZ:q.fromZ,earned:q.earned||0,unl:!!q.unl}))};},
+  serialize(){return{n:this.nextId,L:this.list.map(q=>({id:q.id,name:q.name,x:+q.x.toFixed(1),z:+q.z.toFixed(1),hd:+q.hd.toFixed(3),route:q.route,leg:q.leg,st:q.st==='in'||q.st==='out'?'wait':q.st,cargo:Object.fromEntries(Object.entries(q.cargo).filter(e=>e[1]>0.05).map(e=>[e[0],+e[1].toFixed(1)])),fromX:q.fromX,fromZ:q.fromZ,earned:q.earned||0,unl:!!q.unl}))};},
   load_(d){this.list=[];this.nextId=1;this.paths.clear();if(!d||!d.L)return;this.nextId=d.n||1;for(const q of d.L)this.list.push({...q,v:0,t:0,from:{},py:null,pt:0,rl:0,path:null});}};
