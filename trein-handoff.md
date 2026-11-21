@@ -22,7 +22,7 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Mines**: at least `MINE_GAP` 2 km apart (train.js), about one per 4 km²; the random sequence is unchanged so nothing else moves. User's
   world: 58 → 17 mines.
 - **Map view**: the sea seen straight down was nearly black (and brown with the golden grade): the water shader now has a map colour mode
-  (`uDbg` −10 while `MapView.on`: turquoise shallows to blue deep water, foam lighter). Places are collected first; any whose ring would
+  (`uDbg` −10 while `MapView.on`: 4.47.1 at the user's request: no prettiness, the shade is the true depth on one even ramp, light at the shore to dark from 60 m; the surface at its own level). Places are collected first; any whose ring would
   touch a bigger one's becomes a dot in its kind's colour (all dots once more than 35 % overlap); bigger places are tested first.
   Colours per kind in `MapView.KEY`, shown in a foldable legend `#mapKey` (top left; folded on narrow screens). The bar is now small
   buttons: List (opens the vehicle list, closed by default; the big "Show the list" box is gone), Routes (shows the vehicle filter row
