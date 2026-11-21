@@ -47,9 +47,9 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
     if(typeof Fish!=='undefined'){const cp=Cam.pos||[0,0,0],L=[];for(const h of this.H)for(const b of h.boats)if(b.x!=null&&Fish.lightsOn(b)){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d<900)L.push([d,b]);}
       L.sort((a,b)=>a[0]-b[0]);for(const [,b] of L.slice(0,3)){const p=Fish.bp(b,-1.2,0,6.2);add(p[0],p[1],p[2],22,[1.7,1.5,1.15]);}}},
   /* the fishing boats as kit instances (4.54): hull model by livery, the lights model while lit; pitch and roll packed for VS_KIT */
-  dynPut(put){if(typeof Fish==='undefined'||!this.H.length)return;const T=App.T,cp=Cam.pos||[0,0,0],K=['fishBoatA','fishBoatB','fishBoatC'],pk=(p,r)=>2+Math.round((clamp(p,-0.6,0.6)+0.6)/1.2*2047)*2048+Math.round((clamp(r,-0.6,0.6)+0.6)/1.2*2047);
+  dynPut(put){if(typeof Fish==='undefined'||!this.H.length)return;const T=App.T,cp=Cam.pos||[0,0,0],K=['fishBoatA','fishBoatB','fishBoatC'],pk=(p,r)=>Fish.pk(p,r);
     for(const h of this.H)for(const b of h.boats){if(b.x==null||Math.hypot(b.x-cp[0],b.z-cp[2])>1800)continue;const o={x:b.x,y:b.py==null?T.sea:b.py,z:b.z,rot:b.hd+Math.PI/2,pr:pk(b.pt||0,b.rl||0),hash:0.5};
-      put(K[(b.k|0)%3],o);if(Fish.lightsOn(b))put('fishBoatL',o);}},
+      put(K[(b.k|0)%3],o);if(Fish.lightsOn(b))put('fishBoatL',o);Fish.hangPut(b,put,o.rot);}},
   // ---- boats and seagulls (vehicle program, like Sea and Wild)
   build(){const M={};const hull=(col)=>{const m=vmesh(),wd=x=>{const u=(x+4.6)/9.2;return u>0.82?2.2*Math.sqrt(Math.max(0,(1-u)/0.18))*0.55+0.05:1.1+0.12*Math.sin(u*3);},S=[];
       for(let i=0;i<=12;i++){const x=-4.6+9.2*i/12,w=wd(x),sh=x>3?(x-3)*0.35:0;S.push([[x,1.25+sh,w],[x,0.05,w*0.72],[x,-0.55,0]]);}

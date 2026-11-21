@@ -50,6 +50,28 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       const ay=P2.wh*P2.wh*fy/P2.pts.length-2*P2.zh*P2.wh*b.vy,ap=P2.wp*P2.wp*(fp/su2+trim)-2*P2.zp*P2.wp*b.wp,ar=P2.wr*P2.wr*(fr/sv2+heel)-2*P2.zr*P2.wr*b.wr;
       b.vy+=ay*hdt;b.wp+=ap*hdt;b.wr+=ar*hdt;b.py+=b.vy*hdt;b.pt=clamp(b.pt+b.wp*hdt,-0.5,0.5);b.rl=clamp(b.rl+b.wr*hdt,-0.5,0.5);}
     if(!moored){b.x+=uv[0]*0.55*dt;b.z+=uv[1]*0.55*dt;}},
+  /* 4.54.1 the hanging gear (KIT.FISH_HANG: the stabiliser weights on the outrigger tips, the blocks on the stern gantry, the tyre fenders)
+     are pendulums: a point mass on a rope of fixed length from a pivot that moves with the boat (heave, pitch, roll, speed, turns), so
+     they lag, swing and settle with inertia. Verlet steps of 16 ms with the pivot moved smoothly through the frame, air or rubbing
+     damping, gravity; a tyre cannot swing into the hull (it rests against the topsides) */
+  hang(b,dt){const H=KIT.FISH_HANG;if(!H)return;const n=Math.max(1,Math.ceil(dt/0.016)),h=dt/n,g=9.81*h*h;
+    if(!b.hg)b.hg=H.map(()=>({x:null,xp:null,pv:null}));
+    H.forEach((q,i)=>{const s=b.hg[i],P1=this.bp(b,-q.p[2],q.p[0],q.p[1]);
+      const Pc=s.pv||P1;if(!s.x||Math.hypot(s.x[0]-Pc[0],s.x[1]-Pc[1],s.x[2]-Pc[2])>q.len*1.6){s.x=[P1[0],P1[1]-q.len,P1[2]];s.xp=s.x.slice();s.pv=P1;}
+      const P0=s.pv||P1;let out=null;if(q.side){const a=this.bp(b,-q.p[2],q.p[0]+q.side,q.p[1]);out=[a[0]-P1[0],a[1]-P1[1],a[2]-P1[2]];}
+      const dP=[(P1[0]-P0[0])/n,(P1[1]-P0[1])/n,(P1[2]-P0[2])/n];
+      for(let k=1;k<=n;k++){const f=k/n,P=[P0[0]+(P1[0]-P0[0])*f,P0[1]+(P1[1]-P0[1])*f,P0[2]+(P1[2]-P0[2])*f],kd=1-Math.min(0.9,q.damp*h),ka=1-0.04*h,x=s.x;
+        /* the swing is damped relative to the boat (friction at the pivot, rubbing); the air drags a little on the motion through the world */
+        const nx=[0,1,2].map(j=>{const v=x[j]-s.xp[j],vr=v-dP[j];return x[j]+(dP[j]+vr*kd)*ka-(j===1?g:0);});s.xp=x;
+        let d=[nx[0]-P[0],nx[1]-P[1],nx[2]-P[2]];if(out){const o=d[0]*out[0]+d[1]*out[1]+d[2]*out[2];if(o<0.12){const k2=0.12-o;d=[d[0]+out[0]*k2,d[1]+out[1]*k2,d[2]+out[2]*k2];s.xp=[s.xp[0]+out[0]*k2,s.xp[1]+out[1]*k2,s.xp[2]+out[2]*k2];/* contact: the push is not velocity (no pumping) */}}
+        const l=Math.hypot(...d)||1;s.x=[P[0]+d[0]/l*q.len,P[1]+d[1]/l*q.len,P[2]+d[2]/l*q.len];}
+      s.pv=P1;});},
+  // the hanging gear's kit instances: at the pivot, the model's -y along the rope (pitch and roll packed like the boat's)
+  /* pitch and roll packed for VS_KIT's iB.y (−1.2..1.2 rad, 11 bits each) */
+  pk(p,r){return 2+Math.round((clamp(p,-1.2,1.2)+1.2)/2.4*2047)*2048+Math.round((clamp(r,-1.2,1.2)+1.2)/2.4*2047);},
+  hangPut(b,put,rot){const H=KIT.FISH_HANG;if(!H||!b.hg)return;const c=Math.cos(rot),sn=Math.sin(rot),pk=(p,r)=>this.pk(p,r);
+    H.forEach((q,i)=>{const s=b.hg[i];if(!s||!s.x||!s.pv)return;const P=s.pv,d=[(s.x[0]-P[0])/q.len,(s.x[1]-P[1])/q.len,(s.x[2]-P[2])/q.len],lx=d[0]*c+d[2]*sn,lz=-d[0]*sn+d[2]*c;
+      put(q.t,{x:P[0],y:P[1],z:P[2],rot,pr:pk(Math.asin(clamp(-lz,-1,1)),Math.atan2(lx,-d[1])),hash:0.5});});},
   // the hull points of up to three boats near the camera (yours first) for R.waveProbe
   probePts(){const cp=Cam.pos||[0,0,0],B=[];if(this.drv)B.push(this.drv);for(const h of Coast.H)for(const b of h.boats){if(b===this.drv||b.x==null)continue;if(Math.hypot(b.x-cp[0],b.z-cp[2])<350)B.push(b);}
     B.sort((a,b)=>(a===this.drv?-1:b===this.drv?1:Math.hypot(a.x-cp[0],a.z-cp[2])-Math.hypot(b.x-cp[0],b.z-cp[2])));const pts=[],boats=[];
@@ -71,7 +93,7 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       // foam at the stern of a boat under way
       if(b.v>2&&P.smoke&&Math.random()<dt*8&&Math.hypot(b.x-(Cam.pos||[0,0,0])[0],b.z-(Cam.pos||[0,0,0])[2])<900)Particles.spawn(b.x-Math.cos(b.hd)*6.8,T.sea+0.3,b.z-Math.sin(b.hd)*6.8,(Math.random()-0.5)*0.6,0.4,(Math.random()-0.5)*0.6,1.6,0.6,2.2,1);}
     for(const g of Coast.gulls)if(g.follow){g.cx=g.follow.x;g.cz=g.follow.z;}
-    if(this.drv)this.drive(dt);for(const h of Coast.H)for(const b of h.boats)if(b.x!=null)this.phys(b,dt,b.st==='moor');this.icons();if(typeof Sfx!=='undefined'&&Sfx.sea)try{Sfx.sea(dt);}catch(e){}},
+    if(this.drv)this.drive(dt);{const cp=Cam.pos||[0,0,0];for(const h of Coast.H)for(const b of h.boats)if(b.x!=null){this.phys(b,dt,b.st==='moor');if(Math.hypot(b.x-cp[0],b.z-cp[2])<700)this.hang(b,dt);else b.hg=null;}}this.icons();if(typeof Sfx!=='undefined'&&Sfx.sea)try{Sfx.sea(dt);}catch(e){}},
   // ---- the player's boat
   take(h){const b=h.boats.find(q=>q.st==='moor');if(!b){UI.toast('All boats of this harbour are out fishing: wait for one to come back');return;}
     if(typeof Plane!=='undefined'&&Plane.on)Plane.exit();if(RoadVeh.drv)RoadVeh.stopDriving();if(Build.active)Build.exit();if(MapView.on)MapView.close();

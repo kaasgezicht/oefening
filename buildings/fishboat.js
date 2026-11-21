@@ -86,7 +86,7 @@ function boat(K,lv){K.seed(lv==='A'?901:lv==='B'?902:903);const H=kitW(K),{bb,bm
     const ct=yd+6.6;bm([-1.0,ct,zm+0.23],[1.0,ct,zm+0.23],[0,1,0],0.08,0.08,STEEL,11);for(const e of [-1,1])bb(e*0.85-0.07,e*0.85+0.07,ct-0.25,ct-0.08,zm+0.12,zm+0.34,[0.15,0.15,0.15],11);
     bb(-0.08,0.08,yd+7.1,yd+7.32,zm-0.02,zm+0.16,[0.15,0.15,0.15],11);cy([0,top,zm+0.3],[0,top+1.5,zm+0.3],0.05,0.03,6,STEEL,11);cy([0,top+1.5,zm+0.3],[0,top+2.4,zm+0.3],0.015,0.01,4,WHITE,0);
     for(const e of [-1,1]){const pv=[e*0.65,yd+1.1,zm+0.35],tip=[e*3.9,yd+8.2,zm+1.3];cy(pv,tip,0.08,0.05,8,V.m===0?WHITE:[0.8,0.79,0.75],11);cy(tip,lg(e,top-0.2),0.012,0.012,4,BLACK,11);cy(tip,[e*(hb(-1.5,sheer(-1.5))-0.1),sheer(-1.5),-1.5],0.012,0.012,4,BLACK,11);
-      cy(tip,[tip[0],tip[1]-0.55,tip[2]],0.012,0.012,4,BLACK,11);ic([tip[0],tip[1]-0.65,tip[2]],0.12,STEEL,11);cy([tip[0],tip[1]-0.75,tip[2]],[tip[0],tip[1]-2.2,tip[2]],0.01,0.01,4,BLACK,11);bb(tip[0]-0.18,tip[0]+0.18,tip[1]-2.5,tip[1]-2.2,tip[2]-0.25,tip[2]+0.25,RUST,25);
+      ic([tip[0],tip[1]-0.08,tip[2]],0.1,STEEL,11);/* the pulley; the wire and its stabiliser weight swing (fishHangW) */
       cy([pv[0],pv[1]-0.25,pv[2]],[pv[0],pv[1]+0.15,pv[2]],0.11,0.11,8,GREY,11);}}
   // ---- the working deck aft: winch, net drum with green net, fish hold hatch, the stern gantry with blocks, trawl doors on the quarters
   {const yw=deckY(1.3);bb(-0.7,0.7,yw,yw+0.55,0.95,1.6,[0.25,0.32,0.28],11);for(const e of [-1,1])cy([e*0.35,yw+0.78,1.3],[e*0.95,yw+0.78,1.3],0.24,0.24,10,RUST,11,1);for(const e of [-1,1])cy([e*0.95,yw+0.78,1.3],[e*1.05,yw+0.78,1.3],0.34,0.34,10,GREY,11,1);
@@ -95,7 +95,7 @@ function boat(K,lv){K.seed(lv==='A'?901:lv==='B'?902:903);const H=kitW(K),{bb,bm
     for(const e of [-1,1]){bm([e*1.35,yn,2.5],[e*1.35,cyN,3.0],[1,0,0],0.12,0.12,[0.25,0.32,0.28],11);bm([e*1.35,yn,3.5],[e*1.35,cyN,3.0],[1,0,0],0.12,0.12,[0.25,0.32,0.28],11);}
     {const hy=deckY(4.6);bb(-0.75,0.75,hy,hy+0.32,4.15,5.05,[0.25,0.32,0.28],11);bb(-0.65,0.65,hy+0.32,hy+0.36,4.25,4.95,GREY,11);}
     const ys=deckY(6.0),ty=ys+3.6;for(const e of [-1,1]){bm([e*1.75,ys,6.05],[e*1.55,ty,6.15],[0,0,1],0.16,0.16,STEEL,11);bm([e*1.75,ys,4.9],[e*1.6,ty-0.6,6.1],[0,0,1],0.1,0.1,STEEL,11);}
-    bm([-1.7,ty,6.15],[1.7,ty,6.15],[0,1,0],0.18,0.18,STEEL,11);for(const e of [-0.7,0.7]){cy([e,ty-0.1,6.15],[e,ty-0.75,6.15],0.015,0.015,4,BLACK,11);ic([e,ty-0.85,6.15],0.16,STEEL,11);}
+    bm([-1.7,ty,6.15],[1.7,ty,6.15],[0,1,0],0.18,0.18,STEEL,11);for(const e of [-0.7,0.7])bb(e-0.05,e+0.05,ty-0.16,ty-0.08,6.1,6.2,STEEL,11);/* shackles; the blocks swing (fishHangB) */
     // trawl doors hung on the quarters, rust-brown steel plates with a shoe and brackets
     for(const e of [-1,1]){const z=5.0,y=sheer(z)-0.75,x=e*(hb(z,y)+0.12);ob([x,y,z],[0,0,0.75],[0,0.48,0],[0.05,0,0],RUST,25);bb(x-0.06,x+0.06,y-0.52,y-0.44,z-0.75,z+0.75,STEEL,11);for(const dz of [-0.3,0.3])bm([x,y+0.4,z+dz],[e*(hb(z,sheer(z))-0.05),sheer(z)+0.05,z+dz],[0,0,1],0.04,0.04,BLACK,11);}
     // fish boxes, buoys, oil drums, a coil of rope, bollards
@@ -104,10 +104,19 @@ function boat(K,lv){K.seed(lv==='A'?901:lv==='B'?902:903);const H=kitW(K),{bb,bm
     for(const [x,z] of [[1.45,5.6],[1.05,5.75]]){const b=deckY(z);cy([x,b,z],[x,b+0.85,z],0.29,0.29,12,[0.2,0.45,0.25],11,1);}
     {const b=deckY(4.6);for(let k=0;k<4;k++)cy([-1.25,b+0.03+k*0.07,4.6],[-1.25,b+0.09+k*0.07,4.6],0.45-k*0.03,0.45-k*0.03,12,[0.72,0.62,0.4],6);}
     for(const [x,z] of [[-1.5,6.1],[1.5,0.6],[-1.5,0.6]]){const b=deckY(z);for(const dz of [-0.15,0.15])cy([x,b,z+dz],[x,b+0.4,z+dz],0.09,0.09,8,BLACK,11,1);}}
-  // ---- tyres hung on the topsides as fenders
-  for(const e of [-1,1])for(const z of [-3.2,-0.6,2.0,4.4]){const y=sheer(z)-0.75,x=e*(hb(z,y)+0.12);cy([x-e*0.11,y,z],[x+e*0.11,y,z],0.36,0.36,14,RUB,0,1);cy([x+e*0.112,y,z],[x+e*0.115,y,z],0.17,0.17,10,[0.02,0.02,0.02],0,1);cy([x,y+0.35,z],[e*(hb(z,sheer(z))-0.05),sheer(z)+0.03,z],0.015,0.015,4,[0.6,0.55,0.4],6);}
+  // the tyres hung on the topsides as fenders swing on their ropes (fishTyre, js/fishing.js HANG)
   return{};}
 KIT.models.fishBoatA=function(K){return boat(K,'A');};
+/* the hanging gear (4.54.1): each model hangs from its origin straight down (-y) and is swung as a pendulum by js/fishing.js (Fish.hang),
+   its kit instance pitched and rolled to the rope's direction */
+KIT.models.fishHangW=function(K){K.seed(911);const {cy,bb,ic}=kitW(K);cy([0,0,0],[0,-0.55,0],0.012,0.012,4,BLACK,11);ic([0,-0.62,0],0.09,STEEL,11);cy([0,-0.7,0],[0,-2.15,0],0.01,0.01,4,BLACK,11);
+  bb(-0.18,0.18,-2.5,-2.15,-0.25,0.25,RUST,25);bb(-0.02,0.02,-2.2,-2.12,-0.2,0.2,STEEL,11);return{};};
+KIT.models.fishHangB=function(K){K.seed(912);const {cy,ic,bb}=kitW(K);cy([0,0,0],[0,-0.62,0],0.015,0.015,4,BLACK,11);ic([0,-0.76,0],0.16,STEEL,11);bb(-0.03,0.03,-0.95,-0.88,-0.05,0.05,STEEL,11);cy([0,-0.95,0],[0,-1.1,0.06],0.02,0.02,4,STEEL,11);return{};};
+KIT.models.fishTyre=function(K){K.seed(913);const {cy}=kitW(K);cy([0,0,0],[0,-0.42,0],0.015,0.015,4,[0.6,0.55,0.4],6);cy([-0.11,-0.78,0],[0.11,-0.78,0],0.36,0.36,14,RUB,0,1);cy([0.112,-0.78,0],[0.115,-0.78,0],0.17,0.17,10,[0.02,0.02,0.02],0,1);cy([-0.115,-0.78,0],[-0.112,-0.78,0],0.17,0.17,10,[0.02,0.02,0.02],0,1);return{};};
+/* where the gear hangs on the boat (model frame) */
+KIT.FISH_HANG=(()=>{const L=[],yd=deckY(0),zm=0.1,ys=deckY(6.0),ty=ys+3.6;for(const e of [-1,1])L.push({t:'fishHangW',p:[e*3.9,yd+8.2-0.08,zm+1.3],len:2.3,damp:0.25});
+  for(const e of [-0.7,0.7])L.push({t:'fishHangB',p:[e,ty-0.16,6.15],len:0.8,damp:0.35});
+  for(const e of [-1,1])for(const z of [-3.2,-0.6,2.0,4.4]){const y=sheer(z);L.push({t:'fishTyre',p:[e*(hb(z,y)+0.02),y+0.02,z],len:0.78,damp:1.6,side:e});}return L;})();
 KIT.models.fishBoatB=function(K){return boat(K,'B');};
 KIT.models.fishBoatC=function(K){return boat(K,'C');};
 // the lights: navigation lights (red to port, green to starboard), the masthead and stern lights, deck floodlights, the lit wheelhouse
