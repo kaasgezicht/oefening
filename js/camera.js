@@ -11,7 +11,13 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
   state(){return{tx:+this.target[0].toFixed(2),ty:+this.target[1].toFixed(2),tz:+this.target[2].toFixed(2),dist:+this.dist.toFixed(2),yaw:+this.yaw.toFixed(4),pitch:+this.pitch.toFixed(4)};},
   setState(s){if(!s)return;this.target=[+s.tx||0,+s.ty||0,+s.tz||0];this.dist=+s.dist||600;this.yaw=+s.yaw||0;this.pitch=+s.pitch||0.4;},
   ground(x,z){const T=R.world;if(!T)return 0;let h;if(x>=0&&z>=0&&x<=T.W&&z<=T.W){h=sampleH(T,x,z);const w=sampleWater(T,x,z);if(w[1]>0)h=Math.max(h,w[0]);}else h=0;return h;},
+  /* how settled the view is (4.53): the target's speed in view sizes per second; calm(t) once it has been nearly still for t seconds.
+     Detail that follows the camera (the fine road field, the 8 m ground window) waits for this, so panning stays smooth and the
+     detail comes in after the view stops */
+  calmT:0,lastTg:null,
+  calm(t){return this.calmT>=(t||0.3);},
   update(dt){
+    {const tg=this.target,l=this.lastTg;if(l&&dt>0){const v=Math.hypot(tg[0]-l[0],tg[2]-l[2])/Math.max(this.dist,40)/dt;this.calmT=v<0.06?this.calmT+dt:0;}this.lastTg=[tg[0],tg[1],tg[2]];}
     const cv=gl.canvas;this.aspect=cv.width/cv.height;this.fovy=(this.aspect<1?64:50)*Math.PI/180;
     if(typeof Plane!=='undefined'&&Plane.on&&(this.mode==='plane'||Plane.cam==='orbit')){const f=+P['fov_'+Plane.cam];if(f>0)this.fovy=f*Math.PI/180;}/* each flying view has its own field of view (clock menu ⚙) */
     if(this.anim){const a=this.anim;a.t=Math.min(1,a.t+dt*1.6);const e=a.t*a.t*(3-2*a.t);for(let k=0;k<3;k++)this.target[k]=lerp(a.from[k],a.to[k],e);this.dist=lerp(a.d0,a.d1,e);if(a.t>=1)this.anim=null;}

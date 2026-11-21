@@ -63,6 +63,9 @@ const FACTS=[
 // ---- how it works
 'The whole game runs in your browser on WebGL 2, without a game engine: about 2 MB of hand-written JavaScript.',
 'The land is made from layers of noise at different scales (fractal noise), bent by more noise so it looks less regular.',
+'Coal and iron mines send their ore by rail to a coal & ore harbour, where a gantry empties the wagons and a shiploader fills the colliers.',
+'High mountains get extra crags and ridges: the higher the ground, the rougher the noise added to it, and rock up high may stand steeper before it slides.',
+'Detail that follows the camera, such as the fine road edges, is built a little each frame and swapped in once the view has settled.',
 'Hydraulic erosion lets thousands of simulated raindrops run downhill, picking up and dropping sediment, which carves the valleys.',
 'Raindrops only fall on land in the erosion step. Skipping the sea floor made loading much faster.',
 'Lakes are found by filling the hollows of the land. Rivers follow where the most rainwater gathers.',
@@ -101,7 +104,7 @@ const FACTS=[
 'Lightning lights the clouds from inside with a short flash.',
 'Controllers are read with the Gamepad API. Digital triggers are ramped up while you hold them, so they feel analogue.',
 'Village growth is a points system: every passenger, delivery and connection adds points towards the next level.',
-'The map view draws the same 3D world from straight above, with the clouds switched off.',
+'The map is a painted picture of the world: hill shading, forests, roads, and water shaded by its real depth. It is painted once, so panning it costs almost nothing.',
 'The lighthouse beams glow in mist and clouds, and they light the ground and the sea they sweep across.',
 'Each frame is drawn in many passes: shadows, ground, objects, water, sky, clouds, particles and post-processing.',
 'Before every update an automatic smoke test plays the game: it builds an airstrip, flies, sails, then saves and loads.',

@@ -101,7 +101,10 @@ function hookMesh(){const M=vmesh(),ir=[0.2,0.2,0.22],tb=[0.36,0.27,0.19];vbox(M
   for(const e of [-1,1])vbeam(M,[0,-0.62,0],[e*0.9,-0.76,0],0.025,ir,1);vbox(M,[0,-0.85,0],[4.4,0.2,0.2],tb,3);for(const x of [-2,2])vbox(M,[x,-1.17,0],[0.04,0.64,0.04],ir,1);return M;}
 // ---- mines: the three ore kinds (colours of the ore piles, loads and signs)
 const MINE_GAP=2000;/* metres between mines: about one mine per 4 km² */
-const ORE={gold:{name:'Gold',icon:'🥇',col:[0.66,0.5,0.26],glint:[0.95,0.8,0.32]},silver:{name:'Silver',icon:'🥈',col:[0.55,0.56,0.58],glint:[0.86,0.88,0.92]},diamond:{name:'Diamond',icon:'💎',col:[0.30,0.35,0.40],glint:[0.72,0.88,0.98]}};
+const ORE={gold:{name:'Gold',icon:'🥇',col:[0.66,0.5,0.26],glint:[0.95,0.8,0.32]},silver:{name:'Silver',icon:'🥈',col:[0.55,0.56,0.58],glint:[0.86,0.88,0.92]},diamond:{name:'Diamond',icon:'💎',col:[0.30,0.35,0.40],glint:[0.72,0.88,0.98]},
+  /* 4.53: coal and iron ore go to the coal & ore harbour (later to the factories); their meshes come after the plane's (R.oreIx) */
+  coal:{name:'Coal',icon:'⚫',col:[0.07,0.07,0.08],glint:[0.32,0.33,0.36],bulk:1},iron:{name:'Iron',icon:'🧲',col:[0.42,0.22,0.15],glint:[0.62,0.42,0.32],bulk:1}};
+const ORE3=['gold','silver','diamond'];
 // The mine (4.25.0), after the user's reference picture: a craggy rock face along the back of the plot with a stone-arched adit (timber
 // frame, a sign, a lantern) and an older boarded-up one, a narrow-gauge track from deep in the adit to the intake of the crusher house,
 // a steam engine house with a horizontal boiler, two iron stacks and an engine bed (its flywheel turns: mineFlyMesh), the crusher house
@@ -710,9 +713,9 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   draw(pass){if(!this.F.length||!R.veh||!R.veh[18])return;const p=R.pVeh,c=Cam.pos||R.focus||[0,0,0];gl.useProgram(p.p);gl.uniform1i(p.u('uPass'),pass);gl.uniform3f(p.u('uLamp'),1,1,1);gl.uniform1f(p.u('uDist'),0);gl.uniform2f(p.u('uOcc'),0,0);
     const dm=(mi,M)=>{const m=R.veh[mi];gl.uniformMatrix4fv(p.u('uModel'),false,M);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     for(const f of this.F){const s=f.s;if(!s||f.kind==='farm'||Math.hypot(f.o[0]-c[0],f.o[2]-c[2])>1600)continue;
-      if(f.kind==='mine'){const i=['gold','silver','diamond'].indexOf(f.ore),S=Goods.get(f.key)[f.ore],m=this.ind('mine',f.st.mine);for(const bx of [-13.2,0,13.2])dm(28+i,this.mat(f,bx,7.15,0,0.25+2.9*Math.min(1,S/60)));
-        if(m&&Life.indOn('mine',m)&&S<59.5){const z0=-21,y0=1.45,z1=-3.4,y1=11.85;for(let k=0;k<12;k++){const u=((App.time*0.06+k/12)%1+1)%1;dm(25+i,this.mat(f,(k%3-1)*0.18,y0+(y1-y0)*u+0.3,z0+(z1-z0)*u,0.3));}}/* ore lumps riding the belt up to the bins */
-        if(s.pour&&s.task){const t=s.task,top=4.55,bot=t.car.ay+1.74+0.12+1.6*Math.min(1,(t.car.w.n||0)/20);dm(25+i,this.mat(f,t.cx,top,t.car.az,Math.max(0.1,top-bot)));}continue;}
+      if(f.kind==='mine'){const ix=R.oreIx[f.ore],S=Goods.get(f.key)[f.ore],m=this.ind('mine',f.st.mine);for(const bx of [-13.2,0,13.2])dm(ix.heap,this.mat(f,bx,7.15,0,0.25+2.9*Math.min(1,S/60)));
+        if(m&&Life.indOn('mine',m)&&S<59.5){const z0=-21,y0=1.45,z1=-3.4,y1=11.85;for(let k=0;k<12;k++){const u=((App.time*0.06+k/12)%1+1)%1;dm(ix.stream,this.mat(f,(k%3-1)*0.18,y0+(y1-y0)*u+0.3,z0+(z1-z0)*u,0.3));}}/* ore lumps riding the belt up to the bins */
+        if(s.pour&&s.task){const t=s.task,top=4.55,bot=t.car.ay+1.74+0.12+1.6*Math.min(1,(t.car.w.n||0)/20);dm(ix.stream,this.mat(f,t.cx,top,t.car.az,Math.max(0.1,top-bot)));}continue;}
       if(f.bs)dm(10,this.mat(f,0,0,0));dm(11,this.mat(f,s.gx,0,0));dm(12,this.mat(f,s.gx,0,s.tz));dm(13,this.mat(f,s.gx,CRN.drumY,s.tz,CRN.drumY-s.hy));dm(14,this.mat(f,s.gx,s.hy,s.tz));
       if(s.load>=0)dm(18+s.load,this.mat(f,s.gx,s.hy-CRN.sling,s.tz));
       for(let i=0;i<5;i++)for(let r=0;r<s.stacks[i];r++)dm(15+r,this.mat(f,CRN.stackX[i],CRN.rowY0+r*CRN.rowDY+CRN.logR,CRN.zPile));}
@@ -720,7 +723,9 @@ const Crane={S:new Map(),F:[],hold:new Map(),
 // ---- trains
 const Trains={list:[],sel:-1,parts:[],nextId:1,
   init(){const ms=[locoMesh(),tenderMesh(),coachMesh([0.72,0.20,0.17],[0.96,0.88,0.70]),coachMesh([0.20,0.48,0.34],[0.96,0.90,0.74]),signalMesh(),stationMesh(),hopperMesh(),wagonMesh(1),wagonMesh(2),wagonMesh(3),loadStageMesh(),gantryMesh(),trolleyMesh(),cableMesh(),hookMesh(),logRowMesh(0),logRowMesh(1),logRowMesh(2),logRowMesh(0,true),logRowMesh(1,true),logRowMesh(2,true),
-    oreWagonMesh(),...['gold','silver','diamond'].map(oreLoadMesh),...['gold','silver','diamond'].map(oreStreamMesh),...['gold','silver','diamond'].map(oreHeapMesh),oreYardMesh(),platPieceMesh(false),platPieceMesh(true),loco01Mesh(),tender01Mesh(),grainHeapMesh(),...planeMeshes()];R.buildVehicleMeshes(ms);R.planeMesh=R.veh.slice(37);/* the plane's parts are the last meshes (PLANE_PARTS) */
+    oreWagonMesh(),...ORE3.map(oreLoadMesh),...ORE3.map(oreStreamMesh),...ORE3.map(oreHeapMesh),oreYardMesh(),platPieceMesh(false),platPieceMesh(true),loco01Mesh(),tender01Mesh(),grainHeapMesh()],pm=planeMeshes(),ex=Object.keys(ORE).filter(k=>!ORE3.includes(k));
+    ms.push(...pm);R.oreIx={};ORE3.forEach((k,i)=>{R.oreIx[k]={load:22+i,stream:25+i,heap:28+i};});ex.forEach(k=>{const b=ms.length;ms.push(oreLoadMesh(k),oreStreamMesh(k),oreHeapMesh(k));R.oreIx[k]={load:b,stream:b+1,heap:b+2};});
+    R.buildVehicleMeshes(ms);R.planeMesh=R.veh.slice(37,37+pm.length);/* the plane's parts (PLANE_PARTS), then coal and iron (4.53) */
     R.signalMesh=R.veh[4];R.stationMesh=R.veh[5];R.platMesh=[R.veh[32],R.veh[33]];},
   cur(){return this.list[this.sel]||null;},
   locoPair(lt){const S=LOCOS[lt]||LOCOS.std,k=lt&&LOCOS[lt]&&lt!=='std'?lt:undefined;return[{k:'loco',...VEH[S.loco],mesh:S.mesh[0],lt:k},{k:'tender',...VEH[S.tender],mesh:S.mesh[1]}];},

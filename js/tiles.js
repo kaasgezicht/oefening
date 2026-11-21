@@ -13,6 +13,7 @@ const Tiles={S:2048,FC:8,M:16,dirName:'',done:new Set(),busy:false,win:{x0:null,
   /* ---- step 2: the window of detail round the camera (2 x 2 tiles, 4 km, 512² cells) in a texture, loaded from the device when the camera
      moves on (a small pill shows meanwhile); the patch of 8 m ground (1.5 km) round the camera is drawn with it (R.drawFine) */
   update(){const T=App.T,w=this.win;if(!T||!this.on(T)||+P.fineDetail===0||!WorldFile.ok()||App.busy){return;}if(w.T!==T||w.key!==this.key()){w.T=T;w.key=this.key();w.x0=null;w.data=null;}
+    if(w.x0!=null&&!Cam.calm(0.3))return;/* 4.53: a new window only once the view has settled: panning stays smooth */
     const c=Cam.pos||R.focus,S=this.S,x0=clamp(Math.round(c[0]/S)*S-S,0,T.W-2*S),z0=clamp(Math.round(c[2]/S)*S-S,0,T.W-2*S);if((x0===w.x0&&z0===w.z0)||w.busy)return;this.loadWin(x0,z0);},
   async loadWin(x0,z0){const w=this.win,n=this.S/this.FC,N=w.N,S=this.S;w.busy=true;this.pill(true);try{const D=new Float32Array(N*N);let got=0;
       for(let q=0;q<4;q++){const ox=q&1,oz=q>>1,a=await this.load(x0/S+ox,z0/S+oz);if(!a)continue;got++;for(let j=0;j<n;j++){const row=(oz*n+j)*N+ox*n;for(let i=0;i<n;i++)D[row+i]=a[j*n+i]/100;}}
@@ -43,7 +44,7 @@ const Tiles={S:2048,FC:8,M:16,dirName:'',done:new Set(),busy:false,win:{x0:null,
     const nz=this.nz||(this.nz=makeNoise((P.seed|0)+9191)),base=new Float32Array(G*G),fine=new Float32Array(G*G),pr=new Uint8Array(G*G),nd=new Float32Array(G*G);
     for(let j=0;j<G;j++)for(let i=0;i<G;i++){const x=x0+(i+0.5)*fc,z=z0+(j+0.5)*fc,k=j*G+i,b=bil(H,x,z);base[k]=b;const p=pr[k]=prot(x,z);
       if(p){fine[k]=b;continue;}const sx=(bil(H,x+cs,z)-bil(H,x-cs,z))/(2*cs),sz=(bil(H,x,z+cs)-bil(H,x,z-cs))/(2*cs),sl=Math.hypot(sx,sz),mm=T.mm?bil(T.mm,x,z):0;
-      const amp=(0.6+3.2*smooth(0.08,0.55,sl)+2.4*mm)*0.75,r=ridged(nz,x/90,z/90,3,0.5,2.1)-0.45,f=fbm(nz,x/22+7.3,z/22-3.1,2,0.5,2)*0.35;nd[k]=(r+f)*amp;fine[k]=b+nd[k];}
+      const amp=(0.6+3.2*smooth(0.08,0.55,sl)+2.4*mm)*0.75*(+P.mtnGen>=2?1+2.2*smooth(500,2200,b-(sea||0)):1)/* 4.53: rougher high up */,r=ridged(nz,x/90,z/90,3,0.5,2.1)-0.45,f=fbm(nz,x/22+7.3,z/22-3.1,2,0.5,2)*0.35;nd[k]=(r+f)*amp;fine[k]=b+nd[k];}
     // local erosion on the tile and its margin (seeded per tile; the game's erosion settings, fewer drops)
     const E={N:G,cs:fc,H:fine};const pp=Object.assign({},P,{seed:((P.seed|0)*7919+tx*131+tz*977)|0,dropletsPerCell:Math.min(1.2,(+P.dropletsPerCell||1)*0.6),thermalIter:Math.min(2,P.thermalIter|0)});
     return{G,n,M,base,fine,pr,nd,E,pp};},

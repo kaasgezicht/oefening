@@ -1,4 +1,4 @@
-# Trein handoff 116 (21 Nov 2026): v4.52.0 — harbour machinery and collier in the house kit (rivets, lattice, machinery houses). Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 117 (21 Nov 2026): v4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,40 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.52.0, 21 Nov) — harbour step 4a: the machinery and the collier at the houses' detail (user: "rivets, lattice detail and
+### Latest (4.53.0, 21 Nov) — the user's batch with their 32 km save (seed 47784, peaks, landShare 0.97, bigMtnHeight 3000)
+- **Map view is a painted 2D map** (user: "very slow and glitchy, can be simplified"). `MapView.paint()` paints T.N² once per world
+  (per opening in exploration mode, unexplored land as mist): hill shading (light from the north-west), tint by height above the sea
+  (green → upland → brown → rock, rock also on slopes > ~35°, snow above ~1.8-2.3 km), forests from T.data[k*4+3], roads from
+  T.roadMask, water (sea below T.sea, lakes/rivers T.water[k*4+3]>0, level T.water[k*4]) by true depth (light 0 m → dark 60 m).
+  `MapView.draw()` makes ONE affine world→screen mapping matched to the camera at the view centre (Cam.toScreen of the target and
+  ±100 m along x and z) and uses it for the picture and every overlay (railways, routes, trains, places), so nothing drifts; earlier
+  per-piece drawing showed seams. The main loop skips R.frame while the map is open (js/bench.js loop). `MapView.S` is that mapping.
+- **Zoomed-out panning stutter** (user: "panning is really unsmooth when zoomed out ... load detail afterwards"). Measured on the
+  user's world headless (scratch pan.js, CDP profiler): ~95 % of busy JS time while panning was texSubImage2D, frames up to 8.5 s:
+  `R.updateRoadFine` rebuilt the 2048² fine road distance field over every road and uploaded it whenever the camera target moved
+  600 m (zoomed out: almost every frame). Now: `Cam.calm(t)` (camera.js: the target's speed in view sizes per second < 0.06 for t s);
+  the fine road field is rebuilt only when calm and Cam.dist < 2200, by a generator job (`R.roadFineGen`, ~4 ms a frame: roads in
+  chunks, the water pass by 64 rows, the upload in 128-row bands) into a second texture (`F.back`) that is swapped in when complete.
+  The 8 m ground window (Tiles.update) also waits for calm. Test helper: `R.benchFrame(t,'fin')` calls gl.finish after each pass.
+- **Mountains** (user: "max height mountains look underwhelming; more detail with altitude"). Cause: in islands/peaks worlds
+  coastShape multiplied all land, big mountains included, by 0.6 (the user's 3000 m → 1650 m peak measured). New hidden param
+  `mtnGen` (def 2, legacy 1; saves without it load as 1, New game sets 2, so worlds with track keep their ground):
+  peaks draw 80–100 % of the set height (same rng draws) capped at 1.6 × their base radius (no needles on small islands); the big
+  mountains' share (BMh) is exempt from the 0.6; ridged crag noise (760 m base, 5 octaves) + fbm grows with height (nothing below
+  ~450 m, ~±7 % of height on tops, max 240 m), added to BMh; rock mask from 1.1–2 km; thermal erosion lets rock stand steeper with
+  height (talus + up to 22° from 700 to 2000 m); the 8 m tiles' relief is up to 3.2× rougher high up. 8 km test, seed 47784, 3000 m:
+  highest point 2447 m above the sea (old shaping ~1650 m on the user's 32 km world).
+- **Coal and iron mines** (same mine model): ORE.coal / ORE.iron (bulk:1). A quarter of the lodes become coal and a quarter iron by
+  their own random stream (placements unchanged); an owned mine keeps its ore (save field `mt`; old saves: the old draw, m.oldType).
+  `Goods.accepts(v,t,k)`: coal and iron only at a station with st.port in a town whose harbour is built. Their meshes come after
+  the plane's: `R.oreIx[type]={load,stream,heap}` (gold/silver/diamond keep 22–30); R.planeMesh is sliced to the plane's parts.
+  Goods tables, GOOD_IC, the village panel's "accepts" line and the mine texts know coal and iron. The harbour's gantry still runs
+  its own loop (step 4b: real deliveries feed it).
+- Harbour how-to (user asked): a harbour town with a site (Port.find; the user's world has six: Notendaal, Vinkeveld, Mosveld,
+  Leeuwenrade, Paddeveld, Uilenburg) offers "Coal & ore harbour" in its village panel once it is a village (level 1) and 40
+  passengers have travelled by train to or from it (€150,000 with money on).
+
+### Earlier (4.52.0, 21 Nov) — harbour step 4a: the machinery and the collier at the houses' detail (user: "rivets, lattice detail and
 painted machinery houses")
 - Two new kit materials (buildings/kit.js MATS, both shaders): **25 riveted plate** (`K.M.rivet`: snap-head rivets 9.5 cm apart in rows
   4.5 cm in from every face edge, rivet columns across plate seams every 1.2 m on long faces, strake seams every 1 m on tall faces, a

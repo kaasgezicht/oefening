@@ -42,12 +42,12 @@ const MainMenu={np:null,pt:0,
   fill(){const np=this.np;for(const k of this.KEYS)$('#mm_'+k).value=np[k];for(const e of document.querySelectorAll('#mmMore [data-mk]')){const id=e.dataset.mk;if(PDEF[id].kind==='check')e.checked=!!+np[id];else e.value=np[id];this.showVal(id);}this.chips();
     const si=Math.max(0,this.SIZES.indexOf(+np.worldSize));$('#mmSize').value=si;this.sizeLabel();},
   sizeLabel(){const W=+this.np.worldSize,km=W/1024;$('#mmSizeV').textContent=`${km} × ${km} km`+(W>16384?' · heavy':W>=16384?' · large':'');},
-  initNew(){const np=this.np={...P};np.mapStyle='peaks';np.islandGen=2;/* for now every new world is mountain islands (the other styles stay in the code) */this.buildMore();{const pe=$('#mmPresets');if(pe&&!pe.dataset.built){pe.dataset.built=1;pe.innerHTML=this.PRESETS.map((q,i)=>`<button type="button" data-pr="${i}"><b>${q[0]}</b><small>${q[1]}</small></button>`).join('');for(const b of pe.querySelectorAll('button'))b.onclick=()=>this.applyPreset(+b.dataset.pr);}}$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},
+  initNew(){const np=this.np={...P};np.mapStyle='peaks';np.islandGen=2;np.mtnGen=2;/* for now every new world is mountain islands (the other styles stay in the code) */this.buildMore();{const pe=$('#mmPresets');if(pe&&!pe.dataset.built){pe.dataset.built=1;pe.innerHTML=this.PRESETS.map((q,i)=>`<button type="button" data-pr="${i}"><b>${q[0]}</b><small>${q[1]}</small></button>`).join('');for(const b of pe.querySelectorAll('button'))b.onclick=()=>this.applyPreset(+b.dataset.pr);}}$('#mmExplore').checked=!!+P.exploreMode;$('#mmSeed').value=np.seed;this.fill();this.sync();this.preview();},
   sync(){const np=this.np;for(const b of document.querySelectorAll('#mmStyle button'))b.classList.toggle('on',b.dataset.v===np.mapStyle);for(const e of document.querySelectorAll('.mm-grid .isl'))e.style.display=np.mapStyle==='land'?'none':'';
     for(const e of document.querySelectorAll('.mm-grid .bm'))e.style.opacity=np.bigMtns>0?1:0.4;},
   preview(){clearTimeout(this.pt);this.pt=setTimeout(async()=>{const np=this.np,t0=performance.now();try{const L=await previewLand(np,160);drawPreview($('#mmPrev'),L,np);$('#mmPrevNote').textContent=`Preview without rivers and lakes · ${np.worldSize/1000} km · seed ${np.seed}`;}catch(e){Log.warn('preview: '+e.message);}},120);},
   start(){const np=this.np;if(!np)return;if(Bench.on){UI.toast('Leave the benchmark world first');return;}
-    for(const k of ['worldSize','seed','mapStyle','islandGen',...this.KEYS,...this.genIds()])P[k]=np[k];/* islandGen: a new world always gets the current island layout (it was left at 1 from an older save: islands of fixed small sizes) */P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
+    for(const k of ['worldSize','seed','mapStyle','islandGen','mtnGen',...this.KEYS,...this.genIds()])P[k]=np[k];/* islandGen: a new world always gets the current island layout (it was left at 1 from an older save: islands of fixed small sizes) */P.exploreMode=$('#mmExplore').checked?1:0;Explore.M=null;Explore.pending=null;Explore.fresh=!!P.exploreMode;try{Air.list=[];for(const m of Air.meshes.values())R.freeMesh(m);Air.meshes.clear();Air.cargo=null;Air.job=null;}catch(e){}paramChanged('mapStyle');Track.load(null);for(const t of Trains.list){t.whistle=false;Sfx.whistle(t,false);}Trains.list=[];Trains.sel=-1;
     Roads.list=[];Buses.stops=[];Buses.list=[];Buses.pending=0;Buses.pendingList=null;Fleet.unlocks={dd:false};Rescue.load_(null);Fires.load_(null);Fish.load_(null);Ledger.days=0;Ledger.simT=0;Ledger.plane.led=null;Ledger.beaver.led=null;Life.roadsDirty=true;Life.pendingV=null;Money.cash=200000;Money.loan=0;Money.paid=new Map();Money.paidSt=new Set();Money.paidTr=new Set();Money.inited=false;
     App.camLoaded=false;App.placedCam=false;UI.refreshAll();this.hide();App.generate(0);},
   saveInfo(){let t='No save yet';try{const s=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');if(s)t=`Last save: ${new Date(s.savedAt||Date.now()).toLocaleString()} · seed ${s.params.seed}, ${s.params.worldSize/1000} km${s.params.mapStyle&&s.params.mapStyle!=='land'?', '+s.params.mapStyle:''}`;}catch(e){}$('#mmSaveInfo').textContent=t+' · the game also saves itself every few minutes. Two files: the save (your game, small) and the world file (the generated world, kept on this device; back it up to keep a world without generating it again).';try{Tiles.ui();}catch(e){}},
@@ -80,20 +80,48 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     el.querySelector('.mk-h').onclick=()=>{this.keyFold=!this.keyFold;this.legend();};},
   /* the camera is held straight down while the map is open */
   hold(){if(!this.on)return;Cam.pitch=1.52;Cam.yaw=0;Cam.mode='free';Cam.dist=clamp(Cam.dist,60,App.T?App.T.W*2.4:20000);},
+  /* 4.53: the map is a painted picture, not the 3D world from far above (that was slow and flickered on big worlds). Painted once per
+     world (and per opening in exploration mode, where unexplored land is mist): hill-shaded land tinted by height (green lowland,
+     brown upland, grey rock, snow on the tops), forests darker, roads tan, water shaded by its true depth. Drawn in 8 x 8 pieces, each
+     placed by the camera's own projection at sea level, so the railways, routes and places drawn over it (also at sea level) sit
+     exactly on it. The 3D frame is skipped while the map is open (the main loop). */
+  paint(){const T=App.T;if(!T)return null;const ex=typeof Explore!=='undefined'&&Explore.on&&Explore.on();if(this.img&&this.imgT===T&&!ex)return this.img;
+    const N=T.N,cs=T.cs,H=T.H,Wt=T.water,D=T.data,RM=T.roadMask,sea=T.sea,cv=document.createElement('canvas');cv.width=N;cv.height=N;const g=cv.getContext('2d'),im=g.createImageData(N,N),px=im.data;
+    const lx=-0.55,ly=0.62,lz=-0.55,mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t],sm=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
+    const G0=[0.52,0.67,0.35],G1=[0.62,0.63,0.4],BR=[0.57,0.5,0.39],RK=[0.56,0.55,0.53],SN=[0.95,0.96,0.98],FO=[0.24,0.4,0.22],SH=[0.62,0.8,0.9],DP=[0.06,0.16,0.34],RD=[0.86,0.8,0.64],MI=[0.55,0.58,0.6];
+    for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,h=H[k],o=k*4;let c,wl=null;
+      if(Wt&&Wt[k*4+3]>0)wl=Wt[k*4];else if(sea!=null&&h<sea)wl=sea;
+      if(wl!=null&&wl>h){c=mix(SH,DP,Math.min(1,(wl-h)/60));}
+      else{const hx=(H[j*N+Math.min(N-1,i+1)]-H[j*N+Math.max(0,i-1)])/(2*cs),hz=(H[Math.min(N-1,j+1)*N+i]-H[Math.max(0,j-1)*N+i])/(2*cs),nl=1/Math.hypot(hx,1,hz),sl=Math.hypot(hx,hz);
+        const a=h-(sea||0),lam=(-hx*lx+ly-hz*lz)*nl;c=mix(G0,G1,sm(0,500,a));c=mix(c,BR,sm(450,1100,a));c=mix(c,RK,Math.max(sm(1000,1700,a),sm(0.6,1.1,sl)));
+        if(D)c=mix(c,FO,(D[k*4+3]/255)*0.85*(1-sm(1200,1700,a)));c=mix(c,SN,sm(1750,2300,a)*(1-sm(0.9,1.4,sl)*0.6));if(RM&&RM[k])c=mix(c,RD,0.75);
+        const f=0.32+0.86*Math.max(0,lam);c=[c[0]*f,c[1]*f,c[2]*f];}
+      if(ex&&!Explore.seen((i+0.5)*cs,(j+0.5)*cs))c=mix(c,MI,0.85);
+      px[o]=Math.min(255,c[0]*255);px[o+1]=Math.min(255,c[1]*255);px[o+2]=Math.min(255,c[2]*255);px[o+3]=255;}
+    g.putImageData(im,0,0);this.img=cv;this.imgT=T;return cv;},
+  // world (x, z) to the screen: set by draw() each frame (the map's flat mapping)
+  S(x,z){return Cam.toScreen(x,0,z);},
   busPath(a,b){const k=a.id+'>'+b.id;if(!this.paths.has(k)){let p=null;try{p=Buses.roadPath([a.rx,a.rz],[b.rx,b.rz]);}catch(e){}this.paths.set(k,p&&p.length>1?p:[[a.rx,a.rz],[b.rx,b.rz]]);}return this.paths.get(k);},
   draw(){if(!this.on||!App.T)return;const cv=$('#mapOv'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
-    const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);const T=App.T,Hr=(x,z)=>R.sampleHr(T,x,z),S=(x,z,y)=>Cam.toScreen(x,y===undefined?Hr(x,z):y,z);this.hits=[];
-    const line=(pts,col,w,dash,casing)=>{const sp=pts.map(p=>S(p[0],p[1],p[2])).filter(Boolean);if(sp.length<2)return;g.setLineDash(dash||[]);g.lineJoin='round';g.lineCap='round';
+    const g=cv.getContext('2d');const T=App.T;this.hits=[];
+    /* one flat (affine) mapping from the world to the screen, matched to the camera at the view's centre: the picture and everything on it
+       use it, so nothing drifts or leaves seams (the camera looks almost, but not exactly, straight down) */
+    const c=Cam.target,p0=Cam.toScreen(c[0],0,c[2]),pa=Cam.toScreen(c[0]+100,0,c[2]),pb=Cam.toScreen(c[0],0,c[2]+100);if(!p0||!pa||!pb)return;
+    const ax=[(pa[0]-p0[0])/100,(pa[1]-p0[1])/100],az=[(pb[0]-p0[0])/100,(pb[1]-p0[1])/100],S=(x,z)=>[p0[0]+ax[0]*(x-c[0])+az[0]*(z-c[2]),p0[1]+ax[1]*(x-c[0])+az[1]*(z-c[2])];this.S=S;
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#10294e';g.fillRect(0,0,W,H);
+    {const img=this.paint();if(img){const cs=T.W/img.width,o=S(0,0);g.imageSmoothingEnabled=true;g.setTransform(dpr*ax[0]*cs,dpr*ax[1]*cs,dpr*az[0]*cs,dpr*az[1]*cs,dpr*o[0],dpr*o[1]);g.drawImage(img,0,0);}}
+    g.setTransform(dpr,0,0,dpr,0,0);
+    const line=(pts,col,w,dash,casing)=>{const sp=pts.map(p=>S(p[0],p[1])).filter(Boolean);if(sp.length<2)return;g.setLineDash(dash||[]);g.lineJoin='round';g.lineCap='round';
       if(casing){g.strokeStyle=casing;g.lineWidth=w+3;g.beginPath();sp.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();}
       g.strokeStyle=col;g.lineWidth=w;g.beginPath();sp.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.setLineDash([]);};
     // railways
-    for(const sg of Track.segs){if(sg.pend)continue;const n=Math.max(2,Math.ceil(sg.L/12)),pts=[];for(let k=0;k<=n;k++){const t=sg.L*k/n,q=segPoint(sg,t);pts.push([q[0],q[1],segY(sg,t)]);}line(pts,'#ff5a4a',3.5,null,'#2a0d0acc');}
+    for(const sg of Track.segs){if(sg.pend)continue;const n=Math.max(2,Math.ceil(sg.L/12)),pts=[];for(let k=0;k<=n;k++){const t=sg.L*k/n,q=segPoint(sg,t);pts.push([q[0],q[1]]);}line(pts,'#ff5a4a',3.5,null,'#2a0d0acc');}
     // bus and lorry routes (each leg along the roads)
     const plan=Fleet.draft&&Fleet.draft.tab==='map'?Fleet.draft:null;Buses.list.forEach((b,bi)=>{if(plan?(b.mapHidden||b===plan.edit):!MapUI.shows(b))return;const RS=Buses.route(b);if(RS.length<2)return;const col=Fleet.color(b),off=(bi%3-1)*Cam.dist*0.004;for(let k=0;k<RS.length;k++){const a=RS[k],c=RS[(k+1)%RS.length],p=this.busPath(a,c);line(p.map(q=>[q[0]+off,q[1]+off]),col,2.5,b.goods?[2,5]:[7,5],'#0008');}});
 
     // vehicles: trains and buses as dots
-    for(const tr of Trains.list){const p=tr.poses&&tr.poses[0];if(!p||!MapUI.shows(tr))continue;const q=S(p.c[0],p.c[2],p.c[1]);if(q){g.fillStyle='#fff';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],5,0,6.283);g.fill();g.stroke();}}
-    if(MapUI.shows(Ledger.plane)&&!plan){for(const a of Air.list){const q=S(a.x,a.z);if(q){g.fillStyle='#ffe07a';g.strokeStyle='#000';g.lineWidth=1.5;g.fillRect(q[0]-6,q[1]-2.5,12,5);g.strokeRect(q[0]-6,q[1]-2.5,12,5);}}if(Plane.on&&Plane.st){const q=S(Plane.st.p[0],Plane.st.p[2],Plane.st.p[1]);if(q){g.fillStyle='#ffe07a';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.moveTo(q[0],q[1]-7);g.lineTo(q[0]+6,q[1]+5);g.lineTo(q[0]-6,q[1]+5);g.closePath();g.fill();g.stroke();}}}
+    for(const tr of Trains.list){const p=tr.poses&&tr.poses[0];if(!p||!MapUI.shows(tr))continue;const q=S(p.c[0],p.c[2]);if(q){g.fillStyle='#fff';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],5,0,6.283);g.fill();g.stroke();}}
+    if(MapUI.shows(Ledger.plane)&&!plan){for(const a of Air.list){const q=S(a.x,a.z);if(q){g.fillStyle='#ffe07a';g.strokeStyle='#000';g.lineWidth=1.5;g.fillRect(q[0]-6,q[1]-2.5,12,5);g.strokeRect(q[0]-6,q[1]-2.5,12,5);}}if(Plane.on&&Plane.st){const q=S(Plane.st.p[0],Plane.st.p[2]);if(q){g.fillStyle='#ffe07a';g.strokeStyle='#000';g.lineWidth=2;g.beginPath();g.moveTo(q[0],q[1]-7);g.lineTo(q[0]+6,q[1]+5);g.lineTo(q[0]-6,q[1]+5);g.closePath();g.fill();g.stroke();}}}
     for(const b of Buses.list){if(plan?b.mapHidden:!MapUI.shows(b))continue;const q=S(b.x,b.z);if(q){g.fillStyle=Fleet.color(b);g.strokeStyle='#000';g.lineWidth=1.5;g.beginPath();g.arc(q[0],q[1],4,0,6.283);g.fill();g.stroke();}}
     // places: an icon in a ring of its kind's colour, with its name; where icons would overlap (zoomed out) a plain dot of that colour
     const SY=[],sym=(x,z,icon,name,size,kind)=>{if(!Explore.seen(x,z))return;/* exploration: nothing shows in the mist */const q=S(x,z);if(!q||q[0]<-40||q[1]<-40||q[0]>W+40||q[1]>H+40)return;SY.push({q,x,z,icon,name,size,col:this.col(kind),r:size/2+5,big:kind==='town'});};
@@ -121,7 +149,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     for(const c of d.C){const q=S(c.x,c.z);if(!q)continue;const on=d.sel.includes(c.key);/* a ring round the place; chosen: gold with its number in a badge */g.lineWidth=on?4:2.5;g.strokeStyle=on?'#e8c35a':'#e8c35acc';g.setLineDash(on?[]:[4,3]);g.beginPath();g.arc(q[0],q[1],19,0,6.283);g.stroke();g.setLineDash([]);
       if(on){const bx=q[0]+15,by=q[1]-15;g.fillStyle='#e8c35a';g.strokeStyle='#15191a';g.lineWidth=2;g.beginPath();g.arc(bx,by,10,0,6.283);g.fill();g.stroke();g.fillStyle='#15191a';g.font='700 12px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(String(d.route.indexOf(c)+1),bx,by+1);}
       if(c.kind!=='v'){g.fillStyle='#15191ae6';g.beginPath();g.arc(q[0],q[1],9,0,6.283);g.fill();g.fillStyle='#e8c35a';g.font='600 11px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(c.kind==='sawmill'?'S':'W',q[0],q[1]+1);}}},
-  planTap(x,y){const d=Fleet.draft;let best=null,bd=34;for(const c of d.C){const q=Cam.toScreen(c.x,R.sampleHr(App.T,c.x,c.z),c.z);if(!q)continue;const dd=Math.hypot(q[0]-x,q[1]-y);if(dd<bd){bd=dd;best=c;}}
+  planTap(x,y){const d=Fleet.draft;let best=null,bd=34;for(const c of d.C){const q=this.S(c.x,c.z);if(!q)continue;const dd=Math.hypot(q[0]-x,q[1]-y);if(dd<bd){bd=dd;best=c;}}
     if(!best){/* a village symbol drawn a little off its stop */for(const h of this.hits){const dd=Math.hypot(h.x-x,h.y-y);if(dd<h.r&&dd<bd){const c=d.C.find(c=>c.kind==='v'&&Math.hypot(c.v.x-h.wx,c.v.z-h.wz)<5);if(c){bd=dd;best=c;}}}}
     if(best)Fleet.toggle(best.key);},
   tap(x,y){if(Fleet.draft&&Fleet.draft.tab==='map'){this.planTap(x,y);return true;}let best=null,bd=1e9;for(const h of this.hits){const d=Math.hypot(h.x-x,h.y-y);if(d<h.r&&d<bd){bd=d;best=h;}}if(!best)return false;this.fly=[best.wx,R.sampleHr(App.T,best.wx,best.wz),best.wz];this.close();return true;}};
