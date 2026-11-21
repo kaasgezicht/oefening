@@ -28,8 +28,12 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
       cand.sort((a,b)=>b.s-a.s);let k=0;for(const q of cand){if(k>=n)break;if(this.L.some(o=>Math.hypot(o.x-q.x,o.z-q.z)<spacing))continue;this.L.push({x:q.x,y:q.y,z:q.z,rot:q.rot,ph:rng()*6.283,isl:c.id});k++;}}
     // fishing harbours: a quay out from the nearest bit of sea shore within 420 m of a coastal village
     for(const v of vill){let best=null;for(let a=0;a<48;a++){const dx=Math.cos(a*0.1309),dz=Math.sin(a*0.1309);for(let r=(v.R||50)*0.7;r<420;r+=4){const x=v.x+dx*r,z=v.z+dz*r;if(x<40||z<40||x>W-40||z>W-40)break;
-        if(isSea(x,z)){/* the sea must stay open (2 m deep) for 40 m out */let ok=true;for(const d of [14,26,40])if(!isSea(x+dx*d,z+dz*d)||Hs(x+dx*d,z+dz*d)>sea-2)ok=false;if(ok&&(!best||r<best.r))best={x,z,r,dx,dz};break;}}}
-      if(best&&!this.L.some(o=>Math.hypot(o.x-best.x,o.z-best.z)<120))this.H.push({x:best.x-best.dx*3,z:best.z-best.dz*3,rot:Math.atan2(best.dz,best.dx),v,boats:[0,1,2].slice(0,1+Math.floor(rng()*3)).map(i=>({k:Math.floor(rng()*3),side:i%2?1:-1,at:10+i*9+rng()*2,ph:rng()*6}))});}
+        if(isSea(x,z)){/* the sea must stay open (2 m deep) for 40 m out */let ok=true;for(const d of [14,26,40])if(!isSea(x+dx*d,z+dz*d)||Hs(x+dx*d,z+dz*d)>sea-2)ok=false;
+          /* 4.57.1: and there must be shore behind it (rays that start out at sea gave quays standing in the water); the root (local x −6) goes
+             as far inland as the ground stays below the deck (1.6 m), at most 14 m, so it meets the bank */
+          if(ok&&isSea(x-dx*8,z-dz*8))ok=false;let back=0;if(ok)for(let k=1;k<=14;k++){if(Hs(x-dx*k,z-dz*k)>sea+1.3)break;back=k;}
+          if(ok&&(!best||r<best.r))best={x,z,r,dx,dz,back};break;}}}
+      if(best&&!this.L.some(o=>Math.hypot(o.x-best.x,o.z-best.z)<120))this.H.push({x:best.x-best.dx*(best.back-6),z:best.z-best.dz*(best.back-6),rot:Math.atan2(best.dz,best.dx),v,boats:[0,1,2].slice(0,1+Math.floor(rng()*3)).map(i=>({k:Math.floor(rng()*3),side:i%2?1:-1,at:10+i*9+rng()*2,ph:rng()*6}))});}
     for(const q of [...this.L,...this.H])if(R.vegB&&R.clearVegRect){const isL=!!q.ph&&q.isl!==undefined;R.clearVegRect(T,{x:q.x,z:q.z,a:q.rot,x0:isL?-9:-10,x1:isL?9:4,z0:isL?-9:-6,z1:isL?9:6},2);}
     // seagulls: a flock over every harbour and lighthouse and along the coast
     const flock=(x,z,n,r,y)=>{for(let i=0;i<n;i++)this.gulls.push({cx:x,cz:z,r:r*(0.6+rng()*0.7),y:y+rng()*18,a:rng()*6.283,w:(rng()<0.5?-1:1)*(7+rng()*3),ph:rng()*20,sit:null});};

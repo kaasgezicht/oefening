@@ -41,6 +41,14 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     const i0=Math.max(0,Math.floor((s.x-R2)/cs)),i1=Math.min(N-1,Math.ceil((s.x+R2)/cs)),j0=Math.max(0,Math.floor((s.z-R2)/cs)),j1=Math.min(N-1,Math.ceil((s.z+R2)/cs));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const x=i*cs,z=j*cs,dx=x-s.x,dz=z-s.z,u=dx*c+dz*sn,w=-dx*sn+dz*c,ou=Math.max(0,u0-u,u-u1),ow=Math.max(0,w0-w,w-w1),o=Math.hypot(ou,ow);if(o>M)continue;
       const wt=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M),k=j*N+i,g=ln.at(clamp(u,-L,L)),h=T.Hr[k],tg=h>g?g:Math.min(g,h+AIR.fill);T.Hr[k]=h+(tg-h)*wt;}
+    /* 4.57.1: the helipad (Rescue.pad) on the apron side: the spot along it (u −200…200, w −52) that needs the least earthwork, then a level
+       disc under it (r 13, blended out over 12 m more). The runway grading fills at most 6 m, so on a steep side slope the pad floated */
+    if(typeof RESCUE!=='undefined'){const pr=RESCUE.padR,pw=RESCUE.padW,Hs=(x,z)=>R.sampleHr(T,x,z);let best=null;
+      for(const u of [-200,-150,-100,-50,50,100,150,200]){const lv=ln.c+ln.m*u+Math.abs(ln.m)*pr,px=s.x+c*u-sn*pw,pz=s.z+sn*u+c*pw;let need=Math.abs(Hs(px,pz)-lv);
+        for(let a=0;a<12;a++)need=Math.max(need,Math.abs(Hs(px+Math.cos(a*0.5236)*pr,pz+Math.sin(a*0.5236)*pr)-lv));const sc=need+Math.abs(u+200)*0.004;if(!best||sc<best.sc)best={u,lv,px,pz,sc};}
+      s.padU=best.u;const r0=pr+3,r1=r0+12;
+      for(let j=Math.max(0,Math.floor((best.pz-r1)/cs));j<=Math.min(N-1,Math.ceil((best.pz+r1)/cs));j++)for(let i=Math.max(0,Math.floor((best.px-r1)/cs));i<=Math.min(N-1,Math.ceil((best.px+r1)/cs));i++){
+        const d=Math.hypot(i*cs-best.px,j*cs-best.pz);if(d>r1)continue;const t=d<=r0?1:1-((d-r0)/(r1-r0))**2*(3-2*(d-r0)/(r1-r0)),k=j*N+i;T.Hr[k]+=(best.lv-T.Hr[k])*t;}}
     R.patchTerrain(T,i0,j0,i1,j1);R.dryWater(T,i0,j0,i1,j1);s.graded=true;s.ln={m:ln.m,c:ln.c};},
   /* the runway surface where a plane stands on it: the line over the deck and the graded ground alike (null off the runways) */
   nm(s){return s?(s.water?'jetty ':'airstrip ')+s.n:'';},

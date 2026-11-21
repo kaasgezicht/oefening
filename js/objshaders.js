@@ -444,8 +444,8 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
   float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(70.,40.+od*.03));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,30.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
   {vec2 duv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float zs=texture(uDepthCopy,duv).r;if(zs<1.){vec3 F=-vec3(uView[0][2],uView[1][2],uView[2][2]),Dr=normalize(W-uCamPos.xyz);
-      float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));if(abs(db-depthT)<1.+depthT*.6)depth=mix(depthT,db,nw);}}
-  float dsl=length(vec2(dFdx(depth),dFdy(depth)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard
+      float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));float ag=1.-smoothstep(1.+depthT*.6,2.+depthT*1.2,abs(db-depthT));depth=mix(depthT,db,nw*ag);}}/* 4.57.1: faded in by how well they agree (an on/off switch made the depth jump along a sea-floor contour) */
+  float dsl=length(vec2(dFdx(depthT),dFdy(depthT)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard: from the smooth terrain only (4.57.1: the refined depth's steps read as a steep shore and drew dashed foam lines out on the sea)
   if(depthT<.005&&depth<.003)discard;
   vec2 fl=flowAt(W.xz);float sp=length(fl);vec2 fdir=sp>1e-5?fl/sp:vec2(0);float v=min(sp*45.,3.)*(1.+rain*.5+uFlood.x*.8);float iceF=ice*(1.-smoothstep(1.5,3.,v)*.8);
   vec2 wd=sp>.002?fdir:normalize(uWind.xz+1e-4);float calm=(.35+.65*uWater.y)*(1.-iceF);

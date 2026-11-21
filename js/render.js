@@ -312,8 +312,11 @@ R.chunkBounds=function(T){const quick=R._quickBounds;R._quickBounds=false;/* aft
 // Pieces of up to 48 points with a bounding box, so only streams in view and within 3 km are drawn.
 // Vertex: pos3, u (-1..1 across), s (m along), half-width, kind+slope
 /* streams are not drawn across a runway (it is raised over them, they run under it in a culvert): each stream is split there */
-R.cutStreams=function(S){const A=typeof Air!=='undefined'?Air.list.filter(a=>!a.water):[];if(!S||!A.length)return S;const out=[];
-  const inside=(x,z)=>A.some(a=>{const c=Math.cos(a.h),sn=Math.sin(a.h),dx=x-a.x,dz=z-a.z;return Math.abs(dx*c+dz*sn)<AIR.len/2+14&&Math.abs(-dx*sn+dz*c)<AIR.w/2+4;});
+/* 4.57.1: nor across a station's levelled yard (platform, building and their bench: ±(half+6) along, 18 m either side of the track) */
+R.stationRects=function(){const out=[];for(const st of (typeof Track!=='undefined'?Track.stations:[])){if(st.port)continue;const g=segById(st.sid);if(!g)continue;const q=segPoint(g,st.t);out.push({x:q[0],z:q[1],c:Math.cos(q[2]),s:Math.sin(q[2]),h:(st.len||44)/2+6});}return out;};
+R.cutStreams=function(S){const A=typeof Air!=='undefined'?Air.list.filter(a=>!a.water):[],SR=R.stationRects(),PD=typeof Rescue!=='undefined'?A.map(a=>Rescue.pad(a)):[];if(!S||(!A.length&&!SR.length))return S;const out=[];
+  const inside=(x,z)=>A.some(a=>{const c=Math.cos(a.h),sn=Math.sin(a.h),dx=x-a.x,dz=z-a.z;return Math.abs(dx*c+dz*sn)<AIR.len/2+14&&Math.abs(-dx*sn+dz*c)<AIR.w/2+4;})||
+    SR.some(r=>{const dx=x-r.x,dz=z-r.z;return Math.abs(dx*r.c+dz*r.s)<r.h&&Math.abs(-dx*r.s+dz*r.c)<18;})||PD.some(q=>Math.hypot(x-q.x,z-q.z)<24);/* and the helipads' levelled discs */
   for(const s of S){let cur=[];for(let i=0;i<s.length;i+=3){if(inside(s[i],s[i+1])){if(cur.length>=6)out.push(cur);cur=[];}else cur.push(s[i],s[i+1],s[i+2]);}if(cur.length>=6)out.push(cur);}return out;};
 R.buildStreams=function(T){if(R.stVao){gl.deleteVertexArray(R.stVao);gl.deleteBuffer(R.stVb);gl.deleteBuffer(R.stIb);R.stVao=null;}R.stCount=0;R.stPieces=[];const S=R.cutStreams(T.streams);if(!S||!S.length)return;
   const V=[],I=[],H=T.Hr||T.H,rw=P.riverWidth;let base=0;const C=[],SS=[];

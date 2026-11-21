@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.57.0 (processing factories: gasworks, ironworks, mint and diamond works; tap a mine to see where its ore goes)';
+const VERSION='4.57.1 (no more dashed foam lines on the sea; quays, helipads and stations sit right on slopes)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

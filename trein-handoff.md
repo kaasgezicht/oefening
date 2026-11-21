@@ -1,4 +1,4 @@
-# Trein handoff 123 (21 Nov 2026): v4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 124 (21 Nov 2026): v4.57.1 — step 9 part 2 (sea seam, slopes). Before: 4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,32 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.57.0, 21 Nov) — processing factories (user: "Victorian set"; "tapping a mine shows where its ore goes"; "sometimes on another island")
+### Latest (4.57.1, 21 Nov) — step 9 part 2: the sea seam, and stations / quays / helipads on slopes
+- **The dashed bright line on the sea: found and fixed.** It was shoreline foam drawn out at sea. The water shader refines the depth near
+  the camera (< 400 m) from the depth buffer, but only where it agrees with the smooth terrain depth (`abs(db-depthT)<1+0.6·depthT`):
+  an on/off switch, so along a sea-floor contour the depth jumped; `dsl` (bottom slope = screen derivative of depth) spiked there, so
+  `dsh = depth/dsl` ("metres to the waterline") went near 0 and the foam term drew white dashes. Fix (FS_WATER): the refinement fades in
+  by agreement (`ag = 1−smoothstep(1+0.6·d, 2+1.2·d, |db−depthT|)`), and `dsl` comes from `depthT` only. Reproduced headlessly
+  (4 km peaks, seed 4242, 18:48, camera 4 m over the sea at x 1400 looking west into the sun): the line was there with the near 3D
+  patch off and with one chunk LOD everywhere (so not those); gone after. Foam debug view (P.dbgWater 3) shows no foam at sea; shore
+  shading unchanged. checks/seam571_before_after.png. (The earlier "1.4 km out" estimate was wrong: it is near the camera.)
+- **Fishing quays** (Coast.init): a quay's ray could start out at sea, so three of seven quays in the test world stood in 3–6 m of water
+  with no land behind. Now a candidate needs land 8 m behind the first sea point, and the root (local x −6) slides inland as far as
+  the ground stays below sea+1.3 (≤ 14 m) so it meets the bank. Roots now sit 0.5–1 m under the deck. A village with no such shore
+  gets no fishing harbour (test world: 6 instead of 7). Saved fishing boats: Fish.apply already drops the saved state when the
+  harbour count differs (boats start moored).
+- **Helipads** (Air.grade + Rescue.pad): the pad stood at a fixed spot (u −200, w −52) whose ground the runway grading may fill only
+  6 m, so on steep side slopes it floated (test: 6 m and 28 m). Now grade() tries u −200…200 (w −52), takes the spot needing the
+  least earthwork (slight preference for −200), stores `s.padU`, and levels a disc under it (r 13, blended out over 12 m more).
+  Re-graded on load too, so existing pads move to their best spot. All six test pads now within 0.25 m (edge ≤ 1.8 m).
+- **Stations on slopes**: measured 4 stations on 0.18 and 0.38 cross-slopes, both building sides: the bench is level (ground ~1 m below
+  platform level across −12…+16 m) and the pictures look right. One real fault: a brook ran through the station yard → streams are
+  now also cut at station yards (`R.stationRects`: ±(half+6) along, 18 m either side; not harbour stations) and at helipad discs
+  (r 24), like at runways. `App.trackChanged` rebuilds the streams when the station list changes (signature of id/seg/t/len).
+  checks/slope571_station.png, checks/slope571_quays_pads.png.
+- Lighthouses measured fine. Not done: a committed tools/tour.js (the test scripts stay in the scratchpad).
+
+### Earlier (4.57.0, 21 Nov) — processing factories (user: "Victorian set"; "tapping a mine shows where its ore goes"; "sometimes on another island")
 - New buildings/factories.js (kit models, ground y 0, plot x ±24, z ±18; `KIT.FACT={hx:24,hz:18,slots:34}`): factGas (retort house,
   two gasholders in guide frames, purifier house, coal store, square chimney), factIron (blast furnace with lift tower, three riveted
   stoves, casting house, blowing-engine house, round chimney, bins, slag tip), factMint (classical stone, portico, flag, bullion yard),

@@ -240,7 +240,7 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   },
   /* 4.32.0: only the area round the track pieces added or removed since the last time is rebuilt (heights restored and carved, drawn heights);
      the roads are re-planned only when that area touches one. A full rebuild took seconds per piece on big maps */
-  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;const t0=performance.now(),N=T.N,cs=T.cs,sig=new Map();for(const s of Track.segs)sig.set(s.id,s);
+  trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;{const ss=Track.stations.filter(q=>!q.port).map(q=>q.id+':'+q.sid+':'+Math.round(q.t)+':'+(q.len||44)).join('|');if(ss!==this._stSig){if(this._stSig!=null)Pending.streams=true;this._stSig=ss;}}/* 4.57.1: streams are cut at station yards (R.cutStreams) */const t0=performance.now(),N=T.N,cs=T.cs,sig=new Map();for(const s of Track.segs)sig.set(s.id,s);
     const old=this._segSig;this._segSig=sig;let rc=null;
     if(old){const ch=[...[...sig.values()].filter(s=>old.get(s.id)!==s),...[...old.values()].filter(s=>!sig.has(s.id))];if(ch.length&&ch.length<40){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const s of ch)for(let i=0;i<=16;i++){const p=segPoint(s,s.L*i/16);x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
       const mg=110;rc={i0:Math.max(0,Math.floor((x0-mg)/cs)),i1:Math.min(N-1,Math.ceil((x1+mg)/cs)),j0:Math.max(0,Math.floor((z0-mg)/cs)),j1:Math.min(N-1,Math.ceil((z1+mg)/cs))};}}

@@ -16,7 +16,7 @@
 const RESCUE={padU:-200,padW:-52,padR:10,maxL:60,hoist:[0.9,1.12,1.02]};
 const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:null,hv:[0,0,0],load:null,_warn:0,
   // ---- the helipads
-  pad(s){const c=Math.cos(s.h),sn=Math.sin(s.h),u=RESCUE.padU,w=RESCUE.padW,ln=s.ln||{m:0,c:R.sampleHr(App.T,s.x,s.z)};return{x:s.x+c*u-sn*w,z:s.z+sn*u+c*w,y:ln.c+ln.m*u+Math.abs(ln.m)*RESCUE.padR+0.25,h:s.h,s};},/* level, so lifted by the runway's slope over its radius; its edge reaches down into the ground */
+  pad(s){const c=Math.cos(s.h),sn=Math.sin(s.h),u=s.padU!=null?s.padU:RESCUE.padU,/* the spot Air.grade chose */w=RESCUE.padW,ln=s.ln||{m:0,c:R.sampleHr(App.T,s.x,s.z)};return{x:s.x+c*u-sn*w,z:s.z+sn*u+c*w,y:ln.c+ln.m*u+Math.abs(ln.m)*RESCUE.padR+0.25,h:s.h,s};},/* level, so lifted by the runway's slope over its radius; its edge reaches down into the ground */
   pads(){return Fleet.unlocks.heli&&App.T?Air.list.filter(s=>!s.water).map(s=>this.pad(s)):[];},
   nearestPad(x,z){let b=null,bd=1e18;for(const p of this.pads()){const d=Math.hypot(p.x-x,p.z-z);if(d<bd){bd=d;b=p;}}return b;},
   padAt(x,z){if(!Fleet.unlocks.heli)return null;for(const s of Air.list){if(s.water)continue;const p=this.pad(s);if(Math.abs(x-p.x)<RESCUE.padR&&Math.abs(z-p.z)<RESCUE.padR&&Math.hypot(x-p.x,z-p.z)<RESCUE.padR)return p.y;}return null;},
