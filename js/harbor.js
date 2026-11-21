@@ -23,7 +23,8 @@
 //     under the gantry beam.
 //  4. The freight siding is a separate track entering from the west (no switch on site); the two passenger tracks run straight through
 //     the whole site so the player's lines join them at both ends (x 0 and x 120).
-//  5. The deck stands 3 m above the sea. Ground higher than that is cut down to the deck; where it is lower the deck stands on
+//  5. The back of the site (y ≥ 50: tracks, station) is at least 70 % land, joined over land to its town; the quay side may stand
+//     over the water. The deck stands 3 m above the sea. Ground higher than that is cut down to the deck; where it is lower the deck stands on
 //     foundations (blocks now; brick piers and timber stilts in step 2).
 //  6. The collier is 45 × 9 m, 2 m off the quay; three hatches at x 44, 53, 62; bridge and funnel aft. The shiploader travels x 44..62
 //     (all three hatches) and is modelled over the first one.
@@ -89,6 +90,10 @@ const Port={S:[],key:'',meshes:new Map(),
             if(!ok)continue;
             for(let lx=0;lx<=PORT.W&&ok;lx+=10)for(let ly=0;ly<=PORT.D;ly+=10){const g=Hs(...this.xz(s,lx,ly));if(g>deck+6){ok=false;break;}cut+=Math.max(0,g-deck);if(g<deck-1)low++;}
             if(!ok)continue;
+            // the back (the tracks and the station, y ≥ 50) must stand mostly on land, and that land on the town's own island: the line
+            // from the town to the back of the site stays on land (trains have to get there)
+            {let n=0,nl=0;for(let lx=0;lx<=PORT.W;lx+=10)for(let ly=50;ly<=PORT.D;ly+=10){n++;if(Hs(...this.xz(s,lx,ly))>sea+0.5)nl++;}if(nl<n*0.7)continue;
+              const b=this.xz(s,PORT.W/2,PORT.D),L=Math.hypot(b[0]-v.x,b[1]-v.z);let wet=0;for(let k=1;k<20;k++){const f=k/20;if(Hs(v.x+(b[0]-v.x)*f,v.z+(b[1]-v.z)*f)<sea+0.2)wet++;}if(wet>1||L>1700)continue;}
             const cs=this.cornersOf(s),bad=Life.houses.some(h=>h.fixed&&!h.gone&&this.inside(s,h.x,h.z,10))||(Life.mines||[]).some(m=>this.inside(s,m.x,m.z,30))||Coast.H.some(h=>this.inside(s,h.x,h.z,25))||Coast.L.some(l=>this.inside(s,l.x,l.z,25))||this.S.some(o=>Math.hypot(o.x-s.x,o.z-s.z)<260)||cs.some(c=>c[0]<60||c[1]<60||c[0]>W-60||c[1]>W-60);
             if(bad)continue;const sc=cut*0.6+low*0.4+r*0.02;if(!best||sc<best.sc)best={...s,sc,cut};break;}}}
       if(best)this.S.push(best);}
