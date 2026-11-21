@@ -1,4 +1,4 @@
-# Trein handoff 107 (21 Nov 2026): v4.44.1 — forest fires only from a mission. Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 108 (21 Nov 2026): v4.44.2 — step 9 part 1 (glitch sweep). Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,27 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.44.1, 21 Nov) — forest fires only from a mission (user: "only appear when a forest fire mission is selected for now")
+### Latest (4.44.2, 21 Nov) — improvement step 9, part 1 (mesh-glitch sweep)
+- **Brooks over airstrips: fixed.** `R.cutStreams` splits every stream where it crosses a land runway (±len/2+14 m, ±w/2+4 m); the
+  grading already raises the runway over it. Airstrip build and load set `Pending.streams` so the ribbons are rebuilt. Checked before /
+  after on the 4 km test world (strip 3: a brook ran across the runway, now it stops at both edges).
+- **Far sea: two ray passes ended too far.** The water writes no depth and past the map there is no sea floor, so the volumetric mist
+  and clouds marched up to 3 km below the horizon, and the god-ray mask counted the far sea as sky. Now: sea level in `uMisc2.y`
+  (UBO 129); mist/cloud rays end on the sea surface; the ray mask only counts empty depth above the horizon (`uInvVP`, `uRayCam`). Both
+  are logical fixes, not seen in the test (mist was off and god rays are 0 by default in that world).
+- **Not fixed: the thin bright line on the sea along the map edge** (seen at low angles toward the sun, ~1.4 km out; it is the
+  "dashed seam"). Findings so far, so the next attempt need not repeat them: it vanishes with `Sea.amp()=0` and when the terrain pass
+  is skipped (so the seabed shows through); it is NOT the swell displacement (faded to 0 at the edge: no change), not the swell slope or
+  whitecaps in the shading, not the rim depth used for the swell, not SSR, bloom, DOF, clouds or god rays. The rim cells are H=40 in
+  the data and Hr=0.5 drawn; the open-sea rings overlap the map's water by 2.5 cells. Next idea: read back the water alpha/colour there.
+- The pale haze at the sea horizon toward a low sun is mostly the far sea reflecting the hazy horizon sky (expected); the vertical
+  streaks in it are aliasing of the far water normals.
+- Houses on slopes: measured all 108 houses of the test world (ground under a 5×5 grid of the plot): the plots differ up to 2.6 m,
+  but the pictures show the houses seated (foundations cover it); nothing changed.
+- Test tooling (scratchpad, not committed): a camera-tour script (views → pictures) and a page probe; worth turning into
+  `tools/tour.js` when step 9 continues (stations, quays, helipads on slopes still to check).
+
+### Earlier (4.44.1, 21 Nov) — forest fires only from a mission (user: "only appear when a forest fire mission is selected for now")
 - No more random fires (the spawn timer in `Fires.update` and `Fires.next` are gone; buying the CL-415 no longer schedules one).
 - With the CL-415 owned and no fire burning, every airfield/jetty panel offers "🔥 Forest fire mission" (`data-nf`): it calls
   `Fires.start(true, strip)` (a dense wood 2–7 km from that field, preferring one within ~2.5 km of water to scoop from; anywhere

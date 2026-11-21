@@ -311,7 +311,11 @@ R.chunkBounds=function(T){const quick=R._quickBounds;R._quickBounds=false;/* aft
 // Chaikin passes and resampled every ~3 m; built twice as wide as the base stream so floods can widen them in the shader.
 // Pieces of up to 48 points with a bounding box, so only streams in view and within 3 km are drawn.
 // Vertex: pos3, u (-1..1 across), s (m along), half-width, kind+slope
-R.buildStreams=function(T){if(R.stVao){gl.deleteVertexArray(R.stVao);gl.deleteBuffer(R.stVb);gl.deleteBuffer(R.stIb);R.stVao=null;}R.stCount=0;R.stPieces=[];const S=T.streams;if(!S||!S.length)return;
+/* streams are not drawn across a runway (it is raised over them, they run under it in a culvert): each stream is split there */
+R.cutStreams=function(S){const A=typeof Air!=='undefined'?Air.list.filter(a=>!a.water):[];if(!S||!A.length)return S;const out=[];
+  const inside=(x,z)=>A.some(a=>{const c=Math.cos(a.h),sn=Math.sin(a.h),dx=x-a.x,dz=z-a.z;return Math.abs(dx*c+dz*sn)<AIR.len/2+14&&Math.abs(-dx*sn+dz*c)<AIR.w/2+4;});
+  for(const s of S){let cur=[];for(let i=0;i<s.length;i+=3){if(inside(s[i],s[i+1])){if(cur.length>=6)out.push(cur);cur=[];}else cur.push(s[i],s[i+1],s[i+2]);}if(cur.length>=6)out.push(cur);}return out;};
+R.buildStreams=function(T){if(R.stVao){gl.deleteVertexArray(R.stVao);gl.deleteBuffer(R.stVb);gl.deleteBuffer(R.stIb);R.stVao=null;}R.stCount=0;R.stPieces=[];const S=R.cutStreams(T.streams);if(!S||!S.length)return;
   const V=[],I=[],H=T.Hr||T.H,rw=P.riverWidth;let base=0;const C=[],SS=[];
   const PG=new Map(),pk=(x,z)=>Math.floor(x/8)+','+Math.floor(z/8);S.forEach((s,id)=>{for(let i=0;i<s.length;i+=3){const k=pk(s[i],s[i+1]);if(!PG.has(k))PG.set(k,new Set());PG.get(k).add(id);}});
   const touch=s=>{const id=S.indexOf(s);for(const e of [0,s.length-3]){const gx=Math.floor(s[e]/8),gz=Math.floor(s[e+1]/8);for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){const g=PG.get((gx+dx)+','+(gz+dz));if(g)for(const o of g)if(o!==id)return true;}}return false;};
@@ -625,7 +629,7 @@ R.fillUBO=function(cam,A,lightVP){const U=R.U,T=R.world,E=A.E;
   const lights=A.night>0.05&&P.lampsOn?Life.lights(R.focus,Math.min(24,P.nightLights)):[];const k=A.night;
   for(let i=0;i<24;i++){const l=lights[i];if(l){U.set([l[0],l[1],l[2],l[3]],132+i*4);U.set([l[4]*k,l[5]*k,l[6]*k,0],228+i*4);}}
   const res=R.shRes&&A.keyUp?R.shRes:0;
-  U.set([lights.length,0,res?R.shTexel:0,res?1/res:0],128);U.set(Weather.boltU(),324);U.set([Clouds.base,Clouds.thick,Clouds.M,Clouds.inv],328);U.set([-Clouds.off[0],-Clouds.off[1],E.dark+E.storm*0.3,Clouds.dens],332);U.fill(0,336,372);if(typeof Coast!=='undefined')Coast.beamU(U,A);
+  U.set([lights.length,T&&T.sea!=null?T.sea:-1e4,res?R.shTexel:0,res?1/res:0],128);/* y: sea level (the mist and cloud rays end on the sea surface) */U.set(Weather.boltU(),324);U.set([Clouds.base,Clouds.thick,Clouds.M,Clouds.inv],328);U.set([-Clouds.off[0],-Clouds.off[1],E.dark+E.storm*0.3,Clouds.dens],332);U.fill(0,336,372);if(typeof Coast!=='undefined')Coast.beamU(U,A);
   gl.bindBuffer(gl.UNIFORM_BUFFER,R.ubo);gl.bufferSubData(gl.UNIFORM_BUFFER,0,U);};
 R.lightMatrix=function(A){let F=R.focus,Lr=clamp(R.focusDist*0.95,140,1500)*(1+0.25*Math.abs(A.key[0]));let L=A.key;if(L[1]<0.08)L=[L[0],0.08,L[2]];const l=Math.hypot(...L);L=L.map(v=>v/l);
   /* with the shadow cache (4.42) the frustum keeps still while it can: its size in steps of 18 %, its centre on a grid of a sixth of it
@@ -942,7 +946,7 @@ R.post=function(cam,A){const qw=R.qw,qh=R.qh;gl.disable(gl.DEPTH_TEST);
   let rays=0,rayC=[0,0,0];if(+P.godRays>0.001&&A.keyUp){const k=A.key,cp=cam.pos,X=cp[0]+k[0]*1e4,Y=cp[1]+k[1]*1e4,Z=cp[2]+k[2]*1e4,m=cam.vp;
     const cw=m[3]*X+m[7]*Y+m[11]*Z+m[15];if(cw>0){const sx=(m[0]*X+m[4]*Y+m[8]*Z+m[12])/cw*0.5+0.5,sy=(m[1]*X+m[5]*Y+m[9]*Z+m[13])/cw*0.5+0.5,off=Math.max(0,Math.abs(sx-0.5)-0.5,Math.abs(sy-0.5)-0.5);
       const day=A.day>0.05,b=(day?1:0.7)*(1-smooth(0.05,0.6,off))*(1-clamp(A.E.overcast,0,1)*0.85);if(b>0.01){rays=+P.godRays*b;rayC=day?[1,0.82,0.6].map((v,i)=>v*0.55*(0.6+0.4*A.gold)):[0.55,0.65,1.0].map(v=>v*0.5);
-        const L=[sx,sy,0.92,0];pass(R.gAf,R.pRayMask,R.colTex,p=>{bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);gl.uniform4fv(p.u('uRayL'),L);gl.uniform2f(p.u('uAsp'),qw/qh,1/qh);});
+        const L=[sx,sy,0.92,0];pass(R.gAf,R.pRayMask,R.colTex,p=>{bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);gl.uniform4fv(p.u('uRayL'),L);gl.uniform2f(p.u('uAsp'),qw/qh,1/qh);gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVP);gl.uniform3fv(p.u('uRayCam'),cam.pos);});
         pass(R.gBf,R.pRayBlur,R.gA,p=>gl.uniform4fv(p.u('uRayL'),L));pass(R.gAf,R.pRayBlur,R.gB,p=>gl.uniform4fv(p.u('uRayL'),[sx,sy,0.35,0]));}}}
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,gl.canvas.width,gl.canvas.height);bindTU(TU.uBSrc,gl.TEXTURE_2D,R.blackTex);
   bindTU(TU.uRays,gl.TEXTURE_2D,rays>0?R.gA:R.blackTex);

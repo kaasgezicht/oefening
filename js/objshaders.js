@@ -231,7 +231,7 @@ float hgN(float mu,float g){return(1.-g*g)/pow(1.+g*g-2.*g*mu,1.5);}
 void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCamPos.xyz),ro=uCamPos.xyz;
   float lo=uCld.x,hi=uCld.x+max(0.,uWorld.w+40.-uCld.x)*.6+uCld.y*1.9;float t0,t1;
   if(abs(rd.y)<1e-4){if(ro.y<lo||ro.y>hi){o=vec4(0);return;}t0=0.;t1=7000.;}else{float ta=(lo-ro.y)/rd.y,tb=(hi-ro.y)/rd.y;t0=max(min(ta,tb),0.);t1=max(ta,tb);}
-  vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));t1=min(t1,t0+7000.);
+  vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));if(uMisc2.y>-9e3&&rd.y<-1e-4&&ro.y>uMisc2.y)t1=min(t1,(ro.y-uMisc2.y)/(-rd.y));/* the sea surface (the water writes no depth; past the map there is no sea floor at all) */t1=min(t1,t0+7000.);
   if(t1<=t0){o=vec4(0);return;}
   vec3 L=uSunDir.xyz;float mu=dot(rd,L),ph=mix(hgN(mu,.62),hgN(mu,-.25),.4)*.8;float dk=uCld2.z;
   float ds=(t1-t0)/uSteps,t=t0+ds*fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584)))),T=1.,fd=0.;vec3 C=vec3(0);
@@ -255,8 +255,8 @@ vec2 mistD(vec3 p){vec2 uv=p.xz*uMist.z;if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)re
   return vec2(clamp(v*1.5-(1.-n)*.45-(1.-e)*.18,0.,1.),clamp(h/2.,0.,1.));}
 void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCamPos.xyz),ro=uCamPos.xyz;float t0,t1;
   if(abs(rd.y)<1e-4){if(ro.y<uMist.x||ro.y>uMist.y){o=vec4(0);return;}t0=0.;t1=3000.;}else{float ta=(uMist.x-ro.y)/rd.y,tb=(uMist.y-ro.y)/rd.y;t0=max(min(ta,tb),0.);t1=max(ta,tb);}
-  vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));t1=min(t1,t0+3000.);
-  if(zs<1.&&rd.y<-.03){vec3 ph=ro+rd*t1;vec4 m=texture(uMistMap,clamp(ph.xz*uMist.z,0.,1.));float top=max(m.g+3.*max(m.b,2.),ph.y)+30.;t0=max(t0,t1-(top-ph.y)/(-rd.y));}// march only the last stretch above the ground
+  vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));bool sea=uMisc2.y>-9e3&&rd.y<-1e-4&&ro.y>uMisc2.y&&(ro.y-uMisc2.y)/(-rd.y)<t1;if(sea)t1=(ro.y-uMisc2.y)/(-rd.y);/* the sea surface ends the ray (past the map there is no sea floor: it ran 3 km into a pale wall) */t1=min(t1,t0+3000.);
+  if((zs<1.||sea)&&rd.y<-.03){vec3 ph=ro+rd*t1;vec4 m=texture(uMistMap,clamp(ph.xz*uMist.z,0.,1.));float top=max(m.g+3.*max(m.b,2.),ph.y)+30.;t0=max(t0,t1-(top-ph.y)/(-rd.y));}// march only the last stretch above the ground
   if(t1<=t0){o=vec4(0);return;}
   float Ls=t1-t0,N=uMist.w,jit=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584)))),T=1.,acc=0.,hw=0.;vec3 pw=vec3(0),bm=vec3(0);
   for(int i=0;i<32;i++){if(float(i)>=N||T<.02)break;float ds=Ls/N,t=t0+ds*(float(i)+jit);
@@ -614,8 +614,11 @@ void main(){vec3 c=vec3(0);for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++)c+=textur
 // God rays: the bright sky round the sun (or moon) is masked at quarter size (anything in front, or a cloud, blocks it), then smeared out
 // from the light's spot on the screen in 48 steps that fade, and added in the tone-map pass
 const FS_RAYMASK=`#version 300 es
-precision highp float;uniform sampler2D uBSrc;uniform sampler2D uDepth;uniform vec4 uRayL;uniform vec2 uAsp;in vec2 vUV;out vec4 o;
-void main(){vec3 c=vec3(0);float sky=0.;for(int j=0;j<2;j++)for(int i=0;i<2;i++){vec2 q=vUV+(vec2(i,j)-.5)*uAsp.y*vec2(1.,uAsp.x)*.5;sky+=step(.99999,texture(uDepth,q).r);c+=texture(uBSrc,q).rgb;}
+precision highp float;uniform sampler2D uBSrc;uniform sampler2D uDepth;uniform vec4 uRayL;uniform vec2 uAsp;uniform mat4 uInvVP;uniform vec3 uRayCam;in vec2 vUV;out vec4 o;
+/* a pixel only counts as sky above the horizon: below it, an empty depth is the sea (the water writes no depth, and past the map there is
+   no sea floor), which made streaks rise from the far sea toward a low sun */
+float skyAt(vec2 q){if(texture(uDepth,q).r<.99999)return 0.;vec4 a=uInvVP*vec4(q*2.-1.,1.,1.);return step(0.,a.y/a.w-uRayCam.y);}
+void main(){vec3 c=vec3(0);float sky=0.;for(int j=0;j<2;j++)for(int i=0;i<2;i++){vec2 q=vUV+(vec2(i,j)-.5)*uAsp.y*vec2(1.,uAsp.x)*.5;sky+=skyAt(q);c+=texture(uBSrc,q).rgb;}
   sky*=.25;c*=.25;vec2 d=(vUV-uRayL.xy)*vec2(uAsp.x,1.);float f=exp(-dot(d,d)*28.);float l=dot(c,vec3(.2126,.7152,.0722));
   o=vec4(vec3(sky*f*clamp((l-.7)*.9,0.,3.)),1.);}`;
 const FS_RAYBLUR=`#version 300 es

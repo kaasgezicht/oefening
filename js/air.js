@@ -78,7 +78,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
   tap(sx,sy){if(!this.pl)return false;const h=Cam.pick(sx,sy);if(!h)return true;this.pl.x=h[0];this.pl.z=h[2];this.check();return true;},
   turn(d){if(!this.pl)return;this.pl.h=wrapPi(this.pl.h+d);this.check();},
   confirm(){const a=this.pl;if(!a||!this.check().ok)return;if(Money.on()){if(!Money.canBuild()){UI.toast('Out of money');return;}Money.spend(AIR.price,`airstrip in ${a.v.name}`);}
-    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.grade(s);this.list.push(s);a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;(R.freeMesh(this.ghost),this.ghost=null);this.ui(false);
+    const n=this.list.length?Math.max(...this.list.map(o=>o.n))+1:1,s={x:a.x,z:a.z,h:a.h,v:a.v,n};this.grade(s);this.list.push(s);Pending.streams=true;a.v.airOwned=true;Life.addGrowth(a.v,40);this.pl=null;(R.freeMesh(this.ghost),this.ghost=null);this.ui(false);
     UI.toast(`Airstrip ${n} at ${a.v.name} is open. Fly cargo to another airstrip: land and stop to unload and get paid`);Log.info(`airstrip ${n} at ${a.v.name} (${a.x.toFixed(0)}, ${a.z.toFixed(0)}) heading ${(a.h*180/Math.PI).toFixed(0)}°`);},
   cancel(){this.pl=null;(R.freeMesh(this.ghost),this.ghost=null);this.ui(false);},
   ui(on){let el=$('#airUI');if(!el){el=document.createElement('div');el.id='airUI';el.innerHTML='<div id="airMsg"></div><div class="air-b"><button data-a="l">⟲</button><button data-a="r">⟳</button><button data-a="x">✕ Cancel</button><button data-a="ok" id="airOK" class="go">✓ Build</button></div>';document.body.appendChild(el);
@@ -86,7 +86,7 @@ const Air={list:[],pl:null,pending:null,job:null,cargo:null,meshes:new Map(),gho
     el.hidden=!on;if(on)this.check();},
   // ---- saving: position, heading, village, number
   serialize(){return this.list.map(s=>({x:+s.x.toFixed(1),z:+s.z.toFixed(1),h:+s.h.toFixed(4),v:Life.villages.indexOf(s.v),n:s.n,...(s.water?{w:1,sx:+s.sx.toFixed(1),sz:+s.sz.toFixed(1)}:{})}));},
-  restore(){if(!this.pending||!Life.villages.length)return;this.list=this.pending.map(q=>({x:q.x,z:q.z,h:q.h,v:Life.villages[q.v]||Life.nearestVillage(q.x,q.z,1e9),n:q.n,...(q.w?{water:true,sx:q.sx,sz:q.sz}:{})}));for(const s of this.list){if(s.water){if(s.v)s.v.jettyOwned=true;continue;}if(s.v)s.v.airOwned=true;this.grade(s);}this.pending=null;this.meshes.clear();},
+  restore(){if(!this.pending||!Life.villages.length)return;this.list=this.pending.map(q=>({x:q.x,z:q.z,h:q.h,v:Life.villages[q.v]||Life.nearestVillage(q.x,q.z,1e9),n:q.n,...(q.w?{water:true,sx:q.sx,sz:q.sz}:{})}));for(const s of this.list){if(s.water){if(s.v)s.v.jettyOwned=true;continue;}if(s.v)s.v.airOwned=true;this.grade(s);}this.pending=null;Pending.streams=true;this.meshes.clear();},
   // ---- meshes in world coordinates: the mown grass runway (draped on the ground), edge markers, threshold bars, the big number at
   // both ends in the airstrip's colour, a windsock, a hangar and a number board
   mesh(s){const M=vmesh(),T=App.T,{c,s:sn,L,W,P}=this.corners(s),ln=s.ln||{m:0,c:R.sampleHr(T,s.x,s.z)},lineY=u=>ln.c+ln.m*clamp(u,-L,L),g=(u,w)=>{const [x,z]=P(u,w);return[x,Math.abs(u)<=L+0.1&&Math.abs(w)<=W+0.1?Math.max(R.sampleHr(T,x,z),lineY(u))+0.12:R.sampleHr(T,x,z)+0.12,z];},col=this.rgb(s.n),onDeck=(u,w)=>{const [x,z]=P(u,w);return R.sampleHr(T,x,z)<lineY(u)-0.4;};
