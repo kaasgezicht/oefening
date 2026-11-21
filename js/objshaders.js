@@ -553,10 +553,10 @@ void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and d
   vec2 suv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float th=lin(texture(uDepthCopy,suv).r)-lin(gl_FragCoord.z);a*=clamp(th/2.,0.,1.);
   float dc=length(vW-uCamPos.xyz);a*=uSmk.x*smoothstep(uSmk.y,uSmk.y*3.,dc);// see-through in chase view, fade right at the lens
   if(a<.004)discard;
-  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3||ty==6?L(vec3(.93,.95,.97)):ty==7?L(vec3(.46,.44,.42)):L(vec3(.97,.97,.98));
+  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3||ty==6?L(vec3(.93,.95,.97)):ty==7?L(mix(vec3(.16,.14,.13),vec3(.56,.55,.54),smoothstep(.0,.55,vU))):L(vec3(.97,.97,.98));
   vec3 V=normalize(uCamPos.xyz-vW);float ph=ty==0?1.:.7+hgP(dot(-V,uSunDir.xyz),.55)*.06;// steam glows when backlit
   vec3 col=alb*(uSunCol.rgb*lit*ph*(1.-uWx2.w*.5)+ambient(N)*(.75+.25*N.y))+vec3(.8,.85,1.)*uWx2.y*1.2;
-  a*=ty==1?.75:ty==2?.55:ty==3?.32:ty==6?.55:ty==7?.42:.9;o=vec4(fogc(col,vW)*a,a);}`;
+  a*=ty==1?.75:ty==2?.55:ty==3?.32:ty==6?.55:ty==7?.55*(1.-smoothstep(.6,1.,vU)):.9;if(ty==7)col+=L(vec3(1.,.42,.12))*(1.-smoothstep(.0,.09,vU))*(1.-N.y*.6)*(.12+uSunCol.w*.45);/* the plume's foot lit by the flames */o=vec4(fogc(col,vW)*a,a);}`;
 
 // ---------------- rain streaks and snowflakes in a box around the view
 const VS_PRECIP=GLSL_HEAD+`

@@ -704,7 +704,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
   gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);bindTU(TU.uDepthCopy,gl.TEXTURE_2D,R.depTex);R.pm('copies');
   if(T){gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
     if(P.waterOn){gl.depthMask(false);if(!S.water)R.drawWater(cam);R.pm('water');if(!S.streams)R.drawStreams(cam);R.pm('streams');gl.depthMask(true);}
-    if(!S.clouds)R.drawVolClouds(cam);R.pm('clouds');if(!S.mist)R.drawVolMist(cam);R.pm('mist');gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);if(!(+P.mistQuality>0))R.drawMist();R.drawParticles();R.drawPrecip(cam);R.drawBolt();R.drawBeams();gl.depthMask(true);gl.disable(gl.BLEND);R.pm('particles');
+    if(!S.clouds)R.drawVolClouds(cam);R.pm('clouds');if(!S.mist)R.drawVolMist(cam);R.pm('mist');gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);if(!(+P.mistQuality>0))R.drawMist();R.drawParticles();if(typeof Fires!=='undefined')Fires.drawFlames(cam);R.drawPrecip(cam);R.drawBolt();R.drawBeams();gl.depthMask(true);gl.disable(gl.BLEND);R.pm('particles');
     R.drawTrack(0,true);if(Build.active)R.drawMarkers(Build.markers());else if(Drive.active)R.drawMarkers(Drive.markers());}
   bindTU(TU.uDepthCopy,gl.TEXTURE_2D,R.dummyDepth);
   // resolve

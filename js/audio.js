@@ -83,6 +83,9 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
     this.rainG.gain.setTargetAtTime(0.09*Math.min(amt,1.3)*P.ambVol,c.currentTime,0.8);},
   thunder(delay,str){if(!this.on||!this.ctx)return;const c=this.ctx,t=c.currentTime+delay,dur=3+str*3;const s=this.burst(dur,t),lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(900,t);lp.frequency.exponentialRampToValueAtTime(90,t+dur);
     const g=c.createGain();g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.7*str*P.ambVol,t+0.05+Math.random()*0.3);g.gain.exponentialRampToValueAtTime(0.001,t+dur);s.connect(lp);lp.connect(g);g.connect(this.out(1,Math.random()*1.2-0.6));},
+  // water on a fire: a steam hiss (high-passed noise swelling and dying away), louder the more was hit and the closer it is
+  hiss(vol){if(!this.on||!this.ctx||vol<0.02)return;const c=this.ctx,t=c.currentTime,s=this.burst(2.6,t),hp=c.createBiquadFilter();hp.type='highpass';hp.frequency.setValueAtTime(1800,t);hp.frequency.linearRampToValueAtTime(3800,t+2.4);
+    const g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.35*Math.min(1,vol),t+0.15);g.gain.exponentialRampToValueAtTime(0.001,t+2.5);s.connect(hp);hp.connect(g);g.connect(this.master);},
   clunk(){if(!this.on)return;const c=this.ctx,t=c.currentTime,o=c.createOscillator();o.frequency.setValueAtTime(180,t);o.frequency.exponentialRampToValueAtTime(70,t+0.1);
     const g=c.createGain();g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+0.16);},
   update(dt){if(!this.on||!this.ctx)return;this.master.gain.value=P.volume;
