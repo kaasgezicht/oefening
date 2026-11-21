@@ -41,6 +41,10 @@ that spread, automatic scooping + a Drop button)
   share of forest saved; if not fought it burns out on its own (toast, forest lost). Flames (particle type 5, glowing) and a dark
   smoke column (type 7), steam where it was hit, an orange glow at night (`Fires.lights`). Saved: fires in progress and every burnt
   cell (re-applied on load).
+- Fixed after the first pictures: the float/hull spray used particle type 0 (grey smoke) for the Beaver too, now type 2 (white);
+  the fire smoke was an opaque brown wall (lighter grey, translucent, fewer puffs now); fewer, smaller and less bright flames; the
+  scorch had one random shade per 4 m square on a flat normal (looked tiled): now a shade per vertex from a position hash, terrain
+  normals, and a ragged brown rim (outer squares next to unburnt cells partly left out).
 - Particles: type 4 (leaves) is now matched exactly; types 5/6/7 have their own vertical motion in `Particles.update`.
 - Store: "Canadair CL-415" €1 200 000 with a 3D preview; the Fly menu offers it; jetties count it as an amphibian. Sound: turboprop
   (prop buzz ~80 Hz + turbine whine).

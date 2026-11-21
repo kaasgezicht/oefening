@@ -53,18 +53,24 @@ const Fires={list:[],next:0,burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
         if(c.st==='burn'){c.int-=kg/PLC.water*4.2*eff*(1-d/R2*0.5);hit=true;if(c.int<=0){c.st='wet';c.t=300;c.int=0;}}else{c.st='wet';c.t=300;}}
       if(hit){f.water+=kg;if(!f._lastHit||App.time-f._lastHit>2.5){f.hits++;f._lastHit=App.time;Icons.add&&Icons.add(lx,R.sampleHr(App.T,lx,lz)+12,lz,'💧');}}}},
   // flames, smoke, steam where it was hit
-  effects(dt){if(!P.smoke)return;const cp=Cam.pos||[0,0,0],T=App.T,cs=FIRE.cs;let fb=Math.min(90,40/Math.max(dt,0.016)*dt),sb=6*dt;
+  effects(dt){if(!P.smoke)return;const cp=Cam.pos||[0,0,0],T=App.T,cs=FIRE.cs;const sb=3.5*dt;
     for(const f of this.list){if(Math.hypot(f.x-cp[0],f.z-cp[2])>6000)continue;const B=[...f.cells.values()].filter(c=>c.st==='burn');if(!B.length)continue;
-      for(let k=0;k<Math.min(B.length*0.6,26);k++){if(Math.random()>dt*14)continue;const c=B[Math.floor(Math.random()*B.length)],x=(c.i+Math.random())*cs,z=(c.j+Math.random())*cs,y=R.sampleHr(T,x,z);
-        Particles.spawn(x,y+1+Math.random()*7*c.int,z,(Math.random()-0.5)*1.5,2.5+Math.random()*2,(Math.random()-0.5)*1.5,0.8+Math.random()*0.6,1.2+c.int*2,0.4,5);}
-      if(Math.random()<sb*Math.min(1,B.length/6)){const c=B[Math.floor(Math.random()*B.length)],x=(c.i+0.5)*cs,z=(c.j+0.5)*cs;Particles.spawn(x,R.sampleHr(T,x,z)+8,z,(Math.random()-0.5)*2,5+Math.random()*2,(Math.random()-0.5)*2,26+Math.random()*10,9,42,7);}
+      for(let k=0;k<Math.min(B.length*0.4,14);k++){if(Math.random()>dt*12)continue;const c=B[Math.floor(Math.random()*B.length)],x=(c.i+Math.random())*cs,z=(c.j+Math.random())*cs,y=R.sampleHr(T,x,z);
+        Particles.spawn(x,y+1+Math.random()*7*c.int,z,(Math.random()-0.5)*1.5,2.5+Math.random()*2,(Math.random()-0.5)*1.5,0.6+Math.random()*0.5,0.9+c.int*1.6,0.3,5);}
+      if(Math.random()<sb*Math.min(1,B.length/6)){const c=B[Math.floor(Math.random()*B.length)],x=(c.i+0.5)*cs,z=(c.j+0.5)*cs;Particles.spawn(x,R.sampleHr(T,x,z)+8,z,(Math.random()-0.5)*2,5+Math.random()*2,(Math.random()-0.5)*2,22+Math.random()*10,7,34,7);}
       for(const c of f.cells.values())if(c.st==='wet'&&c.t>290&&Math.random()<dt*6){const x=(c.i+Math.random())*cs,z=(c.j+Math.random())*cs;Particles.spawn(x,R.sampleHr(T,x,z)+1,z,0,2,0,4,2,8,1);}}},
   lights(add){for(const f of this.list){const B=[...f.cells.values()].filter(c=>c.st==='burn').sort((a,b)=>b.int-a.int).slice(0,4);for(const c of B){const x=(c.i+0.5)*FIRE.cs,z=(c.j+0.5)*FIRE.cs;add(x,R.sampleHr(App.T,x,z)+6,z,40,[2.6*c.int,1.1*c.int,0.25*c.int]);}}},
   // the black ground of the burnt cells (one mesh, rebuilt when the set changes)
   draw(p,pass){if(!this.burnt.size||!App.T)return;if(this._sk!==this.burnt.size+'|'+App.T.W){this._sk=this.burnt.size+'|'+App.T.W;if(this._scorch&&R.freeMesh)R.freeMesh(this._scorch);
-      const M=vmesh(),T=App.T,cs=FIRE.cs,V=(q,c)=>{M.v.push(q[0],q[1],q[2],0,1,0,c[0],c[1],c[2],0,0,0,1,3);return M.n++;},H=(x,z)=>R.sampleHr(T,x,z)+0.12;
-      for(const k of this.burnt){const i=Math.floor(k/65536),j=k%65536,n=4,s=cs/n;for(let a=0;a<n;a++)for(let b=0;b<n;b++){const x0=i*cs+a*s,z0=j*cs+b*s,sh=0.06+0.05*Math.random(),col=[sh,sh*0.9,sh*0.8];
-        const q=[V([x0,H(x0,z0),z0],col),V([x0+s,H(x0+s,z0),z0],col),V([x0+s,H(x0+s,z0+s),z0+s],col),V([x0,H(x0,z0+s),z0+s],col)];M.i.push(q[0],q[2],q[1],q[0],q[3],q[2]);}}
+      const M=vmesh(),T=App.T,cs=FIRE.cs,n=4,s=cs/n,B=this.burnt,hs=(x,z)=>{const h=Math.sin(x*12.9898+z*78.233)*43758.5453;return h-Math.floor(h);},H=(x,z)=>R.sampleHr(T,x,z)+0.12;
+      // a vertex's shade from a hash of its position, so neighbouring squares share it (smooth, not tiled); the rim of the burnt area is scorched brown
+      const V=(x,z,rim)=>{const e=1.5,nx=H(x-e,z)-H(x+e,z),nz=H(x,z-e)-H(x,z+e),nl=Math.hypot(nx,2*e,nz),sh=0.05+0.06*hs(x,z),c=rim?[0.2,0.15,0.08]:[sh,sh*0.9,sh*0.8];
+        M.v.push(x,H(x,z),z,nx/nl,2*e/nl,nz/nl,c[0],c[1],c[2],0,0,0,1,3);return M.n++;};
+      for(const k of B){const i=Math.floor(k/65536),j=k%65536,nb=(di,dj)=>B.has((i+di)*65536+j+dj);
+        for(let a=0;a<n;a++)for(let b=0;b<n;b++){const x0=i*cs+a*s,z0=j*cs+b*s;
+          // the outer row of squares next to unburnt ground: some left out, the rest brown, so the edge is ragged
+          const edge=(a===0&&!nb(-1,0))||(a===n-1&&!nb(1,0))||(b===0&&!nb(0,-1))||(b===n-1&&!nb(0,1));if(edge&&hs(x0+1.3,z0+2.7)<0.45)continue;
+          const q=[V(x0,z0,edge),V(x0+s,z0,edge),V(x0+s,z0+s,edge),V(x0,z0+s,edge)];M.i.push(q[0],q[2],q[1],q[0],q[3],q[2]);}}
       this._scorch=R.uploadVeh(M);}
     const m=this._scorch;gl.uniformMatrix4fv(p.u('uModel'),false,M4.ident());gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;},
   // compass mark and a label over the fire while flying the CL-415

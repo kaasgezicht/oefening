@@ -236,7 +236,7 @@ const Beaver={
     if(pl.crashed)return null;if(!onG)pl._scrape=false;
     // spray: from the bows and the steps, thrown out sideways and up (photo 1); more the faster it runs
     if(spray>0&&P.smoke!==0&&Math.random()<Math.min(1,spray*dt*3))for(const sd of [-1,1])for(const sp of (K.spray||[[2.2,-2.2,K.floatZ+0.45],[-0.3,-2.2,K.floatZ+0.45]])){const {P:Pp}=at([sp[0],sp[1],sd*sp[2]]),vh=Math.hypot(s.v[0],s.v[2]);
-      Particles.spawn(Pp[0],Pp[1]+0.1,Pp[2],s.v[0]*0.3+hz[0]*sd*(2+vh*0.15),1.5+vh*0.12*Math.random(),s.v[2]*0.3+hz[2]*sd*(2+vh*0.15),0.9,0.35,1.6,0);}
+      Particles.spawn(Pp[0],Pp[1]+0.1,Pp[2],s.v[0]*0.3+hz[0]*sd*(2+vh*0.15),1.5+vh*0.12*Math.random(),s.v[2]*0.3+hz[2]*sd*(2+vh*0.15),0.9,0.35,1.6,2);}/* white spray (type 0 was grey smoke) */
     return{Fw,M,onG:onG+onW,onW};},
   /* where it starts: beside a jetty, on an airstrip, or on open water near the camera (a straight 600 m of water), else a flat field */
   spawn(pl,at){const T=App.T,c=Cam.target;let spot=null;

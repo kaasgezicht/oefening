@@ -537,7 +537,7 @@ precision highp sampler3D;uniform sampler3D uNoise3;uniform sampler2D uDepthCopy
 in vec2 vQ;in float vA;flat in float vType;in vec3 vW;in vec3 vC;in float vSz;flat in float vSeed;in float vU;`+FS_OUT+`
 float lin(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 float hgP(float mu,float g){return(1.-g*g)/pow(1.+g*g-2.*g*mu,1.5);}
-void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and dark red, glowing (mostly added light) */float r2=dot(vQ,vQ);if(r2>1.)discard;float h=1.-r2,u=vU;vec3 c=mix(vec3(1.,.85,.35),vec3(1.,.38,.06),clamp(u*1.4+r2*.6,0.,1.));c=mix(c,vec3(.35,.08,.02),smoothstep(.55,1.,u));float a=h*h*vA*(1.-u*.6);o=vec4(c*a*2.2,a*.25);return;}
+void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and dark red, glowing (mostly added light) */float r2=dot(vQ,vQ);if(r2>1.)discard;float h=1.-r2,u=vU;vec3 c=mix(vec3(1.,.85,.35),vec3(1.,.38,.06),clamp(u*1.4+r2*.6,0.,1.));c=mix(c,vec3(.35,.08,.02),smoothstep(.55,1.,u));float a=h*h*vA*(1.-u*.6);o=vec4(c*a*1.5,a*.3);return;}
   if(vType>3.5&&vType<4.5){vec2 q=vQ;float lf=abs(q.x)<.95?pow(abs(q.y)/(1.-q.x*q.x*.9+.0001),1.):9.;if(dot(q*vec2(1.,1.7),q*vec2(1.,1.7))>1.||abs(q.y)>.6*(1.-abs(q.x)*.6))discard;
     vec3 lc=L(fract(vSeed*7.3)<.3?vec3(.85,.30,.08):fract(vSeed*7.3)<.6?vec3(.92,.62,.12):fract(vSeed*7.3)<.85?vec3(.70,.22,.10):vec3(.55,.40,.18));lc*=1.-.25*smoothstep(.02,0.,abs(q.y));
     vec3 col=lc*(uSunCol.rgb*.75+ambient(vec3(0,1,0)));o=vec4(fogc(col,vW)*vA,vA);return;}
@@ -553,10 +553,10 @@ void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and d
   vec2 suv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float th=lin(texture(uDepthCopy,suv).r)-lin(gl_FragCoord.z);a*=clamp(th/2.,0.,1.);
   float dc=length(vW-uCamPos.xyz);a*=uSmk.x*smoothstep(uSmk.y,uSmk.y*3.,dc);// see-through in chase view, fade right at the lens
   if(a<.004)discard;
-  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3||ty==6?L(vec3(.93,.95,.97)):ty==7?L(vec3(.24,.22,.21)):L(vec3(.97,.97,.98));
+  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3||ty==6?L(vec3(.93,.95,.97)):ty==7?L(vec3(.46,.44,.42)):L(vec3(.97,.97,.98));
   vec3 V=normalize(uCamPos.xyz-vW);float ph=ty==0?1.:.7+hgP(dot(-V,uSunDir.xyz),.55)*.06;// steam glows when backlit
   vec3 col=alb*(uSunCol.rgb*lit*ph*(1.-uWx2.w*.5)+ambient(N)*(.75+.25*N.y))+vec3(.8,.85,1.)*uWx2.y*1.2;
-  a*=ty==1?.75:ty==2?.55:ty==3?.32:ty==6?.55:ty==7?.8:.9;o=vec4(fogc(col,vW)*a,a);}`;
+  a*=ty==1?.75:ty==2?.55:ty==3?.32:ty==6?.55:ty==7?.42:.9;o=vec4(fogc(col,vW)*a,a);}`;
 
 // ---------------- rain streaks and snowflakes in a box around the view
 const VS_PRECIP=GLSL_HEAD+`
