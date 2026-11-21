@@ -166,7 +166,11 @@ const MapUI={tab:'all',TABS:[['all','All','map'],['bus','Buses','bus'],['lorry',
   kind(o){return o.isPlane?'plane':Trains.list.includes(o)?'train':o.goods?'lorry':'bus';},
   shows(o){return!o.mapHidden&&(this.tab==='all'||this.tab===this.kind(o));},
   showKind(k){return this.tab==='all'||this.tab===k;},
-  bar(){const t=$('#mapTabs');if(!t)return;t.innerHTML=this.TABS.map(([k,n,ic])=>`<button data-mt="${k}" class="${this.tab===k?'on':''}">${svgIcon(ic)}<span>${n}</span></button>`).join('');
+  /* the map's small buttons: List (the vehicle list, folded away by default), Routes (shows the row of vehicle filters), Store, close */
+  bar(){const t=$('#mapTabs');if(!t)return;if(this.fold==null)this.fold=true;const lb=$('#mapListB'),rb=$('#mapRoutesB'),cur=this.TABS.find(q=>q[0]===this.tab);
+    if(lb){lb.innerHTML=svgIcon('list')+'<span>List</span>';lb.classList.toggle('on',!this.fold);lb.onclick=()=>{this.fold=!this.fold;this.bar();this.list();};}
+    if(rb){rb.innerHTML=svgIcon(cur&&this.tab!=='all'?cur[2]:'route')+`<span>${this.tab==='all'?'Routes':cur[1]}</span>`;rb.classList.toggle('on',!!this.showTabs);rb.onclick=()=>{this.showTabs=!this.showTabs;this.bar();this.list();};}
+    t.hidden=!this.showTabs;t.innerHTML=this.TABS.map(([k,n,ic])=>`<button data-mt="${k}" class="${this.tab===k?'on':''}">${svgIcon(ic)}<span>${n}</span></button>`).join('');
     for(const b of t.querySelectorAll('[data-mt]'))b.onclick=()=>{this.tab=b.dataset.mt;this.bar();this.list();};},
   list(){let p=$('#mapList');if(!p){p=document.createElement('div');p.id='mapList';p.className='fp';document.body.appendChild(p);p.addEventListener('click',e=>this.click(e));}
     if(!MapView.on||Fleet.draft){p.hidden=true;return;}p.hidden=false;{const bar=$('#mapBar');p.style.bottom=(bar&&!bar.hidden?innerHeight-bar.getBoundingClientRect().top+8:90)+'px';}const yr=o=>fmtE(o.led&&o.led.yr.inc||0),eye=o=>`<button data-a="eye" data-k="${this.key(o)}" aria-label="${o.mapHidden?'Show':'Hide'} on the map" class="ic2${o.mapHidden?'':' on'}">${svgIcon(o.mapHidden?'eyeOff':'eye')}</button>`,
@@ -178,11 +182,11 @@ const MapUI={tab:'all',TABS:[['all','All','map'],['bus','Buses','bus'],['lorry',
     else if(this.tab==='train')h+=Trains.list.map(t=>row(t,'#ff5a4a',`${t.veh.length-2} ${t.veh.some(v=>v.k==='coach')?'coaches':'wagons'} · ${yr(t)} this year`)).join('')||`<div class="fp-note">No trains yet.</div>`;
     else{const nS=Air.list.filter(s=>!s.water).length,nJ=Air.list.length-nS;h+=row(Ledger.plane,'#ffe07a',`${nS} airstrip${nS===1?'':'s'} · ${yr(Ledger.plane)} this year`);if(Fleet.unlocks.beaver)h+=row(Ledger.beaver,'#f0a020',`${nJ} jett${nJ===1?'y':'ies'} · ${yr(Ledger.beaver)} this year`);if(!Air.list.length)h+=`<div class="fp-note">No airstrip yet: a town can buy one (tap the town).</div>`;}
     /* the panel folds to one line (tap its title); on a short landscape screen it starts folded and sits at the left, so the map stays free */
-    const land=innerWidth>innerHeight&&innerHeight<760;if(this.fold==null)this.fold=land;p.classList.toggle('side',land);if(land){p.style.bottom='';}
-    h=`<button data-a="fold" class="ml-fold">${this.fold?'▸ Show the list':'▾ Hide the list'}</button>`+(this.fold?'':h);p.innerHTML=h;},
+    const land=innerWidth>innerHeight&&innerHeight<760;if(this.fold==null)this.fold=true;p.classList.toggle('side',land);if(land){p.style.bottom='';}
+    if(this.fold){p.hidden=true;return;}/* opened with the List button on the map bar */h=`<button data-a="fold" class="ml-fold">▾ Hide the list</button>`+h;p.innerHTML=h;},
   key(o){return o===Ledger.beaver?'pb':o.isPlane?'p':Trains.list.includes(o)?'t'+o.id:'b'+o.id;},
   byKey(k){if(k==='pb')return Ledger.beaver;if(k==='p')return Ledger.plane;if(k[0]==='t')return Trains.list.find(t=>t.id===+k.slice(1));return Buses.list.find(b=>b.id===+k.slice(1));},
-  click(e){const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='fold'){this.fold=!this.fold;this.list();return;}if(a==='tab'){this.tab=b.dataset.t;this.bar();this.list();return;}
+  click(e){const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;if(a==='fold'){this.fold=!this.fold;this.bar();this.list();return;}if(a==='tab'){this.tab=b.dataset.t;this.bar();this.list();return;}
     if(a==='add'){const g=this.tab==='lorry';MapView.close();Build.enter();Build.setTab('roads');Fleet.startPlace(g);return;}
     const o=this.byKey(b.dataset.k);if(!o)return;if(a==='eye'){o.mapHidden=!o.mapHidden;this.list();}else if(a==='st')StatsUI.open(o);}};
 

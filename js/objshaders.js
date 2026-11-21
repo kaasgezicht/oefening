@@ -489,6 +489,8 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
     float st=vnoise(vec2(u*1.6,W.y*.22+t*3.2))*.6+vnoise(vec2(u*4.2+3.,W.y*.55+t*5.5))*.4;
     vec3 wc=lightD(L(vec3(.90,.94,.96)),normalize(vec3(fdir.x,.6,fdir.y)),W,1.,sh);col=mix(col,wc,cf*(.45+.55*smoothstep(.3,.7,st)));a=max(a,cf*(.7+.25*st));}
   a=mix(a,.97,iceF);a*=smoothstep(0.,.1,depth);
+  // the map view: plain map colours (seen straight down the real shading is nearly black), turquoise shallows to blue deep water
+  if(uDbg<-5.){float dd=clamp(depth/35.,0.,1.);vec3 mc=mix(vec3(.42,.78,.86),vec3(.13,.36,.62),sqrt(dd));mc=mix(mc,vec3(.9,.95,1.),fo*.5);o=vec4(L(mc),1.);return;}
   // debug views (Settings > Experimental): the values the water is built from, with fine stripes that show any rounding
   if(uDbg>.5){vec3 dc;if(uDbg<1.5)dc=vec3(clamp(depth/12.,0.,1.),fract(depth*2.),clamp(depth/1.5,0.,1.));else if(uDbg<2.5)dc=vec3(clamp(dsh/20.,0.,1.),fract(dsh),clamp(dsh/3.,0.,1.));
     else if(uDbg<3.5)dc=vec3(fo);else dc=vec3(.5+.5*fdir.x,.5+.5*fdir.y,clamp(v/3.,0.,1.));o=vec4(dc*dc*.8,1.);return;}

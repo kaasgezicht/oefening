@@ -403,3 +403,16 @@ body.land.flying #plHud{max-width:calc(100vw - 400px);white-space:normal;text-al
 #fireBars b.h{background:linear-gradient(90deg,#ffb43a,#e2531f)}#fireBars b.l{background:linear-gradient(90deg,#8a6a3a,#4a2e14)}
 #fireBars em{font-style:normal;text-align:right;opacity:.9}#fireBars small{font-weight:500;opacity:.75;font-size:calc(10px*var(--txt,1))}
 body.land #fireBars{top:calc(52px + env(safe-area-inset-top))}
+
+/* ---- map view (4.47): small buttons, vehicle filters on demand, a colour key ---- */
+#mapBar{flex-direction:column;gap:6px;padding:6px 8px!important}
+#mapBar .mb-row{display:flex;gap:6px;align-items:center}
+#mapBar .mb{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:10px;background:#22302a;border:1px solid #c9a14a55;color:#f1e7d0;font:600 calc(12px*var(--txt,1)) system-ui;min-height:34px}
+#mapBar .mb.on{background:#c9a14a;color:#15191a}#mapBar .mb svg.i{width:18px;height:18px}
+#mapBar #mapTabs[hidden]{display:none!important}
+#mapKey{position:fixed;left:calc(10px + env(safe-area-inset-left));top:calc(46px + env(safe-area-inset-top));z-index:6;background:#15191ae0;border:1px solid #c9a14a55;border-radius:10px;padding:4px 8px;color:#f1e7d0;font:500 calc(11px*var(--txt,1)) system-ui;max-width:min(60vw,250px)}
+#mapKey .mk-h{background:none;border:0;color:#e8c25a;font:600 calc(12px*var(--txt,1)) system-ui;padding:2px 0}
+#mapKey .mk-l{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin:3px 0}
+#mapKey .mk-l span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+#mapKey i{display:inline-block;width:10px;height:10px;border-radius:50%;border:1.5px solid #000a;flex:none}#mapKey i.sq{border-radius:2px;height:6px;width:12px}
+#mapKey .mk-n{opacity:.7;font-size:calc(10px*var(--txt,1))}

@@ -100,6 +100,7 @@ function cableMesh(){const M=vmesh();for(const x of [-0.09,0.09])vbox(M,[x,-0.5,
 function hookMesh(){const M=vmesh(),ir=[0.2,0.2,0.22],tb=[0.36,0.27,0.19];vbox(M,[0,-0.22,0],[0.3,0.44,0.26],ir,1);vcyl(M,[0,-0.14,0],'x',0.15,0.34,ir,1,10);vbox(M,[0,-0.55,0],[0.08,0.28,0.08],ir,1);
   for(const e of [-1,1])vbeam(M,[0,-0.62,0],[e*0.9,-0.76,0],0.025,ir,1);vbox(M,[0,-0.85,0],[4.4,0.2,0.2],tb,3);for(const x of [-2,2])vbox(M,[x,-1.17,0],[0.04,0.64,0.04],ir,1);return M;}
 // ---- mines: the three ore kinds (colours of the ore piles, loads and signs)
+const MINE_GAP=2000;/* metres between mines: about one mine per 4 km² */
 const ORE={gold:{name:'Gold',icon:'🥇',col:[0.66,0.5,0.26],glint:[0.95,0.8,0.32]},silver:{name:'Silver',icon:'🥈',col:[0.55,0.56,0.58],glint:[0.86,0.88,0.92]},diamond:{name:'Diamond',icon:'💎',col:[0.30,0.35,0.40],glint:[0.72,0.88,0.98]}};
 // The mine (4.25.0), after the user's reference picture: a craggy rock face along the back of the plot with a stone-arched adit (timber
 // frame, a sign, a lantern) and an older boarded-up one, a narrow-gauge track from deep in the adit to the intake of the crusher house,

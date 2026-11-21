@@ -1,4 +1,4 @@
-# Trein handoff 110 (21 Nov 2026): v4.46.0 — fire mission bars/balance, CL-415 lights+flaps, loading facts. Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 111 (21 Nov 2026): v4.47.0 — map view, island size fix, mine spacing. Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,23 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.46.0, 21 Nov) — step 1 of the user's 21 Nov list (steps 2 and 3 below are still to do)
+### Latest (4.47.0, 21 Nov) — step 2 of the 21 Nov list, plus the user's map requests
+- **Island size bug**: `MainMenu.start` did not copy `islandGen` from the new-game settings, so a new world kept the value of the last
+  loaded save; worlds whose save had no islandGen get the legacy 1 (fixed small islands that ignore the Island size slider). The user's
+  32 km world (landShare 0.86 on the slider) has 3.8 % land and 15 small islands for that reason. The preview used islandGen 2, so the
+  preview and the world differed. Fixed: islandGen is copied. **Existing worlds keep their layout** (a new game is needed for big islands).
+- **Mines**: at least `MINE_GAP` 2 km apart (train.js), about one per 4 km²; the random sequence is unchanged so nothing else moves. User's
+  world: 58 → 17 mines.
+- **Map view**: the sea seen straight down was nearly black (and brown with the golden grade): the water shader now has a map colour mode
+  (`uDbg` −10 while `MapView.on`: turquoise shallows to blue deep water, foam lighter). Places are collected first; any whose ring would
+  touch a bigger one's becomes a dot in its kind's colour (all dots once more than 35 % overlap); bigger places are tested first.
+  Colours per kind in `MapView.KEY`, shown in a foldable legend `#mapKey` (top left; folded on narrow screens). The bar is now small
+  buttons: List (opens the vehicle list, closed by default; the big "Show the list" box is gone), Routes (shows the vehicle filter row
+  `#mapTabs`; the button shows the chosen filter), Store, ✕.
+- Tested on the user's save (32 km, seed 36106): blue sea, islands, dots when zoomed out, icons and names zoomed in; 4 km world in
+  portrait with Routes, List and the legend open.
+
+### Earlier (4.46.0, 21 Nov) — step 1 of the user's 21 Nov list (steps 2 and 3 below are still to do)
 - **Fire mission** (fire.js): driven by two numbers per fire, shown as bars while flying (`#fireBars`, `Fires.bars`: 🔥 Fire, 🌲 Forest
   lost, time left at this strength): **H** strength (starts `FIRE.h0` 0.6, +`grow` 0.06/min, half once hit; a full load landing on the
   flames takes `drop` 0.5×eff off, eff = clamp(1.25 − h/200, 0.3, 1)) and **L** forest lost (+dt·H/(budget·0.9)). Budget = 7 min +
@@ -27,8 +43,7 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Loading facts** (new js/facts.js): 100 facts (55 playing, 45 how it works), one every 10 s in random order under the loading bar
   (`#progFact`).
 - trein-improve.md: item 34, the CL-415 cockpit view.
-- **Still to do from this list:** step 2: map view (water rendering, coloured dots when zoomed out so the circles overlap), mines once
-  every few km², why max-size islands look small (user's save: 32 km, islandGen 1, landShare 0.86, 96 villages, 15 islands); step 3:
+- **Still to do from this list:** step 3:
   processing factories per mine type, tapping a mine shows where its ore goes on the map, ore sometimes on another island than its
   factory (the harbour transfer station comes with the user's next prompt; do not build it yet).
 
