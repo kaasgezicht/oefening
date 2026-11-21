@@ -23,8 +23,8 @@
 //     under the gantry beam.
 //  4. The freight siding is a separate track entering from the west (no switch on site); the two passenger tracks run straight through
 //     the whole site so the player's lines join them at both ends (x 0 and x 120).
-//  7. Only on the open sea (water joined to the map edge), never on a lake or a closed basin: the berth and the water 40 m out
-//     must be ocean.
+//  7. Only on the open sea: water at least 4 m deep joined to the map edge (never a lake, a closed basin, or a bay behind shallows):
+//     the berth and the water 40 m out must be such sea.
 //  5. The back of the site (y ≥ 50: tracks, station) is at least 70 % land, joined over land to its town; the quay side may stand
 //     over the water. The deck stands 3 m above the sea. Ground higher than that is cut down to the deck; where it is lower the deck stands on
 //     foundations (blocks now; brick piers and timber stilts in step 2).
@@ -81,7 +81,7 @@ const Port={S:[],key:'',meshes:new Map(),
   find(){const T=App.T;this.S=[];this.meshes.clear();if(!T||T.sea==null)return;const sea=T.sea,Hs=(x,z)=>R.sampleHr(T,x,z),W=T.W,deck=sea+PORT.deck;
     // the open sea: water cells joined to the map's edge (a flood fill on the height grid). Lakes, and basins below sea level that
     // do not reach the ocean, are not sea: a collier has to sail in and out
-    const N=T.N,cs=T.cs,Hr=T.Hr||T.H,oc=new Uint8Array(N*N),st=[];const wetc=k=>Hr[k]<sea-0.3;
+    const N=T.N,cs=T.cs,Hr=T.Hr||T.H,oc=new Uint8Array(N*N),st=[];const wetc=k=>Hr[k]<sea-4;/* navigable: at least 4 m deep all the way (a bay behind shallows reads as a lake and no collier gets in) */
     for(let i=0;i<N;i++)for(const k of [i,(N-1)*N+i,i*N,i*N+N-1])if(!oc[k]&&wetc(k)){oc[k]=1;st.push(k);}
     while(st.length){const k=st.pop(),i=k%N,j=(k/N)|0;for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){const ii=i+a,jj=j+b;if(ii<0||jj<0||ii>=N||jj>=N)continue;const m=jj*N+ii;if(!oc[m]&&wetc(m)){oc[m]=1;st.push(m);}}}
     const ocean=(x,z)=>{const i=Math.round(x/cs),j=Math.round(z/cs);return i>=0&&j>=0&&i<N&&j<N&&oc[j*N+i]===1;};this.ocean=ocean;

@@ -28,6 +28,9 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
     to the platform, slate roof, four chimneys, clock tower (four faces with hands, cornice, pyramid spire, finial), glass canopy over
     the street door. Warehouses (3 sizes, 2 or 3 floors): brick on stone, timber loading doors to the yard, arched windows, a hoist beam,
     slate roofs with the ridge inland.
+- Sites only on the open sea (user, after seeing the test site in a cove): `Port.find` flood-fills water ≥ 4 m deep from the map edge
+  (`Port.ocean`); the berth and the water 40 m out must be in it, so lakes, closed basins and bays behind shallows are out. The
+  test world's site moved from the cove at Meidoorn to an open coast in the north.
 - Real track (`Port.tracks`): the two passenger tracks (x 0 → 120) and the freight siding (x 0 → 56) as straight segments at deck
   + 0.25 m, tagged `port:"x,z"` (made once; saved with the player's track). The player joins their free ends. The harbour station as a
   train stop (Track.stations) is not done yet: it needs the station logic to skip its own building; planned for step 3.
