@@ -216,6 +216,10 @@ const Compass={el:null,cv:null,
     for(let d=0;d<360;d+=5){const r=wrap(d-hd);if(Math.abs(r)>span/2)continue;const x=X(d),big=d%45===0;g.beginPath();g.moveTo(x,0);g.lineTo(x,d%15===0?9:5);g.stroke();
       if(big){const L={0:'N',45:'NE',90:'E',135:'SE',180:'S',225:'SW',270:'W',315:'NW'}[d];g.font=d%90===0?'bold 14px system-ui':'11px system-ui';g.fillStyle=d===0?'#ff8a7a':'#efe8d6';g.fillText(L,x,10);}}
     g.fillStyle='#ffd27a';g.beginPath();g.moveTo(W/2-6,0);g.lineTo(W/2+6,0);g.lineTo(W/2,7);g.fill();// the heading mark
+    /* 4.58: no crowding: nearest first, a marker is left out where it would overlap one already shown (the destination always shows); off the
+       tape only the nearest one per side */
+    {const kept=[],pl=marks.map(m=>{const b=this.deg(m.x-pos[0],m.z-pos[2]),r=wrap(b-hd),edge=Math.abs(r)>span/2-4;return{m,d:Math.hypot(m.x-pos[0],m.z-pos[2]),x:edge?(r<0?14:W-14):X(b),edge};}).sort((a,b)=>(b.m.ring?1:0)-(a.m.ring?1:0)||a.d-b.d);
+      for(const q of pl)if(q.m.ring||!kept.some(k=>Math.abs(k.x-q.x)<(k.edge&&q.edge?60:27)))kept.push(q);marks=kept.map(q=>q.m).sort((a,b)=>(a.ring?1:0)-(b.ring?1:0));}
     for(const m of marks){const b=this.deg(m.x-pos[0],m.z-pos[2]),r=wrap(b-hd),d=Math.hypot(m.x-pos[0],m.z-pos[2]),edge=Math.abs(r)>span/2-4,x=edge?(r<0?14:W-14):X(b);
       if(m.ring){/* the mission's destination: a pulsing glow, a bigger tag with DEST, a pointer down from the heading tape */const pu=0.5+0.5*Math.sin(t/180);g.save();g.shadowColor='#fff';g.shadowBlur=8+8*pu;g.fillStyle=m.col;g.beginPath();g.roundRect?g.roundRect(x-22,H-30,44,21,6):g.rect(x-22,H-30,44,21);g.fill();g.restore();
         g.strokeStyle='#fff';g.lineWidth=2.5;g.stroke();g.fillStyle='#fff';g.beginPath();g.moveTo(x-6,H-34);g.lineTo(x+6,H-34);g.lineTo(x,H-28);g.fill();g.fillStyle='#111';g.font='bold 9px system-ui';g.textBaseline='middle';g.fillText('DEST',x,H-25.5);g.font='bold 11px system-ui';g.fillText(m.label,x,H-15.5);

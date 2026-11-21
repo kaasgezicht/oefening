@@ -86,7 +86,7 @@ const Port={S:[],key:'',meshes:new Map(),
     for(let i=0;i<N;i++)for(const k of [i,(N-1)*N+i,i*N,i*N+N-1])if(!oc[k]&&wetc(k)){oc[k]=1;st.push(k);}
     while(st.length){const k=st.pop(),i=k%N,j=(k/N)|0;for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){const ii=i+a,jj=j+b;if(ii<0||jj<0||ii>=N||jj>=N)continue;const m=jj*N+ii;if(!oc[m]&&wetc(m)){oc[m]=1;st.push(m);}}}
     const ocean=(x,z)=>{const i=Math.round(x/cs),j=Math.round(z/cs);return i>=0&&j>=0&&i<N&&j<N&&oc[j*N+i]===1;};this.ocean=ocean;
-    const towns=[...new Set(Coast.H.map(h=>h.v))];
+    const towns=Life.villages.slice();/* 4.58: every village with open sea in reach (it used to be only the fishing-harbour towns) */
     for(const v of towns){let best=null;
       for(let a=0;a<64;a++){const dx=Math.cos(a/64*6.2832),dz=Math.sin(a/64*6.2832);let prev=false;
         for(let r=(v.R||50)+40;r<1600;r+=8){const x=v.x+dx*r,z=v.z+dz*r;if(x<200||z<200||x>W-200||z>W-200)break;const wet=Hs(x,z)<sea-0.3;if(!wet){prev=false;continue;}if(prev)continue;prev=true;
@@ -95,7 +95,7 @@ const Port={S:[],key:'',meshes:new Map(),
           const n=[-sx/sl,-sz/sl],t=[-n[1],n[0]];/* n: inland */
           // move the quay face out until the berth is deep enough
           for(let o=-6;o<=36;o+=3){const qx=x-n[0]*o,qz=z-n[1]*o,s={x:qx,z:qz,t,n,v,deckY:deck};let ok=true,cut=0,low=0;
-            for(let lx=36;lx<=84&&ok;lx+=6)for(const ly of [-3,-6.5,-10,-25,-40]){const w=this.xz(s,lx,ly);if((ly>-12&&Hs(...w)>sea-4.5)||!ocean(...w)){ok=false;break;}}/* the berth deep enough, and the water in front open sea */
+            for(let lx=36;lx<=84&&ok;lx+=6)for(const ly of [-3,-6.5,-10,-25,-40]){const w=this.xz(s,lx,ly);if(Hs(...w)>sea-(ly>-12?0.6:2)){ok=false;break;}}if(ok&&!ocean(...this.xz(s,SHIP.approach[0],SHIP.approach[1]))&&!ocean(...this.xz(s,60,-110)))ok=false;/* 4.58: water along the berth (dredged to 8 m when built: Port.dredge) and open sea off it, where the colliers anchor */
             if(!ok)continue;
             for(let lx=0;lx<=PORT.W&&ok;lx+=10)for(let ly=0;ly<=PORT.D;ly+=10){const g=Hs(...this.xz(s,lx,ly));if(g>deck+6){ok=false;break;}cut+=Math.max(0,g-deck);if(g<deck-1)low++;}
             if(!ok)continue;
@@ -109,15 +109,24 @@ const Port={S:[],key:'',meshes:new Map(),
     Log.info(`harbour: ${this.S.length} terminal sites for ${towns.length} harbour towns`+this.S.map(s=>` · ${s.v.name} (${s.x.toFixed(0)},${s.z.toFixed(0)}${s.cut>0?', cut '+s.cut.toFixed(0):''})`).join(''));},
   xz(s,x,y){const p=this.P(s,x,y,0);return[p[0],p[2]];},
   cornersOf(s){return[[0,-PORT.water],[PORT.W,-PORT.water],[PORT.W,PORT.D],[0,PORT.D]].map(([x,y])=>this.xz(s,x,y));},
+  /* 4.58: the berth dredged: under water in front of the quay (x 25…95, y −1…−55) the sea floor goes down to 8 m, blended out over 15 m
+     (only cells already under water: no new water is made) */
+  dredge(s){const T=App.T,N=T.N,cs=T.cs,tg=T.sea-8,M=15,c=[this.xz(s,25-M,-55-M),this.xz(s,95+M,-55-M),this.xz(s,95+M,0),this.xz(s,25-M,0)],x0=Math.min(...c.map(q=>q[0])),x1=Math.max(...c.map(q=>q[0])),z0=Math.min(...c.map(q=>q[1])),z1=Math.max(...c.map(q=>q[1]));
+    const i0=Math.max(0,Math.floor(x0/cs)),i1=Math.min(N-1,Math.ceil(x1/cs)),j0=Math.max(0,Math.floor(z0/cs)),j1=Math.min(N-1,Math.ceil(z1/cs));
+    for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i,h=T.Hr[k];if(h<=tg||h>T.sea-0.3)continue;const [lx,ly]=this.local(s,i*cs,j*cs),o=Math.hypot(Math.max(0,25-lx,lx-95),Math.max(0,-55-ly,ly+1));if(o>M)continue;
+      const w=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M);T.Hr[k]=h+(tg-h)*w;}
+    R.patchTerrain(T,i0,j0,i1,j1);},
   // ---- bought: the ground under the deck levelled, houses and trees there gone, the terminal built (also after loading a save)
-  build(s){if(s.built)return;const T=App.T,N=T.N,cs=T.cs,cr=this.cornersOf(s),x0=Math.min(...cr.map(c=>c[0]))-12,x1=Math.max(...cr.map(c=>c[0]))+12,z0=Math.min(...cr.map(c=>c[1]))-12,z1=Math.max(...cr.map(c=>c[1]))+12;
+  build(s){if(s.built)return;this.earth(s);
+    for(const h of Life.houses)if(!h.gone&&this.inside(s,h.x,h.z,6))h.gone=true;
+    if(R.clearVegRect){const c=this.P(s,PORT.W/2,PORT.D/2-PORT.water/2,0);R.clearVegRect(App.T,{x:c[0],z:c[2],a:Math.atan2(s.t[1],s.t[0]),x0:-PORT.W/2-6,x1:PORT.W/2+6,z0:-(PORT.D+PORT.water)/2-6,z1:(PORT.D+PORT.water)/2+6},2);}
+    s.built=true;this.tracks(s);this.meshes.delete(s);/* built first: the track change re-applies its earthworks (App.reEarth) */Life.uploaded=false;Life.roadsDirty=true;},
+  /* the earthworks (also again after every track change near it, App.reEarth: the track earthworks are rebuilt from the bare land) */
+  earth(s){const T=App.T,N=T.N,cs=T.cs,cr=this.cornersOf(s),x0=Math.min(...cr.map(c=>c[0]))-12,x1=Math.max(...cr.map(c=>c[0]))+12,z0=Math.min(...cr.map(c=>c[1]))-12,z1=Math.max(...cr.map(c=>c[1]))+12;
     const i0=Math.max(0,Math.floor(x0/cs)),i1=Math.min(N-1,Math.ceil(x1/cs)),j0=Math.max(0,Math.floor(z0/cs)),j1=Math.min(N-1,Math.ceil(z1/cs)),top=s.deckY-0.7,M=10;
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const [lx,ly]=this.local(s,i*cs,j*cs),o=Math.hypot(Math.max(0,-lx,lx-PORT.W),Math.max(0,-ly,ly-PORT.D));if(o>M||ly<-2)continue;
       const k=j*N+i,h=T.Hr[k];if(h<=top)continue;const w=o<=0?1:1-(o/M)*(o/M)*(3-2*o/M);T.Hr[k]=h+(top-h)*w;}
-    R.patchTerrain(T,i0,j0,i1,j1);R.dryWater(T,i0,j0,i1,j1);
-    for(const h of Life.houses)if(!h.gone&&this.inside(s,h.x,h.z,6))h.gone=true;
-    if(R.clearVegRect){const c=this.P(s,PORT.W/2,PORT.D/2-PORT.water/2,0);R.clearVegRect(T,{x:c[0],z:c[2],a:Math.atan2(s.t[1],s.t[0]),x0:-PORT.W/2-6,x1:PORT.W/2+6,z0:-(PORT.D+PORT.water)/2-6,z1:(PORT.D+PORT.water)/2+6},2);}
-    this.tracks(s);s.built=true;this.meshes.delete(s);Life.uploaded=false;Life.roadsDirty=true;},
+    this.dredge(s);R.patchTerrain(T,i0,j0,i1,j1);R.dryWater(T,i0,j0,i1,j1);},
   // the two passenger tracks (straight through, x 0 → 120) and the freight siding (from the west to its buffer) as real track at deck
   // height: the player's lines join their free ends; saved with the rest of the track (tagged port:<site>), so they are made once
   tracks(s){const key=Math.round(s.x)+','+Math.round(s.z);if(Track.segs.some(g=>g.port===key)){this.extendSiding(s,key);this.stations(s,key);return;}const h=Math.atan2(s.t[1],s.t[0]),y=s.deckY+0.25;/* the track bed lies on the deck */

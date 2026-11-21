@@ -36,7 +36,7 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;if(uKind<=5)W.y+=fineAt(iA.xz);/* trees and rocks stand on the 8 m ground */vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt','portGantry','portHopper','portBelt','portCrab','portLoader','portShip','portWagon','fishBoatA','fishBoatB','fishBoatC','fishBoatL','fishHangW','fishHangB','fishTyre','factGas','factIron','factMint','factDiamond'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt','portGantry','portHopper','portBelt','portCrab','portLoader','portShip','portWagon','fishBoatA','fishBoatB','fishBoatC','fishBoatL','fishHangW','fishHangB','fishTyre','factGas','factIron','factMint','factDiamond','wreckSail','wreckSteam','wreckTrawl'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
 const KIT_DYN=new Set(['grainArm','portGantry','portCrab','portLoader','portShip','portWagon','fishBoatA','fishBoatB','fishBoatC','fishBoatL','fishHangW','fishHangB','fishTyre']);/* kit types whose instances move: written every frame (Life.armInst), redrawn in the dynamic shadow layer */
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
@@ -413,7 +413,7 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;in vec3 vSw;uniform vec4 uFlood;uniform vec4 uFallP[8];uniform vec4 uSwell;
 precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform sampler2DArray uWDeriv;uniform sampler2D uSceneCol;uniform sampler2D uDepthCopy;
-uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;`+FS_OUT+`
+uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;uniform vec4 uHole[4];uniform vec2 uHoleS;`+FS_OUT+`
 float linZ(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 // screen-space reflection: march the reflected ray against the depth copy, take the colour from the pre-water scene copy
 vec4 ssr(vec3 P,vec3 Rd){int n=int(uRefl.x);float st=1.5,t=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584))))*1.5;
@@ -447,6 +447,9 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
       float db=max((linZ(zs)-linZ(gl_FragCoord.z))/max(dot(Dr,F),.05)*max(-Dr.y,.02),0.),nw=1.-smoothstep(150.,400.,length(W-uCamPos.xyz));float ag=1.-smoothstep(1.+depthT*.6,2.+depthT*1.2,abs(db-depthT));depth=mix(depthT,db,nw*ag);}}/* 4.57.1: faded in by how well they agree (an on/off switch made the depth jump along a sea-floor contour) */
   float dsl=length(vec2(dFdx(depthT),dFdy(depthT)))/max(length(vec2(length(dFdx(W.xz)),length(dFdy(W.xz)))),1e-3);// bottom slope, before any discard: from the smooth terrain only (4.57.1: the refined depth's steps read as a steep shore and drew dashed foam lines out on the sea)
   if(depthT<.005&&depth<.003)discard;
+  /* 4.58: no water inside the boats' hulls (it showed on the deck when a boat dipped): the waterline outline of the nearest boats,
+     x/z centre and heading (cos, sin) in uHole, half length and half beam in uHoleS */
+  for(int i=0;i<4;i++){vec4 h=uHole[i];if(h.z==0.&&h.w==0.)continue;vec2 dd=W.xz-h.xy;float a=dot(dd,h.zw),b=dot(dd,vec2(-h.w,h.z));if(a<0.?(a>-uHoleS.x&&abs(b)<uHoleS.y):(a/(uHoleS.x*.9))*(a/(uHoleS.x*.9))+(b/uHoleS.y)*(b/uHoleS.y)<1.)discard;}/* the hull's plan: full beam aft (a square stern), rounded to the bow (a > 0: the heading) */
   vec2 fl=flowAt(W.xz);float sp=length(fl);vec2 fdir=sp>1e-5?fl/sp:vec2(0);float v=min(sp*45.,3.)*(1.+rain*.5+uFlood.x*.8);float iceF=ice*(1.-smoothstep(1.5,3.,v)*.8);
   vec2 wd=sp>.002?fdir:normalize(uWind.xz+1e-4);float calm=(.35+.65*uWater.y)*(1.-iceF);
   // flow map: two phases of the ripple field dragged downstream, cross-faded

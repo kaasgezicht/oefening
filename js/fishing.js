@@ -30,6 +30,7 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       // each boat: moored, with a wait before its first trip; fishermen on the quay
       for(const b of h.boats){const m=this.moor(h,b);Object.assign(b,{st:'moor',x:m[0],z:m[1],hd:h.rot,v:0,wait:20+rng()*240,net:0,kg:0});}
       h.men=[0,1,2].slice(0,2+Math.floor(rng()*2)).map(i=>({at:5+i*7+rng()*2,side:rng()<0.5?-1:1,ph:rng()*6,job:i%2}));}
+    if(typeof Wrecks!=='undefined'){Wrecks.init();this.G.push(...Wrecks.grounds(rng));}/* 4.58: fish gather at the wrecks */
     Log.info(`fishing: ${this.G.length} fishing grounds off ${Coast.H.length} harbours`);this.apply();},
   moor(h,b){const c=Math.cos(h.rot),s=Math.sin(h.rot),lz=b.side*4.6;return[h.x+c*b.at-s*lz,h.z+s*b.at+c*lz];},
   nearestG(x,z){let b=null,bd=1e18;for(const g of this.G){const d=Math.hypot(g.x-x,g.z-z);if(d<bd){bd=d;b=g;}}return b?{g:b,d:bd}:null;},
@@ -142,7 +143,10 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
     el.innerHTML=`<div class="fp-h"><div><b>⚓ Fishing harbour${h.v?' · '+esc(h.v.name):''}</b><span>${h.boats.length} boat${h.boats.length===1?'':'s'}: ${n} in, ${out} out fishing</span></div><button data-a="x">✕</button></div>`+
       `<div class="fp-note" style="padding:6px 10px">Grounds off this harbour: ${G.map(g=>`${g.fish} (€${g.price}/kg, ${g.stock>0.66?'plenty':g.stock>0.33?'some':'few'} fish)`).join(', ')||'none in reach'}. Set the nets where the gulls circle, haul, and sell at any harbour.</div>`+
       `<div class="rs-b"><button data-a="take" class="go"${n?'':' disabled'}>Take a boat out</button></div>`;el.hidden=false;},
-  marks(){if(!this.drv)return[];const L=this.G.map(g=>({x:g.x,z:g.z,label:'⚑',col:'#5ad1ff'}));for(const h of Coast.H)L.push({x:h.x,z:h.z,label:'⚓',col:'#f1e7d0'});return L;},
+  /* 4.58: only what is near: the 4 nearest fishing grounds, the 3 nearest harbours, the 2 nearest wrecks (fish gather there too) */
+  marks(){if(!this.drv)return[];const b=this.drv,near=(L,n)=>L.map(o=>[o,Math.hypot(o.x-b.x,o.z-b.z)]).sort((p,q)=>p[1]-q[1]).slice(0,n).map(p=>p[0]);
+    const L=near(this.G.filter(g=>!g.wreck),4).map(g=>({x:g.x,z:g.z,label:'⚑',col:'#5ad1ff'}));for(const h of near(Coast.H,3))L.push({x:h.x,z:h.z,label:'⚓',col:'#f1e7d0'});
+    for(const g of near(this.G.filter(g=>g.wreck),2))L.push({x:g.x,z:g.z,label:'⚓︎',col:'#d9a441',wreck:true});return L;},
   heading(){const b=this.drv;return b?[Math.cos(b.hd),Math.sin(b.hd),b.x,b.z]:null;},
   // ---- drawing: the boats' poses (Coast.draw asks), nets with their floats, fishermen on the quays
   pose(h,b){if(!b.st||b.st==='moor')return null;return{x:b.x,z:b.z,hd:b.hd};},

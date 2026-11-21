@@ -74,6 +74,8 @@ const FACTS=[
 'An ironworks needs both iron ore and coal: the blast furnace melts the ore with coke, blown hot by the riveted stoves beside it.',
 'Ore delivered at a factory\'s own siding pays 1.6 times the usual rate. Tap a mine to see on the map where its ore can go.',
 'Ore from another island goes by train to a coal & ore harbour, by collier across the sea, and the gantry at the far harbour fills empty hoppers for the last leg.',
+'There is a wreck for every 4 km² of sea: old sailing ships, steamers and fishing boats. Fish gather over them, and the boat\'s compass shows the nearest two.',
+'A coal & ore harbour dredges its own berth to 8 m when it is built, so colliers can lie alongside even on a shallow shore.',
 'Colliers find their way round the islands with A* search on a 64 m grid of sea cells deep enough for them, then straighten the path wherever the water is open.',
 'Buy colliers in the store and give each a route of harbours. She berths, unloads, takes on the harbour\'s coal and ore, and sails on.',
 'Hydraulic erosion lets thousands of simulated raindrops run downhill, picking up and dropping sediment, which carves the valleys.',

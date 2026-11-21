@@ -73,7 +73,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     if(this.fly){Cam.setState(this.cam);Cam.flyTo(this.fly,160);this.fly=null;}else Cam.setState(this.cam);
     document.body.classList.remove('mapmode');$('#mapOv').hidden=true;$('#mapBar').hidden=true;$('#mapKey').hidden=true;MapUI.list();StatsUI.close();Store.close();if(Fleet.draft&&Fleet.draft.tab==='map'){Fleet.draft.tab='list';FleetUI.refresh();}},
   /* the colour key (top left, folds to its title): the dot / ring colour of each kind of place, and the route lines */
-  KEY:[['town','#ffe066','Town'],['village','#f29e4c','Village'],['hamlet','#8fd16a','Hamlet'],['station','#ff5a4a','Station'],['farm','#d4b483','Farm'],['mine','#9aa3b5','Mine'],['factory','#e2794f','Factory'],['saw','#2ec4b6','Sawmill · workshop'],['castle','#b39cff','Castle'],['harbour','#5fb3ff','Harbour'],['stop','#ffffff','Bus / lorry stop'],['air','#ffe07a','Airstrip']],
+  KEY:[['town','#ffe066','Town'],['village','#f29e4c','Village'],['hamlet','#8fd16a','Hamlet'],['station','#ff5a4a','Station'],['farm','#d4b483','Farm'],['mine','#9aa3b5','Mine'],['lode','#6b7280','Mine site (not bought)'],['factory','#e2794f','Factory'],['saw','#2ec4b6','Sawmill · workshop'],['castle','#b39cff','Castle'],['harbour','#5fb3ff','Harbour'],['stop','#ffffff','Bus / lorry stop'],['air','#ffe07a','Airstrip']],
   col(k){const e=this.KEY.find(q=>q[0]===k);return e?e[1]:'#c9a14a';},
   legend(){const el=$('#mapKey');if(!el)return;el.hidden=false;if(this.keyFold==null)this.keyFold=innerWidth<500;
     el.innerHTML=`<button class="mk-h">${this.keyFold?'▸':'▾'} Legend</button>`+(this.keyFold?'':`<div class="mk-l">${this.KEY.map(([k,c,n])=>`<span><i style="background:${c}"${k==='air'?' class="sq"':''}></i>${n}</span>`).join('')}<span><b style="color:#ff5a4a">━</b> Railway</span><span><b style="color:#4fb4ff">┅</b> Bus route</span><span><b style="color:#ffb340">· ·</b> Lorry route</span></div><div class="mk-n">Zoomed out, places that would overlap become dots</div>`);
@@ -131,6 +131,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     for(const c of Life.castleList())sym(c.x,c.z,'🏯',c.name,18,'castle');
     for(const fm of Life.farms())if(fm&&fm.v.farmOwned)sym(fm.x,fm.z,'🌾',fm.v.name+' farm',16,'farm');
     for(const [kind,L] of Life.inds())L.forEach(m=>{if(!Life.indOn(kind,m))return;sym(m.x,m.z,Life.indIcon(kind),Life.indLabel(kind,m),16,kind==='mine'?'mine':kind==='factory'?'factory':'saw');});
+    for(const m of Life.mines||[])if(!Life.indOn('mine',m)&&m.v&&ORE[m.type])sym(m.x,m.z,'⛏️',`${ORE[m.type].name} lode · buy the mine in ${m.v.name}`,13,'lode');/* 4.58: where the mines can be, before they are bought */
     for(const d of Life.docks||[])if(d.v&&d.v.docksOwned)sym(d.sx,d.sz,'⚓','',14,'harbour');
     if(typeof Port!=='undefined')for(const s of Port.S)if(s.built){const c=Port.centre(s);sym(c[0],c[2],'🏗️',s.v.name+' harbour',18,'harbour');}
     for(const st of Buses.stops)sym(st.x,st.z,st.sawmill||st.workshop?'🚚':'🚏',st.name,14,'stop');
@@ -240,12 +241,17 @@ const App={busy:false,pendingFrom:99,base:null,eroded:null,T:null,time:0,perf:{f
   },
   /* 4.32.0: only the area round the track pieces added or removed since the last time is rebuilt (heights restored and carved, drawn heights);
      the roads are re-planned only when that area touches one. A full rebuild took seconds per piece on big maps */
+  /* 4.58: earthworks made straight in the drawn heights (airstrip grading and helipads, harbour levelling and dredging) are made again
+     after the track earthworks were rebuilt from the bare land (they were lost when track was built near them) */
+  reEarth(rc){const T=this.T,cs=T.cs,hit=(x,z,r)=>!rc||(x+r>=rc.i0*cs&&x-r<=(rc.i1+1)*cs&&z+r>=rc.j0*cs&&z-r<=(rc.j1+1)*cs);
+    for(const s of Air.list)if(!s.water&&s.graded&&hit(s.x,s.z,AIR.len/2+120))Air.grade(s);
+    if(typeof Port!=='undefined')for(const s of Port.S)if(s.built){const c=Port.centre(s);if(hit(c[0],c[2],260))Port.earth(s);}},
   trackChanged(){Net.changed();const T=this.T;if(!T||!T.H0)return;{const ss=Track.stations.filter(q=>!q.port).map(q=>q.id+':'+q.sid+':'+Math.round(q.t)+':'+(q.len||44)).join('|');if(ss!==this._stSig){if(this._stSig!=null)Pending.streams=true;this._stSig=ss;}}/* 4.57.1: streams are cut at station yards (R.cutStreams) */const t0=performance.now(),N=T.N,cs=T.cs,sig=new Map();for(const s of Track.segs)sig.set(s.id,s);
     const old=this._segSig;this._segSig=sig;let rc=null;
     if(old){const ch=[...[...sig.values()].filter(s=>old.get(s.id)!==s),...[...old.values()].filter(s=>!sig.has(s.id))];if(ch.length&&ch.length<40){let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9;for(const s of ch)for(let i=0;i<=16;i++){const p=segPoint(s,s.L*i/16);x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
       const mg=110;rc={i0:Math.max(0,Math.floor((x0-mg)/cs)),i1:Math.min(N-1,Math.ceil((x1+mg)/cs)),j0:Math.max(0,Math.floor((z0-mg)/cs)),j1:Math.min(N-1,Math.ceil((z1+mg)/cs))};}}
     if(rc){for(let j=rc.j0;j<=rc.j1;j++){const r=j*N;T.H.set(T.H0.subarray(r+rc.i0,r+rc.i1+1),r+rc.i0);}}else T.H.set(T.H0);
-    carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T,rc);if(rc&&Life.roads&&Life.roads.some(r=>{const p=r.p||r;for(let k=0;k+1<p.length;k+=2){const i=p[k]/cs,j=p[k+1]/cs;if(i>=rc.i0&&i<=rc.i1&&j>=rc.j0&&j<=rc.j1)return true;}return false;}))Life.roadsDirty=true;if(Life.rc)R.buildRoadRibbons(Life.rc);
+    carveTrack(T);computeNormals(T,T.nrm);R.updateTerrain(T,rc);this.reEarth(rc);if(rc&&Life.roads&&Life.roads.some(r=>{const p=r.p||r;for(let k=0;k+1<p.length;k+=2){const i=p[k]/cs,j=p[k+1]/cs;if(i>=rc.i0&&i<=rc.i1&&j>=rc.j0&&j<=rc.j1)return true;}return false;}))Life.roadsDirty=true;if(Life.rc)R.buildRoadRibbons(Life.rc);
     Log.info(`track earthworks rebuilt in ${(performance.now()-t0).toFixed(0)} ms (${Track.segs.length} pieces, ${Track.length().toFixed(0)} m)`);},
   /* a recent compact save is always there: every 3 minutes of play and whenever the page is hidden (app switched, screen off) */
   autosave(){if(Bench.on||!App.T||App.busy)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(snapshot()));}catch(e){}},

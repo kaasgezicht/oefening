@@ -71,9 +71,13 @@ const Pad={vp:null,raw:null,prev:[],map:null,trig:[0,0],last:-1e9,mode:'',fe:nul
     else if(m==='trains'){if(this.ed(1)&&Drive.exit)Drive.exit();}
     else{if(this.ed(3))$('#btnBuild').click();if(this.ed(2))$('#btnDrive').click();if(this.ed(8))$('#btnMap').click();if(this.ed(9))$('#btnHome').click();if(this.ed(4))$('#btnSky').click();if(this.ed(5))$('#btnFF').click();}},
   // synthetic pointer events at the screen centre on the 3D view: the game handles them exactly like a finger
-  ptr(type){const cv=$('#gl');if(!cv)return;const r=cv.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
-    if(type==='pointerdown')this.held={t:this.now()};if(type==='pointerup')this.held=null;
-    try{cv.dispatchEvent(new PointerEvent(type,{clientX:x,clientY:y,pointerId:77,pointerType:'touch',isPrimary:true,button:0,buttons:type==='pointerup'?0:1,bubbles:true,cancelable:true}));}catch(e){}},
+  /* 4.58: at the crosshair itself (the middle of the window, where #padCross is drawn; it was the middle of the 3D canvas), and to whatever is
+     there: a village, station or industry label, a button, or the 3D view (labels and buttons also get the click a finger would give) */
+  ptr(type){const cv=$('#gl');if(!cv)return;const x=innerWidth/2,y=innerHeight/2;
+    if(type==='pointerdown'){this.held={t:this.now()};const el=document.elementFromPoint(x,y);this.tgt=el&&el!==document.body&&el!==document.documentElement?el:cv;}
+    const tg=this.tgt&&this.tgt.isConnected?this.tgt:cv;if(type==='pointerup'){this.held=null;this.tgt=null;}
+    try{tg.dispatchEvent(new PointerEvent(type,{clientX:x,clientY:y,pointerId:77,pointerType:'touch',isPrimary:true,button:0,buttons:type==='pointerup'?0:1,bubbles:true,cancelable:true}));
+      if(type==='pointerup'&&tg.tagName!=='CANVAS')tg.dispatchEvent(new MouseEvent('click',{clientX:x,clientY:y,bubbles:true,cancelable:true}));}catch(e){}},
   cycle(sel,d){const L=[...document.querySelectorAll(sel)].filter(e=>e.offsetParent);if(!L.length)return;let i=L.findIndex(e=>e.classList.contains('on')||e.classList.contains('sel')||e.getAttribute('aria-selected')==='true');L[((i<0?0:i+d)%L.length+L.length)%L.length].click();},
 
   // ---- the boat: left stick steers, RT/LT ahead and astern (or the left stick up/down), A nets, X sell, B camera, Y leave

@@ -1,4 +1,4 @@
-# Trein handoff 124 (21 Nov 2026): v4.57.1 — step 9 part 2 (sea seam, slopes). Before: 4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 125 (21 Nov 2026): v4.58.0 — wrecks, compass, boat water, harbours offered, pad A. Before: 4.57.1 — step 9 part 2 (sea seam, slopes). Before: 4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,37 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.57.1, 21 Nov) — step 9 part 2: the sea seam, and stations / quays / helipads on slopes
+### Latest (4.58.0, 21 Nov) — six user items (wrecks "mixed, and they hold fish"; harbours: "can't buy one anywhere")
+- **Wrecks** (new buildings/wrecks.js + js/wrecks.js `Wrecks`): wreckSail (wooden ship, ribs, planking, fallen mast, cannon,
+  anchor, ~4.9k tris), wreckSteam (riveted steamer broken amidships, boiler, funnel, ~2.5k), wreckTrawl (small fishing boat, laid on
+  its side by the instance roll, ~0.7k). One per 2 km square that is ≥ 6/16 sea (≈ one per 4 km² of sea), own rng `seed*911+5`.
+  Spot: shallow first (5–13 m: scanned on a 50 m grid; the water only shows the floor that deep — at 40 m they were invisible),
+  else 6–70 m; flat, not near quays (350 m) or harbour sites (400 m). Kit types (static) with pitch/roll: the static kit packing now
+  passes `h.pr` (Fish.pk) like the dynamic ones. Each wreck is a fishing ground appended to Fish.G (`wreck:true`, r 70, price ×1.3,
+  `h:null` so the AI boats ignore them; saved ground indices unchanged). Wrecks.init runs from Fish.init.
+- **Boat compass**: Fish.marks gives only the 4 nearest grounds, 3 nearest harbours, 2 nearest wrecks (⚓︎ gold). Compass.tick (all
+  vehicles) now drops a marker that would overlap a nearer one (27 px), one per side off the tape; the destination always shows.
+- **Water inside the boat**: FS_WATER discards water inside the waterline plan of the 4 nearest fishing boats (`uHole[4]` = x, z,
+  cos/sin heading; `uHoleS` = 6.0 aft / 5.4 fwd, 1.75 half beam; square stern, rounded bow), set in R.waterU from R.boatHoles (once
+  per frame, the driven boat first). Tested with the boat pinned 0.7 m low, pitched 0.12: without it the sea floods the aft deck; with
+  it the deck is dry. The colliers are not included (their deck is high).
+- **No mines on the 32 km map**: a fresh 32 km world (seed 4242) has 19 mines on 64 villages, so generation works. Most likely the
+  stored world file was older (the world file is reused while the world settings match); WorldFile.FMT 2 (4.57) already forces one
+  regeneration. Also: unbought mine sites now show on the map (grey ⛏️ "lode · buy the mine in <village>", legend "Mine site").
+- **Coal & ore harbours not offered**: Port.find rejected almost every coastal town on the berth rule (4.5 m deep right at the quay;
+  test world: 5517 rejections, 1 site for 8 towns). Now the berth needs water (≥ 0.6 m; ≥ 2 m further out) and open sea at the
+  anchorage (60, −70) or (60, −110); building **dredges** the berth to 8 m (`Port.dredge`: x 25…95, y −1…−55, blended 15 m, only cells
+  already under water). Search covers every village (was only fishing-harbour towns). Result: 8/8 and 15/16 towns get a site.
+  Found on the way: **track changes erased earthworks** — App.trackChanged rebuilds the heights from the bare land in the changed
+  region, which undid harbour levelling/dredging and airstrip grading (helipads too) near new track. New `App.reEarth(rc)` re-applies
+  Air.grade and `Port.earth` (levelling + dredge, split out of build) for those in the region; a harbour is marked built before its
+  own tracks are laid so they count. Owned harbours in old saves may get a different site (the search changed): none could be bought.
+- **Pad A**: it dispatched at the 3D canvas centre while the crosshair is the window centre, and only to the canvas. Now Pad.ptr
+  targets document.elementFromPoint at the crosshair (labels, buttons, map overlay, or the canvas), and sends a click on release to
+  non-canvas elements. Tested: a 40 px element at the centre got pointerdown and click; the canvas got the tap at (450, 250).
+- checks/wreck58.png (a steamer in 6 m of water), checks/boat58_water.png (with / without / with the cut).
+
+### Earlier (4.57.1, 21 Nov) — step 9 part 2: the sea seam, and stations / quays / helipads on slopes
 - **The dashed bright line on the sea: found and fixed.** It was shoreline foam drawn out at sea. The water shader refines the depth near
   the camera (< 400 m) from the depth buffer, but only where it agrees with the smooth terrain depth (`abs(db-depthT)<1+0.6·depthT`):
   an on/off switch, so along a sea-floor contour the depth jumped; `dsl` (bottom slope = screen derivative of depth) spiked there, so

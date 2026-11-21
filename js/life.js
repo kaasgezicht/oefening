@@ -1238,6 +1238,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       for(const [t,k] of [['farmHouse','house'],['farmBarn','barn'],['farmShed','shed'],['farmYard','yard']]){const q=KIT.FARM[k],x=fm.x+c*q[0]-sn*q[1],z=fm.z+sn*q[0]+c*q[1],d=Math.hypot(x-cp[0],y-cp[1],z-cp[2]);if(d<2400)KB[t+LVL(t,d)].push({x,y,z,rot:fm.rot,hash:0.5});}
       const tw=this.farmTower(fm);KB['grainTower'+LVL('grainTower',Math.hypot(tw.x-cp[0],tw.z-cp[2]))].push({x:tw.x,y:tw.y,z:tw.z,rot:tw.rot,hash:0.5});}
     for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m))continue;const d=Math.hypot(m.x-cp[0],m.y-cp[1],m.z-cp[2]);if(d>2400)continue;KB[((m.up||1)>0?'sawmillA':'sawmillB')+LVL('sawmillA',d)].push({x:m.x,y:m.y,z:m.z,rot:m.rot,hash:0.5});}
+    if(typeof Wrecks!=='undefined')Wrecks.kitPut((t,o)=>{const d=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);KB[t+LVL(t,d)].push(o);});/* 4.58: on the sea floor */
     for(const f of this.factories||[]){const t=FACTORY[f.type]&&FACTORY[f.type].model;if(!t)continue;const d=Math.hypot(f.x-cp[0],f.y-cp[1],f.z-cp[2]);if(d>2600)continue;KB[t+LVL(t,d)].push({x:f.x,y:f.y,z:f.z,rot:f.rot,hash:f.hash||0.5});}/* 4.57 */
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
     for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
@@ -1265,7 +1266,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       for(let l=0;l<4;l++){const L=KB[t+l],keep=[];for(const h of L){const k=r*PS/Math.max(Math.hypot(h.x-cp[0],h.y-cp[1],h.z-cp[2]),1)*ls;let done=false;
           for(let i=0;i<3&&!done;i++){const T=TH[i];if(k>T/BD&&k<T*BD){const u=clamp((Math.log(k/T)/lb+1)/2,0.02,0.98);KB[t+i+'f'].push({...h,fw:1+u});KB[t+(i+1)+'f'].push({...h,fw:-(1+u)});done=true;}}
           if(!done)keep.push(h);}KB[t+l]=keep;}}}
-    for(const t of KIT_TYPES)if(!KIT_DYN.has(t))for(let l=0;l<4;l++)for(const fd of ['','f']){const L=KB[t+l+fd]||[],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,0.5,h.hash,h.fw||0],i*8));R.inst('kit_'+t+'_'+l+fd,a,L.length);}},
+    for(const t of KIT_TYPES)if(!KIT_DYN.has(t))for(let l=0;l<4;l++)for(const fd of ['','f']){const L=KB[t+l+fd]||[],a=B(L.length);if(L.length>1){for(const h of L)h._kd=(h.x-cp[0])*(h.x-cp[0])+(h.z-cp[2])*(h.z-cp[2]);L.sort((p,q)=>p._kd-q._kd);}L.forEach((h,i)=>a.set([h.x,h.y,h.z,h.sc||1,h.rot,h.pr==null?0.5:h.pr,h.hash,h.fw||0],i*8));R.inst('kit_'+t+'_'+l+fd,a,L.length);}},/* pr: pitch and roll packed (Fish.pk), for the tilted wrecks */
   prepare(cam,A){if(!this.T)return;const B=(n)=>new Float32Array(Math.max(1,n)*8);this.kitInst(B);
     if(!this.uploaded){this.uploaded=true;
       for(let v=0;v<R.houseDefs.length;v++){if(R.houseDefs[v].kit){R.inst('house'+v,B(0),0);continue;}const L=this.houses.filter(h=>h.v===v&&!h.shop&&!(h.bank&&h.village&&h.village.bankOwned)&&this.houseOn(h)),a=B(L.length);L.forEach((h,i)=>a.set([h.x,h.y,h.z,1,h.rot,0.5,h.hash,0],i*8));R.inst('house'+v,a,L.length);}

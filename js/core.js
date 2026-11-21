@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.57.1 (no more dashed foam lines on the sea; quays, helipads and stations sit right on slopes)';
+const VERSION='4.58.0 (wrecks on the sea floor, a tidier boat compass, coal & ore harbours offered in coastal towns)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
