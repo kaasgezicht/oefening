@@ -30,12 +30,15 @@ const UILayout={sel:null,drag:null,
   orient(){return innerHeight>=innerWidth?'p':'l';},
   /* writes the current orientation's offsets and sizes onto the elements (cheap: only what changed is touched) */
   apply(){const o=this.orient();document.documentElement.style.setProperty('--txt',String(+P.uiText||1));
+    /* body classes for the landscape rules in trein.css: the orientation, building, and an info panel open */
+    {const B=document.body.classList,vis=id=>{const e=document.getElementById(id);return!!(e&&!e.hidden&&e.getClientRects().length&&getComputedStyle(e).display!=='none');};B.toggle('land',o==='l');B.toggle('m-build',typeof Build!=='undefined'&&!!Build.active);
+      B.toggle('m-panel',['vPanel','airMis','rsBoard','rvPanel','busPanel','skySheet'].some(vis));}
     for(const [k,sel,,org] of UI_EL){const x=+P[`ui_${k}_${o}x`]||0,y=+P[`ui_${k}_${o}y`]||0,s=+P[`ui_${k}_${o}s`]||1;
       const t=x||y?`${x}px ${y}px`:'',sc=s!==1?String(s):'';
       for(const el of document.querySelectorAll(sel)){if(el.style.translate!==t)el.style.translate=t;if(el.style.scale!==sc)el.style.scale=sc;if(sc&&el.style.transformOrigin!==org)el.style.transformOrigin=org;}}
     if(this.box)this.refreshBox();},
   init(){addEventListener('resize',()=>this.apply());addEventListener('orientationchange',()=>setTimeout(()=>this.apply(),200));
-    setInterval(()=>this.apply(),800);/* panels and the compass are made later: they pick up their place within a moment */this.apply();
+    setInterval(()=>this.apply(),400);/* panels and the compass are made later: they pick up their place within a moment */this.apply();
     // edit mode: grab any control group and drag it; a tap selects it for the size slider. Buttons do not fire while editing.
     const pick=e=>{if(!document.body.classList.contains('uiedit')||e.target.closest('#uiEd'))return null;for(const [k,sel] of UI_EL){const el=e.target.closest(sel);if(el)return{k,el};}return null;};
     document.addEventListener('pointerdown',e=>{const h=pick(e);if(!document.body.classList.contains('uiedit')||e.target.closest('#uiEd'))return;e.preventDefault();e.stopPropagation();

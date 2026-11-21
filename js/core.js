@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.44.2 (step 9 part 1: brooks cut at runways, mist and god rays end at the sea surface)';
+const VERSION='4.45.0 (controller everywhere, landscape layout, new fire effect)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -23,7 +23,7 @@ window.addEventListener('unhandledrejection',e=>Log.err('unhandled rejection: '+
 // apply: live = read every frame | world = needs Generate | water/veg = auto-rebuild that stage
 //        tex = regenerate ground textures | shadow = rebuild shadow maps | trees = rebuild tree models
 const P={},PDEF={},PORDER=[];
-const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['sea','Sea'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['ui','UI'],['file','File']];
+const TABS=[['world','World'],['erosion','Erosion'],['water','Water'],['look','Look'],['sky','Sky'],['life','Life'],['sea','Sea'],['trees','Trees'],['track','Track'],['trains','Trains'],['sound','Sound'],['quality','Quality'],['exp','Experimental'],['ui','UI'],['pad','Controller'],['file','File']];
 const TAB_HINT={ui:'Move and size the on-screen controls, with separate layouts for portrait and landscape. Edit layout lets you drag them on the screen; text grows with each control, and Text size changes all of it.',world:'Changes here rebuild the whole landscape when you press Generate.',erosion:'Erosion runs when you press Generate. Turn it off to compare with raw noise.',
   water:'Lake and river shape rebuild automatically (a second or two). Look settings are live.',trees:'Placement sliders replant automatically. Distances are live.',
   track:'Lay track with the Build button. Bed width and slopes reshape existing track straight away.',look:'How the diorama looks. Everything here is live.',

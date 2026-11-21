@@ -1,4 +1,4 @@
-# Trein handoff 108 (21 Nov 2026): v4.44.2 — step 9 part 1 (glitch sweep). Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 109 (21 Nov 2026): v4.45.0 — controller everywhere, landscape layout, new fire effect. Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,41 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.44.2, 21 Nov) — improvement step 9, part 1 (mesh-glitch sweep)
+### Latest (4.45.0, 21 Nov) — the user's three asks: controller support everywhere, landscape without overlaps, a really good fire
+(answers: dedicated mappings per mode with on-screen hints; GameSir X5 Lite, Xbox labels, digital triggers, presets + manual remap; all
+four fire parts)
+- **Controller (new js/pad.js, `Pad`)**: one reader; `Pad.vp` is a virtual pad in standard order after the user's remap
+  (`localStorage 'trein.padmap'`, 17 entries) with digital triggers ramped to full over `P.padRamp` s (preset `digital`). PlanePad and
+  `RoadVeh.padPoll` now read `Pad.vp`. Settings tab **Controller** (`TABS` 'pad'): type (Automatic from the pad's id / Xbox / GameSir /
+  PlayStation / Nintendo: hint labels), hints on/off, camera speed, invert tilt, dead zone, trigger ramp, **Remap buttons…** (`#padRemap`:
+  pick an action, press the button) and a show-hints button. `Pad.tick(dt)` runs in the main loop (bench.js).
+  - Modes (`Pad.modeNow`): `ui` (a panel is open: `panelRoot` list, or the D-pad was pressed on the open screen), fly, drive, boat, map,
+    build, trains, world. World/build/map/trains: LS pan (`camPan`), RS turn/tilt, LT/RT zoom, **A = a tap at the crosshair**
+    (synthetic PointerEvents, id 77, at the screen centre; held A in building is a finger drag, so drawing track works), D-pad moves a
+    highlight over the buttons on screen. World: Y build, X trains, View map, Menu main menu, LB sky sheet, RB speed. Build: X undo,
+    Y place piece, LB/RB Track/Stations/Roads, B or Menu done. Map: LB/RB tabs, B close. Boat: LS steer, RT/LT ahead/astern, A nets,
+    X sell, B camera, Y leave. Menus: D-pad/LS choose (spatial nearest in the direction, auto-repeat), A press (sliders and lists: left/
+    right change them), B the panel's own close button, LB/RB settings tabs, RS scroll. A button pressed from the open screen returns
+    to the camera (the highlight is remembered). Helicopter: D-pad down/up run the winch.
+  - Hints: `#padHints` (top centre; bottom in fly/drive/boat), labels from the preset; `#padCross` crosshair; `.padfocus` highlight.
+  - Gear: standing still counts as on the ground (A right after spawning retracted the gear into a belly landing).
+  - Tested with a fake GameSir pad (navigator.getGamepads stub): pan 308 m, turn, RT zoom 420→82 m with the ramp, D-pad to Build + A,
+    RB build tab, B done, settings RB tab + B close, remap A←3, flying A gear, LT brake 0.2→0.8 ramp. Not tried on the real pad.
+- **Landscape** (`body.land` and `m-build`/`m-panel` classes set by `UILayout.apply`, every 0.4 s): build menu is a left side panel
+  (48vw, scrolls, world visible on the right; main bar hidden), notifications max 2 and hidden while building or with a panel open,
+  compass below the top row (flying/boat: bottom centre between the sticks, readout above it), winch buttons upper right, village /
+  airfield / rescue / sky panels between the corner buttons and the bar. Audit script (scratchpad landT.js: 12 modes, overlap and
+  off-screen check of every visible control): 0 overlaps at 915×412 and 740×360 except the build tabs under the info text at 740×360
+  (panel moved down to 58 px for that).
+- **Fire**: flame tongues are their own instanced shader (`Fires.drawFlames`, `VS_FLAME/FS_FLAME` in fire.js): per burning tree (from
+  `Fires.treesAt`, up to 6 per cell, they catch one after another) plus low ground fire, noise-shaped licking tongues, white-yellow core
+  to dark red tips, wind lean, soft at the ground, brighter at night; drawn after the particles. Sparks (type 5, small, rising
+  downwind); the smoke plume (type 7) bigger, dark at the foot and paler higher, its foot lit orange by the flames; **charred trunks**
+  (5-sided black tapered trunks with broken branch stubs, in the scorch mesh, from `Fires.char` recorded in `kill`, rebuilt on load);
+  the scorch's vertices are nudged by a position hash (no 16 m grid lines); water hits: a steam burst per cell hit (`c.steam`) and a
+  hiss (`Sfx.hiss`, louder near the camera).
+
+### Earlier (4.44.2, 21 Nov) — improvement step 9, part 1 (mesh-glitch sweep)
 - **Brooks over airstrips: fixed.** `R.cutStreams` splits every stream where it crosses a land runway (±len/2+14 m, ±w/2+4 m); the
   grading already raises the runway over it. Airstrip build and load set `Pending.streams` so the ribbons are rebuilt. Checked before /
   after on the 4 km test world (strip 3: a brook ran across the runway, now it stops at both edges).

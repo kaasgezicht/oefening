@@ -275,7 +275,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   hop(){const b=this.drv;if(!b||(b.hz||0)>0.02)return;b.hvz=4.9;b.hz=0.03;},
   horn(){const c=Sfx.ctx;if(!c||!Sfx.on)return;const t=c.currentTime,g=c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18,t+0.03);g.gain.setValueAtTime(0.18,t+0.45);g.gain.linearRampToValueAtTime(0,t+0.55);g.connect(Sfx.master);
     for(const f of [392,494]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800;o.connect(lp);lp.connect(g);o.start(t);o.stop(t+0.6);}},
-  padPoll(){if(!navigator.getGamepads)return;let g=null;for(const q of navigator.getGamepads()){if(q&&q.connected){g=q;if(q.mapping==='standard')break;}}if(!g)return;
+  padPoll(){const g=typeof Pad!=='undefined'?Pad.vp:null;if(!g)return;/* the virtual controller (pad.js) */
     const bt=i=>{const x=g.buttons[i];return x?(typeof x==='object'?(x.value||(x.pressed?1:0)):+x):0;},pr=i=>bt(i)>0.5,ed=i=>pr(i)&&!this.pad.prev[i],ax=v=>Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;
     const sx=ax(g.axes[0]||0),gas=bt(7),brk=bt(6);if(sx||gas>0.05||brk>0.05){this.inp.steer=sx;this.inp.gas=gas;this.inp.brake=brk;this.pad.act=true;}else if(this.pad.act&&!this.inp.touch){this.inp.steer=this.inp.gas=this.inp.brake=0;this.pad.act=false;}
     if(ed(0))this.horn();if(ed(1))this.nextCam();if(ed(2))this.hop();if(ed(3))this.stopDriving();this.pad.prev=g.buttons.map((x,i)=>pr(i));},
