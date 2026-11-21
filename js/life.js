@@ -976,7 +976,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       if(v&&!cargo&&!st.twinOf){const town=this.stTown(si),key=st.id+':'+Math.round(q[0])+','+Math.round(q[1])+(town?'T':'');if(!(key in this.stRoads)){const p0=this.stW(si,this.stDoorX(si),this.stBack(si)+3.2);this.stRoads[key]=this.routeRoad(p0,v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
       this.stInfo.push(si);}
     // a station whose town reached its full size is rebuilt as the grand one: tell the player once (not for stations loaded that way)
-    for(const si of this.stInfo){if(si.cargo||si.parent)continue;const g=this.stTown(si);if(g&&!si.st.grand){si.st.grand=true;if(this.stReady)Banner.grand(si);}else if(!g&&si.st.grand)si.st.grand=false;}this.stReady=true;
+    for(const si of this.stInfo){if(si.cargo||si.parent)continue;const g=this.stTown(si);if(g&&!si.st.grand){si.st.grand=true;if(this.stReady&&!si.st.port)Banner.grand(si);}/* a harbour station is grand from the start: no news */else if(!g&&si.st.grand)si.st.grand=false;}this.stReady=true;
     // a second platform belongs to its station: its people wait at the main platform and cross by the footbridge
     {const sig=this.stInfo.map(q=>q.st.id+':'+Math.round(q.x)+','+Math.round(q.z)+(this.stTown(q)?'T':'')).join('|');if(sig!==this.stSig){this.stSig=sig;this.stVer=(this.stVer||0)+1;
       // walks planned before this station stood here: plan them again around it

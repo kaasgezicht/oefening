@@ -1,4 +1,4 @@
-# Trein handoff 114 (21 Nov 2026): v4.50.0 — coal & ore harbour, step 3 of 4 (moving coal handling, station stops). Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 115 (21 Nov 2026): v4.51.0 — harbour buildings in the house kit. Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,25 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.50.0, 21 Nov) — coal & ore harbour, step 3 of 4: the coal handling moves
+### Latest (4.51.0, 21 Nov) — the harbour's buildings at the village houses' detail (user: "Victorian, textured brick and bump maps,
+detailed shingles, not blocky")
+- The hand-made architecture (PortArch, vehicle shader, flat colours) is gone. The harbour's buildings are now kit models drawn with
+  the houses (Life's kit pass, LOD levels, fading, culling): new buildings/harbour.js with portWareA (3 storeys, 22×16: loading doors
+  with iron straps under segmental arches, arched windows on every floor, hoist doors with a cathead beam, pulley and chain, stone
+  bands, slate roof with bargeboards, cresting, chimney, round gable windows; ~75k tris at LOD 0), portWareB (2 storeys, 16×12, with
+  the station's slate canopy over its doors), portShed (cast iron columns with capitals, spandrel arcs, lattice trusses, slate roof
+  with cresting, a glazed lantern with a zinc cap, glazed gable screens with a valance; 156k / 34k / 13k / 2k), portQuay(L) (granite
+  coping, ashlar courses, stone flags, fenders with iron bands, a waler, a bollard; L adds a ladder and a gas lamp), portPave (cobbles),
+  portPier (brick, stone bands and cap), portStilt (timber piles, braces, cap beams). They use the station toolkit, now exposed as
+  `KIT.stationKit(K)` and `KIT.SK` (colours, SLATE). `KIT.build` falls back to no plot for models without one.
+- The harbour station is the game's grand kit station (`stTown` is true for `st.port`; no "grand station" banner for it): clock
+  tower, platforms, footbridge, island platform. The passenger tracks are now 7.2 m apart (KIT.TWIN_G) at y 57 and 64.2.
+- `Port.kitList(s)` (cached per site): 12 quay segments (every third with a ladder and lamp), cobbles over the yard, two portWareA and
+  a portWareB, the shed over the tracks, piers (quay) and stilts (yard) where the ground is > 1.2 m below the deck; `Port.kitPut` feeds
+  them into Life's kit buckets within 2.2 km. Port.mesh keeps the deck slab and the coal handling.
+- Still blocks: the collier (step 4 will make it a kit model too); the coal machinery is the vehicle-shader iron of step 3.
+
+### Earlier (4.50.0, 21 Nov) — coal & ore harbour, step 3 of 4: the coal handling moves
 - `PortCoal.fixed` (into the site mesh): portal gantry (two side frames, legs at y 11 / 29, girders with crab rails, cross girders,
   braces, a ladder), receiving hopper (tapered bin on legs, grate, outlet onto the belt), conveyor galleries (incline x 23 → 40 at 18°,
   level to x 70; side trusses with posts and diagonals, belt, walkway, A-frame supports and portal trestles, tail and head housings),
