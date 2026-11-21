@@ -971,7 +971,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       // a station at a sawmill or workshop turns its yard (and platform) toward it
       st._f=1;const cargo=!!(st.sawmill||st.workshop||st.mine||st.farm);{const kind=st.sawmill?'sawmill':st.workshop?'workshop':st.mine?'mine':null,m=st.farm?this.farmOf(st):kind?Crane.ind(kind,st[kind]):null;if(m&&sn*(m.x-q[0])-c*(m.z-q[1])<0){st._f=-1;c=-c;sn=-sn;}}
       if(!cargo&&(st.side||1)<0){st._f=-1;c=-c;sn=-sn;}
-      const px=q[0]+sn*3.6,pz=q[1]-c*3.6,v=this.nearestVillage(q[0],q[1],420);
+      const px=q[0]+sn*3.6,pz=q[1]-c*3.6,v=(st.port&&typeof Port!=='undefined'&&Port.townOf(st))||this.nearestVillage(q[0],q[1],420);/* a harbour station serves its own town */
       const si={st,v,cargo,px,pz,y,half:(st.len||44)/2,dx:c,dz:sn,nx:sn,nz:-c,x:q[0],z:q[1],lx:[q[0]+sn*5.4-c*7,q[1]-c*5.4-sn*7],lx2:[q[0]+sn*5.4+c*7,q[1]-c*5.4+sn*7]};
       if(v&&!cargo&&!st.twinOf){const town=this.stTown(si),key=st.id+':'+Math.round(q[0])+','+Math.round(q[1])+(town?'T':'');if(!(key in this.stRoads)){const p0=this.stW(si,this.stDoorX(si),this.stBack(si)+3.2);this.stRoads[key]=this.routeRoad(p0,v);this.roadsDirty=true;}si.road=this.stRoads[key];si.rkey=key;}
       this.stInfo.push(si);}
@@ -1203,7 +1203,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const tw=this.farmTower(fm);KB['grainTower'+LVL('grainTower',Math.hypot(tw.x-cp[0],tw.z-cp[2]))].push({x:tw.x,y:tw.y,z:tw.z,rot:tw.rot,hash:0.5});}
     for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m))continue;const d=Math.hypot(m.x-cp[0],m.y-cp[1],m.z-cp[2]);if(d>2400)continue;KB[((m.up||1)>0?'sawmillA':'sawmillB')+LVL('sawmillA',d)].push({x:m.x,y:m.y,z:m.z,rot:m.rot,hash:0.5});}
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
-    for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
+    for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;if(si.st.port)continue;/* the harbour station has its own building */const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
       const put=(t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<1800)KB[t+LVL(t,dp)].push(o);};
       // at a point along a station's track (d from its centre) on the side sf: position and the rotation of a piece facing that platform
       const at=(st,d,sf)=>{const a=advance({sid:st.sid,t:st.t,dir:1},d);if(a.blocked)return null;const i=posInfo(a.pos);if(!i)return null;const h=a.pos.dir>0?i.h:i.h+Math.PI;return{x:i.x,y:i.y,z:i.z,rot:h+(sf>0?Math.PI:0),hash:0.5};};

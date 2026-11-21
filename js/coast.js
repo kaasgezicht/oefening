@@ -40,7 +40,7 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
   update(dt){const T=App.T;if(!T||T.sea==null||!Life.villages||App.busy||Life.T!==T)return;const key=T.W+'|'+T.sea+'|'+P.seed+'|'+Life.villages.length+'|'+P.lighthouses;if(key!==this.key||this.T!==T){this.key=key;this.T=T;this.init();}
     /* the beams turn on real time (not the game clock), so fast-forward does not make them spin */this.rot+=Math.min(dt,0.1)*(+P.lhSpeed||0)*6.2832/60;
     for(const g of this.gulls)if(!g.sit){g.a+=dt*g.w/g.r;g.ph+=dt;}
-    if(typeof Fish!=='undefined')Fish.update(dt);if(typeof Port!=='undefined')Port.update();},
+    if(typeof Fish!=='undefined')Fish.update(dt);if(typeof Port!=='undefined')Port.update(dt);},
   // lamp lights for the pools of light round lamps at night (Life.lights)
   lights(add){for(const l of this.L)add(l.x,l.y+LH.lamp,l.z,32,[2.4,1.8,0.9]);},
   // ---- boats and seagulls (vehicle program, like Sea and Wild)
