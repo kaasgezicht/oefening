@@ -294,6 +294,8 @@ KIT.models.fbT2=function(K,opt){kitOf(K).footbridgeN(-1.1,1.1,5.65,-12.85,PY+5.7
 KIT.TWIN_G=7.2;
 KIT.FB={station:[17.4,19.6],stationTown:[20.0,22.2]};
 for(const v of [0,1,2,3,4,5])KIT.models['plat'+v]=function(K,opt){KIT.platPiece(K,0,v);if(!opt.game){K.B(0,-0.55,0,4.1,0.36,3.6,[0.55,0.52,0.48],10);}return{target:[0,1,3],dist:9,dir:[-0.55,0.45,-0.7]};};
+/* the Victorian toolkit for other models (the harbour, buildings/harbour.js): its pieces and colours */
+KIT.stationKit=kitOf;KIT.SK={STONE,STONE2,BRICK,BRICK2,IRON,CREAM,PAVE,WOOD,DOOR,SLATE,PY};
 KIT.models.station=function(K,opt){return build(K,opt,false);};
 KIT.models.stationTown=function(K,opt){return build(K,opt,true);};
 Object.assign(KIT.plots,{station:{x0:-22,x1:21,z0:-11,z1:15},stationTown:{x0:-24,x1:23.5,z0:-11,z1:16},plat0:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat1:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat2:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat3:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat4:{x0:-2.2,x1:2.2,z0:1.3,z1:7},plat5:{x0:-2.2,x1:2.2,z0:1.3,z1:7},fbT1:{x0:-9,x1:2,z0:-7,z1:7},fbT2:{x0:-9,x1:2,z0:-14,z1:7},shelter:{x0:-4.2,x1:4.2,z0:2.9,z1:6.2},platEa:{x0:-2.2,x1:2.2,z0:1.3,z1:6},platEb:{x0:-2.2,x1:2.2,z0:1.3,z1:6},fbP:{x0:-9,x1:2,z0:-11,z1:7}});

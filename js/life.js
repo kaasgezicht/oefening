@@ -958,7 +958,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   stReserve(x,z,m){m=m||0;for(const si of this.stInfo||[]){if(si.cargo||si.parent)continue;const rx=x-si.x,rz=z-si.z;if(Math.abs(rx)>70||Math.abs(rz)>70)continue;const mx=-(rx*si.dx+rz*si.dz),mz=rx*si.nx+rz*si.nz,L=Math.max((si.st.len||44)/2+4,26);
       if(mx>-22-m&&mx<19.5+m&&mz>-(KIT.TWIN_G+7)-m&&mz<19+m)return true;if(Math.abs(mx)<L+m&&mz>-(KIT.TWIN_G+7)-m&&mz<6+m)return true;}return false;},
   stRectHit(Q,fn,m){const c=VG.corners(Q);if(fn((c[0][0]+c[2][0])/2,(c[0][1]+c[2][1])/2,m))return true;for(let i=0;i<4;i++){const a=c[i],b=c[(i+1)%4];if(fn(a[0],a[1],m)||fn((a[0]+b[0])/2,(a[1]+b[1])/2,m))return true;}return false;},
-  stTown(si){return!!(si&&si.v&&(si.v.level|0)>=this.LEVELS.length-1);},
+  stTown(si){return!!(si&&(si.st&&si.st.port||si.v&&(si.v.level|0)>=this.LEVELS.length-1));},/* a harbour station is always the grand one */
   stDoorX(si){return this.stTown(si)?-6.8:0;},stBack(si){return this.stTown(si)?13.4:12.4;},
   // the way in: from the forecourt up the steps to the rear door, through the booking hall (out of sight a few seconds), out of the front
   // door under the canopy and on to a spot on the platform. Points are [x, z, y, flag, seconds]; flag 'in' hides, 'wait' pauses, 'out' shows.
@@ -1203,7 +1203,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
       const tw=this.farmTower(fm);KB['grainTower'+LVL('grainTower',Math.hypot(tw.x-cp[0],tw.z-cp[2]))].push({x:tw.x,y:tw.y,z:tw.z,rot:tw.rot,hash:0.5});}
     for(const m of this.sawmills||[]){if(!this.indOn('sawmill',m))continue;const d=Math.hypot(m.x-cp[0],m.y-cp[1],m.z-cp[2]);if(d>2400)continue;KB[((m.up||1)>0?'sawmillA':'sawmillB')+LVL('sawmillA',d)].push({x:m.x,y:m.y,z:m.z,rot:m.rot,hash:0.5});}
     // passenger stations: the Victorian building (the grand one with the clock tower once its town is fully grown) and the platform in 4.1 m pieces
-    for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;if(si.st.port)continue;/* the harbour station has its own building */const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
+    for(const si of this.stInfo||[]){if(si.cargo&&!si.st.farm)continue;const d=Math.hypot(si.x-cp[0],si.y-cp[1],si.z-cp[2]);if(d>2400)continue;const L=LVL('station',d),town=!!(si.v&&(si.v.level|0)>=this.LEVELS.length-1);
       const put=(t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<1800)KB[t+LVL(t,dp)].push(o);};
       // at a point along a station's track (d from its centre) on the side sf: position and the rotation of a piece facing that platform
       const at=(st,d,sf)=>{const a=advance({sid:st.sid,t:st.t,dir:1},d);if(a.blocked)return null;const i=posInfo(a.pos);if(!i)return null;const h=a.pos.dir>0?i.h:i.h+Math.PI;return{x:i.x,y:i.y,z:i.z,rot:h+(sf>0?Math.PI:0),hash:0.5};};
@@ -1221,6 +1221,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
         const lx=(fb[0]+fb[1])/2,o=at(si.st,f>0?-lx:lx,f);if(o)put(si.twin?'fbT2':'fbT1',o);
         const w=this.stW(si,shX,-3.6),os=si.twin?null:at(si.st,alongD(si.st,w[0],w[1]),-f);if(os)put('shelter',os);
         pieces(si.st,{sf:-f,fr:si,stairs,shelterX:si.twin?null:shX,island:!!si.twin});ramps(si.st,-f);}}
+    if(typeof Port!=='undefined')Port.kitPut((t,o)=>{const dp=Math.hypot(o.x-cp[0],o.y-cp[1],o.z-cp[2]);if(dp<2200)KB[t+LVL(t,dp)].push(o);});/* the harbour's buildings, quay, paving and foundations */
     /* fading between levels: an instance whose size on screen lies within a band around a switch point is drawn by both levels
        (buckets kit_<t>_<l>f, the dithering shader), the finer one taking the share u of the pixels and the coarser one the rest */
     {const TH=[150,93,29],BD=1.22,lb=Math.log(BD);for(const t of KIT_TYPES){if(t==='grainArm')continue;const r=clamp((R.kitBound[t]||[0,14])[1],8,16);for(let l=0;l<4;l++){KB[t+l+'f']=KB[t+l+'f']||[];}

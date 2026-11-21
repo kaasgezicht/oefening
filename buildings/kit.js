@@ -166,7 +166,7 @@ K.patch=function(x,z,rx,rz,col,mat,y,o){o=o||{};if(K.plot&&outP(x,z))return;cons
   for(let k=0;k<N;k++){const a=k/N*6.283,r=R(a);pts.push([Math.cos(a)*rx*r,Math.sin(a)*rz*r]);}const sd=rnd();
   for(let k=0;k<N;k++){const p=pts[k],q=pts[(k+1)%N];pv([x,y0,z],[0,1,0],col,mat,[0,0],[rx,rz],sd);pv([x+q[0],y0,z+q[1]],[0,1,0],col,mat,[q[0]/rx,q[1]/rz],[rx,rz],sd);pv([x+p[0],y0,z+p[1]],[0,1,0],col,mat,[p[0]/rx,p[1]/rz],[rx,rz],sd);}};
 K.plots={church:{x0:-12.6,x1:12.6,z0:-14.5,z1:12.6},cottage:{x0:-7.75,x1:7.75,z0:-9.45,z1:7.8},tavern:{x0:-8.9,x1:8.8,z0:-13.1,z1:6.2},farmhouse:{x0:-12.9,x1:10.9,z0:-13.2,z1:6.6},shop:{x0:-6.6,x1:9.3,z0:-10.0,z1:6.0}};
-K.build=function(name,opt){VB.length=0;K.CL.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
+K.build=function(name,opt){VB.length=0;K.CL.length=0;PID=1;SEED=(opt&&opt.seed)||7;K.aux=0;K.plot=opt&&opt.game?K.plots[name]||null:null;K.lod=(opt&&opt.lod)||0;return K.models[name](K,opt||{})||{};};
 
 // ================= GL =================
 let G=null;function sh(t,s){const g=G;const x=g.createShader(t);g.shaderSource(x,s);g.compileShader(x);if(!g.getShaderParameter(x,g.COMPILE_STATUS))throw new Error(g.getShaderInfoLog(x));return x;}
