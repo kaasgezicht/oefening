@@ -693,6 +693,7 @@ const Crane={S:new Map(),F:[],hold:new Map(),
       if(f.st){const t=s.task;if(t&&t.tr)this.hold.set(t.tr.id,t.mode);else{const c=this.cars(f);if(c&&(f.kind==='farm'?(Goods.get(f.key).grain>=1&&(()=>{const w=this.grainWork(f,c);return w.reach.length>0||(w.rest.length>0&&s.stuck!==c.tr.id);})()):f.kind==='mine'?c.cars.some(q=>(q.w.n||0)<19.9)&&Goods.get(f.key)[f.ore]>=1:f.kind==='sawmill'?c.cars.some(q=>this.rows(q.w.n)<3)&&s.stacks.some(r=>r>0):c.cars.some(q=>this.rows(q.w.n)>0&&q.w.from!==f.key)))this.hold.set(c.tr.id,f.kind==='farm'?'grain':f.kind==='mine'?'pour':f.kind==='sawmill'?'load':'unload');}}
       // the steam winch smokes while the crane works
       if(s.task&&f.kind!=='mine'&&f.kind!=='farm'&&P.smoke&&(s.puff-=dt)<=0){s.puff=0.45;const p=this.toW(f,s.gx+0.8,7.4,CRN.zB-0.85);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.4,1.4,(Math.random()-0.5)*0.4,2.6,0.25,1.1,0);}}
+    if(typeof PortCoal!=='undefined')PortCoal.holds(this.hold);/* the harbours' coal staithes (4.55) */
     for(const k of [...this.S.keys()])if(!live.has(k))this.S.delete(k);this.F=F;
     // the mill engine's stack smokes in the working day
     const h=P.timeOfDay;if(P.smoke&&h>6.5&&h<19.5&&R.focus)for(const m of Life.sawmills||[]){if(Math.hypot(m.x-R.focus[0],m.z-R.focus[2])>1400)continue;if(Math.random()<dt*3){const c=Math.cos(m.rot),sn=Math.sin(m.rot);
@@ -702,9 +703,9 @@ const Crane={S:new Map(),F:[],hold:new Map(),
       let n=Math.floor(dt*26+Math.random());while(n-->0){const lx=F[0]+(Math.random()-0.5)*1.0,lz=F[2]-up*(0.3+Math.random()*0.8),p=P2(lx,lz);Particles.spawn(p[0],(m.y||0)+F[1]-0.2,p[1],(Math.random()-0.5)*0.3,-1.5-Math.random(),(Math.random()-0.5)*0.3,0.7+Math.random()*0.4,0.18,0.5,3);}
       if(Math.random()<dt*10){const p=P2(W[0]+(Math.random()-0.5)*1.2,W[2]-up*(1.5+Math.random()*1.5));Particles.spawn(p[0],(m.y||0)+0.5,p[1],(Math.random()-0.5)*0.6,0.6+Math.random()*0.6,(Math.random()-0.5)*0.6,0.9,0.2,0.9,3);}}},
   holds(tr){return this.hold.has(tr.id);},
-  what(tr){const m=this.hold.get(tr.id);return m==='grain'?'loading grain':m==='unload'?'unloading logs':m==='pour'?'loading ore':'loading logs';},
+  what(tr){const m=this.hold.get(tr.id);return m==='harbour'?'the gantry is unloading coal and ore':m==='grain'?'loading grain':m==='unload'?'unloading logs':m==='pour'?'loading ore':'loading logs';},
   // where a train should stop at a station: at a crane station the first timber wagon draws up at the far end of the yard
-  stopAt(tr,st,L){const base=Math.min((st.len||44)/2-3,L/2);
+  stopAt(tr,st,L){const base=Math.min((st.len||44)/2-3,L/2);if(st.portFreight&&typeof PortCoal!=='undefined')return PortCoal.stopAt(tr,st,base);
     if(st.farm){/* the first two grain hoppers still to fill come to stand either side of the arm */const si=(Life.stInfo||[]).find(q=>q.st===st),fm=Life.farmOf(st),tw=si&&fm?Life.farmTower(fm):null,a0=tw&&tw.si?tw.a:0,ps=tr.poses||[],back=(tr.rev||1)<0;let sg=1;
       if(si&&ps.length>1){const ld=back?ps[ps.length-1]:ps[0],tl=back?ps[0]:ps[ps.length-1];sg=Math.sign((ld.c[0]-tl.c[0])*si.dx+(ld.c[2]-tl.c[2])*si.dz)||1;}
       let front=0,n=0,f0=-1;for(const v of back?tr.veh.slice().reverse():tr.veh){if(v.k==='wagon'&&v.ctype==='grain'&&(v.n||0)<19.9){if(f0<0)f0=front;if(front-f0<VEH.wagon.len+COUPLE+1)n++;}front+=v.len+COUPLE;}

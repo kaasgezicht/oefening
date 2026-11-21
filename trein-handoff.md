@@ -1,4 +1,4 @@
-# Trein handoff 120 (21 Nov 2026): v4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 121 (21 Nov 2026): v4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,29 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.54.1, 21 Nov) — the boats' hanging gear has physics (user: "loose lines, hanging stuff, the two hanging balls: inertia")
+### Latest (4.55.0, 21 Nov) — harbour step 4b part 1: trains feeding the coal siding (user chose: unload on the siding, wagon by wagon;
+colliers player-run like buses (part 2); Victorian factory set next; then step 9, the CL-415 cockpit, performance)
+- The coal siding is now 116 m (x 0..116, buffer at 117; older harbours' 56 m siding is lengthened in place: `Port.extendSiding`, the
+  east node moved). The two yard warehouses (portWareA) moved inland to y 37 / 37.5 to clear it.
+- A goods stop on it: the "<town> Coal Staithe" (`Port.freightSt`, st.portFreight, port key; t 66, len 100). It is a cargo stop
+  (network.js / life.js treat portFreight like mine/sawmill/farm stops: passenger trains pass; no station mesh). Life.stop skips the
+  generic goods exchange there (Goods.trainStop repacked each cargo into the front wagons: it moved coal out of the gantry's reach).
+  Goods.accepts is now false for coal and iron everywhere: only the gantry delivers them, via Goods.deliver(..., force).
+- The gantry travels: portGantry is KIT_DYN on wheeled bogies; the receiving hopper and the gantry's rails (y 11 and 29, x 5..41, with
+  buffers) are the static portHopper. Its reach along the siding is x 8..34 (east of that it would hit the shiploader's legs).
+- `PortCoal` works on real trains (Crane.update calls `PortCoal.holds(hold)`; Crane.what 'harbour'): the train stopped at the staithe
+  (PortCoal.train: bulk hoppers by pose, site-local x) is held while a reachable hopper has ore; the cycle idle → out (gantry to the
+  hopper 1.8 m/s, crab over the siding 2.2 m/s) → down → bite (≤ 4 units) → up → back over the receiving hopper → open (paid by
+  distance from the mine like any delivery, added to Ledger, the unit goes into the harbour stock, max 600). Crane.stopAt → 
+  `PortCoal.stopAt`: the head stops so the first loaded hopper stands at x 28 (≤ x 114); with nothing in reach but loaded hoppers
+  further back the train draws up (`PortCoal.drawUp` sets tr.grainMove, the farm's mechanism) and stays held meanwhile.
+- Stock runs the belt (coal lumps only while running) and the shiploader pours 1.2 units/s into the moored collier's holds
+  (c.hold, cap PORT.shipCap 400). Saved per harbour town (villages[i].pc {c,i,h} → v.portCoal → PortCoal.st).
+- Test (scratch staithe.js: an 80 m approach laid west, loco + 4 full coal hoppers on auto, logic stepped without rendering): stops
+  with hoppers 1-2 under the gantry, empties them, draws up 25 m, empties 3-4, departs empty and reverses out: 80 units, €22,500.
+- Next: part 2, the colliers (store, routes like buses, sea paths, loading here / unloading at the destination harbour).
+
+### Earlier (4.54.1, 21 Nov) — the boats' hanging gear has physics (user: "loose lines, hanging stuff, the two hanging balls: inertia")
 - Split out of the hulls into kit models that hang from their origin along −y: fishHangW (outrigger wire, pulley, stabiliser weight;
   2.3 m), fishHangB (gantry block on its wire; 0.8 m), fishTyre (rope and tyre fender; 0.78 m). Pivots: KIT.FISH_HANG (model frame,
   with rope length, damping, and side for tyres). All KIT_DYN.

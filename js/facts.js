@@ -69,6 +69,7 @@ const FACTS=[
 'A fishing boat floats on ten points along its hull. Each one is a spring on how deep it lies under the waves you see, so the boat heaves, pitches and rolls on the real sea.',
 'The small wind waves exist only on the graphics card. Every frame their height under the boats is read back without waiting, so the boats ride them too.',
 'Tap 💡 Lights on a fishing boat for its navigation lights, deck floodlights and the lit wheelhouse. The other boats switch theirs on at dusk.',
+'At a coal & ore harbour, run your coal and iron trains onto the coal staithe: the travelling gantry grabs each hopper empty, four tonnes a bite, and the train draws up for the next ones.',
 'Hydraulic erosion lets thousands of simulated raindrops run downhill, picking up and dropping sediment, which carves the valleys.',
 'Raindrops only fall on land in the erosion step. Skipping the sea floor made loading much faster.',
 'Lakes are found by filling the hollows of the land. Rivers follow where the most rainwater gathers.',

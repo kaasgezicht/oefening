@@ -5,7 +5,7 @@
 // with painted window frames, slate-grey corrugated roofs, ventilators and stove pipes.
 // Every model is written in the harbour's local frame (x along the quay, y inland, z up from the deck; see js/harbor.js) relative to
 // its origin O; works(K, O) turns those coordinates into the kit's (x → −x, y → z, z → y: the harbour's kit rotation).
-//  portGantry: the portal gantry over the freight siding (laced lattice legs on granite pedestals, plate girders with stiffeners and
+//  portGantry: the travelling portal gantry over the freight siding (4.55: on wheeled bogies on two rails; laced lattice legs, plate girders with stiffeners and
 //              crab rails, lattice end girders, knee braces with gusset plates, tie rods, a walkway with handrails, a caged ladder) and
 //              the riveted receiving hopper under it on its trestle, with the grate, the feeder and the tail of the belt.
 //  portBelt:   the belt conveyor: lattice side trusses up the incline and along the quay, troughed idlers, the belt, a walkway, braced
@@ -104,7 +104,10 @@ KIT.works=works;KIT.WORKS={GREEN,OXIDE,CREAM,ROOFG,IRON,GREY,STONE,TIMBER,COAL,B
 
 // ---- the portal gantry and the receiving hopper (origin: harbour x 20, y 20, deck)
 KIT.models.portGantry=function(K){K.seed(601);const W=works(K,[20,20,0]);
-  for(const x of [16,24])for(const y of [11,29]){W.bx(x-0.75,x+0.75,y-0.75,y+0.75,-0.8,0.3,STONE,ST);W.bx(x-0.85,x+0.85,y-0.85,y+0.85,0.22,0.36,[0.66,0.64,0.6],ST);W.tower(x,y,0.36,9.4,0.8,GREEN);}
+  /* 4.55: the gantry travels along the siding on two rails (y 11 and 29): a bogie with two flanged wheels under each leg */
+  for(const x of [16,24])for(const y of [11,29]){W.tower(x,y,1.0,9.4,0.8,GREEN);W.bx(x-0.95,x+0.95,y-0.32,y+0.32,0.55,1.0,GREEN2,RV);W.bx(x-0.55,x+0.55,y-0.5,y+0.5,0.95,1.05,GREEN,RV);
+    for(const dx of [-0.55,0.55]){W.cy([x+dx,y-0.16,0.56],[x+dx,y+0.16,0.56],0.3,0.3,14,IRON,ME,1);W.cy([x+dx,y+0.16,0.56],[x+dx,y+0.2,0.56],0.36,0.36,14,IRON,ME,1);}
+    for(const dx of [-1.0,1.0])W.bx(x+dx-0.06,x+dx+0.06,y-0.25,y+0.25,0.4,0.9,RED,PA);}
   for(const x of [16,24]){W.pgirder([x,10.3,10.4],[x,29.7,10.4],1.0,0.46,GREEN);W.bx(x-0.035,x+0.035,10.4,29.6,10.4,10.47,IRON,ME);W.bx(x-0.08,x+0.08,10.4,29.6,10.4,10.42,IRON,ME);/* the crab rail on its sole plate */
     for(const y of [10.45,29.55]){W.bx(x-0.22,x+0.22,y-0.15,y+0.15,10.4,10.85,RED,PA);W.cy([x,y+(y<20?0.15:-0.15),10.65],[x,y+(y<20?0.35:-0.35),10.65],0.11,0.11,8,TIMBER,WO,1);}
     // knee braces from the legs up to the girders, lattice with gussets
@@ -118,6 +121,10 @@ KIT.models.portGantry=function(K){K.seed(601);const W=works(K,[20,20,0]);
   W.bx(24.25,25.15,10.6,29.4,9.36,9.42,GREY,RV);for(let y=11;y<=29;y+=1.8)W.flat([24.25,y,9.36],[25.1,y,8.6],[0,1,0],0.12,GREEN);
   W.rail([25.12,10.6,9.42],[25.12,29.4,9.42],1.05,GREEN);for(let y=10.9;y<29.4;y+=0.3)W.bx(24.3,25.1,y,y+0.03,9.42,9.44,IRON,ME);
   W.ladder(24.9,11,0.4,9.4,[0,1,0],[1,0,0],GREEN,true);
+  return{};};
+
+// ---- the receiving hopper and the gantry's rails (fixed; origin harbour x 20, y 16, deck)
+KIT.models.portHopper=function(K){K.seed(607);const W=works(K,[20,16,0]);
   // the receiving hopper: a riveted tapering bin (17..23 × 13..19, outlet 2 × 2 m at z 1.4, top 4), stiffening ribs, top angle, grate,
   // on four plate legs with bracing; a heap of coal under the grate; the feeder box and chute onto the belt tail
   {const x0=17,x1=23,y0=13,y1=19,z0=1.4,z1=4,a=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],b=[[19,15],[21,15],[21,17],[19,17]];
@@ -131,6 +138,8 @@ KIT.models.portGantry=function(K){K.seed(601);const W=works(K,[20,20,0]);
     for(const [p0,p1] of [[[17.6,13.6,0.3],[22.4,13.6,2.6]],[[22.4,13.6,0.3],[17.6,13.6,2.6]],[[17.6,18.4,0.3],[22.4,18.4,2.6]],[[22.4,18.4,0.3],[17.6,18.4,2.6]],[[17.6,13.6,0.3],[17.6,18.4,2.6]],[[17.6,18.4,0.3],[17.6,13.6,2.6]]])W.flat(p0,p1,[0,1,0],0.08,GREEN);
     W.bx(19,21,15,17,0.95,z0,GREEN2);W.bx(19.2,23.2,15.3,16.7,0.85,1.05,GREEN2);for(const e of [15.3,16.7])W.bx(19.2,23.2,e-0.02,e+0.02,1.05,1.35,GREEN2);
     W.cy([23.4,15.2,1.45],[23.4,16.8,1.45],0.32,0.32,14,IRON,ME,1);for(const e of [15.05,16.95])W.bx(22.9,23.9,e-0.05,e+0.05,0,1.7,GREEN);}
+  for(const y of [11,29]){W.bx(5,41,y-0.32,y+0.32,-0.05,0.1,[0.56,0.55,0.52],ST);W.bx(5,41,y-0.04,y+0.04,0.1,0.26,IRON,ME);W.bx(5,41,y-0.09,y+0.09,0.1,0.14,IRON,ME);
+    for(const x of [4.4,41.6]){const e=x<20?-1:1;W.bx(x-0.42,x+0.42,y-0.6,y+0.6,0,1.0,RED,RV);W.bx(x-0.46,x+0.46,y-0.65,y+0.65,1.0,1.08,IRON);W.bx(x-e*0.42-0.12,x-e*0.42+0.12,y-0.4,y+0.4,0.35,0.85,TIMBER,WO);}}
   return{};};
 
 // ---- the belt conveyor and its houses, the shiploader rails (origin: harbour x 47, y 16, deck)

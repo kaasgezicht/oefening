@@ -15,9 +15,9 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
     const ds=segById(st.sid);if(ds){const H=[],push=(q,d,v)=>{const k=K(q,d);if(v<(dist.has(k)?dist.get(k):1e18)){dist.set(k,v);H.push([v,q,d]);}};push(ds,1,st.t);push(ds,-1,ds.L-st.t);
       while(H.length){let bi=0;for(let i=1;i<H.length;i++)if(H[i][0]<H[bi][0])bi=i;const [v,q,d]=H[bi];H[bi]=H[H.length-1];H.pop();if(v>dist.get(K(q,d)))continue;for(const [pq,pd,ex] of pred.get(K(q,d))||[])push(pq,pd,v+pq.L+ex);}}
     this.dms.set(key,dist);return dist;},
-  destOf(tr){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm)):S0;if(!S.length)return null;if(tr.destId!=null){const st=S.find(q=>q.id===tr.destId);if(st)return st;tr.destId=null;}
+  destOf(tr){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm||q.portFreight))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm||q.portFreight)):S0;if(!S.length)return null;if(tr.destId!=null){const st=S.find(q=>q.id===tr.destId);if(st)return st;tr.destId=null;}
     if(tr.autoDest==null||!S.some(q=>q.id===tr.autoDest))tr.autoDest=S[(Trains.list.indexOf(tr)+1)%S.length].id;return S.find(q=>q.id===tr.autoDest);},
-  arrived(tr,sid){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm)):S0;if(tr.destId===sid)tr.destId=null;if(tr.autoDest===sid&&S.length){const i=S.findIndex(q=>q.id===sid);tr.autoDest=S[(i+1)%S.length].id;}},
+  arrived(tr,sid){const pax=!tr.veh.some(v=>v.k==='wagon'),S0=Track.stations,S=pax&&S0.some(q=>!(q.sawmill||q.workshop||q.mine||q.farm||q.portFreight))?S0.filter(q=>!(q.sawmill||q.workshop||q.mine||q.farm||q.portFreight)):S0;if(tr.destId===sid)tr.destId=null;if(tr.autoDest===sid&&S.length){const i=S.findIndex(q=>q.id===sid);tr.autoDest=S[(i+1)%S.length].id;}},
   // look ahead and throw facing points toward the branch with the shortest way to the destination
   autoRoute(tr){const st=this.destOf(tr);if(!st)return;const D=this.distMap(st),back=tr.rev<0;let pos=back?advance(tr.head,-Trains.length(tr.veh)+COUPLE).pos:tr.head;if(back)pos={...pos,dir:-pos.dir};
     let s=segById(pos.sid),dir=pos.dir,t=pos.t,d=0,g=0;while(s&&d<300&&g++<40){if(s.id===st.sid)break;d+=dir>0?s.L-t:t;const node=dir>0?s.b:s.a,J=this.junction(node),n=Track.node(node);
@@ -110,7 +110,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
     for(const e of ev){
       if(e.type==='end'){if(e.d-6<stop){stop=e.d-6;why='end';}break;}
       if(e.type==='signal'){const b=this.blockAt(e.sid,e.t+e.dir*0.2);if(this.redFor(b,tr.id)){if(e.d-8<stop){stop=e.d-8;why='signal';}break;}}
-      if(e.type==='station'&&P.stopStations&&tr.lastStation!==e.o.id&&!((e.o.sawmill||e.o.workshop||e.o.mine||e.o.farm)&&!tr.veh.some(v=>v.k==='wagon'))&&(P.stopAll||!this.destOf(tr)||this.destOf(tr).id===e.o.id)){const sd=e.d+Crane.stopAt(tr,e.o,L);if(sd<stop){stop=sd;why='station';tr.nextStation=e.o;tr.stopTgt={id:e.o.id,o:e.o,rem:sd};}break;}}
+      if(e.type==='station'&&P.stopStations&&tr.lastStation!==e.o.id&&!((e.o.sawmill||e.o.workshop||e.o.mine||e.o.farm||e.o.portFreight)&&!tr.veh.some(v=>v.k==='wagon'))&&(P.stopAll||!this.destOf(tr)||this.destOf(tr).id===e.o.id)){const sd=e.d+Crane.stopAt(tr,e.o,L);if(sd<stop){stop=sd;why='station';tr.nextStation=e.o;tr.stopTgt={id:e.o.id,o:e.o,rem:sd};}break;}}
     // the stop point lies beyond the platform marker: keep braking for it after the head has passed the marker
     if(why!=='station'&&tr.stopTgt&&tr.lastStation!==tr.stopTgt.id){tr.stopTgt.rem-=v*dt;if(tr.stopTgt.rem<stop){stop=tr.stopTgt.rem;why='station';tr.nextStation=tr.stopTgt.o;}if(tr.stopTgt.rem<-20)tr.stopTgt=null;}
     const vmax=P.autoSpeed/3.6,vt=Math.min(vmax,Math.sqrt(2*0.6*Math.max(0,stop-1.5)),tr.plat&&tr.plat.moving?2.2:1e9);tr.wait=why;
@@ -144,7 +144,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
       gl.uniform3f(p.u('uLamp'),red?1.6:0.05,red?0.08:1.3,red?0.04:0.2);gl.uniformMatrix4fv(p.u('uModel'),false,mat(s,g.t,-2.7));gl.bindVertexArray(R.signalMesh.vao);gl.drawElements(gl.TRIANGLES,R.signalMesh.count,gl.UNSIGNED_INT,0);Stats.draws++;}
     gl.uniform3f(p.u('uLamp'),1,1,1);
     const matF=(s,t,f)=>{const q=segPoint(s,t),y=segY(s,t),c=Math.cos(q[2])*f,sn=Math.sin(q[2])*f;return new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],y,q[1],1]);};
-    for(const st of Track.stations){const s=segById(st.sid);if(!s)continue;if(!(st.mine||st.sawmill||st.workshop)&&R.kitVao)continue;if(st.farm)continue;// passenger stations are kit buildings (Life.kitInst)
+    for(const st of Track.stations){const s=segById(st.sid);if(!s||st.portFreight)continue;if(!(st.mine||st.sawmill||st.workshop)&&R.kitVao)continue;if(st.farm)continue;// passenger stations are kit buildings (Life.kitInst)
       const m=st.mine&&R.veh&&R.veh[31]?R.veh[31]:(st.sawmill||st.workshop)&&R.veh&&R.veh[10]?R.veh[10]:R.stationMesh;gl.uniformMatrix4fv(p.u('uModel'),false,matF(s,st.t,st._f||1));gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;
       if((st.len||44)>44&&R.platMesh&&R.platMesh[1]){const n=Math.round(((st.len||44)-44)/8),f=st._f||1;for(const e of [-1,1])for(let k=0;k<n;k++){const a=advance({sid:st.sid,t:st.t,dir:1},e*(24+4*k));if(a.blocked)break;const ps=a.pos,s2=segById(ps.sid);if(!s2)break;
           const q=segPoint(s2,ps.t),h=q[2]+(ps.dir<0?Math.PI:0),c=Math.cos(h)*f,sn=Math.sin(h)*f,pm=R.platMesh[k%3===1?1:0];gl.uniformMatrix4fv(p.u('uModel'),false,new Float32Array([c,0,sn,0,0,1,0,0,-sn,0,c,0,q[0],segY(s2,ps.t),q[1],1]));gl.bindVertexArray(pm.vao);gl.drawElements(gl.TRIANGLES,pm.count,gl.UNSIGNED_INT,0);Stats.draws++;}}}
