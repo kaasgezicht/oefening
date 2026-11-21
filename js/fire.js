@@ -1,15 +1,15 @@
 'use strict';
 // ===== fire.js
 // ===================================================================
-// Forest fires (4.44.0), the work of the CL-415. Only once the water bomber is owned: now and then (not in winter or rain) a fire
-// starts in a dense wood away from the villages. It burns on a 16 m grid: a cell's flames grow, it spreads to its neighbours (faster
+// Forest fires (4.44.0), the work of the CL-415. Since 4.44.1 a fire only starts when you take a forest-fire mission at an airfield or
+// jetty (Air.missionPanel → Fires.start(false,strip)): in a dense wood 2–7 km from that field, away from the villages. It burns on a 16 m grid: a cell's flames grow, it spreads to its neighbours (faster
 // downwind, only where there are trees), and after about 90 s a cell burns out: its trees are gone and the ground is black. Water
 // dropped on it (Fires.splash, from the CL-415's tanks) knocks the flames back; a cell put out stays wet for a while.
 // The fire is a mission at every airfield and jetty (Air.missionPanel); put it out and you are paid more the less forest was lost.
 // If nobody fights it, it burns out by itself. Flames and a tall smoke column (particle types 5 and 7), an orange glow at night.
 // ===================================================================
-const FIRE={cs:16,burnT:90,maxCells:420,spawnMin:900,spawnMax:2400};
-const Fires={list:[],next:0,burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
+const FIRE={cs:16,burnT:90,maxCells:420};
+const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
   key(i,j){return i*65536+j;},
   // trees in a cell (cached): counted from the uploaded tree buffers (R.vegB, one per kind; the rocks are the last set)
   trees(i,j){const T=App.T;if(!T||!R.vegB)return 0;const cs=FIRE.cs,x0=i*cs,z0=j*cs,CN=16,cw=T.W/CN,ch=clamp(Math.floor((z0+cs/2)/cw),0,CN-1)*CN+clamp(Math.floor((x0+cs/2)/cw),0,CN-1);let n=0;
@@ -20,9 +20,10 @@ const Fires={list:[],next:0,burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
     for(const arr of (T.veg&&T.veg.trees)||[])for(let k=0;k+3<arr.length;k+=8){const x=arr[k],z=arr[k+2];if(x>=x0&&x<x0+cs&&z>=z0&&z<z0+cs)arr[k+3]=0;}
     R.vegKey='';R.vegVer=(R.vegVer|0)+1;this.burnt.add(this.key(i,j));this._sk='';},
   // where a fire may start: a dense wood, 300 m from any village, airstrip or track, on dry land
-  start(quiet){const T=App.T;if(!T||!R.vegB||!T.veg)return null;const rng=Math.random,cs=FIRE.cs;
-    for(let k=0;k<300;k++){const set=T.veg.trees[Math.floor(rng()*T.veg.trees.length)];if(!set||!set.length)continue;const t=Math.floor(rng()*set.length/8)*8;if(!(set[t+3]>0))continue;const x=set[t],z=set[t+2];
-      if(Life.villages.some(v=>Math.hypot(v.x-x,v.z-z)<(v.R||80)+300)||Air.list.some(s=>Math.hypot(s.x-x,s.z-z)<500))continue;if(Plane.water(x,z))continue;
+  // near: the airfield the mission was taken at; the fire is 2–7 km from it (and if possible within 2.5 km of water to scoop from)
+  start(quiet,near){const T=App.T;if(!T||!R.vegB||!T.veg)return null;const rng=Math.random,cs=FIRE.cs,wet=(x,z)=>{for(let a=0;a<12;a++){const r=300+a*190;for(let b=0;b<8;b++){const t=b/8*Math.PI*2;if(Plane.water(x+Math.cos(t)*r,z+Math.sin(t)*r))return true;}}return false;};
+    for(let k=0;k<900;k++){const set=T.veg.trees[Math.floor(rng()*T.veg.trees.length)];if(!set||!set.length)continue;const t=Math.floor(rng()*set.length/8)*8;if(!(set[t+3]>0))continue;const x=set[t],z=set[t+2];
+      if(Life.villages.some(v=>Math.hypot(v.x-x,v.z-z)<(v.R||80)+300)||Air.list.some(s=>Math.hypot(s.x-x,s.z-z)<500))continue;if(Plane.water(x,z))continue;if(near&&k<800){const d=Math.hypot(near.x-x,near.z-z);if(d<2000||d>7000||(k<500&&!wet(x,z)))continue;}
       const i=Math.floor(x/cs),j=Math.floor(z/cs);let n=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)n+=this.trees(i+a,j+b);if(n<14)continue;
       const f={id:(Date.now()%1e7)+k,x,z,cells:new Map(),t0:App.time,hits:0,water:0,place:Rescue.vname(x,z),total:0};f.cells.set(this.key(i,j),{i,j,int:0.4,t:0,st:'burn',n:this.trees(i,j)});
       for(const [a,b] of [[1,0],[0,1],[-1,0]])f.cells.set(this.key(i+a,j+b),{i:i+a,j:j+b,int:0.15,t:0,st:'burn',n:this.trees(i+a,j+b)});
@@ -32,8 +33,6 @@ const Fires={list:[],next:0,burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
   nearest(x,z){let b=null,bd=1e18;for(const f of this.active()){const d=Math.hypot(f.x-x,f.z-z);if(d<bd){bd=d;b=f;}}return b;},
   stats(f){let burn=0,burnt=0,out=0;for(const c of f.cells.values()){if(c.st==='burn')burn++;else if(c.st==='burnt')burnt++;else out++;}return{burn,burnt,out,ha:(burnt*FIRE.cs*FIRE.cs/1e4)};},
   update(dt){const T=App.T;if(!T||App.busy)return;if(this.pendBurnt&&R.vegB){for(const k of this.pendBurnt)this.kill(Math.floor(k/65536),k%65536);this.pendBurnt=null;}
-    if(typeof Fleet!=='undefined'&&Fleet.unlocks.cl415&&!this.list.length){if(!this.next)this.next=App.time+40;
-      if(App.time>this.next){const dry=P.season!=='winter'&&!(Weather.eff&&Weather.eff().rain>0.2);this.next=App.time+FIRE.spawnMin+Math.random()*(FIRE.spawnMax-FIRE.spawnMin);if(dry)this.start();}}
     if(!this.list.length)return;dt=Math.min(dt,2);const wa=(P.windDir||0)*Math.PI/180,wx=Math.cos(wa),wz=Math.sin(wa),ws=0.5+(P.windStrength||0.3)*2,rain=Weather.eff?Weather.eff().rain:0;
     for(const f of this.list){const add=[];
       for(const c of f.cells.values()){if(c.st==='wet'){c.t-=dt;if(c.t<=0)c.st='out';continue;}if(c.st!=='burn')continue;
@@ -79,5 +78,5 @@ const Fires={list:[],next:0,burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',
     if(!f){el.style.display='none';return;}const q=Cam.toScreen(f.x,R.sampleHr(App.T,f.x,f.z)+40,f.z);if(!q){el.style.display='none';return;}const s=this.stats(f),d=Math.hypot(Plane.st.p[0]-f.x,Plane.st.p[2]-f.z);
     el.style.display='';el.style.left=q[0]+'px';el.style.top=q[1]+'px';el.innerHTML=`<b>🔥 Fire</b> ${d<1000?Math.round(d)+' m':(d/1000).toFixed(1)+' km'} · ${s.burn} burning`;},
   serialize(){return{burnt:[...this.burnt],fires:this.list.filter(f=>!f.done).map(f=>({x:f.x,z:f.z,place:f.place,hits:f.hits,water:f.water,total:f.total,cells:[...f.cells.values()].map(c=>[c.i,c.j,+c.int.toFixed(2),Math.round(c.t),c.st,c.n])}))};},
-  load_(d){this.list=[];this.burnt=new Set();this.next=0;this._sk='';this.pendBurnt=d&&d.burnt&&d.burnt.length?d.burnt.slice():null;
+  load_(d){this.list=[];this.burnt=new Set();this._sk='';this.pendBurnt=d&&d.burnt&&d.burnt.length?d.burnt.slice():null;
     for(const q of (d&&d.fires)||[]){const f={id:Math.random(),x:q.x,z:q.z,place:q.place,hits:q.hits|0,water:q.water||0,total:q.total|0,t0:App.time||0,cells:new Map()};for(const c of q.cells)f.cells.set(this.key(c[0],c[1]),{i:c[0],j:c[1],int:c[2],t:c[3],st:c[4],n:c[5]});this.list.push(f);}}};

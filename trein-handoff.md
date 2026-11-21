@@ -1,4 +1,4 @@
-# Trein handoff 106 (21 Nov 2026): v4.44.0 — Canadair CL-415 and forest fires. Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 107 (21 Nov 2026): v4.44.1 — forest fires only from a mission. Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,14 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.44.0, 21 Nov) — the Canadair CL-415 water bomber and forest fires (user's 6 photos; answers: Québec livery, forest fires
+### Latest (4.44.1, 21 Nov) — forest fires only from a mission (user: "only appear when a forest fire mission is selected for now")
+- No more random fires (the spawn timer in `Fires.update` and `Fires.next` are gone; buying the CL-415 no longer schedules one).
+- With the CL-415 owned and no fire burning, every airfield/jetty panel offers "🔥 Forest fire mission" (`data-nf`): it calls
+  `Fires.start(true, strip)` (a dense wood 2–7 km from that field, preferring one within ~2.5 km of water to scoop from; anywhere
+  after 800 tries) and spawns the CL-415 there. While a fire burns, the panel lists it instead (as before). Tested: no fire in 50 game
+  minutes without a mission; the mission started one 2.1 km away and the plane spawned.
+
+### Earlier (4.44.0, 21 Nov) — the Canadair CL-415 water bomber and forest fires (user's 6 photos; answers: Québec livery, forest fires
 that spread, automatic scooping + a Drop button)
 - **Model** (new js/canadair.js, `canadairMeshes`, `CL_PARTS`, `PLC`): flying-boat hull from mono profiles (keel with a step at d 9.3,
   chine/deadrise, top, half-width; section `H(d,u)`: vee bottom u 0–0.14, superellipse above), red below/yellow above, red-white-red
