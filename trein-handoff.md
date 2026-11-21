@@ -1,4 +1,4 @@
-# Trein handoff 121 (21 Nov 2026): v4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 122 (21 Nov 2026): v4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,24 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.55.0, 21 Nov) — harbour step 4b part 1: trains feeding the coal siding (user chose: unload on the siding, wagon by wagon;
+### Latest (4.56.0, 21 Nov) — harbour step 4b part 2: colliers you run (user: "player-run like buses")
+- New js/ships.js (`Ships`, `SHIP`: price €150,000, 400 t, 6.5 m/s, sea rate 40 per t·km): bought from a store card ("Collier",
+  outside Store.ITEMS: no 3D preview, ⚓🚢 header; "Your colliers (n)" opens the panel). The panel (#shipPanel): pick a ship, tap
+  built harbours to add/remove them in route order (≥ 2 to sail), show her, sell (half back).
+- Sea paths: `Ships.sea()` grid of 64 m cells open where the middle and 4 points 40 m out are ≥ 6 m deep (inside the map); `path(a,b)`
+  A* (8-neighbour, no corner cutting, binary heap) between the cells nearest the harbours' anchorages (local (60, −70)), then
+  string-pulled by line of sight; cached per pair (cleared with the grid).
+- States: sail (follow the path, 0.05 rad/s turn, slowing on the last leg) → wait (anchor; one ship per berth) → in (90 s sideways
+  onto the berth at local (60, −6.5), bow west) → berth: first unload what she brought (2 t/s; sold there, paid by the distance from
+  where it was loaded: until the factories take it) then load: PortCoal's shiploader pours into `Ships.at(s)` (the berthed, loading
+  ship); she leaves when full or after 45 s with no stock → out (90 s back to the anchorage) → next leg.
+- `Ships.ride`: heave/pitch/roll from Sea.surf at bow/stern/sides, smoothed (0.6/s). Drawn as portShip kit instances via
+  Port.dynPut → Ships.dynPut (rot = heading, pitch/roll packed: model bow is +x, so pk(−roll, pitch)). The harbour no longer has a
+  permanent collier at its berth. Map: dashed sea routes and ship dots (`Ships.mapDraw`). Saved in fleet.ships.
+- Test (scratch shipT.js, 8 km seeds 777 and 39536, 3 harbour sites): 500 t stock → loads 400, sails 4-6 km, berths, sells, returns
+  for the rest.
+
+### Earlier (4.55.0, 21 Nov) — harbour step 4b part 1: trains feeding the coal siding (user chose: unload on the siding, wagon by wagon;
 colliers player-run like buses (part 2); Victorian factory set next; then step 9, the CL-415 cockpit, performance)
 - The coal siding is now 116 m (x 0..116, buffer at 117; older harbours' 56 m siding is lengthened in place: `Port.extendSiding`, the
   east node moved). The two yard warehouses (portWareA) moved inland to y 37 / 37.5 to clear it.

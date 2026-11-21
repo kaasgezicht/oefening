@@ -70,6 +70,8 @@ const FACTS=[
 'The small wind waves exist only on the graphics card. Every frame their height under the boats is read back without waiting, so the boats ride them too.',
 'Tap 💡 Lights on a fishing boat for its navigation lights, deck floodlights and the lit wheelhouse. The other boats switch theirs on at dusk.',
 'At a coal & ore harbour, run your coal and iron trains onto the coal staithe: the travelling gantry grabs each hopper empty, four tonnes a bite, and the train draws up for the next ones.',
+'Colliers find their way round the islands with A* search on a 64 m grid of sea cells deep enough for them, then straighten the path wherever the water is open.',
+'Buy colliers in the store and give each a route of harbours. She berths, unloads, takes on the harbour\'s coal and ore, and sails on.',
 'Hydraulic erosion lets thousands of simulated raindrops run downhill, picking up and dropping sediment, which carves the valleys.',
 'Raindrops only fall on land in the erosion step. Skipping the sea floor made loading much faster.',
 'Lakes are found by filling the hollows of the land. Rivers follow where the most rainwater gathers.',

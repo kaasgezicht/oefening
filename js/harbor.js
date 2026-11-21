@@ -153,7 +153,7 @@ const Port={S:[],key:'',meshes:new Map(),
   // the moored collier riding the swell
   dynPut(put){const cp=Cam.pos||[0,0,0],t=performance.now()/1000;for(const s of this.S){if(!s.built||Math.hypot(s.x-cp[0],s.z-cp[2])>2300)continue;const c=PortCoal.st(s),rot=Math.atan2(s.t[1],s.t[0])+Math.PI,
       at=(k,x,y,z)=>{const p=this.P(s,x,y,z);put(k,{x:p[0],y:p[1],z:p[2],rot,hash:0.5});};
-    at('portGantry',c.gx,20,0);at('portCrab',c.gx,c.crabY,10.47);at('portLoader',c.lx,0,0);at('portShip',60,PORT.ship.y0+4.5,-PORT.deck+0.06*Math.sin(t*0.7+s.x));}},
+    at('portGantry',c.gx,20,0);at('portCrab',c.gx,c.crabY,10.47);at('portLoader',c.lx,0,0);void t;}if(typeof Ships!=='undefined')Ships.dynPut(put);/* the colliers (js/ships.js) */},
   kitPut(put){const cp=Cam.pos||[0,0,0];for(const s of this.S){if(!s.built||Math.hypot(s.x-cp[0],s.z-cp[2])>2400)continue;for(const o of this.kitList(s))put(o.t,o);}},
   townOf(st){const s=this.S.find(q=>st.port===Math.round(q.x)+','+Math.round(q.z));return s?s.v:null;},
   update(dt){const T=App.T;if(!T||T.sea==null||!Coast.T||Coast.T!==T)return;const key=Coast.key;if(key!==this.key){this.key=key;this.find();}for(const s of this.S){if(s.v.portOwned&&!s.built)this.build(s);if(s.built)PortCoal.step(s,Math.min(0.1,dt||0.016));}},
@@ -259,8 +259,9 @@ const PortCoal={M:null,
         if(P.smoke&&near)for(let k=0;k<6;k++){const w=Port.P(s,20+(Math.random()-0.5)*2,H.min+(Math.random()-0.5)*1.5,7);Particles.spawn(w[0],w[1],w[2],0,-2,0,1.2,0.3,1.4,0);}}
       if(c.t>1.2){c.task=null;c.ph='idle';}}
     // the belt and the shiploader: while there is stock and the collier's holds have room
-    const stock=(c.stock.coal||0)+(c.stock.iron||0),run=stock>0.05&&c.hold<PORT.shipCap;if(run)c.belt=(c.belt+dt*1.5)%1.6;c.run=run;
-    const hs=PORT.ship.hatch;if(c.lT>0&&run){c.lT-=dt;c.pour=1;const a=Math.min(dt*1.2,stock,PORT.shipCap-c.hold),fc=(c.stock.coal||0)/Math.max(stock,1e-6);c.stock.coal=Math.max(0,(c.stock.coal||0)-a*fc);c.stock.iron=Math.max(0,(c.stock.iron||0)-a*(1-fc));c.hold+=a;
+    /* 4.56: the shiploader fills a collier lying at the berth (js/ships.js) that is loading */
+    const sh=typeof Ships!=='undefined'?Ships.at(s):null,stock=(c.stock.coal||0)+(c.stock.iron||0),run=stock>0.05&&!!sh&&!sh.unl&&Ships.load(sh)<SHIP.cap;if(run)c.belt=(c.belt+dt*1.5)%1.6;c.run=run;c.hold=sh?Ships.load(sh):0;
+    const hs=PORT.ship.hatch;if(c.lT>0&&run){c.lT-=dt;c.pour=1;const a=Math.min(dt*1.2,stock,SHIP.cap-Ships.load(sh)),fc=(c.stock.coal||0)/Math.max(stock,1e-6);c.stock.coal=Math.max(0,(c.stock.coal||0)-a*fc);c.stock.iron=Math.max(0,(c.stock.iron||0)-a*(1-fc));sh.cargo.coal=(sh.cargo.coal||0)+a*fc;sh.cargo.iron=(sh.cargo.iron||0)+a*(1-fc);
       if(P.smoke&&near&&Math.random()<dt*6){const w=Port.P(s,c.lx,-8,0.4);Particles.spawn(w[0],w[1],w[2],(Math.random()-0.5),0.6,(Math.random()-0.5),2,0.5,2.2,0);}}
     else{c.pour=0;if(!run)return;const tx=hs[c.lTarget];if(Math.abs(c.lx-tx)<0.05){c.lx=tx;c.lT=25;let n=c.lTarget+c.lDir;if(n<0||n>=hs.length){c.lDir=-c.lDir;n=c.lTarget+c.lDir;}c.lTarget=n;}else c.lx+=Math.sign(tx-c.lx)*Math.min(Math.abs(tx-c.lx),dt*0.6);}},
   // the site's frame as a model matrix (local x along t, z up, y along n), shifted by (dx, dy, dz) in the local frame; sy scales z
