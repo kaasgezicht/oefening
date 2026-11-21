@@ -103,6 +103,7 @@ const MapView={on:false,keep:null,cam:null,hits:[],paths:new Map(),
     for(const fm of Life.farms())if(fm&&fm.v.farmOwned)sym(fm.x,fm.z,'🌾',fm.v.name+' farm',16,'farm');
     for(const [kind,L] of Life.inds())L.forEach(m=>{if(!Life.indOn(kind,m))return;sym(m.x,m.z,kind==='sawmill'?'🪚':kind==='mine'?'⛏️':'🪑',kind==='mine'?(ORE[m.type]?ORE[m.type].name+' mine':'Mine'):kind==='sawmill'?'Sawmill':'Workshop',16,kind==='mine'?'mine':'saw');});
     for(const d of Life.docks||[])if(d.v&&d.v.docksOwned)sym(d.sx,d.sz,'⚓','',14,'harbour');
+    if(typeof Port!=='undefined')for(const s of Port.S)if(s.built){const c=Port.centre(s);sym(c[0],c[2],'🏗️',s.v.name+' harbour',18,'harbour');}
     for(const st of Buses.stops)sym(st.x,st.z,st.sawmill||st.workshop?'🚚':'🚏',st.name,14,'stop');
     // which become dots: any icon whose ring would touch another's (bigger places keep their icon longest: they are tested first)
     SY.sort((a,b)=>b.size-a.size);const kept=[];for(const o of SY){o.dot=kept.some(k=>Math.hypot(k.q[0]-o.q[0],k.q[1]-o.q[1])<k.r+o.r+2);if(!o.dot)kept.push(o);}
