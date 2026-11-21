@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.48.0 (coal & ore harbour step 1: sites and blockout)';
+const VERSION='4.49.0 (coal & ore harbour step 2: architecture and real tracks)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;

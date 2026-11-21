@@ -111,7 +111,7 @@ const Port={S:[],key:'',meshes:new Map(),
     this.tracks(s);s.built=true;this.meshes.delete(s);Life.uploaded=false;Life.roadsDirty=true;},
   // the two passenger tracks (straight through, x 0 → 120) and the freight siding (from the west to its buffer) as real track at deck
   // height: the player's lines join their free ends; saved with the rest of the track (tagged port:<site>), so they are made once
-  tracks(s){const key=Math.round(s.x)+','+Math.round(s.z);if(Track.segs.some(g=>g.port===key))return;const h=Math.atan2(s.t[1],s.t[0]),y=s.deckY;
+  tracks(s){const key=Math.round(s.x)+','+Math.round(s.z);if(Track.segs.some(g=>g.port===key))return;const h=Math.atan2(s.t[1],s.t[0]),y=s.deckY+0.25;/* the track bed lies on the deck */
     for(const [ly,x1] of [[PORT.track.pass[0],PORT.W],[PORT.track.pass[1],PORT.W],[PORT.track.freight,PORT.track.freightEnd]]){const a0=this.xz(s,0,ly),b0=this.xz(s,x1,ly),L=Math.hypot(b0[0]-a0[0],b0[1]-a0[1]);
       const a={id:Track.nextId++,x:a0[0],z:a0[1],y,h:wrapPi(h+Math.PI),g:0},b={id:Track.nextId++,x:b0[0],z:b0[1],y,h:wrapPi(h),g:0};Track.nodes.push(a,b);
       Track.segs.push({id:Track.nextId++,a:a.id,b:b.id,x0:a0[0],z0:a0[1],h0:h,k:0,L,y0:y,y1:y,g0:0,g1:0,spans:[],port:key});}

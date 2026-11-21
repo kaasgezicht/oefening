@@ -1,4 +1,4 @@
-# Trein handoff 112 (21 Nov 2026): v4.48.0 — coal & ore harbour, step 1 of 4 (sites, blockout). Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 113 (21 Nov 2026): v4.49.0 — coal & ore harbour, step 2 of 4 (architecture, real tracks). Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,25 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.48.0, 21 Nov) — coal & ore harbour, step 1 of 4 (the user's DeepSeek brief "Victorian Coal Harbor & Railway Terminal")
+### Latest (4.49.0, 21 Nov) — coal & ore harbour, step 2 of 4: architecture and real tracks
+- `PortArch.build` (harbor.js) replaces the blocks of the quay, deck, platforms, station, shed and warehouses (`ARCH` name filter in
+  `Port.mesh`; coal handling and the ship stay blocks until steps 3 and 4). Helpers in the site frame: box, quad, tri, beam (an oriented
+  box between two points), arched window on a wall (dark pane, round head, stone sill), gable (ridge along x or y), cylinder, disc.
+  - Deck: stone quay paving with a coping, paved yard with joints. Quay wall: stone courses down to 7 m, timber fenders every 4 m, three
+    iron ladders, bollards every 10 m, lamp posts every 20 m.
+  - Foundations where the ground or sea floor is > 1.2 m below the deck: brick piers with stone caps under the quay (y ≤ 20), timber
+    stilt clusters with cross braces under the yard, beams between them.
+  - Platforms with stone edges. Train shed: iron columns every 6 m, trusses with struts, roof slate low and glazed high with glazing
+    bars, a raised lantern on the ridge, glazed gable screens with mullions over the open ends.
+  - Station: two brick storeys, stone plinth / string course / cornice, round-arched windows front, back and ends, three arched doors
+    to the platform, slate roof, four chimneys, clock tower (four faces with hands, cornice, pyramid spire, finial), glass canopy over
+    the street door. Warehouses (3 sizes, 2 or 3 floors): brick on stone, timber loading doors to the yard, arched windows, a hoist beam,
+    slate roofs with the ridge inland.
+- Real track (`Port.tracks`): the two passenger tracks (x 0 → 120) and the freight siding (x 0 → 56) as straight segments at deck
+  + 0.25 m, tagged `port:"x,z"` (made once; saved with the player's track). The player joins their free ends. The harbour station as a
+  train stop (Track.stations) is not done yet: it needs the station logic to skip its own building; planned for step 3.
+
+### Earlier (4.48.0, 21 Nov) — coal & ore harbour, step 1 of 4 (the user's DeepSeek brief "Victorian Coal Harbor & Railway Terminal")
 - User's answers: no reference image (design from the text); unlocked at harbour towns and reserved when the world is made, may stand
   partly over the water on brick foundations / timber stilts; harbour before the factories step; coal and all ores.
 - Plan: 1 sites + blockout (this), 2 architecture + real tracks (station, clock tower, train shed, warehouses, quay wall, fenders,
