@@ -3,12 +3,23 @@
 // it), and sea life: whales that swim, surface with a spout, roll and dive with their flukes up (now and then one breaches); pods of
 // dolphins that porpoise along (and come to ride beside the plane when it flies low over the sea); schools of fish that jump out in little
 // arcs, with their shoal visible as dark shapes just under the surface.
+const sstep=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};
 const Sea={whales:[],pods:[],schools:[],M:null,key:'',
   // swell height (m, crest to trough) from the setting, more in wind and storms
   amp(){const E=Weather.eff();return(+P.oceanSwell||0)*(0.65+0.45*E.wind+0.9*E.storm);},
   on(){const T=App.T;return!!(T&&T.sea!=null&&P.waterOn);},
   height(x,z,t){const T=App.T,A0=this.amp();if(!A0)return T.sea;t=t===undefined?App.time:t;let y=0;const dep=Math.min(1,Math.max(0,(T.sea-R.sampleHr(T,x,z))/16)),wd=P.windDir*Math.PI/180;
     for(let i=0;i<5;i++){const lam=330*Math.pow(0.73,i),sh=[0.42,0.27,0.17,0.09,0.05][i],da=[0,0.32,-0.41,0.75,-0.9][i],k=6.2832/lam,w=Math.sqrt(9.81*k),A=A0*0.5*sh*1.25*dep,ph=k*(Math.cos(wd+da)*x+Math.sin(wd+da)*z)-w*t+i*1.7;y+=A*Math.cos(ph);}
+    return T.sea+y;},
+  /* 4.54: the sea surface exactly as the water shader draws it. swellD moves each vertex sideways as well as up (Gerstner waves), so the
+     height at a world point is that of the grid point p whose displaced position lands there: p = q - shift(p), found in three steps.
+     Also the shader's fade of the swell 1.5-3 km from the camera. out (optional) gets the surface water's horizontal velocity (orbital
+     motion, m/s), which pushes floating things about */
+  surf(x,z,t,out){const T=App.T,A0=this.amp();if(out){out[0]=0;out[1]=0;}if(!A0)return T.sea;t=t===undefined?App.time:t;const wd=P.windDir*Math.PI/180,cp=Cam.pos||[x,0,z];
+    let px=x,pz=z,y=0;for(let it=0;it<4;it++){const dep=Math.min(1,Math.max(0,(T.sea-R.sampleHr(T,px,pz))/16)),swk=1-sstep(1500,3000,Math.hypot(px-cp[0],pz-cp[2]));let dx=0,dz=0;y=0;let ux=0,uz=0;
+      for(let i=0;i<5;i++){const lam=330*Math.pow(0.73,i),sh=[0.42,0.27,0.17,0.09,0.05][i],da=[0,0.32,-0.41,0.75,-0.9][i],k=6.2832/lam,w=Math.sqrt(9.81*k),A=A0*0.5*sh*1.25*dep,Qq=Math.min(0.16/Math.max(k*A,1e-4),1),
+        cx=Math.cos(wd+da),cz=Math.sin(wd+da),ph=k*(cx*px+cz*pz)-w*t+i*1.7,c=Math.cos(ph),sn=Math.sin(ph);dx-=Qq*A*cx*sn;dz-=Qq*A*cz*sn;y+=A*c;ux+=Qq*A*w*cx*c;uz+=Qq*A*w*cz*c;}
+      dx*=swk;dz*=swk;y*=swk;if(out){out[0]=ux*swk;out[1]=uz*swk;}if(it<3){px=x-dx;pz=z-dz;}}
     return T.sea+y;},
   // open water: on the sea, at least `d` deep
   deep(x,z,d){const T=App.T;if(x<30||z<30||x>T.W-30||z>T.W-30)return false;const w=sampleWater(T,x,z);return w[1]>0&&Math.abs(w[0]-T.sea)<0.6&&T.sea-R.sampleHr(T,x,z)>d;},

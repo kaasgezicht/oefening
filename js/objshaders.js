@@ -36,8 +36,8 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   vec3 W=iA.xyz+sp;if(uKind<=5)W.y+=fineAt(iA.xz);/* trees and rocks stand on the 8 m ground */vW=W;vN=n;vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y;
   gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(W,1.);}`;
 // detailed buildings from the building kit: same placement as objects (iA, iB), plus face uv/half-size and seed for the procedural materials
-const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt','portGantry','portBelt','portCrab','portLoader','portShip','portWagon'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
-const KIT_DYN=new Set(['grainArm','portCrab','portLoader','portShip','portWagon']);/* kit types whose instances move: written every frame (Life.armInst), redrawn in the dynamic shadow layer */
+const KIT_TYPES=['cottage','shop','farmhouse','tavern','church','culvert','culvertPipe','station','stationTown','plat0','plat1','plat2','plat3','plat4','plat5','platEa','platEb','fbT1','fbT2','shelter','sawmillA','sawmillB','farmHouse','farmBarn','farmShed','farmYard','grainTower','grainArm','portWareA','portWareB','portShed','portQuay','portQuayL','portPave','portPier','portStilt','portGantry','portBelt','portCrab','portLoader','portShip','portWagon','fishBoatA','fishBoatB','fishBoatC','fishBoatL'],KIT_OF=['cottage','shop','farmhouse','church','tavern','cottage'];
+const KIT_DYN=new Set(['grainArm','portCrab','portLoader','portShip','portWagon','fishBoatA','fishBoatB','fishBoatC','fishBoatL']);/* kit types whose instances move: written every frame (Life.armInst), redrawn in the dynamic shadow layer */
 const KIT_WORK={cottage:[[-4.15,-0.4,1,Math.PI],[-5.6,2.3,2,-Math.PI/2],[2.2,-3.95,1,Math.PI/2],[-2.2,-3.95,3,Math.PI/2]],farmhouse:[[3.88,-9.3,1,0],[5.0,-5.8,2,-Math.PI/2],[8.05,-8.0,3,Math.PI]],
   shop:[[5.3,-2.0,1,0],[6.9,2.1,3,-Math.PI/2]],tavern:[[3.4,-5.0,3,Math.PI/2]]};
 const KIT_CHIM={cottage:[-3.88,8.7,0.93],shop:[-4.55,11.2,0.15],farmhouse:[1.6,10.4,0.33],tavern:[-5.6,12.3,1.1]},KIT_GATE={cottage:0,shop:-0.4,farmhouse:0.3,tavern:0,church:0};
@@ -45,7 +45,11 @@ const VS_KIT=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec4 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;layout(location=4) in vec4 iA;layout(location=5) in vec4 iB;layout(location=6) in vec2 aUV;layout(location=8) in vec2 aHSq;layout(location=7) in vec2 aS;layout(location=9) in float aPd;
 invariant gl_Position;uniform int uPass;uniform float uBackSkip;out vec3 vW;out vec3 vN;out vec2 vUV;flat out vec2 vHS;flat out vec3 vC;flat out int vM;flat out float vSeed;flat out float vAux;flat out float vHash;out float vY;flat out float vFade;
 void main(){float bare=0.;vFade=iB.w;if(int(aMat+.5)==1&&aS.y>.8)bare=clamp(uSeason.w*1.3-.15+(fract(aS.x*7.)-.5)*.2,0.,1.);else if(int(aMat+.5)==1&&aS.y>.5)bare=clamp(uSeason.w*1.5+uSeason.z*.35-.1,0.,1.);
-  vec3 p=aPos*mix(1.,.001,bare)*iA.w;float c=cos(iB.x),s=sin(iB.x);p=vec3(c*p.x-s*p.z,p.y,s*p.x+c*p.z);vN=vec3(c*aNrm.x-s*aNrm.z,aNrm.y,s*aNrm.x+c*aNrm.z);
+  vec3 p=aPos*mix(1.,.001,bare)*iA.w;vec3 nn=aNrm.xyz;
+  /* 4.54: boats pitch and roll: iB.y = 2 + pitch code * 2048 + roll code (11 bits each, -0.6..0.6 rad); 0.5 everywhere else */
+  if(iB.y>1.5){float v=iB.y-2.,a=floor(v/2048.),b=v-a*2048.,pt=a/2047.*1.2-.6,rl=b/2047.*1.2-.6,cp=cos(pt),sp=sin(pt),cr=cos(rl),sr=sin(rl);
+    p=vec3(p.x,cp*p.y-sp*p.z,sp*p.y+cp*p.z);nn=vec3(nn.x,cp*nn.y-sp*nn.z,sp*nn.y+cp*nn.z);p=vec3(cr*p.x-sr*p.y,sr*p.x+cr*p.y,p.z);nn=vec3(cr*nn.x-sr*nn.y,sr*nn.x+cr*nn.y,nn.z);}
+  float c=cos(iB.x),s=sin(iB.x);p=vec3(c*p.x-s*p.z,p.y,s*p.x+c*p.z);vN=vec3(c*nn.x-s*nn.z,nn.y,s*nn.x+c*nn.z);
   vW=iA.xyz+p;vUV=aUV;vHS=aHSq*16.;vC=aCol;vM=int(aMat+.5);vSeed=aS.x;vAux=aS.y;vHash=iB.z;vY=aPos.y;gl_Position=(uPass==1?uLightVP:uViewProj)*vec4(vW,1.);
   // the far sides of closed blocks (flag in aNrm.w) are never seen: their triangles are moved out of view before any pixel work.
   // The test uses only values that are the same for every corner of the face (its normal and plane constant aPd, the instance, the
@@ -372,6 +376,11 @@ float oDep(vec2 p){vec2 ob=max(max(-p,p-uWorld.x),0.);float d=max(ob.x,ob.y);ret
 float seaK(float l){return uSwell.y>0.&&abs(l-uSwell.y)>.7?uSwell.w:1.;}
 vec3 waveD(vec2 p,float spc){vec3 d=vec3(0);int nc=int(uWaveA.w);for(int c=0;c<3;c++){if(c>=nc)break;float lod=log2(max(spc*2./(uWL[c]/uWL.w),1.));d+=textureLod(uWDisp,vec3(p/uWL[c],float(c)),lod).xyz;}return d;}
 `;
+/* 4.54: the FFT wind waves' height at given sea points (the boats' hull points), packed 16-bit into RGBA8 for an async readback
+   (js/render.js R.waveProbe): the same waveD and depth fade as the sea's vertex shader, near patch (no open-ring fade) */
+const FS_WPROBE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`uniform vec2 uPts[32];uniform int uNP;`+FS_OUT+`
+void main(){int i=int(gl_FragCoord.x);if(i>=uNP){o=vec4(.5,0.,0.,1.);return;}vec2 p=uPts[i];float l=uSwell.y,dp=max(l-terrainH(p),oDep(p));
+  float y=uWaveA.x>0.?waveD(p,.5).y*clamp(dp/2.,0.,1.)*(1.-uWater.w):0.;float q=clamp((y+8.)/16.,0.,1.)*65535.,hi=floor(q/256.);o=vec4(hi/255.,(q-hi*256.)/255.,0.,1.);}`;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
 layout(location=0) in vec2 aQ;uniform vec4 uLakeP;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 void main(){vec2 aq=clamp(aQ,0.,1.);bool skirt=aq!=aQ;vec2 p=uLakeP.xy+(aq*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=floor(f);f-=i0;ivec2 c=ivec2(i0);int M=int(uWorld.y)-1;float sw=0.,sl=0.,bl=0.;

@@ -9,7 +9,12 @@
 // (stop by its quay). The hold takes 600 kg; the price depends on the fish (€18–30 per kg). Grounds are fished out a little by every haul
 // and recover over time. Running aground stops the boat.
 // ===================================================================
-const FISH={hold:600,speed:9,netV:2.5,sellR:70};
+const FISH={hold:600,speed:9,netV:2.5,sellR:70,half:6.5};
+/* 4.54 boat physics: buoyancy at ten points along the hull (u forward from the middle, v to starboard), each a spring on its depth below
+   the drawn sea surface (Sea.surf), saturating when the point leaves the water or is buried; heave, pitch and roll with their own
+   periods and damping (a 13 m trawler: about 2.8 s, 2.6 s, 4.6 s; roll lightly damped); the bow rises with speed, the boat heels out
+   in a turn, and the waves' orbital motion pushes it about (not while moored) */
+const BOATP={pts:[[5.4,-0.9],[5.4,0.9],[3,-1.8],[3,1.8],[0.5,-2.1],[0.5,2.1],[-2.5,-2.05],[-2.5,2.05],[-5.6,-1.8],[-5.6,1.8]],D:1.2,wh:6.2832/2.8,zh:0.32,wp:6.2832/2.6,zp:0.3,wr:6.2832/4.6,zr:0.1,near:1300};
 const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new Map(),
   T(){return App.T;},
   sea(x,z,d){const T=App.T;if(!T||T.sea==null)return false;if(x<0||z<0||x>T.W||z>T.W)return true;return R.sampleHr(T,x,z)<T.sea-(d==null?1.2:d);},
@@ -34,6 +39,25 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
     if(probe(want)<3&&Math.hypot(tx-b.x,tz-b.z)>40){let best=want,bs=-1;for(const o of [0.4,-0.4,0.8,-0.8,1.2,-1.2,1.7,-1.7]){const f=probe(want+o);if(f>bs){bs=f;best=want+o;}if(f===3)break;}want=best;}
     const da=wrapPi(want-b.hd);b.hd=wrapPi(b.hd+clamp(da,-0.35*dt,0.35*dt));const d=Math.hypot(tx-b.x,tz-b.z),v=Math.min(vmax,0.4+d*0.08)*(Math.abs(da)>1.2?0.4:1);b.v+=(v-b.v)*Math.min(1,dt*0.5);
     b.x+=Math.cos(b.hd)*b.v*dt;b.z+=Math.sin(b.hd)*b.v*dt;return d;},
+  phys(b,dt,moored){const T=App.T,sea=T.sea,P2=BOATP;if(b.py==null||!isFinite(b.py)){b.py=sea;b.vy=0;b.pt=0;b.wp=0;b.rl=0;b.wr=0;}
+    const cp=Cam.pos||[0,0,0];if(!Sea.on()||Math.hypot(b.x-cp[0],b.z-cp[2])>P2.near){b.py=sea;b.vy=b.pt=b.wp=b.rl=b.wr=0;return;}
+    const c=Math.cos(b.hd),s=Math.sin(b.hd),yr=b._hd0==null?0:wrapPi(b.hd-b._hd0)/Math.max(dt,1e-3);b._hd0=b.hd;b.yr=(b.yr||0)+(yr-(b.yr||0))*Math.min(1,dt*3);
+    const t=App.time,ff=b.fft&&App.time-(b.fftT||-9)<0.5?b.fft:null,h=P2.pts.map(([u,v],i)=>Sea.surf(b.x+c*u-s*v,b.z+s*u+c*v,t)+(ff?ff[i]:0)),uv=[0,0];/* + the FFT wind waves read back from the GPU */Sea.surf(b.x,b.z,t,uv);
+    let su2=0,sv2=0;for(const [u,v] of P2.pts){su2+=u*u;sv2+=v*v;}
+    const trim=0.035*clamp((b.v||0)/FISH.speed,-0.5,1),heel=clamp(0.03*(b.yr||0)*(b.v||0),-0.12,0.12),n=Math.max(1,Math.ceil(dt/0.02)),hdt=dt/n,D=P2.D;
+    for(let k=0;k<n;k++){let fy=0,fp=0,fr=0;const sp=Math.sin(b.pt),sr=Math.sin(b.rl);
+      P2.pts.forEach(([u,v],i)=>{const e=h[i]-(b.py+u*sp+v*sr),f=clamp(e+D,0,2*D)-D;fy+=f;fp+=f*u;fr+=f*v;});
+      const ay=P2.wh*P2.wh*fy/P2.pts.length-2*P2.zh*P2.wh*b.vy,ap=P2.wp*P2.wp*(fp/su2+trim)-2*P2.zp*P2.wp*b.wp,ar=P2.wr*P2.wr*(fr/sv2+heel)-2*P2.zr*P2.wr*b.wr;
+      b.vy+=ay*hdt;b.wp+=ap*hdt;b.wr+=ar*hdt;b.py+=b.vy*hdt;b.pt=clamp(b.pt+b.wp*hdt,-0.5,0.5);b.rl=clamp(b.rl+b.wr*hdt,-0.5,0.5);}
+    if(!moored){b.x+=uv[0]*0.55*dt;b.z+=uv[1]*0.55*dt;}},
+  // the hull points of up to three boats near the camera (yours first) for R.waveProbe
+  probePts(){const cp=Cam.pos||[0,0,0],B=[];if(this.drv)B.push(this.drv);for(const h of Coast.H)for(const b of h.boats){if(b===this.drv||b.x==null)continue;if(Math.hypot(b.x-cp[0],b.z-cp[2])<350)B.push(b);}
+    B.sort((a,b)=>(a===this.drv?-1:b===this.drv?1:Math.hypot(a.x-cp[0],a.z-cp[2])-Math.hypot(b.x-cp[0],b.z-cp[2])));const pts=[],boats=[];
+    for(const b of B.slice(0,3)){const c=Math.cos(b.hd),s=Math.sin(b.hd);for(const [u,v] of BOATP.pts)pts.push([b.x+c*u-s*v,b.z+s*u+c*v]);boats.push([b,BOATP.pts.length]);}return{pts,boats};},
+  // pose for drawing and cameras: the boat-frame point (u forward, v starboard, w up) in the world
+  bp(b,u,v,w){const c=Math.cos(b.hd),s=Math.sin(b.hd),cp=Math.cos(b.pt||0),sp=Math.sin(b.pt||0),cr=Math.cos(b.rl||0),sr=Math.sin(b.rl||0);
+    const u1=u*cp-w*sp,w1=u*sp+w*cp,v2=v*cr-w1*sr,w2=v*sr+w1*cr;return[b.x+c*u1-s*v2,(b.py==null?App.T.sea:b.py)+w2,b.z+s*u1+c*v2];},
+  lightsOn(b){if(b===this.drv)return!!b.lights;return!!(R.sun&&R.sun.night>0.35);},
   // ---- the boats' day (and the player's boat)
   update(dt){const T=App.T;if(!T||T.sea==null||typeof Coast==='undefined'||!Coast.H)return;const key=Coast.key+'|'+Coast.H.length;if(key!==this.key){this.key=key;this.drv=null;this.init();}
     dt=Math.min(dt,0.5);for(const g of this.G)g.stock=Math.min(1,g.stock+dt*0.0015);
@@ -45,20 +69,20 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       else if(b.st==='haul'){b.v*=1-dt*0.5;b.x+=Math.cos(b.hd)*b.v*dt;b.z+=Math.sin(b.hd)*b.v*dt;b.net=Math.max(0,b.net-dt/30);if((b.haulT-=dt)<=0){b.g.stock=Math.max(0,b.g.stock-0.05);b.st='back';b.leg=0;b.net=0;}}
       else if(b.st==='back'){const m=this.moor(h,b),tgt=b.leg===0?h.gate:m,d=this.steer(b,tgt[0],tgt[1],dt,b.leg===0?FISH.speed*0.8:1.6);if(b.leg===0&&d<15)b.leg=1;else if(b.leg===1&&d<2.5){b.st='moor';b.wait=120+Math.random()*360;}}
       // foam at the stern of a boat under way
-      if(b.v>2&&P.smoke&&Math.random()<dt*8&&Math.hypot(b.x-(Cam.pos||[0,0,0])[0],b.z-(Cam.pos||[0,0,0])[2])<900)Particles.spawn(b.x-Math.cos(b.hd)*4.8,T.sea+0.3,b.z-Math.sin(b.hd)*4.8,(Math.random()-0.5)*0.6,0.4,(Math.random()-0.5)*0.6,1.6,0.6,2.2,1);}
+      if(b.v>2&&P.smoke&&Math.random()<dt*8&&Math.hypot(b.x-(Cam.pos||[0,0,0])[0],b.z-(Cam.pos||[0,0,0])[2])<900)Particles.spawn(b.x-Math.cos(b.hd)*6.8,T.sea+0.3,b.z-Math.sin(b.hd)*6.8,(Math.random()-0.5)*0.6,0.4,(Math.random()-0.5)*0.6,1.6,0.6,2.2,1);}
     for(const g of Coast.gulls)if(g.follow){g.cx=g.follow.x;g.cz=g.follow.z;}
-    if(this.drv)this.drive(dt);this.icons();},
+    if(this.drv)this.drive(dt);for(const h of Coast.H)for(const b of h.boats)if(b.x!=null)this.phys(b,dt,b.st==='moor');this.icons();if(typeof Sfx!=='undefined'&&Sfx.sea)try{Sfx.sea(dt);}catch(e){}},
   // ---- the player's boat
   take(h){const b=h.boats.find(q=>q.st==='moor');if(!b){UI.toast('All boats of this harbour are out fishing: wait for one to come back');return;}
     if(typeof Plane!=='undefined'&&Plane.on)Plane.exit();if(RoadVeh.drv)RoadVeh.stopDriving();if(Build.active)Build.exit();if(MapView.on)MapView.close();
-    this.drv=b;b.h=h;b.st='player';b.v=0;b.kg=b.kg||0;b.net=0;b.netT=0;this.inp.steer=this.inp.thr=0;this.cam='chase';Cam.mode='boat';Cam.anim=null;this.ui(true);
+    this.drv=b;b.h=h;b.st='player';b.v=0;if(b.lights==null)b.lights=!!(R.sun&&R.sun.night>0.35);b.kg=b.kg||0;b.net=0;b.netT=0;this.inp.steer=this.inp.thr=0;this.cam='chase';Cam.mode='boat';Cam.anim=null;this.ui(true);
     if(!b.gulls){b.gulls=[];for(let i=0;i<4;i++){const g={cx:b.x,cz:b.z,r:18+Math.random()*16,y:7+Math.random()*6,a:Math.random()*6.283,w:(Math.random()<0.5?-1:1)*7,ph:Math.random()*20,sit:null,follow:b};Coast.gulls.push(g);b.gulls.push(g);}}
     UI.toast(`Your boat at ${h.v?h.v.name:'the harbour'}: stick up for ahead. Gulls over the water show the fishing grounds (⚑ on the compass)`);},
   leave(){const b=this.drv;if(!b)return;this.drv=null;b.st='back';b.leg=0;b.net=0;this.ui(false);Cam.mode='free';Cam.target=[b.x,App.T.sea,b.z];Cam.dist=60;UI.toast(b.kg>0?`The crew takes the boat home; your ${Math.round(b.kg)} kg stay in its hold for next time`:'The crew takes the boat home');},
   drive(dt){const b=this.drv,T=App.T,i=this.inp;const netOut=b.net>0;
     const vmax=netOut?FISH.netV:FISH.speed,tv=i.thr>=0?i.thr*vmax:i.thr*3;b.v+=clamp(tv-b.v,-dt*1.2,dt*0.9);
     b.hd=wrapPi(b.hd+i.steer*clamp(Math.abs(b.v)/3,0.15,1)*Math.sign(b.v||1)*0.32*dt);
-    const nx=b.x+Math.cos(b.hd)*b.v*dt,nz=b.z+Math.sin(b.hd)*b.v*dt,bow=[nx+Math.cos(b.hd)*4.6*Math.sign(b.v||1),nz+Math.sin(b.hd)*4.6*Math.sign(b.v||1)];
+    const nx=b.x+Math.cos(b.hd)*b.v*dt,nz=b.z+Math.sin(b.hd)*b.v*dt,bow=[nx+Math.cos(b.hd)*FISH.half*Math.sign(b.v||1),nz+Math.sin(b.hd)*FISH.half*Math.sign(b.v||1)];
     if(!this.sea(bow[0],bow[1],0.6)){if(Math.abs(b.v)>1.5&&(!this._ag||App.time-this._ag>4)){this._ag=App.time;UI.toast('Aground! Back off with the stick down');}b.v=0;}else{b.x=nx;b.z=nz;}
     // the nets: shoot, fill with what the ground holds, haul
     if(b.netSt==='out'){b.net=Math.min(1,b.net+dt/12);const G=this.nearestG(b.x,b.z),on=G&&G.d<G.g.r;b.netT+=dt;if(on){b.fill=(b.fill||0)+dt*G.g.stock*4;b.fg=G.g;}}
@@ -70,17 +94,17 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       const G=this.nearestG(b.x,b.z);UI.toast(G&&G.d<G.g.r?`Nets out over a shoal of ${G.g.fish}: drift slowly, then haul`:'Nets out, but there are no fish here: look for circling gulls');}this.btns();},
   sell(){const b=this.drv;if(!b)return;const H=this.nearestH(b.x,b.z);if(!H||H.d>FISH.sellR||Math.abs(b.v)>1){UI.toast('Stop beside a harbour quay to sell');return;}if(b.kg<=0){UI.toast('Nothing in the hold yet');return;}
     const pay=Math.round(b.kg*(b.price||18)/10)*10;if(Money.on())Money.earn(pay,`${Math.round(b.kg)} kg of ${b.fish||'fish'}`,b.x,App.T.sea+3,b.z);UI.toast(`Sold ${Math.round(b.kg)} kg of ${b.fish||'fish'} at ${H.h.v?H.h.v.name:'the harbour'}${Money.on()?` for €${Money.fmt(pay)}`:''}`);b.kg=0;this.btns();},
-  camera(dt){const b=this.drv,T=App.T,y=T.sea;let p,look,cab=false;
-    if(this.cam==='bridge'){const c=Math.cos(b.hd),s=Math.sin(b.hd);p=[b.x+c*1.6-s*0.3,y+2.6,b.z+s*1.6+c*0.3];/* on the foredeck, ahead of the mast */look=[b.x+Math.cos(b.hd)*30,y+1.5,b.z+Math.sin(b.hd)*30];cab=true;}
+  camera(dt){const b=this.drv,T=App.T,y=b.py==null?T.sea:b.py;let p,look,cab=false;
+    if(this.cam==='bridge'){/* at the wheelhouse's front windows (just outside the glass: the house is a solid block), looking over the foredeck; it moves with the boat's pitch and roll */p=this.bp(b,3.95,0,2.35);look=this.bp(b,34,0,1.6);cab=true;}
     else{const want=[-Math.cos(b.hd)*24,8.5,-Math.sin(b.hd)*24];if(!this.co)this.co=want.slice();const k=Math.min(1,dt*2);for(let i=0;i<3;i++)this.co[i]+=(want[i]-this.co[i])*k;p=[b.x+this.co[0],y+this.co[1],b.z+this.co[2]];look=[b.x+Math.cos(b.hd)*6,y+2,b.z+Math.sin(b.hd)*6];}
     return{p,look,cab};},
   hud(){const b=this.drv;if(!b)return;const el=$('#fbHud');if(!el)return;const G=this.nearestG(b.x,b.z),H=this.nearestH(b.x,b.z),kn=Math.abs(b.v)*1.944;
     el.innerHTML=`<b>${kn.toFixed(1)}</b> kn · hold ${Math.round(b.kg)}/${FISH.hold} kg`+(b.netSt==='out'?` · nets out${b.fill>1?` (~${Math.round(Math.min(b.fill,FISH.hold-b.kg))} kg)`:''}`:b.netSt==='haul'?' · hauling':'')+
       (G?` · ⚑ ${G.g.fish} ${G.d<G.g.r?'here':(G.d<1000?Math.round(G.d)+' m':(G.d/1000).toFixed(1)+' km')}`:'')+(H&&b.kg>0?` · ⚓ ${H.h.v?esc(H.h.v.name):''} ${H.d<1000?Math.round(H.d)+' m':(H.d/1000).toFixed(1)+' km'}`:'');},
-  btns(){const b=this.drv;if(!b)return;const n=$('#fbNet'),s=$('#fbSell');if(n)n.textContent=b.netSt==='out'?'🪝 Haul nets':b.netSt==='haul'?'Hauling…':'🕸 Set nets';
+  btns(){const b=this.drv;if(!b)return;const n=$('#fbNet'),s=$('#fbSell'),lb=$('#fbLights');if(lb)lb.classList.toggle('on',!!b.lights);if(n)n.textContent=b.netSt==='out'?'🪝 Haul nets':b.netSt==='haul'?'Hauling…':'🕸 Set nets';
     const H=this.nearestH(b.x,b.z);if(s)s.hidden=!(H&&H.d<FISH.sellR*1.5&&b.kg>0);},
-  ui(on){let el=$('#fbUI');if(!el){el=document.createElement('div');el.id='fbUI';el.innerHTML='<div id="fbHud"></div><div id="fbTop"><button data-a="cam">📷 Camera</button><button data-a="net" id="fbNet">🕸 Set nets</button><button data-a="sell" id="fbSell" class="go">💶 Sell catch</button><button data-a="x">✕ Leave the boat</button></div><div id="fbStickWrap"><div id="fbStick"><div id="fbKnob"></div></div></div>';document.body.appendChild(el);
-      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const a=t.dataset.a;if(a==='cam'){this.cam=this.cam==='chase'?'bridge':this.cam==='bridge'?'orbit':'chase';Cam.mode=this.cam==='orbit'?'free':'boat';if(this.cam==='orbit'){Cam.target=[this.drv.x,App.T.sea+2,this.drv.z];Cam.dist=30;}}else if(a==='net')this.netBtn();else if(a==='sell')this.sell();else if(a==='x')this.leave();});
+  ui(on){let el=$('#fbUI');if(!el){el=document.createElement('div');el.id='fbUI';el.innerHTML='<div id="fbHud"></div><div id="fbTop"><button data-a="cam">📷 Camera</button><button data-a="lights" id="fbLights">💡 Lights</button><button data-a="net" id="fbNet">🕸 Set nets</button><button data-a="sell" id="fbSell" class="go">💶 Sell catch</button><button data-a="x">✕ Leave the boat</button></div><div id="fbStickWrap"><div id="fbStick"><div id="fbKnob"></div></div></div>';document.body.appendChild(el);
+      el.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const a=t.dataset.a;if(a==='cam'){this.cam=this.cam==='chase'?'bridge':this.cam==='bridge'?'orbit':'chase';Cam.mode=this.cam==='orbit'?'free':'boat';if(this.cam==='orbit'){Cam.target=[this.drv.x,App.T.sea+2,this.drv.z];Cam.dist=30;}}else if(a==='lights'){const b=this.drv;if(b){b.lights=!b.lights;UI.toast(b.lights?'Lights on: navigation lights, deck floodlights and the wheelhouse':'Lights off');this.btns();}}else if(a==='net')this.netBtn();else if(a==='sell')this.sell();else if(a==='x')this.leave();});
       const st=el.querySelector('#fbStick'),kn=el.querySelector('#fbKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,Rr=r.width/2-14;let dx=(ev.clientX-cx)/Rr,dy=(ev.clientY-cy)/Rr;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}
         this.inp.steer=dx;this.inp.thr=clamp(-dy*1.25,-1,1);kn.style.transform=`translate(${dx*Rr}px,${dy*Rr}px)`;};
       st.onpointerdown=ev=>{ev.preventDefault();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};
@@ -122,7 +146,7 @@ const Fish={G:[],key:'',drv:null,cam:'chase',inp:{steer:0,thr:0},M:null,ic:new M
       wy=(x,z)=>Sea.on()?Sea.height(x,z,t):T.sea,lim=pass===1?300:900;
     // nets: a curve of floats streaming astern of every boat that has them out, a marker buoy at the end
     for(const h of Coast.H)for(const b of h.boats){if(!(b.net>0.02)||Math.hypot(b.x-cp[0],b.z-cp[2])>lim)continue;const n=Math.max(2,Math.round(16*b.net)),c=Math.cos(b.hd),s=Math.sin(b.hd);
-      for(let i=1;i<=n;i++){const d=4.6+i*3.2,sw=(Math.sin(i*0.35+t*0.2)*0.35+0.6)*i*0.6,x=b.x-c*d-s*sw,z=b.z-s*d+c*sw;dm(i===n?M.buoy:M.float,at(x,wy(x,z)+(i===n?0.25:0.18),z,b.hd));}}
+      for(let i=1;i<=n;i++){const d=6.8+i*3.2,sw=(Math.sin(i*0.35+t*0.2)*0.35+0.6)*i*0.6,x=b.x-c*d-s*sw,z=b.z-s*d+c*sw;dm(i===n?M.buoy:M.float,at(x,wy(x,z)+(i===n?0.25:0.18),z,b.hd));}}
     if(pass===1)return;
     // the quays: fishermen at work, net piles, fish boxes
     for(const h of Coast.H){if(!h.men||Math.hypot(h.x-cp[0],h.z-cp[2])>500)continue;const c=Math.cos(h.rot),s=Math.sin(h.rot),y=T.sea+1.55,P=(u,w)=>[h.x+c*u-s*w,h.z+s*u+c*w];

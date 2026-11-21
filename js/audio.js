@@ -44,6 +44,32 @@ const Sfx={ctx:null,on:false,master:null,noise:null,trainNodes:new Map(),
     else if(pl.kind==='cl415'){/* turboprops: the propellers' deep buzz (blade passing, about 80 Hz); no turbine whine (it was a shrill tone on phones, 4.46) */const th=pl.ctl.thr,f=68+th*22;set(E.o1.frequency,f);set(E.o2.frequency,f*0.5);set(E.lp.frequency,220+th*500);set(E.eng.gain,0.55+th*0.45);set(E.rg.gain,0);set(E.tg.gain,0);set(E.wg.gain,Math.min(0.7,0.1+V*V/5000));set(E.bp.frequency,450+V*10);}
     else{const rpm=pl.rpm(),f=rpm/60*4.5,th=pl.ctl.thr;set(E.o1.frequency,f);set(E.o2.frequency,f/2);set(E.lp.frequency,250+th*1100+rpm*0.1);set(E.eng.gain,0.6+th*0.5);set(E.rg.gain,0);set(E.tg.gain,0);
       set(E.wg.gain,Math.min(0.7,0.08+V*V/5000));set(E.bp.frequency,500+V*12);}},
+  /* 4.54 the sea and the fishing boats, all low and soft (the user: no annoying high pitches): a diesel's chug (a 30-56 Hz sawtooth under
+     a 140-400 Hz lowpass, pulsed at half its firing rate), the sea's wash (noise under 450 Hz, swelling with two slow waves), the bow
+     wave with speed (noise under 800 Hz) and now and then gulls (a falling 780 -> 520 Hz call through a 1.5 kHz lowpass) */
+  sea(dt){if(!this.on||!this.ctx||typeof Fish==='undefined')return;const c=this.ctx,t=c.currentTime,T=App.T;if(!T||T.sea==null)return;
+    if(!this.bs){const out=c.createGain();out.gain.value=0;const pan=c.createStereoPanner();out.connect(pan);pan.connect(this.master);
+      const o1=c.createOscillator(),o2=c.createOscillator();o1.type='sawtooth';o2.type='sine';const lp=c.createBiquadFilter();lp.type='lowpass';lp.Q.value=0.9;const am=c.createGain();am.gain.value=0.6;
+      const lfo=c.createOscillator();lfo.type='sine';const lg=c.createGain();lg.gain.value=0.4;lfo.connect(lg);lg.connect(am.gain);const g2=c.createGain();g2.gain.value=0.6;o1.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(am);am.connect(out);
+      const nz=c.createBufferSource();nz.buffer=this.noise;nz.loop=true;const rl=c.createBiquadFilter();rl.type='lowpass';rl.frequency.value=220;const rg=c.createGain();rg.gain.value=0.25;nz.connect(rl);rl.connect(rg);rg.connect(am);
+      const sea=c.createGain();sea.gain.value=0;sea.connect(this.master);const sz=c.createBufferSource();sz.buffer=this.noise;sz.loop=true;const slp=c.createBiquadFilter();slp.type='lowpass';slp.frequency.value=450;const sw=c.createGain();sw.gain.value=0.6;
+      const l1=c.createOscillator(),l2=c.createOscillator();l1.frequency.value=0.09;l2.frequency.value=0.21;const lg1=c.createGain(),lg2=c.createGain();lg1.gain.value=0.28;lg2.gain.value=0.14;l1.connect(lg1);l2.connect(lg2);lg1.connect(sw.gain);lg2.connect(sw.gain);sz.connect(slp);slp.connect(sw);sw.connect(sea);
+      const bw=c.createGain();bw.gain.value=0;const blp=c.createBiquadFilter();blp.type='lowpass';blp.frequency.value=800;const bhp=c.createBiquadFilter();bhp.type='highpass';bhp.frequency.value=120;sz.connect(bhp);bhp.connect(blp);blp.connect(bw);bw.connect(this.master);
+      for(const o of [o1,o2,lfo,nz,sz,l1,l2])o.start();this.bs={out,pan,o1,o2,lp,lfo,sea,bw};}
+    const B=this.bs,set=(a,x,k)=>a.setTargetAtTime(x,t,k||0.15),cp=Cam.pos||[0,0,0],drv=Fish.drv,amb=+P.ambVol||0;
+    // the engine: your boat, or the nearest one under way
+    let eb=drv,ed=0;if(!eb){let bd=240;for(const h of Coast.H)for(const b of h.boats){if(b.x==null||b.st==='moor')continue;const d=Math.hypot(b.x-cp[0],(b.py||T.sea)-cp[1],b.z-cp[2]);if(d<bd){bd=d;eb=b;}}ed=bd;}
+    if(eb){const thr=drv?Math.abs(Fish.inp.thr):clamp(Math.abs(eb.v||0)/FISH.speed,0,1),f=30+26*thr,[v,pn]=this.spatial([eb.x,(eb.py||T.sea)+1.5,eb.z]);
+      set(B.o1.frequency,f,0.3);set(B.o2.frequency,f*0.5,0.3);set(B.lp.frequency,140+260*thr,0.3);set(B.lfo.frequency,f*0.5,0.3);set(B.out.gain,drv?(Fish.cam==='bridge'?0.42:0.3)*(0.55+0.45*thr):0.3*clamp(1-ed/240,0,1)*clamp(v*8,0,1),0.25);set(B.pan.pan,drv&&Fish.cam==='bridge'?0:pn,0.2);}
+    else set(B.out.gain,0,0.3);
+    // the sea: aboard, or with the camera low over the water near the coast
+    let near=drv?1:0;if(!drv){const h=cp[1]-T.sea;if(h<220){let w=0;for(const [dx,dz] of [[0,0],[80,0],[-80,0],[0,80],[0,-80]])if(R.sampleHr(T,cp[0]+dx,cp[2]+dz)<T.sea)w++;near=(w/5)*clamp(1-h/220,0,1);}}
+    set(B.sea.gain,0.2*amb*near*(0.75+0.35*Math.min(1,Sea.amp()/4)),0.6);set(B.bw.gain,drv?0.16*amb*clamp(Math.abs(drv.v||0)/FISH.speed,0,1):0,0.3);
+    // gulls: near your boat, a fishing ground's flock, or a harbour
+    if(amb>0&&near>0.2&&R.sun&&R.sun.day>0.2){let g=drv?1:0;if(!g)for(const q of Coast.gulls){const x=q.sit?q.sit.x:q.cx,z=q.sit?q.sit.z:q.cz;if(Math.hypot(x-cp[0],z-cp[2])<160){g=1;break;}}
+      if(g&&Math.random()<dt*0.2){const n=2+Math.floor(Math.random()*2),pan=c.createStereoPanner();pan.pan.value=Math.random()*1.4-0.7;pan.connect(this.master);const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1500;lp.connect(pan);
+        for(let k=0;k<n;k++){const t0=t+k*0.34+Math.random()*0.05,o=c.createOscillator(),gg=c.createGain(),vb=c.createOscillator(),vg=c.createGain();o.type='triangle';const f0=740+Math.random()*90;o.frequency.setValueAtTime(f0,t0);o.frequency.exponentialRampToValueAtTime(f0*0.68,t0+0.28);
+          vb.frequency.value=17;vg.gain.value=22;vb.connect(vg);vg.connect(o.frequency);gg.gain.setValueAtTime(0,t0);gg.gain.linearRampToValueAtTime(0.04*amb,t0+0.04);gg.gain.linearRampToValueAtTime(0,t0+0.3);o.connect(gg);gg.connect(lp);o.start(t0);vb.start(t0);o.stop(t0+0.32);vb.stop(t0+0.32);}}}},
   planeStop(){if(!this.pe||!this.ctx)return;this.pe.out.gain.setTargetAtTime(0,this.ctx.currentTime,0.15);},
   /* a short bright two-note chime (mission complete) */
   chime(){if(!this.on||!this.ctx)return;const c=this.ctx,t=c.currentTime;[[784,0],[1175,0.13],[1568,0.26]].forEach(([f,d])=>{const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(0.18,t+d+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+d+0.6);o.connect(g);g.connect(this.master);o.start(t+d);o.stop(t+d+0.7);});},

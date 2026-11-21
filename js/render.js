@@ -674,7 +674,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
      redrawn every few hundred metres (zoomed out that was most frames: a full redraw of everything round the camera on the GPU); new
      ground gets its shadows once the view settles. Not while the sun moves (A.key changes): only the frustum's centre and size wait */
   if(R.shSt&&R.shStFb&&+P.optShadowCache!==0&&!R.benchStill&&!Cam.calm(0.2)&&R.shL&&R.shSt.L===R.shL){lightVP=new Float32Array(R.shSt.vp);R.shTexel=R.shSt.tex;R.shHeld=true;}else R.shHeld=false;/* held: the static layer is kept as it is (objects coming into the lists as the camera moves get their shadows when it settles) */const shReuse=+P.optShadowHalf===1&&!!R.shVP&&(R.frameNo&1)===1&&R.shKeyUp;if(shReuse)lightVP=R.shVP;else R.shVP=lightVP;
-  R.fillUBO(cam,A,lightVP);if(T&&!R.benchStill)Waves.step();// (benchmark frames keep the waves still, so two renders compare exactly)
+  R.fillUBO(cam,A,lightVP);if(T&&!R.benchStill){Waves.step();try{R.waveProbe.run();}catch(e){Log.err('wave probe: '+e);R.waveProbe.run=()=>{};}}// (benchmark frames keep the waves still, so two renders compare exactly)
   if(T){R.updateVegLists(cam);R.pm('vegLists');Life.prepare(cam,A);}R.pm('prepare');
   gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);
   // shadow map
@@ -857,6 +857,20 @@ R.drawWater=function(cam){if(!R.waterChunks.length)return;const T=R.world,q=+P.w
 /* the open sea round island maps: 8 nested squares round the camera (300 m to 38 km half-size, 64 x 64 quads each, snapped to their own
    spacing), drawn with the lake program; the water texture clamps at the map edge, which is sea, so it is the same ocean with its swell.
    Each ring discards the map itself and the square of the finer ring inside it (uRefl.zw = that ring's centre, uLakeP.w-2 its half-size) */
+/* 4.54: what the boats feel of the FFT wind waves. Each frame the hull points of the boats near the camera (Fish.probePts) are drawn
+   into a 32 x 1 strip by FS_WPROBE and read back through a pixel-pack buffer once a fence says the GPU is done (a frame or two later,
+   never stalling the frame); the heights land in each boat's b.fft[i] (Fish.phys adds them to the swell) */
+R.waveProbe={p:null,fb:null,tex:null,pbo:null,fence:null,pend:null,px:new Uint8Array(32*4),
+  run(){if(typeof Fish==='undefined')return;if(this.fence){if(gl.getSyncParameter(this.fence,gl.SYNC_STATUS)!==gl.SIGNALED)return;gl.deleteSync(this.fence);this.fence=null;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER,this.pbo);gl.getBufferSubData(gl.PIXEL_PACK_BUFFER,0,this.px);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
+      const now=App.time;let k=0;for(const [b,n] of this.pend||[]){b.fft=b.fft||new Float32Array(n);for(let i=0;i<n;i++,k++){const q=this.px[k*4]*256+this.px[k*4+1];b.fft[i]=q/65535*16-8;}b.fftT=now;}this.pend=null;}
+    const L=Waves.on?Fish.probePts():null;if(!L||!L.pts.length)return;
+    if(!this.p){this.p=makeProgram('wave-probe',VS_FS,FS_WPROBE);this.tex=tex2D(32,1,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,null,gl.NEAREST);this.fb=fbo([this.tex]);this.pbo=gl.createBuffer();gl.bindBuffer(gl.PIXEL_PACK_BUFFER,this.pbo);gl.bufferData(gl.PIXEL_PACK_BUFFER,32*4,gl.STREAM_READ);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);}
+    const p=this.p,W=Waves,a=new Float32Array(64);L.pts.forEach((q,i)=>{a[i*2]=q[0];a[i*2+1]=q[1];});gl.useProgram(p.p);gl.uniform2fv(p.u('uPts'),a);gl.uniform1i(p.u('uNP'),L.pts.length);
+    gl.uniform4f(p.u('uWaveA'),W.on?1:0,P.lakeChop,P.lakeFoam,W.NC||0);gl.uniform4f(p.u('uWL'),W.L[0],W.L[1],W.L[2],W.N||64);{const T=R.world;gl.uniform4f(p.u('uSwell'),0,T&&T.sea!=null?T.sea:-1,0,1);}
+    gl.bindFramebuffer(gl.FRAMEBUFFER,this.fb);gl.viewport(0,0,32,1);gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);fsTri();
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER,this.pbo);gl.readPixels(0,0,32,1,gl.RGBA,gl.UNSIGNED_BYTE,0);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    this.fence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();this.pend=L.boats;}};
 R.drawOpenSea=function(cam){const T=R.world,p=R.pLake,M=64,g=R.lakeGrid(M);gl.useProgram(p.p);R.waterU(p,cam,false);gl.bindVertexArray(g.vao);let pc=null,ph=0;const q=+P.reflQuality;
   for(let k=0;k<8;k++){const H=300*2**k,sp=2*H/M,cx=Math.round(cam.pos[0]/(2*sp))*2*sp,cz=Math.round(cam.pos[2]/(2*sp))*2*sp;
     {gl.uniform4f(p.u('uLakeP'),cx,cz,H,2+(k?ph:0));gl.uniform4f(p.u('uRefl'),[0,12,20,32][q]||0,[1,1.6,1.3,1.2][q]||1,pc?pc[0]:0,pc?pc[1]:0);gl.uniform2f(p.u('uSpc2'),sp,sp);

@@ -42,7 +42,14 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
     for(const g of this.gulls)if(!g.sit){g.a+=dt*g.w/g.r;g.ph+=dt;}
     if(typeof Fish!=='undefined')Fish.update(dt);if(typeof Port!=='undefined')Port.update(dt);},
   // lamp lights for the pools of light round lamps at night (Life.lights)
-  lights(add){for(const l of this.L)add(l.x,l.y+LH.lamp,l.z,32,[2.4,1.8,0.9]);},
+  lights(add){for(const l of this.L)add(l.x,l.y+LH.lamp,l.z,32,[2.4,1.8,0.9]);
+    /* boats with their lights on: the deck floodlights on the mast light the working deck and the water round it (nearest three) */
+    if(typeof Fish!=='undefined'){const cp=Cam.pos||[0,0,0],L=[];for(const h of this.H)for(const b of h.boats)if(b.x!=null&&Fish.lightsOn(b)){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d<900)L.push([d,b]);}
+      L.sort((a,b)=>a[0]-b[0]);for(const [,b] of L.slice(0,3)){const p=Fish.bp(b,-1.2,0,6.2);add(p[0],p[1],p[2],22,[1.7,1.5,1.15]);}}},
+  /* the fishing boats as kit instances (4.54): hull model by livery, the lights model while lit; pitch and roll packed for VS_KIT */
+  dynPut(put){if(typeof Fish==='undefined'||!this.H.length)return;const T=App.T,cp=Cam.pos||[0,0,0],K=['fishBoatA','fishBoatB','fishBoatC'],pk=(p,r)=>2+Math.round((clamp(p,-0.6,0.6)+0.6)/1.2*2047)*2048+Math.round((clamp(r,-0.6,0.6)+0.6)/1.2*2047);
+    for(const h of this.H)for(const b of h.boats){if(b.x==null||Math.hypot(b.x-cp[0],b.z-cp[2])>1800)continue;const o={x:b.x,y:b.py==null?T.sea:b.py,z:b.z,rot:b.hd+Math.PI/2,pr:pk(b.pt||0,b.rl||0),hash:0.5};
+      put(K[(b.k|0)%3],o);if(Fish.lightsOn(b))put('fishBoatL',o);}},
   // ---- boats and seagulls (vehicle program, like Sea and Wild)
   build(){const M={};const hull=(col)=>{const m=vmesh(),wd=x=>{const u=(x+4.6)/9.2;return u>0.82?2.2*Math.sqrt(Math.max(0,(1-u)/0.18))*0.55+0.05:1.1+0.12*Math.sin(u*3);},S=[];
       for(let i=0;i<=12;i++){const x=-4.6+9.2*i/12,w=wd(x),sh=x>3?(x-3)*0.35:0;S.push([[x,1.25+sh,w],[x,0.05,w*0.72],[x,-0.55,0]]);}
@@ -51,7 +58,7 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
       for(const e of [1,-1])for(let i=0;i<12;i++){const a=S[i][0],b=S[i+1][0];vq(m,[a[0],a[1]-0.12,a[2]*e*1.01],[b[0],b[1]-0.12,b[2]*e*1.01],[b[0],b[1],b[2]*e*1.01],[a[0],a[1],a[2]*e*1.01],[0,0,e],[0.93,0.92,0.88],0);}
       vbox(m,[-1.3,1.95,0],[2.2,1.9,1.7],[0.93,0.92,0.88],0);vbox(m,[-1.3,3.0,0],[2.5,0.16,1.95],[0.28,0.3,0.32],0);for(const e of [1,-1])vbox(m,[-1.3,2.3,e*0.86],[1.6,0.6,0.02],[0.12,0.16,0.2],0);vbox(m,[-0.18,2.3,0],[0.02,0.6,1.3],[0.12,0.16,0.2],0);
       vcyl(m,[0.9,3.3,0],'y',0.07,4.4,[0.85,0.85,0.82],0,6);vcyl(m,[-3.8,2.0,0],'y',0.05,1.8,[0.3,0.3,0.3],0,5);vbox(m,[2.2,1.2,0],[1.4,0.35,1.3],[0.2,0.38,0.3],0);vbox(m,[-3.3,1.25,0.5],[0.6,0.4,0.5],[0.62,0.5,0.32],0);return R.uploadVeh(m);};
-    M.boats=[hull([0.16,0.3,0.55]),hull([0.62,0.16,0.12]),hull([0.15,0.4,0.28])];
+    void hull;/* 4.54: the boats are kit models now (buildings/fishboat.js) */
     const gull=()=>{const m=vmesh(),Wc=[0.95,0.95,0.93];vcylN(m,[-0.2,0,0],[0.18,0,0],0.07,0.09,7,Wc,0,null,true);vcylN(m,[0.18,0,0],[0.3,0.04,0],0.09,0.06,7,Wc,0,null,true);vcylN(m,[0.3,0.04,0],[0.38,0.03,0],0.03,0.008,5,[0.95,0.75,0.2],0,null,true);
       vcylN(m,[-0.2,0,0],[-0.34,0.02,0],0.07,0.02,6,[0.92,0.92,0.9],0,null,true);return R.uploadVeh(m);};
     const wing=()=>{const m=vmesh(),G=[0.62,0.65,0.68],K=[0.08,0.08,0.09];const a=[0.08,0,0],b=[-0.1,0,0],c=[0.04,0.02,0.36],d=[-0.14,0.02,0.34],e=[-0.06,-0.03,0.62];
@@ -60,9 +67,7 @@ const Coast={L:[],H:[],gulls:[],key:'',rot:0,M:null,
   draw(p,pass){const T=App.T;if(!T||T.sea==null||(!this.H.length&&!this.gulls.length))return;if(!this.M)this.build();const cp=Cam.pos||[0,0,0],M=this.M,t=App.time,lim=pass===1?400:1600;
     const dm=(m,mt)=>{gl.uniformMatrix4fv(p.u('uModel'),false,mt);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};gl.uniform1f(p.u('uDist'),0);
     const near=(x,z,r)=>Math.hypot(x-cp[0],z-cp[2])<r;
-    for(const h of this.H){if(!near(h.x,h.z,lim))continue;const c=Math.cos(h.rot),s=Math.sin(h.rot);for(const b of h.boats){const ps=typeof Fish!=='undefined'?Fish.pose(h,b):null,hd=ps?ps.hd:h.rot,c=Math.cos(hd),s=Math.sin(hd),lx=b.at,lz=b.side*4.6,x=ps?ps.x:h.x+Math.cos(h.rot)*lx-Math.sin(h.rot)*lz,z=ps?ps.z:h.z+Math.sin(h.rot)*lx+Math.cos(h.rot)*lz,y=Sea.on()?Sea.height(x,z,t):T.sea,
-        dx=(Sea.on()?Sea.height(x+c*3,z+s*3,t)-Sea.height(x-c*3,z-s*3,t):0)/6,dz=(Sea.on()?Sea.height(x-s*1.5,z+c*1.5,t)-Sea.height(x+s*1.5,z-c*1.5,t):0)/3;
-        dm(M.boats[b.k],this.mat(x,y-0.15+Math.sin(t*0.9+b.ph)*0.06,z,hd,Math.atan(dx)+Math.sin(t*0.7+b.ph)*0.02,Math.atan(dz)+Math.sin(t*0.83+b.ph)*0.04,1).m);}}
+    /* the boats themselves are kit models (Coast.dynPut, buildings/fishboat.js) */
     if(typeof Fish!=='undefined')Fish.draw(p,pass);
     if(pass===1)return;
     for(const g of this.gulls){let x,y,z,hd,bank=0,fl=0;

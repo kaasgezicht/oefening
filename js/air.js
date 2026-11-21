@@ -200,8 +200,10 @@ const Compass={el:null,cv:null,
     else if(typeof Fish!=='undefined'&&Fish.drv){const q=Fish.heading();hd=this.deg(q[0],q[1]);pos=[q[2],0,q[3]];marks.push(...Fish.marks());}
     else if(RoadVeh.drv){const b=RoadVeh.drv;hd=this.deg(Math.cos(b.rot),Math.sin(b.rot));pos=[b.x,0,b.z];const t=Buses.cur(b);if(t)marks.push({x:t.rx,z:t.rz,label:'🚏',col:'#ffd27a',name:t.name});}
     marks.sort((a,b)=>(a.ring?1:0)-(b.ring?1:0));/* the destination drawn last, on top */this.show(hd!==null);if(hd===null)return;const t=performance.now();if(this._t>t-60)return;this._t=t;
-    const cv=this.cv,dpr=Math.min(2,devicePixelRatio||1),W=this.el.clientWidth,H=this.el.clientHeight;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
-    const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);const span=120,px=W/span,X=d=>W/2+wrap(d-hd)*px,wrap=a=>((a+540)%360)-180;
+    /* 4.54: the compass box follows the screen (CSS: a share of the height and width); everything in it is drawn in a 52 px tall frame
+       scaled to the box, at the screen's full pixel density (up to 3) so it stays sharp */
+    const cv=this.cv,dpr=Math.min(3,devicePixelRatio||1),cw=this.el.clientWidth,ch=this.el.clientHeight,ks=ch/52,W=cw/ks,H=52;if(cv.width!==Math.round(cw*dpr)||cv.height!==Math.round(ch*dpr)){cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);}
+    const g=cv.getContext('2d');g.setTransform(dpr*ks,0,0,dpr*ks,0,0);g.clearRect(0,0,W,H);const span=120,px=W/span,X=d=>W/2+wrap(d-hd)*px,wrap=a=>((a+540)%360)-180;
     g.strokeStyle='#efe8d6aa';g.fillStyle='#efe8d6';g.lineWidth=1;g.textAlign='center';g.textBaseline='top';
     for(let d=0;d<360;d+=5){const r=wrap(d-hd);if(Math.abs(r)>span/2)continue;const x=X(d),big=d%45===0;g.beginPath();g.moveTo(x,0);g.lineTo(x,d%15===0?9:5);g.stroke();
       if(big){const L={0:'N',45:'NE',90:'E',135:'SE',180:'S',225:'SW',270:'W',315:'NW'}[d];g.font=d%90===0?'bold 14px system-ui':'11px system-ui';g.fillStyle=d===0?'#ff8a7a':'#efe8d6';g.fillText(L,x,10);}}

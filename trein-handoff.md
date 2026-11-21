@@ -1,4 +1,4 @@
-# Trein handoff 118 (21 Nov 2026): v4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 119 (21 Nov 2026): v4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,40 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.53.1, 21 Nov) — zoomed-out panning, part 2 (user repeated: "mostly panning is unsmooth zoomed out; load detail after")
+### Latest (4.54.0, 21 Nov) — the fishing boats (user, with three reference photos: "remodel the fishing boat, lights on/off, scale the compass,
+the boat floats in the air or under water: real physics, engine/seagull/sea sounds without high pitches"; answers: mixed fleet, ~13 m, full
+lights, buoyancy + wave forces)
+- New buildings/fishboat.js: kit trawlers fishBoatA (weathered light blue under white, mat 11 rust), fishBoatB (clean navy, mat 0, white
+  sheer stripe), fishBoatC (red under white); 13 m, bow −z, origin on the design waterline. Lofted hull (rows by height, raked stem,
+  flare, transom, bilge), antifouling, boot top, rub rails, planked deck, bulwarks with stanchions, freeing ports and a capping rail;
+  forward wheelhouse (windows: dark glass, frames, visor, roof rail, radar, searchlight, antennas, horn, life raft, nav light boards,
+  exhaust, life rings), lattice ladder mast with crosstrees and back leg, outrigger booms in a V with stays and stabiliser weights,
+  winch, net drum with green net, hold hatch, stern gantry with blocks, trawl doors on the quarters, fish boxes, buoys, drums, rope,
+  bollards, tyres as fenders, bow pulpit, windlass, anchors. ~8-9k tris. fishBoatL: the lights alone (lit window interiors mat 2 over
+  the dark glass, red/green side lights, masthead, stern, deck floodlights, gantry light; mat 3 glow).
+- Pitch and roll for kit instances: VS_KIT decodes iB.y > 1.5 as 2 + pitchCode·2048 + rollCode (11 bits, −0.6..0.6 rad), applied
+  before the yaw (pitch about model x: bow up +; roll about model z: starboard up +). Normal 0.5 elsewhere. Life.armInst puts o.pr.
+- Boats are KIT_DYN kit instances from `Coast.dynPut` (rot = hd + π/2; fishBoatL added while `Fish.lightsOn(b)`); Coast.draw no longer
+  draws boats (gulls and Fish's nets/fishermen stay). Coast.lights adds a floodlight (r 22 m) for the 3 nearest lit boats.
+- `Sea.surf(x,z,t,out)`: the swell exactly as the water shader draws it (Gerstner: inverts the sideways shift in 3 steps, the depth
+  fade, the 1.5-3 km camera fade); out = surface orbital velocity. The FFT wind waves (GPU only) are read back: `R.waveProbe`
+  (render.js, after Waves.step) draws the hull points of up to 3 boats near the camera (`Fish.probePts`) through FS_WPROBE into a 32×1
+  RGBA8 strip (16-bit packed height, the sea VS's waveD and depth fade) and reads it via a pixel-pack buffer + fence (no stall,
+  1-2 frames late) into b.fft[i].
+- `Fish.phys(b,dt,moored)` (BOATP): 10 hull points, each a saturating spring on its depth under swell + FFT (draft 1.2 m); heave /
+  pitch / roll periods 2.8 / 2.6 / 4.6 s, damping 0.32 / 0.3 / 0.1; trim (bow up with speed), heel out in turns (0.03·yawRate·v),
+  wave drift 0.55 × orbital velocity (not moored); 20 ms substeps; within 1.3 km of the camera. Test (4 km peaks, swell 3.5): hull
+  within −5..+11 cm of the drawn surface at the middle. `Fish.bp(b,u,v,w)` = boat-frame point in the world (cameras, lights).
+- Lights: 💡 button in the boat bar (b.lights; on by default when taken at night); AI boats light up when R.sun.night > 0.35.
+- Bridge camera: just outside the wheelhouse front windows (the house is a solid block), moving with pitch and roll. Bow/stern
+  distances for aground, nets and foam follow the 13 m hull (FISH.half 6.5).
+- Compass: CSS size from the screen (height clamp(48px, min(7vh, 9vw), 96px), width clamp(240px, 52vw, 820px); landscape and flying
+  variants), drawn in a 52 px frame scaled to the box at up to 3× pixel density.
+- Sounds (`Sfx.sea`, from Fish.update): diesel chug (30-56 Hz sawtooth + sub, 140-400 Hz lowpass, pulsed at half the firing rate) for
+  your boat or the nearest one under way within 240 m; the sea's wash (noise < 450 Hz, two slow swells) aboard or with the camera low
+  near the sea; bow wash with speed (< 800 Hz); gulls (triangle 740-830 → ×0.68 Hz, 1.5 kHz lowpass, soft) near gulls by day.
+
+### Earlier (4.53.1, 21 Nov) — zoomed-out panning, part 2 (user repeated: "mostly panning is unsmooth zoomed out; load detail after")
 - The cached static shadow layer (land, wall, track, trees, buildings: R.shStFb) was redrawn whenever its snapped frustum moved (grid
   of a sixth of up to 1.5 km) or a nearby instance buffer was re-uploaded: zoomed out, 28 redraws in 40 panning frames (8 km test,
   scratch shpan.js). Now while `!Cam.calm(0.2)` the frame uses the frustum the layer was drawn with (R.shSt.vp, its texel size
