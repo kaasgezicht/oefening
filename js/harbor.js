@@ -322,7 +322,7 @@ const PortCoal={M:null,
     const load=mk();for(let x=-3.1;x<3.1;x+=0.9)for(let y=-0.9;y<0.9;y+=0.6){const hh=0.35+0.25*Math.sin(x*3.1+y*5.3)*Math.sin(x*1.7);box(load,x,x+0.85,y,y+0.55,0,0.5+hh,coal);}
     this.M={crab,rope,grab,grabFull,lumpsA,lumpsB,sl,wag,load};for(const k in this.M)this.M[k]=R.uploadVeh(this.M[k]);return this.M;},
   // ---- the state of a site's machinery
-  st(s){if(!s.coal)s.coal={t:0,ph:'down',crabY:PORT.crab.y,hook:0,full:false,load:1,wagX:20,next:-1,belt:0,lx:PORT.loader.x,lT:0,lDir:1,lTarget:1,pour:0};return s.coal;},
+  st(s){if(!s.coal)s.coal={t:0,ph:'down',crabY:PORT.crab.y,hook:0,full:false,load:1,wagX:20,next:-1,belt:0,lx:PORT.loader.x,lT:0,lDir:1,lTarget:0,pour:0};return s.coal;},
   step(s,dt){const c=this.st(s),cp=Cam.pos||[0,0,0];if(Math.hypot(s.x-cp[0],s.z-cp[2])>2500)return;dt*=Math.max(1,Math.min(4,App.ff||1));
     c.belt=(c.belt+dt*1.5)%1.6;
     // the grab: down into the wagon, close, up, over the hopper, open, back

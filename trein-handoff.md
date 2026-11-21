@@ -1,4 +1,4 @@
-# Trein handoff 113 (21 Nov 2026): v4.49.0 — coal & ore harbour, step 2 of 4 (architecture, real tracks). Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 114 (21 Nov 2026): v4.50.0 — coal & ore harbour, step 3 of 4 (moving coal handling, station stops). Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,24 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.49.0, 21 Nov) — coal & ore harbour, step 2 of 4: architecture and real tracks
+### Latest (4.50.0, 21 Nov) — coal & ore harbour, step 3 of 4: the coal handling moves
+- `PortCoal.fixed` (into the site mesh): portal gantry (two side frames, legs at y 11 / 29, girders with crab rails, cross girders,
+  braces, a ladder), receiving hopper (tapered bin on legs, grate, outlet onto the belt), conveyor galleries (incline x 23 → 40 at 18°,
+  level to x 70; side trusses with posts and diagonals, belt, walkway, A-frame supports and portal trestles, tail and head housings),
+  quay rails with red end stops. The blockout's Coal_* and Shiploader_* blocks are gone (ARCH filter); the ship is still blocks.
+- Moving meshes (`PortCoal.meshes`, local frame: vertex = x, z, y; `PortCoal.mat` = the site frame + a local shift, optional vertical
+  scale): crab, hoist ropes (unit length, scaled), grab bucket (+ its coal when full), coal lumps on the incline and on the level run
+  (shifted by the belt phase, 1.6 m spacing, 1.5 m/s), the shiploader (bogies, legs, braces, deck, machinery house, tripper over the
+  belt, boom truss, transfer hopper, chute, counterweight), coal wagons with a scaled load.
+- `PortCoal.step` (from `Port.update(dt)`, only within 2.5 km, sped up with fast-forward): grab cycle down (3 s) → close → up → crab
+  to the hopper → open (dust) → back; five grabs empty a wagon, which rolls out east while a full one rolls in from the west. The
+  shiploader pours 25 s at a hatch (dust at the hatch), then travels at 0.6 m/s to the next (44 → 53 → 62 → 53 …). State `s.coal` is
+  not saved (it is only motion).
+- **Station stops**: `Port.stations` adds a station on the north passenger track (platform inland, side 1, len 56, `port:key`) and its
+  twin on the south track (side −1); `Life` draws no station building for `st.port` and gives it the harbour's town (`Port.townOf`)
+  even beyond 420 m, so it gets passengers and a road to the town (seen in the test). Existing harbours get their stations on load.
+
+### Earlier (4.49.0, 21 Nov) — coal & ore harbour, step 2 of 4: architecture and real tracks
 - `PortArch.build` (harbor.js) replaces the blocks of the quay, deck, platforms, station, shed and warehouses (`ARCH` name filter in
   `Port.mesh`; coal handling and the ship stay blocks until steps 3 and 4). Helpers in the site frame: box, quad, tri, beam (an oriented
   box between two points), arched window on a wall (dark pane, round head, stone sill), gable (ridge along x or y), cylinder, disc.
