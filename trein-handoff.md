@@ -1,4 +1,4 @@
-# Trein handoff 111 (21 Nov 2026): v4.47.0 — map view, island size fix, mine spacing. Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 112 (21 Nov 2026): v4.48.0 — coal & ore harbour, step 1 of 4 (sites, blockout). Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,31 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.47.0, 21 Nov) — step 2 of the 21 Nov list, plus the user's map requests
+### Latest (4.48.0, 21 Nov) — coal & ore harbour, step 1 of 4 (the user's DeepSeek brief "Victorian Coal Harbor & Railway Terminal")
+- User's answers: no reference image (design from the text); unlocked at harbour towns and reserved when the world is made, may stand
+  partly over the water on brick foundations / timber stilts; harbour before the factories step; coal and all ores.
+- Plan: 1 sites + blockout (this), 2 architecture + real tracks (station, clock tower, train shed, warehouses, quay wall, fenders,
+  bollards, piers/stilts; the two passenger tracks and the freight siding as real Track the player joins at x 0 / x 120), 3 moving coal
+  handling (gantry crab, hopper, belt with scrolling surface, tripper, travelling shiploader, wagons emptied), 4 the collier + shipping
+  between harbours + coal and iron mines. Then the factories step.
+- New js/harbor.js: `PORT` is the dimension schedule (local frame: x along the quay 0..120, y inland 0..90, water −40..0, z up from the
+  deck = sea + 3 m; every block `[name, x0, x1, y0, y1, z0, z1, zone, shape]`), the assumptions log is its header comment (one belt:
+  18° incline, then level along the quay with a tripper on the shiploader; static gantry, crab across the siding; freight siding from
+  the west; collier 2 m off the quay, hatches x 44/53/62, shiploader travel 44..62).
+- `Port.find` (from Coast.update, once per world): per harbour town (towns of `Coast.H`) the best coast within 1.6 km where the berth is
+  ≥ 4.5 m deep, the ground under the site ≤ deck + 6 m, the back (y ≥ 50) ≥ 70 % land and joined to the town over land, no first
+  houses / mines / fishing harbours / lighthouses inside, sites ≥ 260 m apart; scored by ground to cut, foundations and distance. Test
+  world 4 km seed 4242: 3 sites for 7 harbour towns (the first version put sites out on the water: fixed by the land rule).
+- Upgrade `port` (Coal & ore harbour, €150 000, level 1, 40 transported) in `Life.UPG`, offered where a site exists; buying levels the
+  ground above the deck (blend 10 m), removes houses and trees on the site, flies the camera there. Saved as `port` in the villages list;
+  rebuilt after loading (`Port.update`). Town growth avoids sites (`Life.fitsRect` → `Port.blocks`). Map: 🏗️ symbol when built.
+- Blockout mesh (`Port.mesh`): flat zone colours, shapes box / gable / gableY / ramp / hopper / cyl / portal / hull, foundation blocks
+  every 10 m where the ground or sea floor is below the deck; drawn with culling off. checks/harbour-plan.png is the top-down plan
+  (drawn from the schedule), harbour-iso*.png the four corner views and the top view.
+- Fixed on the way: the offline cache list lacked coast.js, worldfile.js and tiles.js. A version pushed in between did not start
+  (life.js read `PORT.cost` before harbor.js loaded): fixed within the hour; the smoke test now runs before every push, also for WIP.
+
+### Earlier (4.47.0, 21 Nov) — step 2 of the 21 Nov list, plus the user's map requests
 - **Island size bug**: `MainMenu.start` did not copy `islandGen` from the new-game settings, so a new world kept the value of the last
   loaded save; worlds whose save had no islandGen get the legacy 1 (fixed small islands that ignore the Island size slider). The user's
   32 km world (landShare 0.86 on the slider) has 3.8 % land and 15 small islands for that reason. The preview used islandGen 2, so the
