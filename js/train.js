@@ -828,6 +828,6 @@ const Particles={max:2600,n:0,arr:null,
   whistle(tr,dt){if(!P.smoke)return;if(Math.random()<dt*30){const S=locoSpec(tr),p=locoPoint(tr,S.whistle[0],S.whistle[1],0);if(p)this.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.5,4+Math.random()*2,(Math.random()-0.5)*0.5,0.7+Math.random()*0.4,0.15,1.3,1);}},
   update(dt){if(!this.arr)return;const a=this.arr,wa=P.windDir*Math.PI/180,wx=Math.cos(wa)*P.windStrength*4,wz=Math.sin(wa)*P.windStrength*4;
     for(let i=0;i<this.n;i++){const o=i*12;a[o+6]+=dt;if(a[o+6]>a[o+7]){const l=(this.n-1)*12;for(let k=0;k<12;k++)a[o+k]=a[l+k];this.n--;i--;continue;}
-      const dr=Math.min(1,dt*1.4);a[o+3]+=(wx-a[o+3])*dr;a[o+5]+=(wz-a[o+5])*dr;a[o+4]+=((a[o+10]<0.5?0.9:a[o+10]>3.5?-0.85:a[o+10]>2.5?0.4:0.6)-a[o+4])*dr*0.8;if(a[o+10]>3.5){a[o+3]*=0.55;a[o+5]*=0.55;}
+      const dr=Math.min(1,dt*(a[o+10]>5.5&&a[o+10]<6.5?0.35:1.4));a[o+3]+=(wx-a[o+3])*dr;a[o+5]+=(wz-a[o+5])*dr;const ty=a[o+10];if(ty>4.5){/* 5 flame, 6 falling water, 7 fire smoke */a[o+4]+=((ty<5.5?3.2:ty<6.5?-9:3.6)-a[o+4])*Math.min(1,dt*(ty<6.5?1.2:0.4));}else a[o+4]+=((ty<0.5?0.9:ty>3.5?-0.85:ty>2.5?0.4:0.6)-a[o+4])*dr*0.8;if(ty>3.5&&ty<4.5){a[o+3]*=0.55;a[o+5]*=0.55;}
       a[o]+=a[o+3]*dt;a[o+1]+=a[o+4]*dt;a[o+2]+=a[o+5]*dt;}}
 };

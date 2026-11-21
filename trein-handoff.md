@@ -1,4 +1,4 @@
-# Trein handoff 105 (20 Nov 2026): v4.43.0 — the user's flying list. Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 106 (21 Nov 2026): v4.44.0 — Canadair CL-415 and forest fires. Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,38 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.43.0, 20 Nov) — the user's list for flying
+### Latest (4.44.0, 21 Nov) — the Canadair CL-415 water bomber and forest fires (user's 6 photos; answers: Québec livery, forest fires
+that spread, automatic scooping + a Drop button)
+- **Model** (new js/canadair.js, `canadairMeshes`, `CL_PARTS`, `PLC`): flying-boat hull from mono profiles (keel with a step at d 9.3,
+  chine/deadrise, top, half-width; section `H(d,u)`: vee bottom u 0–0.14, superellipse above), red below/yellow above, red-white-red
+  cheat line sweeping up at the tail, black anti-glare panel and window frames, windscreen + cockpit side windows + round cabin windows
+  (glass part), cabin door, step, scoop-probe and drop-door outlines; straight wing on a raised centre section, red tips with black
+  bands; nacelles riding on the wing (intake, exhausts); four-blade propellers (black, white tips, chrome spinner) and blur discs;
+  wingtip floats on two pylons; fin with red top and black bands; high tailplane with red tips and finlets; "245" on the bow, "Québec"
+  and the flag, C-GQBG/245 under the wings; antennas; two crew. Parts: body, glass, pilot, prop (drawn twice, opposite rotation),
+  disc, noseG, mainL/R (fold into the hull), probe (comes down while scooping), rud, elev, ailL/R.
+  - Fixed during testing: NaN normals (a power of a slightly negative number at the keel line and the leading edges, `surf`'s
+    finite-difference step goes past 0) turned the whole plane into dark blocks through the bloom. Check new meshes for NaN in Node.
+- **Flight**: Plane.step with `PLC` (100 m², 14 t + water, 3.55 MW, inertia ×70 of the Staggerwing); `Plane.K.keel` now selects the
+  water code: `Beaver.contact` uses `pl.K` and scales its spring/drag constants by `K.hk` (4.6); spray points `K.spray`; float height
+  `K.float0`. Spawns like the Beaver (jetty, strip end or open water). Mass includes `waterKg`.
+- **Scooping/dropping** (`Canadair.update/drop`): on the water with wheels up at 100–180 km/h the probes come down and the tanks fill
+  (6 137 L in 12 s, spray plume); 💧 Drop (button above Brake, or controller RB) empties them in 1.7 s as a falling white curtain
+  (particle type 6) and calls `Fires.splash`. HUD shows the litres and "scooping".
+- **Fires** (new js/fire.js): only once the CL-415 is owned (first one ~25 s after buying, then every 15–40 game minutes, not in winter
+  or rain): starts in dense wood ≥ 300 m from villages and 500 m from airstrips. 16 m cells: flames grow, spread to neighbours with
+  trees (faster downwind, slower in rain), burn out after 90 s (`Fires.kill` removes the trees from `R.vegB` and `T.veg`, a black
+  scorch mesh is drawn). `Fires.splash` lands the water ahead of the plane by its height and knocks cells out (wet for 300 s); a full
+  load from 100 m put out 7 of 19 cells in the test. Mission buttons in every airfield/jetty panel ("Forest fire above …"), a
+  compass mark and a label while flying the CL-415. Put out (with at least one hit): `MissionDone` with pay €40 000 + €70 000 × the
+  share of forest saved; if not fought it burns out on its own (toast, forest lost). Flames (particle type 5, glowing) and a dark
+  smoke column (type 7), steam where it was hit, an orange glow at night (`Fires.lights`). Saved: fires in progress and every burnt
+  cell (re-applied on load).
+- Particles: type 4 (leaves) is now matched exactly; types 5/6/7 have their own vertical motion in `Particles.update`.
+- Store: "Canadair CL-415" €1 200 000 with a 3D preview; the Fly menu offers it; jetties count it as an amphibian. Sound: turboprop
+  (prop buzz ~80 Hz + turbine whine).
+
+### Earlier (4.43.0, 20 Nov) — the user's list for flying
 - **Left stick** (`#plLStick`, replaces the throttle slider and the rudder buttons): up/down moves the throttle at 0.75/s and it stays
   (`Plane.lstick`, applied in `Plane.update`), sideways is the rudder (pedals on the helicopter, collective up/down). A bar beside it
   shows the throttle (`#plThrBar`). Brake button stays under the right stick.

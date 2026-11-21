@@ -553,7 +553,7 @@ const Life={stClean:new Map(),tclear:new Float32Array(256*256),tcAcc:0,roadClear
   windowsLit(A){const h=P.timeOfDay;let f=h>=16&&h<23?0.85:h>=23||h<5?0.22:h>=5&&h<8.5?0.5:0;return clamp(f*smooth(0.55,0.05,A.day)+A.E.overcast*0.15*(1-A.day*0.5),0,1);},
   lights(F,n){const L=[];const add=(x,y,z,r,c)=>L.push([x,y,z,r,...c,Math.hypot(x-F[0],z-F[2])]);
     for(const s of this.stInfo){add(s.lx[0],s.y+4,s.lx[1],24,[1.6,1.1,0.6]);add(s.lx2[0],s.y+4,s.lx2[1],24,[1.6,1.1,0.6]);}
-    if(typeof Coast!=='undefined')Coast.lights(add);if(typeof Air!=='undefined')Air.lights(add);if(typeof Plane!=='undefined')Plane.lightPool(add);
+    if(typeof Coast!=='undefined')Coast.lights(add);if(typeof Air!=='undefined')Air.lights(add);if(typeof Plane!=='undefined')Plane.lightPool(add);if(typeof Fires!=='undefined')Fires.lights(add);
     for(const tr of Trains.list){const p=locoPoint(tr,(tr.rev||1)>=0?9:-6,1.6,0);if(p)add(p[0],p[1],p[2],38,[1.8,1.5,1.1]);}
     L.sort((a,b)=>a[7]-b[7]);return L.slice(0,n);},
   update(dt){const T=this.T;if(!T||!R.A)return;const A=R.A,t=App.time;

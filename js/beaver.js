@@ -212,7 +212,7 @@ const Beaver={
   /* contact forces: the float keels in the water (buoyancy, planing lift, drag that rises to a hump and falls once the floats run on the
      step, keel side force, water rudders), the keels on dry ground (a hard slide), the wheels on land. Returns the world force, the body
      moment and how many points touch */
-  contact(pl,s,qi,V,c,w,M0,dt){const K=PLB,Fw=[0,0,0];let M=M0.slice(),onG=0,onW=0,spray=0;const wv=Q.rot(s.q,w),fx=Q.rot(s.q,[1,0,0]);let hx=[fx[0],0,fx[2]];const hl=Math.hypot(hx[0],hx[2])||1;hx=[hx[0]/hl,0,hx[2]/hl];const hz=[-hx[2],0,hx[0]];
+  contact(pl,s,qi,V,c,w,M0,dt){const K=pl.K||PLB,hk=K.hk||1,Fw=[0,0,0];let M=M0.slice(),onG=0,onW=0,spray=0;const wv=Q.rot(s.q,w),fx=Q.rot(s.q,[1,0,0]);let hx=[fx[0],0,fx[2]];const hl=Math.hypot(hx[0],hx[2])||1;hx=[hx[0]/hl,0,hx[2]/hl];const hz=[-hx[2],0,hx[0]];
     const addF=(cp,f)=>{Fw[0]+=f[0];Fw[1]+=f[1];Fw[2]+=f[2];const fb=Q.rot(qi,f);M=[M[0]+cp[1]*fb[2]-cp[2]*fb[1],M[1]+cp[2]*fb[0]-cp[0]*fb[2],M[2]+cp[0]*fb[1]-cp[1]*fb[0]];};
     const at=cp=>{const wp=Q.rot(s.q,cp),P=[s.p[0]+wp[0],s.p[1]+wp[1],s.p[2]+wp[2]],rv=[wv[1]*wp[2]-wv[2]*wp[1],wv[2]*wp[0]-wv[0]*wp[2],wv[0]*wp[1]-wv[1]*wp[0]];return{P,pv:[s.v[0]+rv[0],s.v[1]+rv[1],s.v[2]+rv[2]]};};
     const gearDown=pl.gearPos>0.95,wheelsOut=pl.gearPos>0.3;
@@ -220,22 +220,22 @@ const Beaver={
     for(const cp of K.keel){const {P,pv}=at(cp),wl=this.waterY(P[0],P[2]),vr=pv[0]*hx[0]+pv[2]*hx[2],vs=pv[0]*hz[0]+pv[2]*hz[2];
       if(wl!=null){const d=wl-P[1];if(d<=0)continue;onW++;const dd=Math.min(d,0.75),fwd=Math.max(0,vr);
         if(wheelsOut&&vr>7&&cp[0]>2){pl.crash('Nosed over: the wheels were down on the water');return null;}
-        const N=Math.max(0,7270*dd+38*dd*fwd*fwd-2600*pv[1]*Math.min(1,dd/0.1));
-        /* along the float: planing drag (lift/drag about 6) plus the hump of a hull still pushing water, highest near 10 m/s */const av=Math.abs(vr);let Fr=-Math.sign(vr)*dd*(6*av*av+160*av*Math.exp(-(av/11)*(av/11))),Fs=-(1400*dd*vs*Math.abs(vs)+2500*dd*vs);
-        if(cp[0]<-3&&pl.gearPos<0.5)Fs+=-c.yaw*5000*dd*clamp(vr,-6,6);/* water rudders: strong at taxi speed */
+        const N=hk*Math.max(0,7270*dd+38*dd*fwd*fwd-2600*pv[1]*Math.min(1,dd/0.1));
+        /* along the float: planing drag (lift/drag about 6) plus the hump of a hull still pushing water, highest near 10 m/s */const av=Math.abs(vr);let Fr=-hk*Math.sign(vr)*dd*(6*av*av+160*av*Math.exp(-(av/11)*(av/11))),Fs=-hk*(1400*dd*vs*Math.abs(vs)+2500*dd*vs);
+        if(cp[0]<-3&&pl.gearPos<0.5)Fs+=-hk*c.yaw*5000*dd*clamp(vr,-6,6);/* water rudders: strong at taxi speed */
         addF(cp,[hx[0]*Fr+hz[0]*Fs,N,hx[2]*Fr+hz[2]*Fs]);if(Math.abs(vr)>4&&dd>0.02)spray+=dd*Math.abs(vr);continue;}
       const gy=Plane.groundAt(P[0],P[2]),pen=gy-P[1];if(pen<=0)continue;onG++;
       if(-pv[1]>3.5){pl.crash('Landed hard on the floats');return null;}if(!gearDown&&Math.abs(vr)>6&&!pl._scrape){pl._scrape=true;UI.toast('Floats on hard ground: the wheels were up');}
-      const N=Math.max(0,120000*pen-9000*pv[1]),Fr=-Math.sign(vr)*Math.min(Math.abs(vr)*9000,0.45*N),Fs=-clamp(vs*9000,-0.7*N,0.7*N);addF(cp,[hx[0]*Fr+hz[0]*Fs,N,hx[2]*Fr+hz[2]*Fs]);}
+      const N=hk*Math.max(0,120000*pen-9000*pv[1]),Fr=-Math.sign(vr)*Math.min(Math.abs(vr)*9000,0.45*N),Fs=-clamp(vs*9000,-0.7*N,0.7*N);addF(cp,[hx[0]*Fr+hz[0]*Fs,N,hx[2]*Fr+hz[2]*Fs]);}
     // the wheels, on land only (on water they hang in it, the floats carry the plane)
     if(gearDown)K.wheels.forEach((cp,i)=>{const {P,pv}=at(cp);if(this.waterY(P[0],P[2])!=null)return;const gy=Plane.groundAt(P[0],P[2]),pen=gy-P[1];if(pen<=0)return;onG++;
-      if(-pv[1]>5.5){pl.crash('Hard landing');return;}const k=i<2?90000:150000,dmp=i<2?8000:13000,N=Math.max(0,k*pen-dmp*pv[1]);let ax=hx,az=hz;
+      if(-pv[1]>5.5){pl.crash('Hard landing');return;}const k=hk*(i<2?90000:150000),dmp=hk*(i<2?8000:13000),N=Math.max(0,k*pen-dmp*pv[1]);let ax=hx,az=hz;
       if(i<2){const st=-c.yaw*0.45*(V<20?1:0.3),c2=Math.cos(st),s2=Math.sin(st);ax=[hx[0]*c2-hz[0]*s2,0,hx[2]*c2-hz[2]*s2];az=[-ax[2],0,ax[0]];}/* the nose wheels steer with the rudder pedals */
       const vr=pv[0]*ax[0]+pv[2]*ax[2],vs=pv[0]*az[0]+pv[2]*az[2],mu=0.02+(i>=2?c.brake*0.6:0),Fr=-Math.sign(vr)*Math.min(Math.abs(vr)*8000,mu*N),Fs=-clamp(vs*9000,-0.8*N,0.8*N);
       addF(cp,[ax[0]*Fr+az[0]*Fs,N,ax[2]*Fr+az[2]*Fs]);});
     if(pl.crashed)return null;if(!onG)pl._scrape=false;
     // spray: from the bows and the steps, thrown out sideways and up (photo 1); more the faster it runs
-    if(spray>0&&P.smoke!==0&&Math.random()<Math.min(1,spray*dt*3))for(const sd of [-1,1])for(const x of [2.2,-0.3]){const {P:Pp}=at([x,-2.2,sd*(K.floatZ+0.45)]),vh=Math.hypot(s.v[0],s.v[2]);
+    if(spray>0&&P.smoke!==0&&Math.random()<Math.min(1,spray*dt*3))for(const sd of [-1,1])for(const sp of (K.spray||[[2.2,-2.2,K.floatZ+0.45],[-0.3,-2.2,K.floatZ+0.45]])){const {P:Pp}=at([sp[0],sp[1],sd*sp[2]]),vh=Math.hypot(s.v[0],s.v[2]);
       Particles.spawn(Pp[0],Pp[1]+0.1,Pp[2],s.v[0]*0.3+hz[0]*sd*(2+vh*0.15),1.5+vh*0.12*Math.random(),s.v[2]*0.3+hz[2]*sd*(2+vh*0.15),0.9,0.35,1.6,0);}
     return{Fw,M,onG:onG+onW,onW};},
   /* where it starts: beside a jetty, on an airstrip, or on open water near the camera (a straight 600 m of water), else a flat field */
@@ -247,5 +247,5 @@ const Beaver={
     if(!spot)return false;
     const q0=Q.axis([0,1,0],-spot.h);pl.st={p:[spot.x,0,spot.z],v:[0,0,0],q:q0,w:[0,0,0]};pl.ctl={thr:0,pitch:0,roll:0,yaw:0,brake:spot.water?0:1};pl.parkBrake=!spot.water;
     pl.gear=spot.water?0:1;pl.gearPos=pl.gear;pl.bridges=0;pl.prevP=null;pl.flaps=0;pl.flapPos=0;pl.crashed=false;pl.on=true;pl.prop=0;pl._scrape=false;
-    if(spot.water){const wl=this.waterY(spot.x,spot.z);pl.st.p[1]=wl+2.26-0.2;}else{let y=-1e9;for(const cp of PLB.wheels){const wp=Q.rot(q0,cp);y=Math.max(y,Plane.groundAt(spot.x+wp[0],spot.z+wp[2])-wp[1]);}pl.st.p[1]=y+0.01;}
+    if(spot.water){const wl=this.waterY(spot.x,spot.z);pl.st.p[1]=wl+(pl.K.float0||2.06);}else{let y=-1e9;for(const cp of pl.K.wheels){const wp=Q.rot(q0,cp);y=Math.max(y,Plane.groundAt(spot.x+wp[0],spot.z+wp[2])-wp[1]);}pl.st.p[1]=y+0.01;}
     UI.toast(spot.water?(spot.s?`On the water at jetty ${spot.s.n}: stop beside it to load cargo. Full throttle, stick back a little until it climbs onto the step, then ease forward and lift off at about 100 km/h`:'On the water: full throttle, hold the stick a little back until the floats run on the step, then lift off at about 100 km/h. Wheels stay up on water'):(spot.s?`On airstrip ${spot.s.n}, wheels down`:'Ready'));return true;}};

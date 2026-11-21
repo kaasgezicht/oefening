@@ -530,14 +530,15 @@ layout(location=0) in vec3 iP;layout(location=1) in vec4 iL;layout(location=2) i
 out vec2 vQ;out float vA;flat out float vType;out vec3 vW;out vec3 vC;out float vSz;flat out float vSeed;out float vU;
 void main(){float age=iL.x,life=iL.y,u=clamp(age/life,0.,1.);vC=iP;vSeed=iT.y;vU=u;vec2 q=vec2(float(gl_VertexID&1),float(gl_VertexID>>1))*2.-1.;vQ=q;
   float sz=mix(iL.z,iL.w,sqrt(u));vec3 rgt=vec3(uView[0][0],uView[1][0],uView[2][0]),up=vec3(uView[0][1],uView[1][1],uView[2][1]);
-  if(iT.x>3.5){float an=age*(2.+iT.y*3.)+iT.y*40.,ca=cos(an),sa=sin(an);q=vec2(ca*q.x-sa*q.y,sa*q.x+ca*q.y);q.y*=.35+.65*abs(sin(age*3.1+iT.y*9.));vec3 sway=vec3(sin(age*1.7+iT.y*20.),0,cos(age*1.3+iT.y*11.))*.6;vC=iP+sway;vSz=sz;vW=vC+(rgt*q.x+up*q.y)*sz;vA=1.-smoothstep(.8,1.,u);vType=iT.x;gl_Position=uViewProj*vec4(vW,1.);return;}
+  if(iT.x>3.5&&iT.x<4.5){float an=age*(2.+iT.y*3.)+iT.y*40.,ca=cos(an),sa=sin(an);q=vec2(ca*q.x-sa*q.y,sa*q.x+ca*q.y);q.y*=.35+.65*abs(sin(age*3.1+iT.y*9.));vec3 sway=vec3(sin(age*1.7+iT.y*20.),0,cos(age*1.3+iT.y*11.))*.6;vC=iP+sway;vSz=sz;vW=vC+(rgt*q.x+up*q.y)*sz;vA=1.-smoothstep(.8,1.,u);vType=iT.x;gl_Position=uViewProj*vec4(vW,1.);return;}
   vSz=sz;vW=iP+(rgt*q.x+up*q.y)*sz;vA=smoothstep(0.,.18,u)*(1.-smoothstep(.5,1.,u));vType=iT.x;gl_Position=uViewProj*vec4(vW,1.);}`;
 const FS_PART=GLSL_HEAD+GLSL_COMMON+`
 precision highp sampler3D;uniform sampler3D uNoise3;uniform sampler2D uDepthCopy;uniform vec2 uNF;uniform vec4 uSmk;
 in vec2 vQ;in float vA;flat in float vType;in vec3 vW;in vec3 vC;in float vSz;flat in float vSeed;in float vU;`+FS_OUT+`
 float lin(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 float hgP(float mu,float g){return(1.-g*g)/pow(1.+g*g-2.*g*mu,1.5);}
-void main(){if(vType>3.5){vec2 q=vQ;float lf=abs(q.x)<.95?pow(abs(q.y)/(1.-q.x*q.x*.9+.0001),1.):9.;if(dot(q*vec2(1.,1.7),q*vec2(1.,1.7))>1.||abs(q.y)>.6*(1.-abs(q.x)*.6))discard;
+void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and dark red, glowing (mostly added light) */float r2=dot(vQ,vQ);if(r2>1.)discard;float h=1.-r2,u=vU;vec3 c=mix(vec3(1.,.85,.35),vec3(1.,.38,.06),clamp(u*1.4+r2*.6,0.,1.));c=mix(c,vec3(.35,.08,.02),smoothstep(.55,1.,u));float a=h*h*vA*(1.-u*.6);o=vec4(c*a*2.2,a*.25);return;}
+  if(vType>3.5&&vType<4.5){vec2 q=vQ;float lf=abs(q.x)<.95?pow(abs(q.y)/(1.-q.x*q.x*.9+.0001),1.):9.;if(dot(q*vec2(1.,1.7),q*vec2(1.,1.7))>1.||abs(q.y)>.6*(1.-abs(q.x)*.6))discard;
     vec3 lc=L(fract(vSeed*7.3)<.3?vec3(.85,.30,.08):fract(vSeed*7.3)<.6?vec3(.92,.62,.12):fract(vSeed*7.3)<.85?vec3(.70,.22,.10):vec3(.55,.40,.18));lc*=1.-.25*smoothstep(.02,0.,abs(q.y));
     vec3 col=lc*(uSunCol.rgb*.75+ambient(vec3(0,1,0)));o=vec4(fogc(col,vW)*vA,vA);return;}
   float r2=dot(vQ,vQ);if(r2>1.)discard;
@@ -552,10 +553,10 @@ void main(){if(vType>3.5){vec2 q=vQ;float lf=abs(q.x)<.95?pow(abs(q.y)/(1.-q.x*q
   vec2 suv=gl_FragCoord.xy/vec2(textureSize(uDepthCopy,0));float th=lin(texture(uDepthCopy,suv).r)-lin(gl_FragCoord.z);a*=clamp(th/2.,0.,1.);
   float dc=length(vW-uCamPos.xyz);a*=uSmk.x*smoothstep(uSmk.y,uSmk.y*3.,dc);// see-through in chase view, fade right at the lens
   if(a<.004)discard;
-  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3?L(vec3(.93,.95,.97)):L(vec3(.97,.97,.98));
+  vec3 alb=ty==0?L(vec3(.40,.40,.42)):ty==2?L(vec3(.80,.80,.82)):ty==3||ty==6?L(vec3(.93,.95,.97)):ty==7?L(vec3(.24,.22,.21)):L(vec3(.97,.97,.98));
   vec3 V=normalize(uCamPos.xyz-vW);float ph=ty==0?1.:.7+hgP(dot(-V,uSunDir.xyz),.55)*.06;// steam glows when backlit
   vec3 col=alb*(uSunCol.rgb*lit*ph*(1.-uWx2.w*.5)+ambient(N)*(.75+.25*N.y))+vec3(.8,.85,1.)*uWx2.y*1.2;
-  a*=ty==1?.75:ty==2?.55:ty==3?.32:.9;o=vec4(fogc(col,vW)*a,a);}`;
+  a*=ty==1?.75:ty==2?.55:ty==3?.32:ty==6?.55:ty==7?.8:.9;o=vec4(fogc(col,vW)*a,a);}`;
 
 // ---------------- rain streaks and snowflakes in a box around the view
 const VS_PRECIP=GLSL_HEAD+`
