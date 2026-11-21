@@ -391,3 +391,15 @@ body.land.flying #plHud{max-width:calc(100vw - 400px);white-space:normal;text-al
 #padRemap .pr-list span{font-size:calc(11px*var(--txt,1));opacity:.8}
 #padRemap .pr-f{display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:calc(12px*var(--txt,1));opacity:.9}
 #padRemap .rv-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}#padRemap .rv-h span{display:block;font-size:calc(11px*var(--txt,1));opacity:.75}
+
+/* ---- loading facts (facts.js, 4.46) */
+#progFact{margin-top:10px;font:calc(12.5px*var(--txt,1))/1.4 system-ui;color:#f1e7d0;opacity:0;transition:opacity .6s;min-height:3.6em}
+#progFact.in{opacity:.92}
+
+/* ---- fire mission bars (fire.js, 4.46) */
+#fireBars{position:fixed;right:calc(10px + env(safe-area-inset-right));top:calc(138px + env(safe-area-inset-top));z-index:15;width:190px;padding:7px 9px;border-radius:10px;background:#15191ad0;border:1px solid #e2531f66;color:#f1e7d0;font:600 calc(11px*var(--txt,1)) system-ui;pointer-events:none;display:flex;flex-direction:column;gap:4px}
+#fireBars>div{display:grid;grid-template-columns:78px 1fr 32px;align-items:center;gap:5px}
+#fireBars i{display:block;height:8px;border-radius:4px;background:#ffffff22;overflow:hidden}#fireBars i b{display:block;height:100%;transition:width .4s}
+#fireBars b.h{background:linear-gradient(90deg,#ffb43a,#e2531f)}#fireBars b.l{background:linear-gradient(90deg,#8a6a3a,#4a2e14)}
+#fireBars em{font-style:normal;text-align:right;opacity:.9}#fireBars small{font-weight:500;opacity:.75;font-size:calc(10px*var(--txt,1))}
+body.land #fireBars{top:calc(52px + env(safe-area-inset-top))}

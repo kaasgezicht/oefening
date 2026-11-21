@@ -19,7 +19,7 @@ const PLC={kind:'cl415',a0:-0.07,span:28.6,len:19.8,S:100.3,m:14000,P:3550000,cd
   spray:[[4.2,-2.4,1.4],[0.6,-2.4,1.45]],float0:1.65,
   propX:4.95,props:[[4.95,2.3,-4.6],[4.95,2.3,4.6]],eye:[6.05,1.22,-0.42],nose:[8.9,0.4,0],chase:[33,8.5],wing:[-4,5,-18],
   noseHinge:[6.6,-2.45,0],mainHinge:[-0.85,-2.05,1.5],
-  nav:{l:[-0.7,1.95,-14.35],r:[-0.7,1.95,14.35],t:[-11.55,1.35,0],b:[-10.4,6.75,0]},probe:[-0.6,-2.6,0.55],water:6137};
+  nav:{l:[-0.4,2.08,-14.48],r:[-0.4,2.08,14.48],/* just outside the wingtip caps (inside them they were hidden) */t:[-11.55,1.35,0],b:[-10.4,6.75,0]},probe:[-0.6,-2.6,0.55],water:6137};
 const CL_PARTS={};
 function canadairMeshes(){
   const YL=[0.99,0.76,0.02],YLd=[0.85,0.62,0.02],RD=[0.86,0.1,0.06],RDd=[0.6,0.07,0.05],WH=[0.95,0.95,0.93],BK=[0.04,0.04,0.045],GR=[0.32,0.33,0.35],LG=[0.76,0.77,0.79],
@@ -157,8 +157,10 @@ function canadairMeshes(){
   const rud=vmesh();slab(rud,[[0,0],[0,5.2],[-0.75,5.2],[-0.9,0.0]],0.08,(x,y)=>y>4.35?((Math.abs(y-4.6)<0.05||Math.abs(y-5.05)<0.05)?[BK,PAINT]:[RD,PAINT]):[YL,PAINT]);
   const elev=vmesh();surf(elev,(u,z)=>[lerp(0,-0.7,u),0.08*(1-u),z],range(0,1,3),range(-tpZ,tpZ,24),(u,z)=>Math.abs(z)>4.5?[RD,PAINT]:[YL,PAINT]);surf(elev,(u,z)=>[lerp(0,-0.7,u),-0.06*(1-u),z],range(0,1,3),range(-tpZ,tpZ,24),(u,z)=>Math.abs(z)>4.5?[RD,PAINT]:[YL,PAINT],{flip:true});
   const ail=sd=>{const M=vmesh();for(const top of [1,-1])surf(M,(u,z)=>[lerp(0,-0.75,u),top*0.06*(1-u),z],range(0,1,3),range(sd*8.5,sd*13.2,14),(u,z)=>Math.abs(z)>12?[RD,PAINT]:[YL,PAINT],{flip:top<0});return M;};
-  const parts={rud:{M:rud,o:[-10.85,1.4,0],ax:[0,1,0]},elev:{M:elev,o:[tpTE+0.02,tpY,0],ax:[0,0,1]},ailL:{M:ail(-1),o:[wTE+0.02,wY+0.02,0],ax:[0,0,1]},ailR:{M:ail(1),o:[wTE+0.02,wY+0.02,0],ax:[0,0,1]}};
-  const list=[['body',body],['glass',glass],['pilot',pilot],['prop',prop],['disc',disc],['noseG',noseG],['mainL',mainG(-1)],['mainR',mainG(1)],['probe',probe],['rud',rud],['elev',elev],['ailL',parts.ailL.M],['ailR',parts.ailR.M]];
+  // flaps: inboard of the ailerons, from the hull to the aileron (yellow), hinged on the trailing edge, down with Plane.flapPos
+  const flap=sd=>{const M=vmesh();for(const top of [1,-1])surf(M,(u,z)=>[lerp(0,-0.95,u),top*0.075*(1-u),z],range(0,1,3),range(sd*2.3,sd*8.4,14),()=>[YL,PAINT],{flip:top<0});return M;};
+  const parts={rud:{M:rud,o:[-10.85,1.4,0],ax:[0,1,0]},flapL:{M:flap(-1),o:[wTE+0.02,wY-0.02,0],ax:[0,0,1]},flapR:{M:flap(1),o:[wTE+0.02,wY-0.02,0],ax:[0,0,1]},elev:{M:elev,o:[tpTE+0.02,tpY,0],ax:[0,0,1]},ailL:{M:ail(-1),o:[wTE+0.02,wY+0.02,0],ax:[0,0,1]},ailR:{M:ail(1),o:[wTE+0.02,wY+0.02,0],ax:[0,0,1]}};
+  const list=[['body',body],['glass',glass],['pilot',pilot],['prop',prop],['disc',disc],['noseG',noseG],['mainL',mainG(-1)],['mainR',mainG(1)],['probe',probe],['rud',rud],['elev',elev],['ailL',parts.ailL.M],['ailR',parts.ailR.M],['flapL',parts.flapL.M],['flapR',parts.flapR.M]];
   list.forEach(([n],i)=>{CL_PARTS[n]={i,...(parts[n]?{o:parts[n].o,ax:parts[n].ax}:{})};});return list.map(l=>l[1]);}
 
 // ===================================================================
@@ -173,7 +175,7 @@ const Canadair={
     const g=1-pl.gearPos;dm('noseG',pl.mat(K.noseHinge,Q.axis([0,0,1],g*1.9)));for(const sd of [-1,1])dm(sd<0?'mainL':'mainR',pl.mat([K.mainHinge[0],K.mainHinge[1],sd*K.mainHinge[2]],Q.axis([1,0,0],sd*g*1.6)));
     // the probes come down while scooping
     const pr=pl.probe||0;if(pr>0.02)for(const sd of [-1,1])dm('probe',pl.mat([K.probe[0],K.probe[1]+0.3*(1-pr),sd*K.probe[2]]));
-    const hg=(n,a)=>{const q=PP[n];dm(n,pl.mat(q.o,Q.axis(q.ax,a)));};hg('elev',-c.pitch*0.3);hg('rud',c.yaw*0.35);hg('ailL',-c.roll*0.35);hg('ailR',c.roll*0.35);
+    const hg=(n,a)=>{const q=PP[n];dm(n,pl.mat(q.o,Q.axis(q.ax,a)));};hg('elev',-c.pitch*0.3);hg('rud',c.yaw*0.35);hg('ailL',-c.roll*0.35);hg('ailR',c.roll*0.35);hg('flapL',(pl.flapPos||0)*0.6);hg('flapR',(pl.flapPos||0)*0.6);
     pl.drawNav(p);const da=clamp((r-500)/1400,0,1)*0.38;if(da>0.01){gl.uniform2f(p.u('uOcc'),da,0);for(const o of K.props)dm('disc',pl.mat(o));gl.uniform2f(p.u('uOcc'),0,0);}},
   // called each step from Plane.update for the CL-415
   update(pl,dt){const s=pl.st,K=PLC;if(!s||pl.crashed)return;pl.waterKg=pl.waterKg||0;const V=pl.V||0,skim=pl.onW>0&&V>27&&V<50&&pl.gearPos<0.05;

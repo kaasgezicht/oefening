@@ -8,7 +8,11 @@
 // The fire is a mission at every airfield and jetty (Air.missionPanel); put it out and you are paid more the less forest was lost.
 // If nobody fights it, it burns out by itself. Flames and a tall smoke column (particle types 5 and 7), an orange glow at night.
 // ===================================================================
-const FIRE={cs:16,burnT:90,maxCells:420};
+/* 4.46: a fire mission is driven by two numbers, both shown as bars: H, the fire's strength (starts at 0.6, grows FIRE.grow a minute,
+   a full load of water landing on the flames takes FIRE.drop off it: three good drops put it out), and L, the forest lost (it fills at
+   a speed set by H, so an untouched fire takes all the forest only when the time is up: FIRE.base plus the flight to the fire at
+   100 km/h). The cells on the ground follow them: about H×FIRE.N cells burn, L×FIRE.LN have burnt out. */
+const FIRE={cs:16,burnT:90,N:56,LN:180,base:420,grow:0.06,drop:0.5,h0:0.6};/* grow: per minute (half that once water has hit it) */
 const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',char:[],_tp:new Map(),
   // the trees of a cell as {x,y,z,h} (cached): where the flame tongues stand and how tall they are
   treesAt(i,j){const k=this.key(i,j);let L=this._tp.get(k);if(L)return L;L=[];const T=App.T;if(T&&R.vegB){const cs=FIRE.cs,x0=i*cs,z0=j*cs,CN=16,cw=T.W/CN,ch=clamp(Math.floor((z0+cs/2)/cw),0,CN-1)*CN+clamp(Math.floor((x0+cs/2)/cw),0,CN-1);
@@ -29,7 +33,7 @@ const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',char:[],
     for(let k=0;k<900;k++){const set=T.veg.trees[Math.floor(rng()*T.veg.trees.length)];if(!set||!set.length)continue;const t=Math.floor(rng()*set.length/8)*8;if(!(set[t+3]>0))continue;const x=set[t],z=set[t+2];
       if(Life.villages.some(v=>Math.hypot(v.x-x,v.z-z)<(v.R||80)+300)||Air.list.some(s=>Math.hypot(s.x-x,s.z-z)<500))continue;if(Plane.water(x,z))continue;if(near&&k<800){const d=Math.hypot(near.x-x,near.z-z);if(d<2000||d>7000||(k<500&&!wet(x,z)))continue;}
       const i=Math.floor(x/cs),j=Math.floor(z/cs);let n=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)n+=this.trees(i+a,j+b);if(n<14)continue;
-      const f={id:(Date.now()%1e7)+k,x,z,cells:new Map(),t0:App.time,hits:0,water:0,place:Rescue.vname(x,z),total:0};f.cells.set(this.key(i,j),{i,j,int:0.4,t:0,st:'burn',n:this.trees(i,j)});
+      const f={id:(Date.now()%1e7)+k,x,z,cells:new Map(),t0:App.time,hits:0,water:0,place:Rescue.vname(x,z),total:0,H:FIRE.h0,L:0,el:0,budget:FIRE.base+(near?Math.hypot(near.x-x,near.z-z)/27.8:0)};f.cells.set(this.key(i,j),{i,j,int:0.4,t:0,st:'burn',n:this.trees(i,j)});
       for(const [a,b] of [[1,0],[0,1],[-1,0]])f.cells.set(this.key(i+a,j+b),{i:i+a,j:j+b,int:0.15,t:0,st:'burn',n:this.trees(i+a,j+b)});
       this.list.push(f);Log.info(`fire: started above ${f.place} at ${x.toFixed(0)},${z.toFixed(0)}`);if(!quiet)UI.toast(`🔥 A forest fire above ${f.place}! Fight it with the CL-415: tap an airfield or jetty`);Sfx.clunk&&Sfx.clunk();return f;}
     return null;},
@@ -37,24 +41,41 @@ const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',char:[],
   nearest(x,z){let b=null,bd=1e18;for(const f of this.active()){const d=Math.hypot(f.x-x,f.z-z);if(d<bd){bd=d;b=f;}}return b;},
   stats(f){let burn=0,burnt=0,out=0;for(const c of f.cells.values()){if(c.st==='burn')burn++;else if(c.st==='burnt')burnt++;else out++;}return{burn,burnt,out,ha:(burnt*FIRE.cs*FIRE.cs/1e4)};},
   update(dt){const T=App.T;if(!T||App.busy)return;if(this.pendBurnt&&R.vegB){for(const k of this.pendBurnt)this.kill(Math.floor(k/65536),k%65536);this.pendBurnt=null;}
-    if(!this.list.length)return;dt=Math.min(dt,2);const wa=(P.windDir||0)*Math.PI/180,wx=Math.cos(wa),wz=Math.sin(wa),ws=0.5+(P.windStrength||0.3)*2,rain=Weather.eff?Weather.eff().rain:0;
-    for(const f of this.list){const add=[];
-      for(const c of f.cells.values()){if(c.st==='wet'){c.t-=dt;if(c.t<=0)c.st='out';continue;}if(c.st!=='burn')continue;
-        c.int=Math.min(1,c.int+dt*(c.n>0?0.04:0.01)*(1-rain*0.8));c.t+=dt;if(c.t>FIRE.burnT||(c.n===0&&c.t>20)){c.st='burnt';if(c.n>0)this.kill(c.i,c.j);continue;}
-        if(c.int>0.5&&f.cells.size<FIRE.maxCells)for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){const k=this.key(c.i+a,c.j+b);if(f.cells.has(k)||add.some(q=>q[0]===k))continue;
-          const down=Math.max(0,(a*wx+b*wz)/Math.hypot(a,b)),pr=dt*0.012*(1+down*ws*2)*(1-rain);if(Math.random()<pr){const n=this.trees(c.i+a,c.j+b);if(n>0)add.push([k,{i:c.i+a,j:c.j+b,int:0.1,t:0,st:'burn',n}]);}}}
-      for(const [k,c] of add)f.cells.set(k,c);f.total=Math.max(f.total,f.cells.size);
-      const s=this.stats(f);if(!s.burn&&!f.done){f.done=true;this.finish(f,s);}}
+    this.bars();if(!this.list.length)return;dt=Math.min(dt,2);const wa=(P.windDir||0)*Math.PI/180,wx=Math.cos(wa),wz=Math.sin(wa),ws=0.5+(P.windStrength||0.3)*2,rain=Weather.eff?Weather.eff().rain:0;
+    const N8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+    for(const f of this.list){if(f.done)continue;if(!f.budget)f.budget=FIRE.base;if(f.H==null){f.H=FIRE.h0;f.L=0;}f.el=(f.el||0)+dt;
+      // the two numbers
+      if(f.H>0)f.H=Math.min(1,f.H+dt*FIRE.grow/60*(f.hits?0.5:1)*(1-rain*0.8));f.L=Math.min(1,f.L+dt*f.H/(f.budget*0.9));
+      const B=[];for(const c of f.cells.values()){if(c.st==='wet'){c.t-=dt;if(c.t<=0)c.st='out';continue;}if(c.st!=='burn')continue;B.push(c);c.t+=dt;c.int+=(Math.min(1,0.35+f.H*0.75)-c.int)*Math.min(1,dt*0.3);}
+      // cells burn out (the oldest first) as the forest-lost number rises
+      let nb=0;for(const c of f.cells.values())if(c.st==='burnt')nb++;
+      while(nb<Math.round(f.L*FIRE.LN)&&B.length){let o=0;for(let i=1;i<B.length;i++)if(B[i].t>B[o].t)o=i;const c=B.splice(o,1)[0];c.st='burnt';if(c.n>0)this.kill(c.i,c.j);nb++;}
+      // the front spreads into the wood next to it (downwind first) until about H×N cells burn
+      const want=f.H>0?Math.max(1,Math.round(f.H*FIRE.N)):0;let tries=0;
+      while(B.length<want&&tries++<12){const src=B.length?B[Math.floor(Math.random()*B.length)]:null;if(!src)break;let best=null,bs=-1;
+        for(const [a,b] of N8){const k=this.key(src.i+a,src.j+b),q=f.cells.get(k);if(q&&q.st!=='out')continue;const n=this.trees(src.i+a,src.j+b);if(!n)continue;const sc=Math.max(0,(a*wx+b*wz)/Math.hypot(a,b))*ws+Math.random();if(sc>bs){bs=sc;best=[k,{i:src.i+a,j:src.j+b,int:0.15,t:0,st:'burn',n}];}}
+        if(best){f.cells.set(best[0],best[1]);B.push(best[1]);}if(Math.random()>dt*3)break;}
+      // knocked back: no more cells burn than the fire's strength allows (the ones nearest the last drop go out first)
+      while(B.length>want+2){let o=0;if(f.lastDrop){let bd=1e18;B.forEach((c,i)=>{const d=Math.hypot((c.i+0.5)*16-f.lastDrop[0],(c.j+0.5)*16-f.lastDrop[1]);if(d<bd){bd=d;o=i;}});}const c=B.splice(o,1)[0];c.st='wet';c.t=300;c.steam=(c.steam||0)+1;}
+      f.total=Math.max(f.total,f.cells.size);
+      if(f.H<=0||!B.length&&f.H<0.05){f.H=0;for(const c of f.cells.values())if(c.st==='burn'){c.st='wet';c.t=300;}f.done=true;this.finish(f,true);}
+      else if(f.L>=1){f.done=true;this.finish(f,false);}}
     this.list=this.list.filter(f=>!f.done||App.time-f.doneT<5);this.effects(dt);},
-  finish(f,s){f.doneT=App.time;const lostHa=s.ha.toFixed(1);if(f.hits>0){const saved=clamp(1-s.burnt/Math.max(1,f.total),0,1),pay=Math.round((40000+70000*saved+(f.d||0)*5)/500)*500;
-      if(Money.on())Money.earn(pay,'forest fire put out',f.x,R.sampleHr(App.T,f.x,f.z)+20,f.z);
+  finish(f,won){f.doneT=App.time;const s=this.stats(f),lostHa=s.ha.toFixed(1),saved=clamp(1-f.L,0,1);
+    if(won){const pay=Math.round((40000+70000*saved)/500)*500;if(Money.on())Money.earn(pay,'forest fire put out',f.x,R.sampleHr(App.T,f.x,f.z)+20,f.z);
       MissionDone.show({title:'Fire out!',sub:`The forest fire above ${f.place}`,stars:saved>0.8?3:saved>0.5?2:1,rows:[['Water drops',String(f.hits)],['Water used',Math.round(f.water).toLocaleString()+' L'],['Forest lost',lostHa+' ha'],['Saved',Math.round(saved*100)+' %']],pay:Money.on()?pay:0});}
-    else UI.toast(`The fire above ${f.place} has burnt itself out: ${lostHa} ha of forest lost`);Log.info(`fire: ${f.hits?'put out':'burnt out'}, ${lostHa} ha`);},
-  // water from the CL-415: where it lands (ahead of the plane, by its height), how much reaches the ground (less from high up)
-  splash(p,v,kg,dt){if(!this.list.length||kg<=0)return;const g=Plane.groundAt(p[0],p[2]),h=Math.max(1,p[1]-g),tf=Math.min(4,Math.sqrt(2*h/9.81)),lx=p[0]+v[0]*tf*0.6,lz=p[2]+v[2]*tf*0.6,eff=clamp(1.4-h/110,0.15,1),R2=26+h*0.15,cs=FIRE.cs;
-    for(const f of this.list){let hit=false;for(const c of f.cells.values()){if(c.st!=='burn'&&c.st!=='out')continue;const cx=(c.i+0.5)*cs,cz=(c.j+0.5)*cs,d=Math.hypot(cx-lx,cz-lz);if(d>R2)continue;
-        if(c.st==='burn'){c.int-=kg/PLC.water*4.2*eff*(1-d/R2*0.5);hit=true;c.steam=(c.steam||0)+1;if(c.int<=0){c.st='wet';c.t=300;c.int=0;}}else{c.st='wet';c.t=300;}}
-      if(hit){f.water+=kg;if(!f._lastHit||App.time-f._lastHit>2.5){f.hits++;f._lastHit=App.time;if(Sfx.hiss)Sfx.hiss(clamp(1.2-Math.hypot(lx-Cam.pos[0],lz-Cam.pos[2])/1500,0,1));Icons.add&&Icons.add(lx,R.sampleHr(App.T,lx,lz)+12,lz,'💧');}}}},
+    else UI.toast(`Too late: the forest above ${f.place} is lost (${lostHa} ha). Take a new fire mission at an airfield`);Log.info(`fire: ${won?'put out':'forest lost'}, ${lostHa} ha, ${f.hits} drops, ${Math.round(f.el)} s of ${Math.round(f.budget)}`);},
+  // water from the CL-415: where it lands (ahead of the plane, by its height), how much reaches the flames (less from high up); the
+  // water that lands on burning cells takes its share off the fire's strength, and puts those cells out
+  splash(p,v,kg,dt){if(!this.list.length||kg<=0)return;const g=Plane.groundAt(p[0],p[2]),h=Math.max(1,p[1]-g),tf=Math.min(4,Math.sqrt(2*h/9.81)),lx=p[0]+v[0]*tf*0.6,lz=p[2]+v[2]*tf*0.6,eff=clamp(1.25-h/200,0.3,1),R2=26+h*0.15,cs=FIRE.cs;
+    for(const f of this.list){if(f.done)continue;let hit=false;for(const c of f.cells.values()){const cx=(c.i+0.5)*cs,cz=(c.j+0.5)*cs,d=Math.hypot(cx-lx,cz-lz);if(d>R2+16)continue;if(c.st==='wet'&&c.t>285||c.st==='burn'&&d>R2){if(c.st==='burn'||c.st==='wet')hit=true;continue;}/* just put out by this load: the rest of it still counts */if(c.st!=='burn'&&c.st!=='out')continue;
+        if(c.st==='burn'){hit=true;c.int-=kg/PLC.water*4*eff;c.steam=(c.steam||0)+1;if(c.int<=0.05){c.st='wet';c.t=300;c.int=0;}}else{c.st='wet';c.t=300;}}
+      if(hit){f.water+=kg;f.H=Math.max(0,f.H-kg/PLC.water*FIRE.drop*eff);f.lastDrop=[lx,lz];if(!f._lastHit||App.time-f._lastHit>2.5){f.hits++;f._lastHit=App.time;if(Sfx.hiss)Sfx.hiss(clamp(1.2-Math.hypot(lx-Cam.pos[0],lz-Cam.pos[2])/1500,0,1));Icons.add&&Icons.add(lx,R.sampleHr(App.T,lx,lz)+12,lz,'💧');}}}},
+  // the two bars while flying with a fire on: its strength and the forest lost, with the time left
+  bars(){let el=this._bars;const f=Plane.on?this.list.find(q=>!q.done):null;if(!f){if(el)el.hidden=true;return;}
+    if(!el){el=this._bars=document.createElement('div');el.id='fireBars';el.innerHTML='<div><span>🔥 Fire</span><i><b class="h"></b></i><em class="hv"></em></div><div><span>🌲 Forest lost</span><i><b class="l"></b></i><em class="lv"></em></div><small></small>';document.body.appendChild(el);}
+    el.hidden=false;el.querySelector('.h').style.width=(f.H*100).toFixed(1)+'%';el.querySelector('.l').style.width=(f.L*100).toFixed(1)+'%';el.querySelector('.hv').textContent=Math.round(f.H*100)+'%';el.querySelector('.lv').textContent=Math.round(f.L*100)+'%';
+    const left=f.H>0?(1-f.L)*f.budget*0.9/Math.max(f.H,0.05):0,m=Math.floor(left/60),sc=Math.floor(left%60);el.querySelector('small').textContent=`${f.place} · about ${m}:${String(sc).padStart(2,'0')} left at this strength`;},
   // the particles round the flames (the flames themselves: drawFlames): sparks and embers rising and blowing downwind, the smoke plume
   // (dark and lit orange at its foot, paler and wider as it rises and bends with the wind), steam where the water hit
   effects(dt){if(!P.smoke)return;const cp=Cam.pos||[0,0,0],T=App.T,cs=FIRE.cs,R1=Math.random;
@@ -72,7 +93,7 @@ const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',char:[],
     const put=(x,y,z,h,w,seed,e,kind)=>{if(n>=MX)return;const o=n*8;A[o]=x;A[o+1]=y;A[o+2]=z;A[o+3]=h;A[o+4]=w;A[o+5]=seed;A[o+6]=e;A[o+7]=kind;n++;};
     for(const f of this.list){if(Math.hypot(f.x-cp[0],f.z-cp[2])>6500)continue;
       for(const c of f.cells.values()){if(c.st!=='burn')continue;const x0=c.i*cs,z0=c.j*cs,d=Math.hypot(x0+8-cp[0],z0+8-cp[2]);if(d>6500)continue;
-        const fade=1-smooth(FIRE.burnT-25,FIRE.burnT,c.t),Ts=this.treesAt(c.i,c.j),far=d>2200;
+        const fade=1,Ts=this.treesAt(c.i,c.j),far=d>2200;
         Ts.forEach((tr,k)=>{if(far&&k>0)return;const e=c.int*fade*smooth(0,7,c.t-k*5);if(e<0.03)return;const sd=((c.i*73856093^c.j*19349663)>>>0)%997/997+k*0.13;
           put(tr.x,tr.y-0.5,tr.z,tr.h*(0.45+0.95*e),tr.h*0.22+1.2,sd,e,0);if(!far)put(tr.x+0.8,tr.y-0.3,tr.z-0.6,tr.h*(0.3+0.5*e),tr.h*0.16+0.8,sd+0.5,e*0.8,0);});
         for(let k=0;k<(far?1:3);k++){const sd=((c.i*31+c.j*17+k*7)%101)/101,x=x0+2+sd*12,z=z0+2+((sd*7.3+k*0.37)%1)*12;put(x,R.sampleHr(T,x,z)-0.2,z,1.4+2.6*c.int*fade,3.2,sd+k,c.int*fade*0.9,1);}}}
@@ -108,9 +129,9 @@ const Fires={list:[],burnt:new Set(),pendBurnt:null,_scorch:null,_sk:'',char:[],
   label(){let el=this._lb;const f=Plane.on&&Plane.kind==='cl415'&&Plane.st?this.nearest(Plane.st.p[0],Plane.st.p[2]):null;if(!el){el=this._lb=document.createElement('div');el.className='ilabel rsLabel';el.style.background='#e2531fe6';document.body.appendChild(el);}
     if(!f){el.style.display='none';return;}const q=Cam.toScreen(f.x,R.sampleHr(App.T,f.x,f.z)+40,f.z);if(!q){el.style.display='none';return;}const s=this.stats(f),d=Math.hypot(Plane.st.p[0]-f.x,Plane.st.p[2]-f.z);
     el.style.display='';el.style.left=q[0]+'px';el.style.top=q[1]+'px';el.innerHTML=`<b>🔥 Fire</b> ${d<1000?Math.round(d)+' m':(d/1000).toFixed(1)+' km'} · ${s.burn} burning`;},
-  serialize(){return{burnt:[...this.burnt],fires:this.list.filter(f=>!f.done).map(f=>({x:f.x,z:f.z,place:f.place,hits:f.hits,water:f.water,total:f.total,cells:[...f.cells.values()].map(c=>[c.i,c.j,+c.int.toFixed(2),Math.round(c.t),c.st,c.n])}))};},
+  serialize(){return{burnt:[...this.burnt],fires:this.list.filter(f=>!f.done).map(f=>({x:f.x,z:f.z,place:f.place,hits:f.hits,water:f.water,total:f.total,H:+(f.H||0).toFixed(3),L:+(f.L||0).toFixed(3),el:Math.round(f.el||0),budget:Math.round(f.budget||FIRE.base),cells:[...f.cells.values()].map(c=>[c.i,c.j,+c.int.toFixed(2),Math.round(c.t),c.st,c.n])}))};},
   load_(d){this.list=[];this.burnt=new Set();this._sk='';this.char=[];this._tp=new Map();this.pendBurnt=d&&d.burnt&&d.burnt.length?d.burnt.slice():null;
-    for(const q of (d&&d.fires)||[]){const f={id:Math.random(),x:q.x,z:q.z,place:q.place,hits:q.hits|0,water:q.water||0,total:q.total|0,t0:App.time||0,cells:new Map()};for(const c of q.cells)f.cells.set(this.key(c[0],c[1]),{i:c[0],j:c[1],int:c[2],t:c[3],st:c[4],n:c[5]});this.list.push(f);}}};
+    for(const q of (d&&d.fires)||[]){const f={id:Math.random(),x:q.x,z:q.z,place:q.place,hits:q.hits|0,water:q.water||0,total:q.total|0,t0:App.time||0,cells:new Map(),H:q.H!=null?q.H:FIRE.h0,L:q.L||0,el:q.el||0,budget:q.budget||FIRE.base};for(const c of q.cells)f.cells.set(this.key(c[0],c[1]),{i:c[0],j:c[1],int:c[2],t:c[3],st:c[4],n:c[5]});this.list.push(f);}}};
 
 // ---- the flame shader (Fires.drawFlames): per instance base xyz + height, width + seed + strength + kind (0 a tree's tongue, standing
 // up and turned to the camera; 1 low ground fire, facing the camera fully so it still reads from above)

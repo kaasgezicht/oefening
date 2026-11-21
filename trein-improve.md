@@ -109,6 +109,10 @@ Pick steps by number. Size: S = an hour or two, M = a session, L = several sessi
 32. **Lint** (S). A checker that catches the kind of bug where `window.Plane` was always empty (undefined names, typos), run with the smoke test.
 33. **Split the largest files** (M). life.js (215 kB) and render.js into smaller parts by subject, so changes are safer and faster to make. This can be combined with step 7.
 
+## F. Added later
+34. **CL-415 cockpit view** (S–M). The fire fighter's cockpit view is not done well yet (user, 21 Nov): a real cockpit with the panel, the
+    two seats, the overhead throttles and the big windscreen frames, an eye point at the left seat, and looking around as in the other planes.
+
 ## Suggested order
 - **Quick wins first:** 17, 29, 31, 32, 7, 4.
 - **Then the biggest felt improvements:** 1, 2, 3 (loading); 5, 8 (frame rate); 9 (glitches); 18, 19 (interface).

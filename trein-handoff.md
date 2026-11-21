@@ -1,4 +1,4 @@
-# Trein handoff 109 (21 Nov 2026): v4.45.0 — controller everywhere, landscape layout, new fire effect. Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 110 (21 Nov 2026): v4.46.0 — fire mission bars/balance, CL-415 lights+flaps, loading facts. Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,25 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.45.0, 21 Nov) — the user's three asks: controller support everywhere, landscape without overlaps, a really good fire
+### Latest (4.46.0, 21 Nov) — step 1 of the user's 21 Nov list (steps 2 and 3 below are still to do)
+- **Fire mission** (fire.js): driven by two numbers per fire, shown as bars while flying (`#fireBars`, `Fires.bars`: 🔥 Fire, 🌲 Forest
+  lost, time left at this strength): **H** strength (starts `FIRE.h0` 0.6, +`grow` 0.06/min, half once hit; a full load landing on the
+  flames takes `drop` 0.5×eff off, eff = clamp(1.25 − h/200, 0.3, 1)) and **L** forest lost (+dt·H/(budget·0.9)). Budget = 7 min +
+  flight distance from the mission's airfield at 100 km/h (27.8 m/s). Cells follow the numbers: ≈H×56 burn (the front spreads downwind,
+  surplus cells nearest the last drop go out), L×180 burn out (oldest first). Out when H reaches 0 (pay €40 000 + €70 000 × (1−L)), lost
+  when L reaches 1. Water on cells this load just put out still counts (it used to count as a miss). Saved: H, L, el, budget.
+  Tested: untouched fire lost after 543 s of a 515 s budget; three aimed drops 2.5 min apart: 0.75 → 0.30 → 0.06 → out (37 % lost).
+- CL-415: the turbine whine removed (only the propeller buzz); navigation lights moved outside the wingtip caps (they were inside);
+  flaps (`flapL/flapR` parts, inboard of the ailerons, down 0.6 rad × flapPos).
+- **Loading facts** (new js/facts.js): 100 facts (55 playing, 45 how it works), one every 10 s in random order under the loading bar
+  (`#progFact`).
+- trein-improve.md: item 34, the CL-415 cockpit view.
+- **Still to do from this list:** step 2: map view (water rendering, coloured dots when zoomed out so the circles overlap), mines once
+  every few km², why max-size islands look small (user's save: 32 km, islandGen 1, landShare 0.86, 96 villages, 15 islands); step 3:
+  processing factories per mine type, tapping a mine shows where its ore goes on the map, ore sometimes on another island than its
+  factory (the harbour transfer station comes with the user's next prompt; do not build it yet).
+
+### Earlier (4.45.0, 21 Nov) — the user's three asks: controller support everywhere, landscape without overlaps, a really good fire
 (answers: dedicated mappings per mode with on-screen hints; GameSir X5 Lite, Xbox labels, digital triggers, presets + manual remap; all
 four fire parts)
 - **Controller (new js/pad.js, `Pad`)**: one reader; `Pad.vp` is a virtual pad in standard order after the user's remap
