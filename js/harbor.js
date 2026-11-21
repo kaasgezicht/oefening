@@ -23,6 +23,8 @@
 //     under the gantry beam.
 //  4. The freight siding is a separate track entering from the west (no switch on site); the two passenger tracks run straight through
 //     the whole site so the player's lines join them at both ends (x 0 and x 120).
+//  7. Only on the open sea (water joined to the map edge), never on a lake or a closed basin: the berth and the water 40 m out
+//     must be ocean.
 //  5. The back of the site (y ≥ 50: tracks, station) is at least 70 % land, joined over land to its town; the quay side may stand
 //     over the water. The deck stands 3 m above the sea. Ground higher than that is cut down to the deck; where it is lower the deck stands on
 //     foundations (blocks now; brick piers and timber stilts in step 2).
@@ -77,6 +79,12 @@ const Port={S:[],key:'',meshes:new Map(),
   // town: a straight bit of coast within 1.6 km where the berth (the collier's place, 2..11 m off the quay) is at least 4.5 m deep,
   // and the ground of the terminal is low enough; the best by the least ground to cut and the closest to the town
   find(){const T=App.T;this.S=[];this.meshes.clear();if(!T||T.sea==null)return;const sea=T.sea,Hs=(x,z)=>R.sampleHr(T,x,z),W=T.W,deck=sea+PORT.deck;
+    // the open sea: water cells joined to the map's edge (a flood fill on the height grid). Lakes, and basins below sea level that
+    // do not reach the ocean, are not sea: a collier has to sail in and out
+    const N=T.N,cs=T.cs,Hr=T.Hr||T.H,oc=new Uint8Array(N*N),st=[];const wetc=k=>Hr[k]<sea-0.3;
+    for(let i=0;i<N;i++)for(const k of [i,(N-1)*N+i,i*N,i*N+N-1])if(!oc[k]&&wetc(k)){oc[k]=1;st.push(k);}
+    while(st.length){const k=st.pop(),i=k%N,j=(k/N)|0;for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){const ii=i+a,jj=j+b;if(ii<0||jj<0||ii>=N||jj>=N)continue;const m=jj*N+ii;if(!oc[m]&&wetc(m)){oc[m]=1;st.push(m);}}}
+    const ocean=(x,z)=>{const i=Math.round(x/cs),j=Math.round(z/cs);return i>=0&&j>=0&&i<N&&j<N&&oc[j*N+i]===1;};this.ocean=ocean;
     const towns=[...new Set(Coast.H.map(h=>h.v))];
     for(const v of towns){let best=null;
       for(let a=0;a<64;a++){const dx=Math.cos(a/64*6.2832),dz=Math.sin(a/64*6.2832);let prev=false;
@@ -86,7 +94,7 @@ const Port={S:[],key:'',meshes:new Map(),
           const n=[-sx/sl,-sz/sl],t=[-n[1],n[0]];/* n: inland */
           // move the quay face out until the berth is deep enough
           for(let o=-6;o<=36;o+=3){const qx=x-n[0]*o,qz=z-n[1]*o,s={x:qx,z:qz,t,n,v,deckY:deck};let ok=true,cut=0,low=0;
-            for(let lx=36;lx<=84&&ok;lx+=6)for(const ly of [-3,-6.5,-10])if(Hs(...this.xz(s,lx,ly))>sea-4.5){ok=false;break;}
+            for(let lx=36;lx<=84&&ok;lx+=6)for(const ly of [-3,-6.5,-10,-25,-40]){const w=this.xz(s,lx,ly);if((ly>-12&&Hs(...w)>sea-4.5)||!ocean(...w)){ok=false;break;}}/* the berth deep enough, and the water in front open sea */
             if(!ok)continue;
             for(let lx=0;lx<=PORT.W&&ok;lx+=10)for(let ly=0;ly<=PORT.D;ly+=10){const g=Hs(...this.xz(s,lx,ly));if(g>deck+6){ok=false;break;}cut+=Math.max(0,g-deck);if(g<deck-1)low++;}
             if(!ok)continue;
