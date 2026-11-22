@@ -291,7 +291,75 @@ const RVMesh=(()=>{
     const face=z=>side*z;surf(M,(rr,a)=>[Math.cos(a)*rr,Math.sin(a)*rr,face(0.1+0.04*(1-rr/R0))],[0.05,R0*0.6,R0*0.98],range(0,Math.PI*2,24),()=>[[0.05,0.05,0.055],PAINT]);
     for(let k=0;k<6;k++){const a=k/6*Math.PI*2;tube(M,[Math.cos(a)*0.12,Math.sin(a)*0.12,face(0.12)],[Math.cos(a)*0.12,Math.sin(a)*0.12,face(0.16)],0.02,0.018,6,[0.12,0.12,0.12],MATTE,true);}
     tube(M,[0,0,face(0.1)],[0,0,face(0.2)],0.08,0.06,14,[0.06,0.06,0.07],MATTE,true);return M;};
-  return {blitz,bus,wheel,unimog,uwheel,unirail,railGear,bhSwing,bhBoom,bhStick,bhBucket,BH};})();
+  // ================================================================ the steam mining drill (4.63, after the user's picture): a riveted brass
+  // crawler with a copper chimney, a boiler with a big pressure gauge and cage lanterns at the back, a glazed brass cab with the driver in
+  // the middle, a big riveted drum with collar rings at the front and a stepped conical drill with spiral flutes (a separate mesh: it spins).
+  // Real size, metres: 9.6 m long with the drill, 3.0 m wide, chimney top 4.3 m. x forward, y up, z right; origin on the ground at the middle
+  // of the tracks.
+  const DRILL={tip:5.6,face:3.15,cy:1.55,R:1.32};
+  const minedrill=()=>{const B=vmesh(),BR=[0.66,0.48,0.2],BRd=[0.46,0.32,0.14],CU=[0.7,0.34,0.17],IR=[0.15,0.13,0.11],RU=[0.36,0.22,0.12],DK=[0.05,0.045,0.04],GL=[1,0.72,0.32],WD=[0.95,0.93,0.86];
+    const rivets=(a,b,n,r,col)=>{for(let k=0;k<=n;k++){const p=[a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n,a[2]+(b[2]-a[2])*k/n];ball(B,p,r||0.028,[1,1,1],col||BRd,CHROME,6);}};
+    // ---- crawler tracks: a riveted side frame, a big drive sprocket at the back, an idler at the front, road wheels, the plated track round it all
+    const TZ=1.12,TW=0.34,x0=-4.0,x1=1.4,rr=0.62;
+    for(const sd of [-1,1]){const z=sd*TZ;
+      // track links round a stadium: top run, bottom run, ends round the sprocket and idler
+      const path=[];const n1=26;for(let k=0;k<=n1;k++)path.push([x0+(x1-x0)*k/n1,0.08]);for(let k=1;k<=10;k++){const a=-Math.PI/2+k/10*Math.PI;path.push([x1+Math.cos(a)*0.55,0.63+Math.sin(a)*0.55]);}
+      for(let k=1;k<=n1;k++)path.push([x1-(x1-x0)*k/n1,1.24]);for(let k=1;k<10;k++){const a=Math.PI/2+k/10*Math.PI;path.push([x0+Math.cos(a)*0.58,0.66+Math.sin(a)*0.58]);}
+      for(let k=0;k<path.length;k++){const p=path[k],q=path[(k+1)%path.length],dx=q[0]-p[0],dy=q[1]-p[1],L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L,m=[(p[0]+q[0])/2,(p[1]+q[1])/2];
+        const c=[m[0]-nx*0.04,m[1]-ny*0.04];quad(B,[c[0]-dx/2-nx*0.04,c[1]-dy/2-ny*0.04,z-TW],[c[0]+dx/2-nx*0.04,c[1]+dy/2-ny*0.04,z-TW],[c[0]+dx/2-nx*0.04,c[1]+dy/2-ny*0.04,z+TW],[c[0]-dx/2-nx*0.04,c[1]-dy/2-ny*0.04,z+TW],k%2?[0.2,0.16,0.12]:[0.27,0.21,0.14],MATTE);
+        quad(B,[p[0]+nx*0.03,p[1]+ny*0.03,z-TW],[p[0]+nx*0.03,p[1]+ny*0.03,z+TW],[q[0]+nx*0.03,q[1]+ny*0.03,z+TW],[q[0]+nx*0.03,q[1]+ny*0.03,z-TW],k%2?RU:[0.32,0.24,0.15],MATTE);
+        if(k%2===0)box(B,[m[0]+nx*0.06,m[1]+ny*0.06,z],[0.035,0.035,TW*0.95],[0.2,0.17,0.13],CHROME);/* grouser */}
+      // sprocket (back) with teeth and spokes, idler (front), road wheels; a riveted plate frame between them
+      for(const [x,y,r,teeth] of [[x0,0.66,0.55,14],[x1,0.63,0.5,0]]){const zz=z+sd*(TW+0.02);tube(B,[x,y,zz-sd*0.02],[x,y,zz+sd*0.05],r,r,24,BRd,CHROME,true);tube(B,[x,y,zz+sd*0.05],[x,y,zz+sd*0.1],0.16,0.16,14,BR,CHROME,true);
+        for(let k=0;k<6;k++){const a=k/6*Math.PI*2;box(B,[x+Math.cos(a)*r*0.55,y+Math.sin(a)*r*0.55,zz+sd*0.07],[0.06,0.06,0.02],DK,MATTE);}if(teeth)for(let k=0;k<teeth;k++){const a=k/teeth*Math.PI*2;box(B,[x+Math.cos(a)*(r+0.03),y+Math.sin(a)*(r+0.03),zz],[0.04,0.04,0.06],BRd,CHROME);}}
+      for(const x of [-2.9,-1.9,-0.9,0.1]){tube(B,[x,0.4,z+sd*(TW+0.0)],[x,0.4,z+sd*(TW+0.06)],0.3,0.3,16,BRd,CHROME,true);ball(B,[x,0.4,z+sd*(TW+0.07)],0.08,[1,1,0.5],BR,CHROME,8);}
+      box(B,[(x0+x1)/2,0.78,z+sd*(TW+0.04)],[(x1-x0)/2-0.3,0.22,0.02],BR,PAINT);rivets([x0+0.4,0.98,z+sd*(TW+0.065)],[x1-0.4,0.98,z+sd*(TW+0.065)],18,0.025);rivets([x0+0.4,0.58,z+sd*(TW+0.065)],[x1-0.4,0.58,z+sd*(TW+0.065)],18,0.025);
+      box(B,[(x0+x1)/2,1.34,z],[(x1-x0)/2+0.1,0.06,TW+0.08],BRd,PAINT);/* the track guard over the top run */rivets([x0+0.1,1.41,z+sd*(TW+0.04)],[x1+0.1,1.41,z+sd*(TW+0.04)],24,0.022,BR);}
+    // ---- the hull between the tracks, riveted plates
+    box(B,[-1.3,1.45,0],[2.8,0.28,0.78],BRd,PAINT);for(const sd of [-1,1])rivets([-4.0,1.72,sd*0.79],[1.4,1.72,sd*0.79],26,0.024,BR);
+    box(B,[-1.0,1.8,0],[2.4,0.1,1.25],BR,PAINT);for(const sd of [-1,1])rivets([-3.3,1.9,sd*1.24],[1.3,1.9,sd*1.24],22,0.025);
+    // ---- the boiler at the back: a horizontal riveted barrel, brass bands, a dome and safety valve, the copper chimney, the big gauge
+    tube(B,[-3.75,2.45,0],[-1.6,2.45,0],0.62,0.62,26,BR,CHROME,true);for(const x of [-3.5,-2.9,-2.3,-1.8])tube(B,[x-0.04,2.45,0],[x+0.04,2.45,0],0.645,0.645,26,BRd,CHROME);
+    ball(B,[-3.78,2.45,0],0.6,[0.25,1,1],BRd,CHROME,16);for(let k=0;k<10;k++){const a=k/10*Math.PI*2;ball(B,[-3.86,2.45+Math.sin(a)*0.42,Math.cos(a)*0.42],0.035,[1,1,1],DK,CHROME,6);}/* smokebox door bolts */
+    tube(B,[-2.6,2.9,0],[-2.6,3.25,0],0.24,0.2,16,CU,CHROME,true);ball(B,[-2.6,3.28,0],0.21,[1,0.6,1],CU,CHROME,12);/* steam dome */
+    tube(B,[-1.95,2.95,0.0],[-1.95,4.3,0.0],0.24,0.27,18,CU,CHROME,true);tube(B,[-1.95,4.1,0],[-1.95,4.32,0],0.31,0.31,18,[0.55,0.26,0.12],CHROME,true);for(const y of [3.3,3.75])tube(B,[-1.95,y-0.03,0],[-1.95,y+0.03,0],0.29,0.29,18,BRd,CHROME);/* copper chimney with bands */
+    tube(B,[-3.25,2.95,0.35],[-3.25,3.3,0.35],0.08,0.08,10,BR,CHROME,true);ball(B,[-3.25,3.34,0.35],0.1,[1,1,1],BR,CHROME,8);/* whistle */
+    // the big pressure gauge on the side of the boiler (left), a second smaller one on the right
+    for(const [sd,r,x] of [[-1,0.32,-2.85],[1,0.2,-2.4]]){const z=sd*0.7,c=[x,2.55,z];tube(B,c,add(c,[0,0,sd*0.08]),r,r,24,BR,CHROME,true);surf(B,(rr2,a)=>[c[0]+Math.cos(a)*rr2,c[1]+Math.sin(a)*rr2,c[2]+sd*0.085],[0,r*0.85],range(0,Math.PI*2,20),()=>[WD,PAINT]);
+      box(B,[c[0]+r*0.25,c[1]+r*0.2,c[2]+sd*0.09],[r*0.3,0.012,0.004],DK,MATTE);for(let k=0;k<9;k++){const a=Math.PI*1.25-k/8*Math.PI*1.5;box(B,[c[0]+Math.cos(a)*r*0.7,c[1]+Math.sin(a)*r*0.7,c[2]+sd*0.088],[0.012,0.012,0.003],DK,MATTE);}}
+    // pipes: from the boiler forward along both sides, bends, valves
+    for(const sd of [-1,1]){tube(B,[-1.7,2.2,sd*0.55],[0.2,2.2,sd*0.95],0.09,0.09,10,[0.55,0.52,0.48],CHROME);tube(B,[0.2,2.2,sd*0.95],[0.7,1.95,sd*1.15],0.09,0.09,10,[0.55,0.52,0.48],CHROME);
+      tube(B,[-3.4,2.0,sd*0.7],[-1.2,2.05,sd*0.75],0.06,0.06,8,CU,CHROME);ball(B,[-2.2,2.03,sd*0.73],0.09,[1,1,1],BR,CHROME,8);tube(B,[-2.2,2.03,sd*0.73],[-2.2,2.2,sd*0.73],0.025,0.025,6,BRd,CHROME);ball(B,[-2.2,2.22,sd*0.73],0.06,[1,0.3,1],[0.6,0.1,0.08],PAINT,8);}
+    // ---- the cage lanterns: two on the back corners, two on the front of the drum, one on the cab roof (they glow)
+    const lantern=(c,s)=>{s=s||1;tube(B,add(c,[0,-0.2*s,0]),add(c,[0,-0.16*s,0]),0.13*s,0.13*s,12,BRd,CHROME,true);tube(B,add(c,[0,-0.16*s,0]),add(c,[0,0.14*s,0]),0.1*s,0.1*s,12,GL,4,true);
+      for(let k=0;k<6;k++){const a=k/6*Math.PI*2;tube(B,add(c,[Math.cos(a)*0.11*s,-0.16*s,Math.sin(a)*0.11*s]),add(c,[Math.cos(a)*0.11*s,0.14*s,Math.sin(a)*0.11*s]),0.012*s,0.012*s,4,BRd,CHROME);}
+      tube(B,add(c,[0,0.14*s,0]),add(c,[0,0.22*s,0]),0.12*s,0.06*s,12,BRd,CHROME,true);tube(B,add(c,[0,0.22*s,0]),add(c,[0,0.3*s,0]),0.03*s,0.03*s,6,BRd,CHROME);};
+    lantern([-3.4,2.95,-0.85],1.15);lantern([-3.4,2.95,0.85],1.15);lantern([1.35,3.25,0.85],1.0);lantern([1.35,3.25,-0.85],1.0);lantern([-0.3,4.0,0],0.9);
+    // ---- the cab: brass frame and pillars, curved glass front and sides, a riveted roof with a rail; driver with cap and goggles; levers and a small gauge
+    const c0=-1.25,c1=0.85,cb=1.9,ct=3.55;box(B,[(c0+c1)/2,cb+0.18,0],[(c1-c0)/2,0.18,0.9],BRd,PAINT);rivets([c0,cb+0.36,-0.9],[c1,cb+0.36,-0.9],14,0.022,BR);rivets([c0,cb+0.36,0.9],[c1,cb+0.36,0.9],14,0.022,BR);
+    rbox(B,[(c0+c1)/2,cb+1.0,0],[(c1-c0)/2,0.62,0.9],0.35,BR,PAINT,(p)=>{const g=p[1]>cb+0.55&&p[1]<ct-0.12&&(p[0]>c0+0.25);return g?[[0.12,0.13,0.12],GLASS]:[BRd,PAINT];},36);
+    box(B,[(c0+c1)/2,ct,0],[(c1-c0)/2+0.08,0.05,0.98],BRd,PAINT);rivets([c0,ct+0.06,-0.95],[c1,ct+0.06,-0.95],14,0.022,BR);rivets([c0,ct+0.06,0.95],[c1,ct+0.06,0.95],14,0.022,BR);
+    for(const x of [c0+0.05,c1-0.02])for(const sd of [-1,1])box(B,[x,(cb+ct)/2+0.2,sd*0.88],[0.04,(ct-cb)/2-0.2,0.04],BR,CHROME);
+    for(const sd of [-1,1])tube(B,[c1+0.02,ct-0.02,sd*0.85],[c1+0.32,cb+0.4,sd*0.95],0.035,0.035,8,BR,CHROME);/* the canopy's curved front frame */
+    box(B,[c0+0.25,cb+0.65,0],[0.25,0.3,0.6],[0.3,0.18,0.1],INT);/* seat back */person(B,-0.55,cb+0.42,-0.05,[0.38,0.22,0.12],[0.22,0.14,0.08]);
+    for(const z of [-0.2,0.2])tube(B,[0.4,cb+0.45,z],[0.5,cb+0.9,z+0.05],0.02,0.02,6,BR,CHROME);ball(B,[0.45,cb+0.95,0],0.07,[1,1,1],[0.55,0.1,0.08],PAINT,8);
+    {const c=[0.62,cb+0.88,0.45];tube(B,c,add(c,[0.06,0,0]),0.12,0.12,18,BR,CHROME,true);surf(B,(r2,a)=>[c[0]+0.065,c[1]+Math.sin(a)*r2,c[2]+Math.cos(a)*r2],[0,0.1],range(0,Math.PI*2,16),()=>[WD,PAINT]);}
+    // ---- the front: the big riveted drum with collar rings, a side gear wheel, and the drill's bearing housing
+    const DX0=0.95,DX1=DRILL.face,cy=DRILL.cy,R=DRILL.R;tube(B,[DX0,cy,0],[DX1,cy,0],R,R,30,BR,CHROME,true);
+    for(const [x,w,r] of [[DX0+0.08,0.08,R+0.07],[1.7,0.07,R+0.05],[2.4,0.08,R+0.07],[DX1-0.1,0.1,R+0.1]]){tube(B,[x-w,cy,0],[x+w,cy,0],r,r,30,BRd,CHROME,true);for(let k=0;k<20;k++){const a=k/20*Math.PI*2;ball(B,[x,cy+Math.sin(a)*(r+0.005),Math.cos(a)*(r+0.005)],0.03,[1,1,1],BR,CHROME,6);}}
+    for(let k=0;k<8;k++){const a=k/8*Math.PI*2;box(B,[(DX0+DX1)/2,cy+Math.sin(a)*(R+0.02),Math.cos(a)*(R+0.02)],[(DX1-DX0)/2-0.2,0.04,0.04],[0.35,0.25,0.12],CHROME);}/* straps along the drum */
+    tube(B,[DX1,cy,0],[DX1+0.25,cy,0],R*0.8,R*0.75,28,IR,CHROME,true);/* the bearing ring */
+    {const c=[1.3,1.25,1.42];tube(B,c,add(c,[0,0,0.08]),0.55,0.55,28,BRd,CHROME,true);for(let k=0;k<20;k++){const a=k/20*Math.PI*2;box(B,[c[0]+Math.cos(a)*0.6,c[1]+Math.sin(a)*0.6,c[2]+0.04],[0.05,0.05,0.04],BRd,CHROME);}
+      for(let k=0;k<8;k++){const a=k/8*Math.PI*2;box(B,[c[0]+Math.cos(a)*0.28,c[1]+Math.sin(a)*0.28,c[2]+0.09],[0.05,0.05,0.015],IR,MATTE);}tube(B,add(c,[0,0,0.08]),add(c,[0,0,0.16]),0.12,0.12,12,BR,CHROME,true);}/* the gear wheel on the right */
+    box(B,[0.2,1.3,0],[0.9,0.35,1.0],BRd,PAINT);/* the frame under the drum */
+    return B;};
+  /* the drill bit: a stepped cone with spiral flutes from the face (x 0) to the tip (x 2.45), spinning about x */
+  const drillbit=()=>{const M=vmesh(),ST=[0.6,0.56,0.5],STd=[0.32,0.29,0.25],L=DRILL.tip-DRILL.face-0.25,R=DRILL.R*0.78;
+    const rad=s=>{const st=Math.floor(s*5)/5,f=s*5-Math.floor(s*5);return R*(1-st*0.92)*(1-0.06*f)+0.02;};/* five steps */
+    surf(M,(s,a)=>{const r0=rad(s),fl=(a*3/(Math.PI*2)-s*2.2),ph=fl-Math.floor(fl),ridge=Math.pow(Math.max(0,Math.sin(ph*Math.PI)),6);const r=r0*(1+0.14*ridge*(1-s));return[s*L,Math.sin(a)*r,Math.cos(a)*r];},range(0,1,40),range(0,Math.PI*2,48),
+      (s,a)=>{const fl=(a*3/(Math.PI*2)-s*2.2),ph=fl-Math.floor(fl);return[ph>0.3&&ph<0.7?ST:STd,CHROME];},{eu:1e-3,ev:1e-3});
+    ball(M,[L,0,0],0.06,[2.2,1,1],[0.75,0.72,0.66],CHROME,10);surf(M,(r,a)=>[0,Math.sin(a)*r,Math.cos(a)*r],[0,R+0.02],range(0,Math.PI*2,32),()=>[STd,CHROME]);return M;};
+  return {blitz,bus,wheel,unimog,uwheel,unirail,railGear,bhSwing,bhBoom,bhStick,bhBucket,BH,minedrill,drillbit,DRILL};})();
 // lettering: text from a canvas, turned into thin quads (one per run of lit pixels in a row), lying on a side of the body.
 // side: z of the face (sign = which side), x0/y0: the lower left corner as seen from that side, h: text height in metres
 function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=document.createElement('canvas'),g=cv.getContext('2d');const scale=o.px||48;
