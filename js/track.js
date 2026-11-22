@@ -181,16 +181,17 @@ function buildTrackMesh(segs,xray){
   const lat=(q,e)=>[-Math.sin(q.h)*e,0,Math.cos(q.h)*e];
   for(const s of segs){
     const step=Math.min(1.5,Math.abs(s.k)>1e-7?0.05/Math.abs(s.k):1.5),cnt=Math.max(1,Math.ceil(s.L/step));
+    const ww=typeof Upkeep!=='undefined'?Upkeep.meshWear(s)*0.4:0;/* 4.61: the wear rides in the material number (ballast 0, rails 2 + 0..0.4) */
     const st=[];for(let i=0;i<=cnt;i++){const t=s.L*i/cnt,p=segPoint(s,t);st.push({t,x:p[0],z:p[1],h:p[2],y:segY(s,t)});}
     for(let i=0;i<cnt;i++){const a=st[i],b=st[i+1],sp=spanAt(s,(a.t+b.t)/2),inT=!!(sp&&sp[2]==='t'),X=xray&&inT;
       for(let f=0;f<3;f++){const l0=prof[f],l1=prof[f+1],dy=l1[1]-l0[1],dl=l1[0]-l0[0],nl=Math.hypot(dy,dl);
         const nm=f===1?[0,1,0]:[-Math.sin(a.h)*(-dy/nl),dl/nl,Math.cos(a.h)*(-dy/nl)];
         // the foot of each shoulder reaches down into the drawn ground where that lies lower (dug cuttings), so no edge ever floats
         const foot=(p,f0)=>{if(f0&&T&&T.Hr&&!sp){const g=R.drawnH(T,p[0],p[2])-0.25;if(g<p[1])p[1]=g;}return p;};
-        quad(foot(Wp(a,l0[0],l0[1]),f===0),foot(Wp(a,l1[0],l1[1]),f===2),foot(Wp(b,l1[0],l1[1]),f===2),foot(Wp(b,l0[0],l0[1]),f===0),nm,0,[l0[0]*0.5,a.t*0.5,l1[0]*0.5,b.t*0.5]);}
+        quad(foot(Wp(a,l0[0],l0[1]),f===0),foot(Wp(a,l1[0],l1[1]),f===2),foot(Wp(b,l1[0],l1[1]),f===2),foot(Wp(b,l0[0],l0[1]),f===0),nm,ww,[l0[0]*0.5,a.t*0.5,l1[0]*0.5,b.t*0.5]);}
       for(const side of [-1,1]){const c=side*(GAUGE/2+0.035);
-        quad(Wp(a,c-0.035,0),Wp(a,c+0.035,0),Wp(b,c+0.035,0),Wp(b,c-0.035,0),[0,1,0],2,[0,a.t,1,b.t],X);
-        for(const e of [-1,1])quad(Wp(a,c+e*0.035,0),Wp(a,c+e*0.035,-0.17),Wp(b,c+e*0.035,-0.17),Wp(b,c+e*0.035,0),lat(a,e),2,[0,a.t,0.3,b.t]);}
+        quad(Wp(a,c-0.035,0),Wp(a,c+0.035,0),Wp(b,c+0.035,0),Wp(b,c-0.035,0),[0,1,0],2+ww,[0,a.t,1,b.t],X);
+        for(const e of [-1,1])quad(Wp(a,c+e*0.035,0),Wp(a,c+e*0.035,-0.17),Wp(b,c+e*0.035,-0.17),Wp(b,c+e*0.035,0),lat(a,e),2+ww,[0,a.t,0.3,b.t]);}
       if(inT){// tunnel tube: horseshoe lining facing inwards
         const seg=14;for(let k=0;k<seg;k++){const a0=-0.25+(Math.PI+0.5)*k/seg,a1=-0.25+(Math.PI+0.5)*(k+1)/seg,am=(a0+a1)/2;
           const P0=(q,an)=>Wp(q,Math.cos(an)*TUN_R,TUN_CY+Math.sin(an)*TUN_R);const nm=[Math.sin(a.h)*Math.cos(am),-Math.sin(am),-Math.cos(a.h)*Math.cos(am)];

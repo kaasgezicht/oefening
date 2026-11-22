@@ -196,9 +196,10 @@ const FS_TRACK=GLSL_HEAD+GLSL_COMMON+`
 uniform sampler2D uTrackClear;uniform int uPass;uniform vec4 uTint;in vec3 vW;in vec3 vN;in vec2 vUV;flat in float vMat;`+FS_OUT+`
 void main(){if(uPass==1){o=vec4(0);return;}
   vec3 N=normalize(vN);if(!gl_FrontFacing)N=-N;int m=int(vMat+.5);vec3 c;
-  if(m==0){float g=hash12(floor(vUV*7.));c=L(vec3(.66,.62,.58))*(.82+.3*g);}
+  float wr=clamp((vMat-float(m))/.4,0.,1.);/* 4.61 track wear */
+  if(m==0){float g=hash12(floor(vUV*7.));c=L(vec3(.66,.62,.58))*(.82+.3*g);if(wr>0.){float wd=hash12(floor(vUV*3.1)+7.),pt=vnoise(vW.xz*.9);c=mix(c,L(vec3(.40,.35,.29))*(.85+.3*g),wr*.75);c=mix(c,L(mix(vec3(.30,.40,.18),vec3(.46,.42,.22),wd)),smoothstep(.55,.9,pt+wd*.3)*smoothstep(.3,.9,wr)*.85);}}
   else if(m==1)c=L(vec3(.48,.32,.22))*(.9+.2*hash11(floor(vW.x*3.1+vW.z*2.3)));
-  else if(m==2)c=L(N.y>.9?vec3(.86,.86,.88):vec3(.48,.36,.30));
+  else if(m==2){c=L(N.y>.9?vec3(.86,.86,.88):vec3(.48,.36,.30));if(wr>0.)c=mix(c,L(vec3(.52,.30,.17))*(.8+.3*vnoise(vW.xz*4.)),smoothstep(.2,.9,wr)*(N.y>.9?.85:.6));}
   else if(m==3||m==5){vec2 b=vUV*vec2(1.,1.8);b.x+=floor(b.y)*.5;vec2 f=fract(b);float mort=step(.06,f.x)*step(.08,f.y);float r=hash12(floor(b));
     c=L(m==5?vec3(.86,.80,.70):vec3(.80,.70,.58))*(.86+.18*r);c=mix(L(vec3(.62,.56,.48)),c,mort);}
   else if(m==6){vec2 b=vUV*vec2(2.2,4.4);b.x+=floor(b.y)*.5;vec2 f=fract(b);float mort=step(.07,f.x)*step(.12,f.y),r=hash12(floor(b));c=L(mix(vec3(.46,.22,.16),vec3(.58,.31,.22),r))*(.9+.15*hash12(floor(b)+7.));c=mix(L(vec3(.72,.68,.62)),c,mort);}
@@ -569,7 +570,8 @@ precision highp sampler3D;uniform sampler3D uNoise3;uniform sampler2D uDepthCopy
 in vec2 vQ;in float vA;flat in float vType;in vec3 vW;in vec3 vC;in float vSz;flat in float vSeed;in float vU;`+FS_OUT+`
 float lin(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 float hgP(float mu,float g){return(1.-g*g)/pow(1.+g*g-2.*g*mu,1.5);}
-void main(){if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and dark red, glowing (mostly added light) */float r2=dot(vQ,vQ);if(r2>1.)discard;float h=1.-r2,u=vU;vec3 c=mix(vec3(1.,.85,.35),vec3(1.,.38,.06),clamp(u*1.4+r2*.6,0.,1.));c=mix(c,vec3(.35,.08,.02),smoothstep(.55,1.,u));float a=h*h*vA*(1.-u*.6);o=vec4(c*a*1.5,a*.3);return;}
+void main(){if(vType>7.5){/* 4.61 welding sparks: tiny white-hot points cooling to orange */float r2=dot(vQ,vQ);if(r2>1.)discard;vec3 c=mix(vec3(1.,.97,.8),vec3(1.,.45,.08),clamp(vU*1.3,0.,1.));float a=(1.-r2)*(1.-vU);o=vec4(c*a*4.,a*.2);return;}
+  if(vType>4.5&&vType<5.5){/* flame: a hot core fading to orange and dark red, glowing (mostly added light) */float r2=dot(vQ,vQ);if(r2>1.)discard;float h=1.-r2,u=vU;vec3 c=mix(vec3(1.,.85,.35),vec3(1.,.38,.06),clamp(u*1.4+r2*.6,0.,1.));c=mix(c,vec3(.35,.08,.02),smoothstep(.55,1.,u));float a=h*h*vA*(1.-u*.6);o=vec4(c*a*1.5,a*.3);return;}
   if(vType>3.5&&vType<4.5){vec2 q=vQ;float lf=abs(q.x)<.95?pow(abs(q.y)/(1.-q.x*q.x*.9+.0001),1.):9.;if(dot(q*vec2(1.,1.7),q*vec2(1.,1.7))>1.||abs(q.y)>.6*(1.-abs(q.x)*.6))discard;
     vec3 lc=L(fract(vSeed*7.3)<.3?vec3(.85,.30,.08):fract(vSeed*7.3)<.6?vec3(.92,.62,.12):fract(vSeed*7.3)<.85?vec3(.70,.22,.10):vec3(.55,.40,.18));lc*=1.-.25*smoothstep(.02,0.,abs(q.y));
     vec3 col=lc*(uSunCol.rgb*.75+ambient(vec3(0,1,0)));o=vec4(fogc(col,vW)*vA,vA);return;}

@@ -764,6 +764,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     const g=9.81*P.gravityScale,M=tr.veh.reduce((a,v)=>a+v.m,0),loco=tr.veh[0];const v=tr.v;
     if(tr.auto&&!tr.derailed)Net.autoDrive(tr,dt);else{tr.status=tr.derailed?'Derailed':Math.abs(v)<0.1?'Standing':'Driven by you';tr.resB=null;tr.redAt=null;
       if(!tr.derailed&&Track.sigs.length){const sa=Net.sigAhead(tr,Net.scan(tr,v*v/1.2+40));if(sa&&sa.red)tr.redAt=sa.e.d;}}
+    if(!tr.derailed)Upkeep.trainCheck(tr,dt);/* 4.61: worn and broken track, the rail Unimog on the line */
     let Fg=0;let off=0;for(let i=0;i<tr.veh.length;i++){const p=tr.poses&&tr.poses[i];if(p){const gr=P.toyGrades?clamp(p.grade,-0.05,0.05):p.grade;Fg-=tr.veh[i].m*g*gr/Math.sqrt(1+gr*gr);}}
     const vs=Math.max(Math.abs(v),1.2);let Ft=tr.derailed?0:tr.throttle*Math.min(P.locoTE*1000,P.locoPower*1000/vs)*tr.rev*locoSpec(tr).te;
     /* breakdowns and fuel (off by default): a broken-down or empty locomotive has no pull and the train rolls to a stop */
@@ -778,9 +779,10 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     let nv;if(Math.abs(v)<0.05&&Math.abs(Fn)<=resist)nv=0;
     else{const dir=Math.abs(v)<0.05?Math.sign(Fn):Math.sign(v);nv=v+(Fn-dir*resist)/M*dt;if(Math.sign(nv)!==Math.sign(v)&&Math.abs(v)>=0.05&&Math.abs(Fn)<resist)nv=0;}
     if(tr.auto&&tr.vCap!=null&&Math.abs(nv)>tr.vCap+0.05)nv=Math.sign(nv)*Math.max(tr.vCap,Math.abs(v)-1.4*dt);
+    if(tr.wearCap!=null&&Math.abs(nv)>tr.wearCap+0.05)nv=Math.sign(nv)*Math.max(tr.wearCap,Math.abs(v)-1.2*dt);if(tr.upWhy&&(tr.wearCap!=null&&Math.abs(nv)>=tr.wearCap-0.3||tr.redAt!=null&&Math.abs(nv)<0.3))tr.status=tr.upWhy;
     // a red signal is never passed: when the normal brakes are not enough to stop 3 m before it, brake as hard as it takes
     tr.ebrake=false;if(tr.redAt!=null&&!tr.derailed){const s=tr.redAt-3,av=Math.abs(v);if(s<=0.3){if(av>0.05)tr.ebrake=true;nv=0;}else{const need=av*av/(2*s);if(need>0.9&&Math.abs(nv)>0){nv=Math.sign(nv)*Math.max(0,av-need*1.08*dt);tr.ebrake=true;}}
-      if(tr.ebrake){tr.status='Emergency stop: red signal';tr.throttle=0;tr.brake=1;}}
+      if(tr.ebrake){tr.status=tr.upWhy&&!tr.upWhy.startsWith('Slow')?tr.upWhy:'Emergency stop: red signal';tr.throttle=0;tr.brake=1;}}
     tr.acc=(nv-v)/Math.max(dt,1e-4);tr.v=nv;
     // derailment on curves taken too fast (optional, fun)
     if(P.derail&&!tr.derailed&&Rr<1e8&&Math.abs(nv)>Math.sqrt(P.derailAccel*Rr)){tr.derailed=true;tr.derailT=0;UI.toast(`${tr.name} derailed! Too fast for a ${Rr.toFixed(0)} m curve`);Sfx.crash(tr);Log.warn(`${tr.name} derailed at ${(nv*3.6).toFixed(0)} km/h, radius ${Rr.toFixed(0)} m`);}
@@ -789,7 +791,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(Math.abs(ds)>0){const front=ds>0?tr.head:advance(tr.head,-this.length(tr.veh)+COUPLE).pos;// the end leading the motion
       const a=advance(front,ds,tr,true);
       if(a.blocked){if(Math.abs(tr.v)>2.5){UI.toast(`${tr.name} hit the buffers at ${(Math.abs(tr.v)*3.6).toFixed(0)} km/h`);Sfx.crash(tr);tr.shake=0.6;}tr.v=0;}
-      else{if(ds>0)tr.head=a.pos;else tr.head=advance(a.pos,this.length(tr.veh)-COUPLE).pos;tr.dist+=ds;Ledger.add(tr,'km',Math.abs(ds)/1000);}}
+      else{if(ds>0)tr.head=a.pos;else tr.head=advance(a.pos,this.length(tr.veh)-COUPLE).pos;tr.dist+=ds;Upkeep.trainMoved(tr,ds,M);Ledger.add(tr,'km',Math.abs(ds)/1000);}}
     this.place(tr);tr.shake=Math.max(0,tr.shake-dt);
     // exhaust beats: 4 per driving-wheel turn
     const per=2*Math.PI*locoSpec(tr).R/4,b=Math.floor(Math.abs(tr.dist)/per);
@@ -835,6 +837,6 @@ const Particles={max:2600,n:0,arr:null,
   whistle(tr,dt){if(!P.smoke)return;if(Math.random()<dt*30){const S=locoSpec(tr),p=locoPoint(tr,S.whistle[0],S.whistle[1],0);if(p)this.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.5,4+Math.random()*2,(Math.random()-0.5)*0.5,0.7+Math.random()*0.4,0.15,1.3,1);}},
   update(dt){if(!this.arr)return;const a=this.arr,wa=P.windDir*Math.PI/180,wx=Math.cos(wa)*P.windStrength*4,wz=Math.sin(wa)*P.windStrength*4;
     for(let i=0;i<this.n;i++){const o=i*12;a[o+6]+=dt;if(a[o+6]>a[o+7]){const l=(this.n-1)*12;for(let k=0;k<12;k++)a[o+k]=a[l+k];this.n--;i--;continue;}
-      const dr=Math.min(1,dt*(a[o+10]>5.5&&a[o+10]<6.5?0.35:1.4));a[o+3]+=(wx-a[o+3])*dr;a[o+5]+=(wz-a[o+5])*dr;const ty=a[o+10];if(ty>4.5){/* 5 flame, 6 falling water, 7 fire smoke */a[o+4]+=((ty<5.5?3.2:ty<6.5?-9:3.6)-a[o+4])*Math.min(1,dt*(ty<6.5?1.2:0.4));}else a[o+4]+=((ty<0.5?0.9:ty>3.5?-0.85:ty>2.5?0.4:0.6)-a[o+4])*dr*0.8;if(ty>3.5&&ty<4.5){a[o+3]*=0.55;a[o+5]*=0.55;}
+      const dr=Math.min(1,dt*(a[o+10]>5.5&&a[o+10]<6.5?0.35:a[o+10]>7.5?0.15:1.4));a[o+3]+=(wx-a[o+3])*dr;a[o+5]+=(wz-a[o+5])*dr;const ty=a[o+10];if(ty>4.5){/* 5 flame, 6 falling water, 7 fire smoke */a[o+4]+=((ty<5.5?3.2:ty<6.5?-9:ty<7.5?3.6:-12)-a[o+4])*Math.min(1,dt*(ty<6.5?1.2:ty>7.5?2.5:0.4));/* 8 welding sparks: fall */}else a[o+4]+=((ty<0.5?0.9:ty>3.5?-0.85:ty>2.5?0.4:0.6)-a[o+4])*dr*0.8;if(ty>3.5&&ty<4.5){a[o+3]*=0.55;a[o+5]*=0.55;}
       a[o]+=a[o+3]*dt;a[o+1]+=a[o+4]*dt;a[o+2]+=a[o+5]*dt;}}
 };
