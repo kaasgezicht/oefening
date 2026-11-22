@@ -137,3 +137,27 @@ Upkeep.spawn=function(){const c=Cam.target||[0,0,0],X=Life.crossings||[];let x=c
   if(xs){rot=xs.rh;x=xs.x-Math.cos(rot)*9;z=xs.z-Math.sin(rot)*9;}else{const G=Buses.graph(),n=G.nearest(c[0],c[2],3000);if(n>=0){x=G.N[n][0];z=G.N[n][1];const e=G.E[n][0];if(e)rot=Math.atan2(G.N[e[0]][1]-z,G.N[e[0]][0]-x);}}
   const nb=Buses.list.filter(q=>q.type==='unirail').length+1,b=Buses.make(false,`Rail Unimog ${nb}`,[]);b.type='unirail';b.goods=false;b.stops=[];b.allStops=false;b.x=x;b.z=z;b.rot=rot;b.st='dwell';b.v=0;this.ensure(b);Buses.list.push(b);
   RoadVeh.sel=b;RoadVeh.panel(true);RoadVeh.refresh();Cam.setMode('free');Cam.flyTo([x,RoadVeh.gy(x,z),z],30);return b;};
+/* ---- 4.62: sparks from worn rails (the user: "trains driving over worn tracks should produce progressively more sparks on the rail
+   while driving"): from 25 % wear, more the more worn and the faster, at the wheels of every vehicle over a worn piece */
+Upkeep.sparks=function(tr,dt){if(!this.on()||!tr.poses||Math.abs(tr.v)<1.5)return;const cp=Cam.pos||[0,0,0];if(!tr.poses[0]||Math.hypot(tr.poses[0].c[0]-cp[0],tr.poses[0].c[2]-cp[2])>700)return;
+  const sp=Math.min(1,0.4+Math.abs(tr.v)/15);/* worn track keeps trains slow, so the sparks show at low speed too */let off=0;
+  for(let i=0;i<tr.veh.length;i++){const v=tr.veh[i],p=tr.poses[i];if(!p){off+=v.len+COUPLE;continue;}const pos=advance(tr.head,-(off+v.len/2)).pos,s=segById(pos.sid);off+=v.len+COUPLE;if(!s)continue;
+    const w=clamp(((s.wear||0)-0.25)/0.75,0,1);if(w<=0)continue;const rate=(0.15+0.85*w*w)*sp*110;let n=Math.floor(rate*dt+Math.random());n=Math.min(n,8);
+    const X=p.X,m=p.m,Z=[m[8],m[9],m[10]];
+    for(let k=0;k<n;k++){const a=(Math.random()<0.5?-1:1)*(v.len*0.32),sd=Math.random()<0.5?-1:1,x=p.c[0]+X[0]*a+Z[0]*sd*GAUGE/2,y=p.c[1]+0.05,z=p.c[2]+X[2]*a+Z[2]*sd*GAUGE/2,back=-Math.sign(tr.v)*(2+Math.random()*4);
+      Particles.spawn(x,y,z,X[0]*back+(Math.random()-0.5)*1.5+Z[0]*sd*1.5,0.6+Math.random()*1.8,X[2]*back+(Math.random()-0.5)*1.5+Z[2]*sd*1.5,0.3+Math.random()*0.4*(0.5+w),0.09,0.05,8);}}};
+/* ---- 4.62: tapping the rails (the user: tapping the track shows "Warning: track health x %"; tapping that explains what to do) */
+Upkeep.tapTrack=function(sx,sy){if(!this.on())return false;const h=Cam.pick(sx,sy);if(!h)return false;const r=Math.max(4,Cam.dist*0.012);let best=null,bd=r;
+  for(const s of Track.segs){if(s.pend)continue;const n=segNearest(s,h[0],h[2]);if(!n||n[0]<-1||n[0]>s.L+1)continue;if(n[1]<bd){bd=n[1];best=s;}}
+  if(!best)return false;const hp=Math.round((1-(best.wear||0))*100),lim=this.limitOf(best);let el=$('#trackHp');
+  if(!el){el=document.createElement('button');el.id='trackHp';document.body.appendChild(el);el.onclick=()=>{el.hidden=true;this.explain();};}
+  const bad=best.broken||hp<=50,warn=hp<80;el.className=bad?'bad':warn?'warn':'ok';
+  el.innerHTML=`${best.broken?'⛔ Broken track: line closed':warn?`⚠ Warning: track health ${hp} %`:`✔ Track health ${hp} %`}${lim&&!best.broken?` · trains ${Math.round(lim*3.6)} km/h`:''}<small>Tap for what to do</small>`;
+  el.style.left=Math.round(clamp(sx,90,innerWidth-90))+'px';el.style.top=Math.round(clamp(sy-70,60,innerHeight-120))+'px';el.hidden=false;clearTimeout(this._hpT);this._hpT=setTimeout(()=>{el.hidden=true;},7000);return true;};
+Upkeep.explain=function(){let el=$('#trackHelp');if(!el){el=document.createElement('div');el.id='trackHelp';document.body.appendChild(el);el.addEventListener('click',e=>{if(e.target.closest('[data-a="x"]'))el.hidden=true;else if(e.target.closest('[data-a="store"]')){el.hidden=true;Store.open();}});}
+  const st=this.stats(),own=this.railVehs().length;
+  el.innerHTML=`<div class="th-h"><b>Looking after your track</b><button data-a="x" aria-label="Close">✕</button></div>
+  <p>Every train wears the rails and ballast it runs over: heavier and longer trains more, and track also ages slowly by itself. Your network is now at <b>${Math.round((1-st.wear)*100)} %</b> health on average${st.broken?`, with <b>${st.broken}</b> broken piece${st.broken>1?'s':''}`:''}.</p>
+  <h4>What happens if you don't</h4><ul><li>Below <b>50 %</b> health trains must slow to <b>60 km/h</b> there,</li><li>below <b>30 %</b> to <b>40 km/h</b>, below <b>15 %</b> to <b>20 km/h</b>: worn rails throw sparks under the wheels.</li><li>At <b>0 %</b> the track <b>breaks</b>: the line is closed there and no train passes until it is repaired. Trains queue, passengers and goods wait.</li></ul>
+  <h4>How to maintain it</h4><ol><li>Buy a <b>Rail maintenance Unimog</b> in the Store${own?` (you have ${own})`:''}.</li><li>Tap it, choose <b>Drive it</b>, and drive onto a <b>level crossing</b> (or along track lying level with the ground).</li><li>Tap <b>⬇ Rail wheels</b>, then <b>🔧 Repair track</b>: it works along the whole line, renewing the ballast with its backhoe and welding the rails, until all of it is as new. Trains wait for it or pass while it steps aside.</li><li>With the <b>Automatic track maintenance</b> upgrade, a rail Unimog left on the rails looks after its line by itself.</li></ol>
+  <p class="th-n">Track wear can be switched off in Settings → Trains.</p><div class="th-b">${own?'':'<button data-a="store" class="go">Open the Store</button>'}<button data-a="x">OK</button></div>`;el.hidden=false;};

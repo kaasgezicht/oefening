@@ -130,7 +130,7 @@ function initInput(cv){
     if(MapView.on){if(pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup')MapView.tap(e.clientX,e.clientY);return;}
     if(pts.size===0&&moved<12&&now-downAt<300){
       if(now-lastTap<320&&Math.hypot(e.clientX-lastTapPos[0],e.clientY-lastTapPos[1])<30){const h=Cam.pick(e.clientX,e.clientY);if(h){Cam.flyTo(h);Log.info(`fly to ${h.map(v=>v.toFixed(0)).join(',')}`);}lastTap=0;}
-      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}}}};
+      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}else Upkeep.tapTrack(e.clientX,e.clientY);/* 4.62: track health */}}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('wheel',e=>{e.preventDefault();if(Cam.mode==='plane'&&Plane.on){Plane.pinch(-e.deltaY*0.0012);return;}Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});

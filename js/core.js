@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.61.0 (Unimog front rebuilt from the photos, rail maintenance Unimog with a backhoe, track wear (off by default))';
+const VERSION='4.62.0 (sparks from worn rails, track health on a tap, a fuller Unimog cab, glowing algae on summer nights)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -143,6 +143,7 @@ def('timeOfDay',{tab:'sky',label:'Time of day',min:0,max:24,step:0.05,def:10.5,u
 def('timeSpeed',{tab:'sky',label:'Time speed',min:0,max:600,step:1,def:30,unit:'×',apply:'live'});
 def('season',{tab:'sky',label:'Season',kind:'select',options:[['spring','Spring'],['summer','Summer'],['autumn','Autumn'],['winter','Winter']],def:'summer',apply:'live'});
 def('snowRate',{tab:'sky',label:'Snow build-up speed',min:0.2,max:4,step:0.1,def:1,unit:'×',apply:'live'});
+def('bioGlow',{tab:'sky',label:'Glowing algae in the sea on some summer nights',kind:'check',def:1,apply:'live'});
 def('autoSeason',{tab:'sky',label:'Seasons change by themselves',kind:'check',def:1,apply:'live'});
 def('daysPerSeason',{tab:'sky',label:'Days per season',min:1,max:10,step:1,def:1,apply:'live'});
 def('weather',{tab:'sky',label:'Weather',kind:'select',options:[['auto','Changes by itself'],['clear','Clear'],['fair','Fair'],['cloudy','Cloudy'],['overcast','Overcast'],['mist','Mist'],['rain','Rain'],['storm','Thunderstorm'],['snow','Snow']],def:'auto',apply:'live'});

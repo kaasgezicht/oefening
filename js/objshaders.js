@@ -426,7 +426,7 @@ void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5)
 const FS_WATER=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in float vL;in float vFall;in vec2 vP;in float vLake;in float vH;in vec3 vSw;uniform vec4 uFlood;uniform vec4 uFallP[8];uniform vec4 uSwell;
 precision highp sampler2DArray;uniform sampler2DArray uWDisp;uniform sampler2DArray uWDeriv;uniform sampler2D uSceneCol;uniform sampler2D uDepthCopy;
-uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;uniform vec4 uHole[4];uniform vec2 uHoleS;`+FS_OUT+`
+uniform vec4 uWaveA,uWL,uLakeP,uRefl;uniform vec2 uNF;uniform sampler2D uPatch;uniform float uDbg;uniform vec4 uHole[4];uniform vec2 uHoleS;uniform vec4 uBioP;uniform vec4 uBio[8];`+FS_OUT+`
 float linZ(float d){float z=d*2.-1.;return 2.*uNF.x*uNF.y/(uNF.y+uNF.x-z*(uNF.y-uNF.x));}
 // screen-space reflection: march the reflected ray against the depth copy, take the colour from the pre-water scene copy
 vec4 ssr(vec3 P,vec3 Rd){int n=int(uRefl.x);float st=1.5,t=fract(52.98*fract(dot(gl_FragCoord.xy,vec2(.0671,.00584))))*1.5;
@@ -514,6 +514,14 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
     float back=pow(clamp(dot(-V.xz/max(length(V.xz),1e-4),normalize(uSunDir.xz+1e-5)),0.,1.),3.);col+=L(vec3(.06,.35,.30))*uSunCol.rgb*clamp(vH*.7,0.,1.)*back*(1.-F)*.6*lkw;}// light through crests
   fo*=1.-iceF;
   col=mix(col,lightD(L(vec3(.94,.96,.97)),vec3(0,1,0),W,1.,sh),fo*.85);a=max(a,fo*.9);
+  /* 4.62 bioluminescent algae (bio.js): patches along the coast; by day rust-brown streaks, at night blue light where the water moves */
+  if((uBioP.x>.01||uBioP.y>.01)&&uSeaL>0.&&abs(vL-uSeaL)<1.){vec2 bq=W.xz/420.+uBioP.zw;float pm=(uBioP.x>1.5?1.:smoothstep(.5,.72,vnoise(bq)*.7+vnoise(bq*4.3+3.7)*.3))*smoothstep(45.,8.,depthT)*(1.-iceF);/* (glow > 1: the whole coast, for tests) */
+    if(pm>.001){float ds=0.;for(int i=0;i<8;i++){vec4 e=uBio[i];if(e.w<=0.)continue;float d=length(W.xz-e.xy);if(d>e.z)continue;ds=max(ds,e.w*smoothstep(e.z,e.z*.25,d+(n1-.5)*e.z*.7)*(.55+.45*lace));}
+      vec2 sc=W.xz*1.7;vec2 ci=floor(sc),cf=fract(sc)-.5-(vec2(hash12(ci),hash12(ci+7.3))-.5)*.6;float sk=smoothstep(.09,.0,length(cf))*step(.82,hash12(ci+floor(t*1.5+hash12(ci)*9.)));/* round pin-pricks of light that come and go */
+      float sw=smoothstep(3.2,.2,dsh+(n1-.5)*1.2)*(.55+.45*sin(t*1.4-dsh*2.2+n1*4.)),/* the swash along the beach, pulsing as the waves break */
+        crest=smoothstep(.55,.9,wf)*.6,g=(fo*1.2+sw*.9+ds*1.4+crest+sk*(.25+crest+sw))*pm*min(uBioP.x,1.);
+      col+=L(vec3(.08,.62,1.))*g*2.6;a=max(a,min(1.,g*1.2));
+      float rt=pm*uBioP.y*smoothstep(.4,.75,n1*.6+vnoise(W.xz/35.+uBioP.zw)*.4+.1)*.4;col=mix(col,L(vec3(.40,.22,.12))*(.55+.45*sh)*(ambient(vec3(0,1,0))+uSunCol.rgb*max(uSunDir.y,0.)*.6),rt);a=max(a,rt*.9);/* by day: rust-brown streaks (a red tide) */}}
   // waterfall curtain: streaks of aerated water sliding down the steep sheet
   float cf=vFall*smoothstep(.15,.45,sp)*(1.-iceF*.7);if(cf>.01){vec2 pp=vec2(-fdir.y,fdir.x);float u=dot(W.xz,pp);
     float st=vnoise(vec2(u*1.6,W.y*.22+t*3.2))*.6+vnoise(vec2(u*4.2+3.,W.y*.55+t*5.5))*.4;

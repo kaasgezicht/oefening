@@ -799,6 +799,7 @@ const Trains={list:[],sel:-1,parts:[],nextId:1,
     if(Math.abs(tr.v)<0.2&&Math.random()<dt*2)Particles.puff(tr,0.05);
     if(tr.throttle>0.15&&Math.abs(tr.v)<4&&!tr.derailed)Particles.drain(tr,dt);
     if(tr.whistle)Particles.whistle(tr,dt);
+    Upkeep.sparks(tr,dt);/* 4.62: worn rails spark under the wheels */
     // rail joints every 18 m: a click under every axle
     const j=Math.floor(tr.dist/18);if(j!==tr.joint){tr.joint=j;Sfx.joints(tr);}
     Sfx.trainLoop(tr,Rr);

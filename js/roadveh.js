@@ -152,7 +152,7 @@ const RVMesh=(()=>{
   // (BD-ZT-26 with its lamps and horns, plus the mesh guard, side step and toolbox of the restored one). Proportions from the photos:
   // a short, almost flat bonnet ending in a tall black grille about 1 m ahead of the front axle; a tall square cab whose doors start
   // 1.4 m up (the cab sits above the wheels); windscreen base just behind the front axle; wheels 1.12 m; body 2.0 m wide.
-  const UM={ax:[1.405,-1.405],FR:2.42,C0:1.38,C1:-0.3,cb:1.38,ct:2.78,cw:1.0,OR:[0.95,0.42,0.06],ORd:[0.78,0.33,0.04],YL:[0.96,0.78,0.1],RDc:[0.85,0.1,0.08],AMB:[1,0.55,0.08],WL:[1,0.97,0.9]};
+  const UM={ax:[1.405,-1.405],FR:2.5,C0:1.38,C1:-0.12,cb:1.42,ct:2.74,cw:1.0,OR:[0.95,0.42,0.06],ORd:[0.78,0.33,0.04],YL:[0.96,0.78,0.1],RDc:[0.85,0.1,0.08],AMB:[1,0.55,0.08],WL:[1,0.97,0.9]};
   /* chassis, bonnet, grille, bumper, cab, lamps, mirrors, roof equipment, arches: everything in front of the load area (o.rail: the
      rail version: warning stripes on the bumper, no implement plate, its rail wheels are drawn apart) */
   const umFront=(B,o)=>{const {ax,FR,C0,C1,cb,ct,cw,OR,ORd,YL,RDc,AMB,WL}=UM;
@@ -163,35 +163,37 @@ const RVMesh=(()=>{
     tube(B,[-0.2,0.85,-0.55],[-2.0,0.88,-0.7],0.04,0.04,8,[0.22,0.2,0.18],MATTE);box(B,[1.9,1.05,0],[0.5,0.14,0.5],[0.1,0.1,0.11],MATTE);/* engine sump between the frame rails */
     // ---- the bonnet: almost flat (1.92 m at the windscreen, 1.80 at the front), square with rounded edges, sides down to 1.2 m
     const top=x=>lerp(1.92,1.8,(x-C0)/(FR-C0)),bw=0.93;
-    surf(B,(x,t)=>{const a=t*Math.PI,c=Math.cos(a),sn=Math.sin(a),e=0.2,tp=top(x);return[x,1.2+(tp-1.2)*Math.pow(Math.max(0,sn),e),-bw*Math.sign(c)*Math.pow(Math.abs(c),e)];},range(C0-0.02,FR-0.03,6),range(0,1,20),()=>[OR,PAINT]);
-    surf(B,(t,s)=>{const a=t*Math.PI,c=Math.cos(a),sn=Math.sin(a),e=0.2,tp=top(FR),r=0.03*s;return[FR-0.03+r,1.2+(tp-1.2-r)*Math.pow(Math.max(0,sn),e),-(bw-r)*Math.sign(c)*Math.pow(Math.abs(c),e)];},range(0,1,20),[0,1],()=>[OR,PAINT]);/* the rounded front lip */
-    quad(B,[FR,1.08,-bw],[FR,1.08,bw],[FR,1.74,bw],[FR,1.74,-bw],OR,PAINT);
+    surf(B,(x,t)=>{const a=t*Math.PI,c=Math.cos(a),sn=Math.sin(a),e=0.2,tp=top(x);return[x,1.44+(tp-1.44)*Math.pow(Math.max(0,sn),e),-bw*Math.sign(c)*Math.pow(Math.abs(c),e)];},range(C0-0.02,FR-0.03,6),range(0,1,20),()=>[OR,PAINT]);
+    surf(B,(t,s)=>{const a=t*Math.PI,c=Math.cos(a),sn=Math.sin(a),e=0.2,tp=top(FR),r=0.03*s;return[FR-0.03+r,1.44+(tp-1.44-r)*Math.pow(Math.max(0,sn),e),-(bw-r)*Math.sign(c)*Math.pow(Math.abs(c),e)];},range(0,1,20),[0,1],()=>[OR,PAINT]);/* the rounded front lip */
+    quad(B,[FR,1.24,-bw],[FR,1.24,bw],[FR,1.74,bw],[FR,1.74,-bw],OR,PAINT);
     // the grille: a tall black panel with horizontal ribs, the star in its ring at the top, amber indicators at the upper corners
-    box(B,[FR+0.005,1.39,0],[0.02,0.28,0.72],BK,MATTE);for(let k=0;k<8;k++)box(B,[FR+0.03,1.16+k*0.062,0],[0.01,0.018,0.7],[0.13,0.13,0.14],PAINT);
-    tube(B,[FR+0.03,1.57,0],[FR+0.05,1.57,0],0.105,0.105,24,CH,CHROME,true);for(const a of [Math.PI/2,Math.PI/2+2.094,Math.PI/2+4.189])box(B,[FR+0.06,1.57+Math.sin(a)*0.045,Math.cos(a)*0.045],[0.006,0.05*Math.abs(Math.sin(a))+0.01,0.05*Math.abs(Math.cos(a))+0.01],[0.15,0.15,0.16],MATTE);
-    box(B,[FR+0.04,1.22,-0.42],[0.004,0.025,0.16],[0.62,0.62,0.64],CHROME);/* the UNIMOG lettering */
-    for(const sd of [-1,1]){box(B,[FR+0.01,1.62,sd*0.83],[0.02,0.05,0.085],AMB,4);
-      box(B,[C0+0.32,1.58,sd*0.94],[0.1,0.14,0.012],BK,MATTE);for(let k=0;k<4;k++)box(B,[C0+0.32,1.48+k*0.065,sd*0.95],[0.09,0.008,0.004],[0.2,0.2,0.2],MATTE);/* the air intake on the bonnet side */}
+    box(B,[FR+0.005,1.47,0],[0.02,0.2,0.74],BK,MATTE);for(let k=0;k<7;k++)box(B,[FR+0.03,1.3+k*0.052,0],[0.01,0.016,0.72],[0.13,0.13,0.14],PAINT);
+    tube(B,[FR+0.03,1.5,0],[FR+0.05,1.5,0],0.1,0.1,24,CH,CHROME,true);for(const a of [Math.PI/2,Math.PI/2+2.094,Math.PI/2+4.189])box(B,[FR+0.06,1.5+Math.sin(a)*0.045,Math.cos(a)*0.045],[0.006,0.05*Math.abs(Math.sin(a))+0.01,0.05*Math.abs(Math.cos(a))+0.01],[0.15,0.15,0.16],MATTE);
+    box(B,[FR+0.04,1.33,-0.45],[0.004,0.022,0.15],[0.62,0.62,0.64],CHROME);/* the UNIMOG lettering */
+    for(const sd of [-1,1]){box(B,[FR+0.01,1.62,sd*0.85],[0.02,0.045,0.075],AMB,4);box(B,[FR-0.05,1.62,sd*0.935],[0.06,0.045,0.008],AMB,4);/* indicators round the corners */
+      box(B,[C0+0.3,1.6,sd*0.936],[0.11,0.13,0.008],BK,MATTE);ball(B,[C0+0.3,1.6,sd*0.93],0.13,[0.85,1,0.08],BK,MATTE,12);/* the air intake on the bonnet side */}
     box(B,[FR-0.25,1.82,0],[0.05,0.012,0.18],[0.1,0.1,0.1],MATTE);/* bonnet handle */
     // ---- front bumper: black, square headlamps in its ends, the yellow plate left of centre; the implement plate with its hooks
-    box(B,[FR+0.12,0.95,0],[0.14,0.15,1.02],BK,MATTE);
-    for(const sd of [-1,1]){box(B,[FR+0.26,0.95,sd*0.76],[0.012,0.085,0.13],[0.3,0.3,0.32],CHROME);box(B,[FR+0.27,0.95,sd*0.76],[0.006,0.07,0.11],WL,4);box(B,[FR+0.2,0.76,sd*0.5],[0.04,0.05,0.04],RDc,MATTE);/* tow eyes */}
-    if(!o.rail){box(B,[FR+0.27,0.95,-0.32],[0.004,0.055,0.24],YL,PAINT);box(B,[FR+0.273,0.95,-0.32],[0.002,0.05,0.22],[0.08,0.08,0.08],3);
-      box(B,[FR+0.33,0.78,0.1],[0.04,0.25,0.3],[0.1,0.1,0.11],MATTE);for(const z of [-0.12,0.32])box(B,[FR+0.4,0.62,z],[0.05,0.07,0.04],[0.13,0.13,0.14],MATTE);tube(B,[FR+0.36,0.68,0.1],[FR+0.52,0.66,0.1],0.035,0.035,8,BK,MATTE);}
-    else for(let k=0;k<8;k++){const z0=-0.6+k*0.15;quad(B,[FR+0.262,0.82,z0],[FR+0.262,0.82,z0+0.075],[FR+0.262,1.08,z0+0.15],[FR+0.262,1.08,z0+0.075],k%2?[0.95,0.95,0.95]:RDc,4);}/* red/white warning stripes */
+    box(B,[FR+0.12,1.08,0],[0.14,0.2,1.02],BK,MATTE);box(B,[FR+0.02,0.86,0],[0.1,0.04,0.9],BK,MATTE);
+    for(const sd of [-1,1]){box(B,[FR+0.26,1.1,sd*0.74],[0.012,0.1,0.14],[0.3,0.3,0.32],CHROME);box(B,[FR+0.27,1.1,sd*0.74],[0.006,0.085,0.12],WL,4);box(B,[FR+0.2,0.86,sd*0.5],[0.04,0.05,0.04],RDc,MATTE);/* tow eyes */
+      quad(B,[FR+0.262,0.96,sd*0.93],[FR+0.262,0.96,sd*0.99],[FR+0.262,1.12,sd*0.99],[FR+0.262,1.12,sd*0.93],[0.95,0.95,0.95],4);/* the white marker plates at the bumper ends */}
+    if(!o.rail){box(B,[FR+0.27,1.08,-0.36],[0.004,0.055,0.22],YL,PAINT);box(B,[FR+0.273,1.08,-0.36],[0.002,0.05,0.2],[0.08,0.08,0.08],3);
+      box(B,[FR+0.33,0.9,0.12],[0.04,0.26,0.3],[0.1,0.1,0.11],MATTE);for(const z of [-0.1,0.34])box(B,[FR+0.4,0.72,z],[0.05,0.07,0.04],[0.13,0.13,0.14],MATTE);tube(B,[FR+0.36,0.78,0.12],[FR+0.52,0.76,0.12],0.035,0.035,8,BK,MATTE);}
+    else for(let k=0;k<8;k++){const z0=-0.6+k*0.15;quad(B,[FR+0.262,0.94,z0],[FR+0.262,0.94,z0+0.075],[FR+0.262,1.2,z0+0.15],[FR+0.262,1.2,z0+0.075],k%2?[0.95,0.95,0.95]:RDc,4);}/* red/white warning stripes */
     // ---- the cab: square, tall, rounded corners; windscreen, door windows, two rear windows
-    rbox(B,[(C0+C1)/2,(cb+ct)/2,0],[(C0-C1)/2,(ct-cb)/2,cw],0.1,OR,PAINT,(p)=>{const fx=p[0]>C0-0.04&&p[1]>1.96&&p[1]<2.7&&Math.abs(p[2])<0.93,side=Math.abs(Math.abs(p[2])-cw)<0.04&&p[1]>1.98&&p[1]<2.64&&p[0]<1.28&&p[0]>0.5,
+    rbox(B,[(C0+C1)/2,(cb+ct)/2,0],[(C0-C1)/2,(ct-cb)/2,cw],0.1,OR,PAINT,(p)=>{const fx=p[0]>C0-0.04&&p[1]>1.96&&p[1]<2.7&&Math.abs(p[2])<0.93,side=Math.abs(Math.abs(p[2])-cw)<0.04&&p[1]>1.98&&p[1]<2.62&&p[0]<1.27&&p[0]>0.4,
       back=p[0]<C1+0.05&&p[1]>2.08&&p[1]<2.56&&Math.abs(p[2])>0.07&&Math.abs(p[2])<0.82;return fx||side||back?[[0.1,0.12,0.14],GLASS]:[OR,PAINT];},40);
-    for(const sd of [-1,1]){box(B,[0.42,2.04,sd*1.003],[0.008,0.64,0.004],ORd,PAINT);box(B,[1.3,1.66,sd*1.003],[0.008,0.27,0.004],ORd,PAINT);box(B,[0.86,1.43,sd*1.003],[0.44,0.008,0.004],ORd,PAINT);/* door seams */
-      box(B,[0.56,1.93,sd*1.012],[0.07,0.018,0.012],[0.1,0.1,0.1],MATTE);/* handle */box(B,[0.86,1.97,sd*1.006],[0.38,0.012,0.004],[0.12,0.12,0.12],MATTE);/* window seal */
-      box(B,[0.85,1.18,sd*1.0],[0.2,0.02,0.1],BK,MATTE);box(B,[0.85,0.8,sd*1.0],[0.2,0.02,0.1],BK,MATTE);box(B,[0.66,1.0,sd*1.0],[0.015,0.2,0.015],BK,MATTE);box(B,[1.04,1.0,sd*1.0],[0.015,0.2,0.015],BK,MATTE);/* steps */}
+    for(const sd of [-1,1]){const zs=sd*1.004;box(B,[0.31,1.97,zs],[0.008,0.67,0.004],ORd,PAINT);box(B,[1.33,1.62,zs],[0.008,0.2,0.004],ORd,PAINT);box(B,[0.48,1.31,zs],[0.17,0.008,0.004],ORd,PAINT);/* door seams: rear edge, front edge under the A-pillar, the bottom behind the arch */
+      box(B,[0.42,1.92,sd*1.014],[0.07,0.018,0.012],[0.1,0.1,0.1],MATTE);/* handle */box(B,[0.84,1.975,sd*1.006],[0.44,0.014,0.004],[0.08,0.08,0.08],MATTE);box(B,[0.84,2.625,sd*1.006],[0.44,0.012,0.004],[0.08,0.08,0.08],MATTE);/* window rubber */
+      box(B,[1.13,2.3,sd*1.008],[0.012,0.32,0.004],[0.08,0.08,0.08],MATTE);/* the vent window's bar */box(B,[0.41,2.3,sd*1.006],[0.012,0.33,0.004],[0.08,0.08,0.08],MATTE);
+      box(B,[0.98,1.68,sd*1.006],[0.33,0.006,0.003],ORd,PAINT);/* the crease along the door */}
     // windscreen frame and wipers; the cab inside: floor, seats, wheel, a driver in hi-vis
-    box(B,[C0+0.01,2.71,0],[0.012,0.015,0.95],ORd,PAINT);box(B,[C0+0.01,1.95,0],[0.012,0.015,0.95],ORd,PAINT);for(const z of [-0.45,0.4])tube(B,[C0+0.04,1.97,z],[C0+0.05,2.22,z+0.32],0.008,0.008,4,BK,MATTE);
+    box(B,[C0+0.008,2.71,0],[0.01,0.014,0.94],[0.08,0.08,0.08],MATTE);box(B,[C0+0.008,1.955,0],[0.01,0.012,0.94],[0.08,0.08,0.08],MATTE);for(const sd of [-1,1])box(B,[C0+0.008,2.33,sd*0.935],[0.01,0.38,0.012],[0.08,0.08,0.08],MATTE);/* the windscreen rubber */for(const z of [-0.45,0.4])tube(B,[C0+0.04,1.97,z],[C0+0.05,2.22,z+0.32],0.008,0.008,4,BK,MATTE);
     box(B,[0.55,1.48,0],[0.8,0.02,0.95],[0.12,0.12,0.12],INT);for(const z of [-0.5,0.45])box(B,[0.05,1.78,z],[0.22,0.28,0.25],[0.2,0.2,0.22],INT);tube(B,[C0-0.22,2.08,-0.5],[C0-0.36,1.8,-0.5],0.02,0.02,6,BK,MATTE);tube(B,[C0-0.24,2.12,-0.5],[C0-0.2,2.05,-0.5],0.19,0.19,16,BK,MATTE);
     person(B,0.22,1.58,-0.5,[0.95,0.75,0.1],[0.95,0.75,0.1]);
     // the snorkel up the right A-pillar (its intake on the bonnet side), round spot lamps on the bonnet's rear corners, tall mirrors on arms
     tube(B,[C0+0.05,1.5,1.03],[C0+0.05,3.0,1.03],0.075,0.075,12,BK,MATTE,true);ball(B,[C0+0.05,3.05,1.03],0.12,[1,0.45,1],BK,MATTE,12);box(B,[C0+0.12,1.55,0.98],[0.12,0.16,0.05],BK,MATTE);
-    for(const sd of [-1,1]){const lp=[C0+0.16,2.02,sd*0.8];box(B,add(lp,[-0.06,-0.08,0]),[0.03,0.04,0.02],BK,MATTE);tube(B,add(lp,[-0.1,0,0]),lp,0.085,0.095,14,BK,PAINT,true);surf(B,(r,a)=>[lp[0]+0.01+0.012*(1-r/0.08),lp[1]+Math.sin(a)*r,lp[2]+Math.cos(a)*r],[0,0.045,0.08],range(0,Math.PI*2,14),()=>[[1,0.88,0.6],4]);
+    for(const sd of [-1,1]){const lp=[C0+0.2,2.05,sd*0.86];box(B,add(lp,[-0.05,-0.1,0]),[0.03,0.05,0.02],BK,MATTE);tube(B,add(lp,[-0.12,0,0]),lp,0.1,0.11,16,BK,PAINT,true);tube(B,add(lp,[-0.005,0,0]),add(lp,[0.012,0,0]),0.112,0.112,16,CH,CHROME);surf(B,(r,a)=>[lp[0]+0.01+0.012*(1-r/0.08),lp[1]+Math.sin(a)*r,lp[2]+Math.cos(a)*r],[0,0.045,0.08],range(0,Math.PI*2,14),()=>[[1,0.88,0.6],4]);
       tube(B,[C0-0.06,2.5,sd*1.0],[C0+0.06,2.5,sd*1.3],0.018,0.018,6,BK,MATTE);tube(B,[C0-0.06,1.98,sd*1.0],[C0+0.06,2.05,sd*1.3],0.018,0.018,6,BK,MATTE);box(B,[C0+0.08,2.27,sd*1.32],[0.035,0.26,0.13],BK,MATTE);box(B,[C0+0.12,2.27,sd*1.32],[0.004,0.23,0.11],[0.55,0.62,0.68],CHROME);}
     // ---- the roof: a rail across the front with the chrome air horns and an amber beacon (right); across the back two work lamps, a beacon (left), marker lamps
     box(B,[C0-0.15,ct+0.06,0],[0.025,0.025,0.95],[0.2,0.2,0.2],CHROME);box(B,[C1+0.18,ct+0.06,0],[0.025,0.025,0.95],[0.2,0.2,0.2],CHROME);
@@ -202,14 +204,26 @@ const RVMesh=(()=>{
     for(const z of [-0.35,0.35]){const wl=[C1+0.2,ct+0.2,z];tube(B,add(wl,[0,-0.12,0]),wl,0.02,0.02,6,BK,MATTE);tube(B,add(wl,[0.12,0,0]),wl,0.09,0.1,14,BK,PAINT,true);surf(B,(r,a)=>[wl[0]-0.01,wl[1]+Math.sin(a)*r,wl[2]+Math.cos(a)*r],[0,0.05,0.09],range(0,Math.PI*2,12),()=>[WL,4]);}
     for(const sd of [-1,1])box(B,[C1+0.18,ct+0.12,sd*0.6],[0.03,0.025,0.04],sd<0?[0.9,0.05,0.04]:AMB,4);tube(B,[C0-0.6,ct,0.5],[C0-0.6,ct+0.9,0.5],0.008,0.004,4,BK,MATTE);/* aerial */
     // ---- arches: big black flared fenders over the front wheels (on the body), black guards at the back, mud flaps
-    for(const sd of [-1,1]){surf(B,(a,z)=>{const r=0.74,x=ax[0]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.8,1.1,z)];},range(0.1,Math.PI-0.05,16),range(0,1,3),()=>[BK,MATTE]);
+    /* the orange body comes down to 1.28 m all along (bonnet sides and the door), cut round the front wheel by the arch (top 1.44 m) */
+    const arch=x=>{const d=x-ax[0],r=0.76;return Math.abs(d)<r?0.72+Math.sqrt(r*r-d*d)*0.95:0;},bot=x=>Math.max(1.28,arch(x));
+    for(const sd of [-1,1]){for(const [x0,x1,zz] of [[C1+0.04,C0,cw-0.002],[C0,FR-0.03,bw-0.002]])surf(B,(x,s)=>[x,lerp(bot(x),1.47,s),sd*zz],range(x0,x1,28),sd>0?[0,1]:[1,0],()=>[OR,PAINT]);
+      quad(B,[C0,bot(C0),sd*bw],[C0,bot(C0),sd*cw],[C0,1.47,sd*cw],[C0,1.47,sd*bw],OR,PAINT);/* the step out from the bonnet side to the cab side */
+      // the black flared lip round the arch, and the dark wheel well inside it
+      surf(B,(a,z)=>{const r=0.76+0.05*z,x=ax[0]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.9,1.07,z)];},range(0.06,Math.PI-0.06,18),range(0,1,3),()=>[BK,MATTE]);
+      surf(B,(a,z)=>{const r=0.74,x=ax[0]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.5,0.92,z)];},range(0.06,Math.PI-0.06,14),range(0,1,2),()=>[[0.02,0.02,0.02],MATTE]);
+      quad(B,[ax[0]-0.74,0.72,sd*0.5],[ax[0]+0.74,0.72,sd*0.5],[ax[0]+0.74,1.45,sd*0.5],[ax[0]-0.74,1.45,sd*0.5],[0.02,0.02,0.02],MATTE);/* the well's inner wall */
+      // under the door, behind the wheel: the black step box with two treads (the cab no longer floats), the cab's floor tub over the frame
+      box(B,[0.29,1.03,sd*0.8],[0.34,0.26,0.19],BK,MATTE);for(const [y,dz] of [[0.78,0.07],[1.04,0.04]])box(B,[0.3,y,sd*(0.99+dz)],[0.26,0.018,0.08],[0.16,0.16,0.17],CHROME);
+      box(B,[-0.02,1.1,sd*0.98],[0.012,0.2,0.012],BK,MATTE);}
+    box(B,[(C0+C1)/2,1.3,0],[(C0-C1)/2-0.04,0.16,0.9],BK,MATTE);
+    for(const sd of [-1,1]){
       surf(B,(a,z)=>{const r=0.74,x=ax[1]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.8,1.1,z)];},range(0.2,Math.PI-0.2,12),range(0,1,2),()=>[BK,MATTE]);
       box(B,[ax[1]-0.72,0.58,sd*0.96],[0.015,0.3,0.15],BK,MATTE);}
   };
   // the tipper (BD-ZT-26): ribbed drop sides, chevron boards on the tailgate; the mesh guard over the headboard and the side step and
   // toolbox of the restored one; tail lamps, plate, rear power take-off
   const unimog=()=>{const B=vmesh(),{ax,OR,ORd,YL,RDc,AMB}=UM;umFront(B,{});
-    const B0=-0.44,B1=-2.52,bw=1.04,fy=1.5,sh=0.42;box(B,[(B0+B1)/2,fy,0],[(B0-B1)/2,0.04,bw],OR,PAINT);box(B,[(B0+B1)/2,fy-0.2,0],[(B0-B1)/2-0.05,0.16,0.5],BK,MATTE);
+    const B0=-0.26,B1=-2.52,bw=1.04,fy=1.4,sh=0.4;box(B,[(B0+B1)/2,fy,0],[(B0-B1)/2,0.04,bw],OR,PAINT);box(B,[(B0+B1)/2,fy-0.2,0],[(B0-B1)/2-0.05,0.16,0.5],BK,MATTE);
     for(const sd of [-1,1]){box(B,[(B0+B1)/2,fy+sh/2,sd*bw],[(B0-B1)/2,sh/2,0.02],OR,PAINT);for(let k=0;k<3;k++)box(B,[(B0+B1)/2,fy+0.09+k*0.12,sd*(bw+0.02)],[(B0-B1)/2-0.02,0.025,0.012],ORd,PAINT);box(B,[(B0+B1)/2,fy+sh,sd*bw],[(B0-B1)/2,0.02,0.035],ORd,PAINT);
       for(const x of [B0+0.4,(B0+B1)/2,B1+0.4])box(B,[x,fy+0.05,sd*(bw+0.03)],[0.03,0.04,0.02],[0.2,0.2,0.2],MATTE);}
     box(B,[B0,fy+0.3,0],[0.03,0.3,bw],OR,PAINT);box(B,[B1,fy+sh/2,0],[0.02,sh/2,bw],OR,PAINT);for(let k=0;k<3;k++)box(B,[B1-0.02,fy+0.09+k*0.12,0],[0.012,0.025,bw-0.02],ORd,PAINT);
@@ -227,7 +241,7 @@ const RVMesh=(()=>{
   // with two stabiliser legs, warning stripes; rail guide wheels front and back (drawn apart: they lower). The backhoe's swing frame,
   // boom, stick and bucket are separate meshes (they move).
   const unirail=()=>{const B=vmesh(),{OR,ORd,YL,RDc,AMB}=UM;umFront(B,{rail:true});
-    const B0=-0.44,B1=-2.62,bw=1.04,fy=1.5;box(B,[(B0+B1)/2,fy,0],[(B0-B1)/2,0.04,bw],[0.42,0.42,0.44],CHROME);box(B,[(B0+B1)/2,fy-0.2,0],[(B0-B1)/2-0.05,0.16,0.5],BK,MATTE);/* chequer-plate deck */
+    const B0=-0.26,B1=-2.62,bw=1.04,fy=1.42;box(B,[(B0+B1)/2,fy,0],[(B0-B1)/2,0.04,bw],[0.42,0.42,0.44],CHROME);box(B,[(B0+B1)/2,fy-0.2,0],[(B0-B1)/2-0.05,0.16,0.5],BK,MATTE);/* chequer-plate deck */
     for(const sd of [-1,1]){box(B,[(B0+B1)/2,fy+0.1,sd*bw],[(B0-B1)/2,0.1,0.02],OR,PAINT);for(let k=0;k<10;k++){const x0=B0-0.05-k*0.21;quad(B,[x0,fy+0.02,sd*(bw+0.022)],[x0-0.1,fy+0.02,sd*(bw+0.022)],[x0-0.21,fy+0.18,sd*(bw+0.022)],[x0-0.11,fy+0.18,sd*(bw+0.022)],k%2?[0.95,0.95,0.95]:RDc,4);}}
     box(B,[B0,fy+0.35,0],[0.03,0.35,bw],OR,PAINT);/* headboard */
     // welding bottles (oxygen blue, acetylene maroon) in a rack behind the cab, the hydraulic tank and a toolbox
