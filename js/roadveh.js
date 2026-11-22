@@ -8,7 +8,8 @@ const RV_SCALE=0.75;
 const RV={// per type: wheelbase axles (x), tracks, wheel radius, which part list
   blitz:{name:'Opel Blitz',axF:1.8,axR:-1.8,trF:0.83,trR:[0.7,0.97],r:0.47,len:5.9,cap:20,price:30000,mass:1},
   bus:{name:'Bus',axF:2.3,axR:-2.3,trF:0.95,trR:[0.95],r:0.48,len:8.6,cap:30,price:35000,mass:1.1},
-  dd:{name:'Double-decker',axF:2.6,axR:-2.4,trF:1.0,trR:[1.0],r:0.52,len:9.2,cap:60,price:55000,mass:1.4}};
+  dd:{name:'Double-decker',axF:2.6,axR:-2.4,trF:1.0,trR:[1.0],r:0.52,len:9.2,cap:60,price:55000,mass:1.4},
+  unimog:{name:'Unimog',axF:1.405,axR:-1.405,trF:0.93,trR:[0.93],r:0.56,len:5.3,cap:16,price:48000,mass:1.2,off:true}};/* 4.60: the off-road lorry */
 const RVMesh=(()=>{
   const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],mul=(a,k)=>[a[0]*k,a[1]*k,a[2]*k],
     crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];},lerp=(a,b,t)=>a+(b-a)*t;
@@ -146,7 +147,70 @@ const RVMesh=(()=>{
     // a few passengers at the windows
     for(let k=0;k<(dd?7:4);k++){const kk=dd&&k>3?k-4:k,x=L0+0.9+kk*(dd&&k>3?1.6:0.95),sd=k%2?1:-1;person(B,x,dd&&k>3?2.35:0.9,sd*0.6,[[0.5,0.2,0.2],[0.2,0.3,0.5],[0.4,0.4,0.35],[0.25,0.4,0.25]][k%4]);}
     return B;};
-  return {blitz,bus,wheel};})();
+  // ================================================================ the Mercedes-Benz Unimog (U1300-type, 4.60), after the user's five photos: the
+  // orange municipal one: portal axles high off the ground, a short sloping bonnet with a black grille and the star, a black front bumper
+  // with square lamps, tow hooks and the implement plate, a snorkel up the right A-pillar, round spot lamps at the windscreen corners, big
+  // mirrors on arms, a roof rack with two amber beacons, work lamps and chrome air horns, a ribbed tipping bed with red/yellow chevron boards,
+  // black arches and mud flaps, a yellow Dutch plate. Real size (drawn at RV_SCALE like the others): wheelbase 2.81 m, track 1.86 m, tyres 1.12 m.
+  const unimog=()=>{const B=vmesh(),OR=[0.95,0.42,0.06],ORd=[0.78,0.33,0.04],YL=[0.96,0.78,0.1],RDc=[0.85,0.1,0.08],AMB=[1,0.55,0.08],WL=[1,0.97,0.9];
+    const ax=[1.405,-1.405],FR=2.55;/* the grille's x */
+    // ---- chassis: ladder frame, portal axles with the hub reduction housings, diff housings, springs, prop shafts, tank, steps, exhaust
+    for(const z of [-0.42,0.42])box(B,[-0.15,0.98,z],[2.6,0.1,0.05],BK,MATTE);for(const x of [2.3,1.2,0,-1.2,-2.4])box(B,[x,0.98,0],[0.05,0.08,0.42],BK,MATTE);
+    for(const x of ax){tube(B,[x,0.72,-0.82],[x,0.72,0.82],0.09,0.09,10,BK,MATTE);ball(B,[x,0.72,0.1],0.24,[1,0.9,1],BK,MATTE,12);for(const sd of [-1,1]){box(B,[x,0.62,sd*0.88],[0.17,0.17,0.08],BK,MATTE);/* portal housing down to the hub */tube(B,[x,0.84,sd*0.45],[x,1.0,sd*0.45],0.09,0.09,8,[0.12,0.12,0.12],MATTE);}}
+    tube(B,[1.2,0.74,0.08],[-1.2,0.74,0.08],0.045,0.045,8,BK,MATTE);tube(B,[0.35,0.9,0.75],[-0.45,0.9,0.75],0.22,0.22,14,BK,MATTE,true);/* fuel tank right */
+    box(B,[0.4,0.62,-0.98],[0.22,0.02,0.12],BK,MATTE);box(B,[0.4,0.95,-1.0],[0.22,0.02,0.1],BK,MATTE);/* steps to the door */tube(B,[-0.2,0.85,-0.55],[-2.0,0.88,-0.7],0.04,0.04,8,[0.22,0.2,0.18],MATTE);
+    // ---- bonnet: sloping, square with rounded edges
+    surf(B,(x,t)=>{const w=0.95,a=t*Math.PI,top=lerp(1.66,1.52,(x-1.15)/(FR-1.15)),c=Math.cos(a),sn=Math.sin(a),e=0.25;const yy=1.08+(top-1.08)*Math.pow(Math.max(0,sn),e),zz=-w*Math.sign(c)*Math.pow(Math.abs(c),e);return[x,yy,zz];},range(1.1,FR-0.04,8),range(0,1,18),()=>[OR,PAINT]);
+    quad(B,[FR-0.04,1.08,-0.95],[FR-0.04,1.08,0.95],[FR-0.04,1.5,0.95],[FR-0.04,1.5,-0.95],OR,PAINT);
+    // the grille: black with horizontal bars, the star in a ring, amber indicators either side, the black lower panel
+    box(B,[FR+0.005,1.24,0],[0.03,0.19,0.72],BK,MATTE);for(let k=0;k<6;k++)box(B,[FR+0.04,1.1+k*0.055,0],[0.01,0.012,0.7],[0.16,0.16,0.17],PAINT);
+    tube(B,[FR+0.045,1.26,0],[FR+0.06,1.26,0],0.13,0.13,24,CH,CHROME,true);for(const a of [Math.PI/2,Math.PI/2+2.094,Math.PI/2+4.189])box(B,[FR+0.07,1.26+Math.sin(a)*0.055,Math.cos(a)*0.055],[0.008,0.06*Math.abs(Math.sin(a))+0.012,0.06*Math.abs(Math.cos(a))+0.012],[0.15,0.15,0.16],MATTE);
+    for(const sd of [-1,1]){box(B,[FR+0.01,1.3,sd*0.84],[0.025,0.05,0.09],AMB,4);box(B,[1.75,1.33,sd*0.955],[0.12,0.13,0.01],BK,MATTE);/* the side air intake */for(let k=0;k<4;k++)box(B,[1.75,1.24+k*0.06,sd*0.962],[0.11,0.008,0.004],[0.2,0.2,0.2],MATTE);}
+    box(B,[2.25,1.62,0],[0.06,0.01,0.25],[0.1,0.1,0.1],MATTE);/* the bonnet handle */
+    // ---- front bumper with the implement plate, square lamps, tow hooks and the yellow plate
+    box(B,[FR+0.18,0.98,0],[0.14,0.16,1.08],BK,MATTE);box(B,[FR+0.33,0.96,0],[0.03,0.22,0.36],[0.12,0.12,0.12],MATTE);for(const z of [-0.25,0.25])box(B,[FR+0.38,0.9,z],[0.05,0.06,0.04],[0.15,0.15,0.15],MATTE);
+    for(const sd of [-1,1]){box(B,[FR+0.29,1.0,sd*0.8],[0.035,0.08,0.13],[0.2,0.2,0.22],CHROME);box(B,[FR+0.325,1.0,sd*0.8],[0.005,0.065,0.11],WL,4);box(B,[FR+0.33,0.84,sd*0.55],[0.04,0.04,0.05],[0.6,0.08,0.06],MATTE);/* tow hooks */}
+    box(B,[FR+0.335,1.1,0.55],[0.004,0.055,0.26],YL,PAINT);box(B,[FR+0.338,1.1,0.55],[0.002,0.05,0.24],[0.08,0.08,0.08],3);
+    tube(B,[FR+0.3,0.82,0],[FR+0.48,0.8,0],0.035,0.035,8,BK,MATTE);
+    // ---- the cab: square, slightly tapered, rounded corners; the windscreen, door windows, rear window
+    const C0=1.15,C1=-0.62,cw=1.02,cb=1.08,ct=2.62;rbox(B,[(C0+C1)/2,(cb+ct)/2,0],[(C0-C1)/2,(ct-cb)/2,cw],0.22,OR,PAINT,(p)=>{/* glass where the windows are */const fx=p[0]>C0-0.06&&p[1]>1.78&&p[1]<2.5&&Math.abs(p[2])<0.94,side=Math.abs(Math.abs(p[2])-cw)<0.06&&p[1]>1.72&&p[1]<2.48&&p[0]<1.02&&p[0]>-0.28,back=p[0]<C1+0.05&&p[1]>1.9&&p[1]<2.45&&Math.abs(p[2])>0.08&&Math.abs(p[2])<0.85;return fx||side||back?[[0.1,0.12,0.14],GLASS]:[OR,PAINT];},40);
+    for(const sd of [-1,1]){box(B,[0.37,1.66,sd*1.025],[0.67,0.012,0.005],ORd,PAINT);/* door seam */box(B,[-0.3,1.4,sd*1.03],[0.01,0.3,0.005],ORd,PAINT);box(B,[0.1,1.62,sd*1.035],[0.07,0.02,0.01],[0.1,0.1,0.1],MATTE);/* handle */}
+    // windscreen frame, wipers, the cab interior: seats, wheel, driver
+    box(B,[C0+0.02,2.53,0],[0.02,0.03,0.96],BK,MATTE);for(const z of [-0.45,0.35])tube(B,[C0+0.04,1.8,z],[C0+0.05,2.05,z+0.25],0.008,0.008,4,BK,MATTE);
+    box(B,[0.2,1.35,0],[0.9,0.02,0.95],[0.12,0.12,0.12],INT);for(const z of [-0.5,0.45])box(B,[-0.2,1.6,z],[0.25,0.25,0.25],[0.2,0.2,0.22],INT);tube(B,[0.62,1.85,-0.5],[0.5,1.62,-0.5],0.02,0.02,6,BK,MATTE);tube(B,[0.6,1.88,-0.5],[0.64,1.82,-0.5],0.18,0.18,16,BK,MATTE);
+    person(B,0.05,1.3,-0.5,[0.95,0.75,0.1],[0.95,0.75,0.1]);/* a driver in a hi-vis jacket */
+    // the snorkel up the right A-pillar, round spot lamps on the corners, mirrors on arms
+    tube(B,[1.22,1.6,1.0],[1.22,2.95,1.0],0.08,0.08,12,BK,MATTE,true);ball(B,[1.22,3.0,1.0],0.12,[1,0.45,1],BK,MATTE,12);box(B,[1.22,1.4,1.0],[0.1,0.25,0.07],BK,MATTE);
+    for(const sd of [-1,1]){const lp=[C0+0.15,2.1,sd*1.08];box(B,add(lp,[-0.12,-0.12,0]),[0.06,0.02,0.02],BK,MATTE);tube(B,add(lp,[-0.1,0,0]),lp,0.1,0.11,14,BK,PAINT,true);surf(B,(r,a)=>[lp[0]+0.01+0.015*(1-r/0.1),lp[1]+Math.sin(a)*r,lp[2]+Math.cos(a)*r],[0,0.05,0.095],range(0,Math.PI*2,14),()=>[WL,4]);
+      tube(B,[C0-0.05,2.35,sd*1.02],[C0+0.15,2.35,sd*1.35],0.02,0.02,6,BK,MATTE);tube(B,[C0-0.05,1.85,sd*1.02],[C0+0.15,1.95,sd*1.35],0.02,0.02,6,BK,MATTE);box(B,[C0+0.15,2.12,sd*1.38],[0.04,0.25,0.13],BK,MATTE);box(B,[C0+0.19,2.12,sd*1.38],[0.004,0.22,0.11],[0.55,0.62,0.68],CHROME);}
+    // ---- the roof: a rack along the back edge with two amber beacons, two round work lamps, marker lamps; air horns and a spot lamp forward
+    box(B,[C1+0.2,ct+0.08,0],[0.03,0.03,1.02],[0.15,0.15,0.15],CHROME);for(const z of [-0.9,0.9])box(B,[C1+0.2,ct+0.03,z],[0.03,0.04,0.03],BK,MATTE);
+    for(const sd of [-1,1]){const bc=[C1+0.2,ct+0.12,sd*0.98];tube(B,bc,add(bc,[0,0.06,0]),0.09,0.09,12,BK,MATTE,true);tube(B,add(bc,[0,0.06,0]),add(bc,[0,0.24,0]),0.085,0.075,14,AMB,4,true);
+      const wl=[C1+0.22,ct+0.2,sd*0.42];tube(B,add(wl,[0,-0.09,0]),wl,0.02,0.02,6,BK,MATTE);tube(B,add(wl,[-0.12,0,0]),wl,0.09,0.1,14,BK,PAINT,true);surf(B,(r,a)=>[wl[0]+0.01,wl[1]+Math.sin(a)*r,wl[2]+Math.cos(a)*r],[0,0.05,0.09],range(0,Math.PI*2,12),()=>[WL,4]);
+      box(B,[C1+0.2,ct+0.13,sd*0.72],[0.03,0.025,0.04],sd<0?[0.9,0.05,0.04]:AMB,4);}
+    for(const z of [-0.2,0.2]){tube(B,[0.2,ct+0.16,z],[0.85,ct+0.16,z],0.025,0.06,10,CH,CHROME);tube(B,[0.85,ct+0.16,z],[0.88,ct+0.16,z],0.06,0.06,10,[0.2,0.2,0.2],MATTE,true);box(B,[0.35,ct+0.07,z],[0.03,0.05,0.02],BK,MATTE);}
+    // ---- arches: big black flared fenders over the front wheels (fixed to the body), plain guards at the rear, mud flaps
+    for(const sd of [-1,1]){surf(B,(a,z)=>{const r=0.74,x=ax[0]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.86,1.12,z)];},range(0.12,Math.PI-0.05,16),range(0,1,3),()=>[BK,MATTE]);
+      surf(B,(a,z)=>{const r=0.74,x=ax[1]+Math.cos(a)*r,y=0.72+Math.sin(a)*r*0.95;return[x,y,sd*lerp(0.86,1.1,z)];},range(0.3,Math.PI-0.25,12),range(0,1,2),()=>[BK,MATTE]);
+      box(B,[ax[1]-0.7,0.55,sd*0.98],[0.015,0.32,0.15],BK,MATTE);box(B,[ax[0]-0.66,0.68,sd*0.98],[0.015,0.25,0.14],BK,MATTE);}
+    // ---- the tipping bed: floor, ribbed drop sides, headboard, tailgate with the chevron boards, hinges; tail lights, plate, rear PTO
+    const B0=-0.72,B1=-2.6,bw=1.06,fy=1.32,sh=0.42;box(B,[(B0+B1)/2,fy,0],[(B0-B1)/2,0.04,bw],OR,PAINT);box(B,[(B0+B1)/2,fy-0.1,0],[(B0-B1)/2-0.05,0.06,0.5],BK,MATTE);
+    for(const sd of [-1,1]){box(B,[(B0+B1)/2,fy+sh/2,sd*bw],[(B0-B1)/2,sh/2,0.02],OR,PAINT);for(let k=0;k<3;k++)box(B,[(B0+B1)/2,fy+0.09+k*0.12,sd*(bw+0.02)],[(B0-B1)/2-0.02,0.025,0.012],ORd,PAINT);box(B,[(B0+B1)/2,fy+sh,sd*bw],[(B0-B1)/2,0.02,0.035],ORd,PAINT);
+      for(const x of [B0+0.4,(B0+B1)/2,B1+0.4])box(B,[x,fy+0.05,sd*(bw+0.03)],[0.03,0.04,0.02],[0.2,0.2,0.2],MATTE);}
+    box(B,[B0,fy+0.35,0],[0.03,0.35,bw],OR,PAINT);box(B,[B1,fy+sh/2,0],[0.02,sh/2,bw],OR,PAINT);for(let k=0;k<3;k++)box(B,[B1-0.02,fy+0.09+k*0.12,0],[0.012,0.025,bw-0.02],ORd,PAINT);
+    for(const sd of [-1,1]){const zc=sd*0.72;for(let k=0;k<4;k++){const z0=zc-0.24+k*0.12;quad(B,[B1-0.035,fy+0.08,z0],[B1-0.035,fy+0.08,z0+0.06],[B1-0.035,fy+0.33,z0+0.12],[B1-0.035,fy+0.33,z0+0.06],k%2?YL:RDc,4);}}
+    for(const sd of [-1,1]){box(B,[B1+0.05,0.98,sd*0.8],[0.03,0.06,0.1],[0.85,0.06,0.05],4);box(B,[B1+0.05,0.88,sd*0.8],[0.03,0.03,0.1],AMB,4);}
+    box(B,[B1+0.1,0.86,-0.45],[0.01,0.1,0.2],YL,PAINT);box(B,[B1+0.09,0.86,-0.45],[0.003,0.09,0.18],[0.08,0.08,0.08],3);box(B,[B1+0.15,0.8,0.15],[0.08,0.12,0.18],[0.12,0.12,0.13],MATTE);
+    return B;};
+  // the Unimog's wheel: a wide lugged tyre on a black steel rim (turns about z)
+  const uwheel=(side)=>{const M=vmesh(),r=0.56,w=0.19,R0=r-0.16;
+    surf(M,(a,b)=>{const c=Math.cos(b),s=Math.sin(b);return[Math.cos(a)*(R0+0.16*Math.max(0,c)+0.16*(c<0?c*0.2:0)+0.0*s),Math.sin(a)*(R0+0.16*Math.max(0,c)),w*s];},range(0,Math.PI*2,32),range(0,Math.PI*2,14),()=>[TY,MATTE],{ev:1e-3});
+    for(let k=0;k<26;k++){const a=k/26*Math.PI*2,c=Math.cos(a),s=Math.sin(a),off=(k%2?1:-1)*0.05;for(const sd of [-1,1]){const z0=sd*0.02+off,z1=sd*(w*0.95);const P=(rr,da,z)=>[Math.cos(a+da)*rr,Math.sin(a+da)*rr,z];
+        box(M,[c*(r+0.012),s*(r+0.012),(z0+z1)/2],[0.024,0.022,Math.abs(z1-z0)/2],[0.03,0.03,0.035],MATTE);void P;}}
+    const face=z=>side*z;surf(M,(rr,a)=>[Math.cos(a)*rr,Math.sin(a)*rr,face(0.1+0.04*(1-rr/R0))],[0.05,R0*0.6,R0*0.98],range(0,Math.PI*2,24),()=>[[0.05,0.05,0.055],PAINT]);
+    for(let k=0;k<6;k++){const a=k/6*Math.PI*2;tube(M,[Math.cos(a)*0.12,Math.sin(a)*0.12,face(0.12)],[Math.cos(a)*0.12,Math.sin(a)*0.12,face(0.16)],0.02,0.018,6,[0.12,0.12,0.12],MATTE,true);}
+    tube(M,[0,0,face(0.1)],[0,0,face(0.2)],0.08,0.06,14,[0.06,0.06,0.07],MATTE,true);return M;};
+  return {blitz,bus,wheel,unimog,uwheel};})();
 // lettering: text from a canvas, turned into thin quads (one per run of lit pixels in a row), lying on a side of the body.
 // side: z of the face (sign = which side), x0/y0: the lower left corner as seen from that side, h: text height in metres
 function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=document.createElement('canvas'),g=cv.getContext('2d');const scale=o.px||48;
@@ -158,7 +222,7 @@ function rvText(M,lines,o){if(typeof document==='undefined')return;const cv=docu
         const P=[[X(ax),yb2],[X(bx),yb2],[X(bx),yt],[X(ax),yt]].map(q=>[q[0],q[1],o.z]);const n=[0,0,sd];const ix=P.map(p=>{M.v.push(p[0],p[1],p[2],n[0],n[1],n[2],o.col[0],o.col[1],o.col[2],0,0,0,1,o.mat||11);return M.n++;});M.i.push(ix[0],ix[1],ix[2],ix[0],ix[2],ix[3]);run=-1;}}}}
 // ---------------------------------------------------------------- the road vehicles in the game: drawing, suspension, selection, cameras, driving
 const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pad:{prev:[],act:false},
-  type(b){return b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
+  type(b){return b.type==='unimog'?'unimog':b.goods?'blitz':b.type==='dd'?'dd':'bus';},spec(b){return RV[this.type(b)];},
   /* the height a wheel stands at. Over a tunnel there are two levels (the road in the tube, the ground above): ref, the vehicle's own last
      height, picks the nearer one; without it, the tube only when the point is inside a tunnel's mouth zone is not known, so the surface wins */
   gy(x,z,ref){const T=R.world,hk=T.hole?clamp(Math.floor(z/T.cs),0,T.N-1)*T.N+clamp(Math.floor(x/T.cs),0,T.N-1):-1,g=hk>=0&&T.hole[hk]===2?(T.Hr||T.H)[hk]:R.drawnH(T,x,z),/* a tunnel mouth's cells are left out of the drawn ground: their own level (the apron, the block top) */tu=Life.tunY?Life.tunY(x,z):null,dk=Life.deckY?Life.deckY(x,z,ref):-1e9,rd=Life.roadY?Life.roadY(x,z,ref):null;let y=Math.max(g,dk,rd==null?-1e9:rd);
@@ -169,8 +233,8 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   // with the wheels merged in (one draw call)
   build(){const U=m=>R.uploadVeh(m),cat=(...ms)=>{const M=vmesh();for(const [m,off] of ms){const b=M.n;for(let k=0;k<m.n;k++){const o=k*14;M.v.push(m.v[o]+off[0],m.v[o+1]+off[1],m.v[o+2]+off[2],...m.v.slice(o+3,o+14));}for(const i of m.i)M.i.push(i+b);M.n+=m.n;}return M;};
     const W={blitz:[0.62,0.04,0.035],bus:[0.55,0.07,0.05],dd:[0.06,0.06,0.07]},out={};
-    for(const ty of ['blitz','bus','dd']){const S=RV[ty],bodies=ty==='blitz'?[RVMesh.blitz([0.92,0.035,0.025]),RVMesh.blitz([0.68,0.03,0.035])]:[RVMesh.bus(ty==='dd'?2:1)];
-      const wR=RVMesh.wheel(S.r,W[ty],1,false),wL=RVMesh.wheel(S.r,W[ty],-1,false),wRi=RVMesh.wheel(S.r,W[ty],-1,true),wLi=RVMesh.wheel(S.r,W[ty],1,true);
+    for(const ty of ['blitz','bus','dd','unimog']){const S=RV[ty],bodies=ty==='blitz'?[RVMesh.blitz([0.92,0.035,0.025]),RVMesh.blitz([0.68,0.03,0.035])]:ty==='unimog'?[RVMesh.unimog()]:[RVMesh.bus(ty==='dd'?2:1)];
+      const um=ty==='unimog',wR=um?RVMesh.uwheel(1):RVMesh.wheel(S.r,W[ty],1,false),wL=um?RVMesh.uwheel(-1):RVMesh.wheel(S.r,W[ty],-1,false),wRi=um?wL:RVMesh.wheel(S.r,W[ty],-1,true),wLi=um?wR:RVMesh.wheel(S.r,W[ty],1,true);
       const wp=[];for(const sd of [-1,1]){wp.push([sd<0?wL:wR,[S.axF,S.r,sd*S.trF]]);S.trR.forEach((t,i)=>wp.push([i===0&&S.trR.length>1?(sd<0?wLi:wRi):(sd<0?wL:wR),[S.axR,S.r,sd*t]]));}
       out[ty]={body:bodies.map(U),far:bodies.map(b=>U(cat([b,[0,0,0]],...wp))),wL:U(wL),wR:U(wR),wLi:U(wLi),wRi:U(wRi)};}
     this.M=out;},
@@ -180,6 +244,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   text(b){const M=vmesh(),w=this.words(b),gold=[0.98,0.86,0.5],cream=[0.98,0.94,0.82],ty=this.type(b);
     if(ty==='blitz'){for(const sd of [-1,1])rvText(M,[{t:w.owner,font:'italic bold PX Georgia',h:0.17},{t:'VRACHTRIJDERIJ',font:'bold PX Arial',h:0.065},{t:w.tel,font:'bold PX Arial',h:0.06},{t:w.town.toUpperCase(),font:'bold PX Arial',h:0.08}],{x:-0.06,y:1.5,z:sd*0.935,col:cream,px:110});}
     else if(ty==='dd'){for(const sd of [-1,1]){rvText(M,[{t:`${w.town.toUpperCase()} COACH COMPANY`,font:'bold PX Georgia',h:0.13}],{x:-1.1,y:1.27,z:sd*1.207,col:gold,px:90});rvText(M,[{t:`${w.town} Transit`,font:'bold PX Georgia',h:0.2}],{x:-0.6,y:2.66,z:sd*1.216,col:[0.03,0.2,0.09],px:80});}}
+    else if(ty==='unimog'){for(const sd of [-1,1])rvText(M,[{t:'GEMEENTE',font:'bold PX Arial',h:0.07},{t:w.town.toUpperCase(),font:'bold PX Arial',h:0.1}],{x:0.38,y:1.58,z:sd*1.045,col:[0.06,0.06,0.07],px:110});}
     else for(const sd of [-1,1])rvText(M,[{t:`${w.town.toUpperCase()} AUTOBUSDIENST`,font:'bold PX Georgia',h:0.13}],{x:-1.0,y:1.26,z:sd*1.187,col:[0.98,0.88,0.6],px:90});
     return M.n?R.uploadVeh(M):null;},
   // ---- the frame of a vehicle: chassis on the ground under its wheels, the body on its springs (heave h, pitch p, roll r)
@@ -284,10 +349,10 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     // on a road? (the road mask used by the routing), and the slope along the heading
     const cs=T.cs,ci=clamp(Math.floor(b.x/cs),0,T.N-1),cj=clamp(Math.floor(b.z/cs),0,T.N-1),onRoad=!!(Life.roadKill&&Life.roadKill[cj*T.N+ci])||(b._gy!=null&&(Life.tunY(b.x,b.z)!=null||Math.abs(Life.deckY(b.x,b.z,b._gy)-b._gy)<0.8));/* a bridge deck or a tunnel is road too */b.offRoad=!onRoad;
     const fw=[Math.cos(b.rot),Math.sin(b.rot)],h0=this.gy(b.x-fw[0]*2,b.z-fw[1]*2,b._gy),h1=this.gy(b.x+fw[0]*2,b.z+fw[1]*2,b._gy),slope=Math.atan2(h1-h0,4);
-    const amax=b.goods?3.0:2.0,vmax=(b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road */roll=(onRoad?0.12:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
+    const um=!!S.off,amax=um?3.4:b.goods?3.0:2.0,vmax=(um?(onRoad?24:17):b.goods?(onRoad?26:12):(onRoad?17:8))*k,/* the lorry: about 70 km/h on the road; the Unimog ~80, and 60 off it */roll=(onRoad?0.12:um?0.16:0.35)+0.0015*v*v;/* off the road: more resistance than on it, but less than the engine at part throttle */
     const air=(b.hz||0)>0.02;if(b.hz>0||b.hvz){b.hvz=(b.hvz||0)-9.81*dt;b.hz=(b.hz||0)+b.hvz*dt;if(b.hz<=0){if(b.hvz<-2.5&&b._s){b._s.hv+=b.hvz*0.06;b._s.pv+=(Math.random()-0.5)*0.4;}b.hz=0;b.hvz=0;}}
     let a=0;if(I.gas>0.02&&!air)a+=I.gas*amax*(v<-0.3?3:1)*(v>vmax?0:1);if(I.brake>0.02&&!air){if(v>0.4)a-=I.brake*6;else a-=I.brake*amax*0.7*(v<-4*k?0:1);}
-    a-=Math.sign(v)*Math.min(Math.abs(v)/dt,roll)+9.81*Math.sin(slope)*0.6;if(Math.abs(v)<0.05&&I.gas<0.02&&I.brake<0.02&&Math.abs(slope)<0.25){a=0;v=0;}
+    a-=Math.sign(v)*Math.min(Math.abs(v)/dt,roll)+9.81*Math.sin(slope)*(um?0.4:0.6);/* the Unimog's low gears climb */if(Math.abs(v)<0.05&&I.gas<0.02&&I.brake<0.02&&Math.abs(slope)<0.25){a=0;v=0;}
     v+=a*dt;if(v>vmax&&I.gas<0.02)v-=Math.min(v-vmax,3*dt);
     const want=I.steer*0.6/(1+Math.abs(v)/(9*k))*(air?0.25:1);b._steer=(b._steer||0)+(want-(b._steer||0))*Math.min(1,dt*6);
     const nr=b.rot+v/wb*Math.tan(b._steer)*dt,nx=b.x+Math.cos(nr)*v*dt,nz=b.z+Math.sin(nr)*v*dt;

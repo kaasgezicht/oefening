@@ -3,7 +3,7 @@
 const VS_OBJ=GLSL_HEAD+GLSL_BASE+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in float aMat;
 layout(location=4) in vec4 iA;layout(location=5) in vec4 iB;
-uniform int uPass;uniform int uKind;
+uniform int uPass;uniform int uKind;uniform highp sampler2D uGrassT;uniform vec4 uGrassP;uniform vec4 uGrassW;
 out vec3 vW;out vec3 vN;out vec3 vC;flat out float vMat;flat out float vHash;flat out float vTint;
 void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
   if(m==1&&(uKind==1||uKind==4)){float bare=clamp(uSeason.w*1.3-.15+(hs-.5)*.2,0.,1.);p*=1.-bare*.999;}
@@ -30,6 +30,16 @@ void main(){vec3 p=aPos,n=aNrm;int m=int(aMat+.5);float t=uCamPos.w,hs=iB.z;
       vec2 q=p.xy-vec2(0.,1.4);float c=cos(a),s=sin(a);p.xy=vec2(0.,1.4)+vec2(c*q.x-s*q.y,s*q.x+c*q.y);n.xy=vec2(c*n.x-s*n.y,s*n.x+c*n.y);}
     float lean=pose==1.?-.42:pose==2.?-.28:pose==3.?-.12:pose==4.?-.22:pose==7.?-.15:0.;if(lean!=0.&&part!=3&&part!=4&&p.y>.86){vec2 q=p.xy-vec2(0.,.92);float c=cos(lean),s=sin(lean);p.xy=vec2(0.,.92)+vec2(c*q.x-s*q.y,s*q.x+c*q.y);n.xy=vec2(c*n.x-s*n.y,s*n.x+c*n.y);}
     if(pose==1.)p.y-=.4;else if(pose==6.)p.y-=.44;else if(pose==7.)p.y+=abs(sin(ph))*.16*mv;else p.y+=abs(sw)*.025*mv;}
+  /* 4.60 tall grass (grass.js): shorter in winter and under snow, fades out by size towards the edge of its radius (uGrassP.y); lies down
+     where a vehicle pressed it (uGrassT: push direction, time) and gets up over ~25 s; sways in the wind; the helicopter's downwash */
+  if(uKind==23){float dc=distance(uCamPos.xyz,iA.xyz),hf=(.62*uSeason.x+uSeason.y+.85*uSeason.z+.42*uSeason.w)*(1.-uWx.w*.9)*(1.-smoothstep(.7,1.,dc/max(uGrassP.y,1.)));
+    vec3 q=aPos*iA.w*hf;float c=cos(iB.x),s=sin(iB.x);q=vec3(c*q.x-s*q.z,q.y,s*q.x+c*q.z);n=vec3(c*n.x-s*n.z,n.y,s*n.x+c*n.z);
+    vec4 g=texelFetch(uGrassT,ivec2(mod(floor(iA.xz*2.),1024.)),0);vec2 dv=(g.rg*255.-128.)/126.;float st=length(dv),tc=(g.b*255.+g.a*65280.)/10.,age=mod(uGrassP.x-tc+6553.6,6553.6);
+    float fl=st>.08&&uGrassP.w>.5?(1.-smoothstep(3.,26.,age))*smoothstep(0.,.3,age+.06):0.;
+    vec2 wd=normalize(uWind.xz+1e-4);vec2 B=(st>.08?dv/st:vec2(0.))*1.4*fl+wd*(.06+.22*uWind.y)*(.55+.45*sin(t*1.9+dot(iA.xz,wd)*.28+hs*3.))*(1.-fl);
+    if(uGrassW.w>0.){vec2 dw=iA.xz-uGrassW.xy;float rw=length(dw);if(rw<uGrassW.z&&rw>.01)B+=dw/rw*uGrassW.w*(1.-rw/uGrassW.z)*(1.+.35*sin(t*17.+hs*30.));}
+    float a=min(length(B),1.45);if(a>.001){vec2 d2=B/length(B);float aa=a*(.5+.5*aPos.y),u=dot(q.xz,d2),y=q.y,ca=cos(aa),sa=sin(aa),u2=u*ca+y*sa;q.xz+=d2*(u2-u);q.y=-u*sa+y*ca;}
+    vec3 W=iA.xyz+q;W.y+=fineAt(iA.xz);vW=W;vN=normalize(n+vec3(0.,fl*1.5,0.));vC=aCol;vMat=aMat;vHash=hs;vTint=iB.y+fl*1.3;/* pressed blades show their pale side */gl_Position=uViewProj*vec4(W,1.);return;}
   vec3 sp=p*iA.w;
   if((m==1||m==3)&&uKind<=4){float sway=sp.y*.012*uWind.y*(sin(t*1.7+hs*13.)+.6*sin(t*2.9+hs*7.));sp.xz+=normalize(uWind.xz+1e-4)*sway;}
   float c=cos(iB.x),s=sin(iB.x);sp=vec3(c*sp.x-s*sp.z,sp.y,s*sp.x+c*sp.z);n=vec3(c*n.x-s*n.z,n.y,s*n.x+c*n.z);
@@ -89,7 +99,7 @@ const FS_OBJ=GLSL_HEAD+GLSL_COMMON+`
 in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;flat in float vHash;flat in float vTint;uniform int uPass;uniform int uKind;`+FS_OUT+`
 vec3 pick4(float h,vec3 a,vec3 b,vec3 c,vec3 d){return h<.25?a:h<.5?b:h<.75?c:d;}
 void main(){if(uPass==1){o=vec4(0);return;}
-  vec3 N=normalize(vN);if(!gl_FrontFacing)N=-N;int m=int(vMat+.5);vec4 S=uSeason;float h=vHash;vec3 c=L(vC);vec3 em=vec3(0);float snowy=1.;
+  vec3 N=normalize(vN);if(!gl_FrontFacing&&uKind!=23)N=-N;/* grass blades: both sides lit like the ground */int m=int(vMat+.5);vec4 S=uSeason;float h=vHash;vec3 c=L(vC);vec3 em=vec3(0);float snowy=1.;
   if(m==1){vec3 f;
     if(uKind==0||uKind==3)f=mix(vec3(.22,.48,.30),vec3(.30,.54,.27),h)*(1.-S.w*.12);
     else if(uKind==4)f=vec3(.66,.86,.36)*S.x+vec3(.52,.77,.30)*S.y+mix(vec3(.98,.82,.28),vec3(.95,.66,.22),h)*S.z+vec3(.55,.5,.3)*S.w;
@@ -97,7 +107,7 @@ void main(){if(uPass==1){o=vec4(0);return;}
       f=mix(vec3(.58,.82,.34),vec3(.46,.76,.30),h)*S.x+mix(vec3(.38,.66,.25),vec3(.30,.58,.22),h)*S.y+au*S.z+vec3(.5,.45,.3)*S.w;if(uKind==2)f*=.85;}
     c=L(f)*vC*(.9+vTint*.2);}
   else if(m==2)c=L(vC)*(.9+vTint*.15);
-  else if(m==3)c=L(h<.2?vec3(.99,.80,.88):vec3(.99,.97,.95));
+  else if(m==3)c=L(vC.b<.5?vec3(.98,.80,.12):h<.2?vec3(.99,.80,.88):vec3(.99,.97,.95));/* 4.60: yellow (broom) where the vertex colour says so */
   else if(m==4){float k=fract(h*7.13);c=L(k<.16?vec3(.97,.91,.79):k<.30?vec3(.96,.96,.93):k<.44?vec3(.99,.88,.62):k<.58?vec3(.72,.84,.92):k<.72?vec3(.96,.72,.60):k<.86?vec3(.76,.89,.77):vec3(.72,.38,.30));snowy=.2;}
   else if(m==5){float k=fract(h*3.71);c=L(k<.3?vec3(.82,.38,.25):k<.5?vec3(.35,.40,.48):k<.7?vec3(.58,.38,.27):k<.85?vec3(.74,.24,.19):vec3(.27,.52,.54));}
   else if(m==6){float on=step(fract(vC.r*13.7+h*7.3),uMisc.x);c=L(vec3(.24,.30,.38));em=L(vec3(1.,.78,.42))*on*2.6;snowy=0.;}
@@ -120,6 +130,7 @@ void main(){if(uPass==1){o=vec4(0);return;}
     else if(pal==4)c=L(pick4(fract(hh*29.3),vec3(.92,.9,.84),vec3(.66,.2,.17),vec3(.3,.4,.62),vec3(.42,.32,.22)));
     else if(pal==5)c=L(vec3(.24,.16,.11));else if(pal==6)c=L(vec3(.9,.87,.8));else if(pal==7)c=L(vec3(.45,.3,.18));else c=L(vC);snowy=0.;}
   if(uKind==5)c*=.8+.35*vTint;
+  if(uKind==23){vec3 g=vec3(.56,.78,.33)*S.x+vec3(.53,.71,.30)*S.y+vec3(.76,.68,.37)*S.z+vec3(.62,.56,.40)*S.w;g=mix(g,g*vec3(1.12,1.,.78),clamp(uLook.x,0.,1.));c=L(g)*vC*(.86+vTint*.26);snowy=0.;}
   if(uKind<=5||uKind==10||uKind==11){float up=smoothstep(.45,.8,N.y);c=mix(c,snowCol(N),clamp(uWx.w*snowy*up*(uKind==5?1.2:1.),0.,1.));}
   float oao=(uKind==12||uKind==14)?1.:mix(.6,1.,smoothstep(0.,2.2,vW.y-terrainH(vW.xz)));if(m==1)oao*=.72+.28*smoothstep(-.4,.7,N.y);
   vec3 col=lightS(c,N,vW,oao,shadowAt(vW,N),m==1?.66:.8)+em;

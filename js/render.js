@@ -89,6 +89,7 @@ R.setupShadows=function(){if(R.shTex){gl.deleteTexture(R.shTex);gl.deleteFramebu
 // ---------------- static object meshes in one buffer (non-indexed flat triangles)
 R.buildObjMeshes=function(){const list=[];const add=(k,M)=>{list.push([k,M]);};
   treeMeshes().forEach((t,i)=>{add('t'+i+'n',t.near);add('t'+i+'f',t.far);});
+  {const g=Grass.meshes();add('grassN',g.near);add('grassF',g.far);}/* 4.60 tall grass */
   R.houseDefs=houseMeshes();R.houseDefs.forEach((h,i)=>add('h'+i,h.M));
   R.houseDefs.forEach((d,v)=>{const t=KIT_OF[v];if(!t)return;const p=KIT.plots[t];d.kit=t;d.plot=p;d.gx=KIT_GATE[t];d.chim=KIT_CHIM[t];d.r=Math.max(...[[p.x0,p.z0],[p.x1,p.z0],[p.x1,p.z1],[p.x0,p.z1]].map(q=>Math.hypot(q[0],q[1])));});
   R.buildKitMeshes();
@@ -533,7 +534,7 @@ R.freeMesh=function(m){if(!m)return;try{gl.deleteVertexArray(m.vao);if(m.vb)gl.d
 R.buildVehicleMeshes=function(ms){R.veh=ms.map(M=>R.uploadVeh(M));Log.info(`rolling stock meshes: ${ms.map(m=>m.i.length/3).join(', ')} tris`);};
 
 // ---- vegetation: instances bucketed by chunk; near/far lists rebuilt when the view changes
-R.uploadVeg=function(T){R.vegVer=(R.vegVer|0)+1;const CN=16,cw=T.W/CN;R.vegB=[];const sets=[...T.veg.trees,T.veg.rocks];
+R.uploadVeg=function(T){if(typeof diversifyVeg==='function')diversifyVeg(T);Grass.reset();/* 4.60: worlds made before the new species get them now */R.vegVer=(R.vegVer|0)+1;const CN=16,cw=T.W/CN;R.vegB=[];const sets=[...T.veg.trees,T.veg.rocks];
   sets.forEach((arr,type)=>{const n=arr.length/8,cnt=new Int32Array(CN*CN+1),ck=new Int32Array(n);
     for(let k=0;k<n;k++){const c=clamp(Math.floor(arr[k*8+2]/cw),0,CN-1)*CN+clamp(Math.floor(arr[k*8]/cw),0,CN-1);ck[k]=c;cnt[c+1]++;}
     for(let c=0;c<CN*CN;c++)cnt[c+1]+=cnt[c];const pos=cnt.slice(),out=new Float32Array(arr.length);
@@ -554,17 +555,17 @@ R.updateVegLists=function(cam,force){if(!R.vegB)return;const T=R.world,CN=16,cw=
     const dx=Math.max(x0-cam.pos[0],0,cam.pos[0]-x0-cw),dz=Math.max(z0-cam.pos[2],0,cam.pos[2]-z0-cw),d=Math.hypot(dx,dz,Math.max(0,cam.pos[1]-ch.y1)*0.5);
     const r=d<near?1:d<far?2:0;vis.push(r);fr.push(r===2?clamp(Math.pow(near*1.6/Math.max(d,1),1.5),0.1,1):1);}
   // thinning per chunk, then one global factor so the total stays inside the plant budget
-  let tot=0;R.vegB.forEach((B,type)=>{for(let c=0;c<vis.length;c++)if(vis[c]&&!(type===5&&vis[c]===2))tot+=(B.start[c+1]-B.start[c])*fr[c]*(type===2&&vis[c]===2?0.6:1);});
+  let tot=0;R.vegB.forEach((B,type)=>{for(let c=0;c<vis.length;c++)if(vis[c]&&!(VEG_CLASS[type]===5&&vis[c]===2))tot+=(B.start[c+1]-B.start[c])*fr[c]*(VEG_CLASS[type]===2&&vis[c]===2?0.6:1);});
   const g=Math.max(0.15,Math.min(1,(P.vegBudget||70000)/Math.max(tot,1)));
   for(let c=0;c<vis.length;c++)key+=vis[c]+(vis[c]?String.fromCharCode(97+Math.round(fr[c]*g*20)):'');key+=Math.round(g*40);
   if(key===R.vegKey&&!force)return;R.vegKey=key;R.vegShown=Math.round(tot*g);R.vegScr=R.vegScr||{};
-  R.vegB.forEach((B,type)=>{for(const ring of [1,2]){if(type===5&&ring===2)continue;const id='veg'+type+'_'+ring,keep=c=>Math.round((B.start[c+1]-B.start[c])*Math.min(1,fr[c]*g*(type===2&&ring===2?0.6:1)));
+  R.vegB.forEach((B,type)=>{for(const ring of [1,2]){if(VEG_CLASS[type]===5&&ring===2)continue;const id='veg'+type+'_'+ring,keep=c=>Math.round((B.start[c+1]-B.start[c])*Math.min(1,fr[c]*g*(VEG_CLASS[type]===2&&ring===2?0.6:1)));
       let n=0;for(let c=0;c<vis.length;c++)if(vis[c]===ring)n+=keep(c);
       let a=R.vegScr[id];if(!a||a.length<Math.max(n,1)*8)a=R.vegScr[id]=new Float32Array(Math.ceil(Math.max(n,1)*1.4)*8);let o=0;
       for(let c=0;c<vis.length;c++)if(vis[c]===ring){const s=B.start[c],k=keep(c);if(!k)continue;a.set(B.data.subarray(s*8,(s+k)*8),o*8);
         const f=fr[c]*g;if(f<0.98){const sc=Math.min(1.45,Math.pow(f,-0.25));for(let q=o;q<o+k;q++)a[q*8+3]*=sc;}o+=k;}
       R.inst(id,a,n);}});};
-R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;const FP=typeof Tiles!=='undefined'&&pass!==1?Tiles.cur:null,w=FP&&Tiles.win;gl.useProgram(R.pObj.p);gl.uniform4f(R.pObj.u('uFineP'),FP?FP.cx:0,FP?FP.cz:0,FP?FP.half:0,FP?3:0);if(FP){gl.uniform4f(R.pObj.u('uFineW'),w.x0,w.z0,w.N*Tiles.FC,w.N);bindTU(TU.uFine,gl.TEXTURE_2D,w.tex);}for(let t=0;t<6;t++){R.drawObj('t'+t+'n',t,R.instBufs['veg'+t+'_1'],pass);if(t<5)R.drawObj('t'+t+'f',t,R.instBufs['veg'+t+'_2'],pass);}};
+R.drawVeg=function(pass){if(!P.treesOn||!R.vegB)return;const FP=typeof Tiles!=='undefined'&&pass!==1?Tiles.cur:null,w=FP&&Tiles.win;gl.useProgram(R.pObj.p);gl.uniform4f(R.pObj.u('uFineP'),FP?FP.cx:0,FP?FP.cz:0,FP?FP.half:0,FP?3:0);if(FP){gl.uniform4f(R.pObj.u('uFineW'),w.x0,w.z0,w.N*Tiles.FC,w.N);bindTU(TU.uFine,gl.TEXTURE_2D,w.tex);}for(let t=0;t<R.vegB.length;t++){const k=VEG_CLASS[t];R.drawObj('t'+t+'n',k,R.instBufs['veg'+t+'_1'],pass);if(k!==5)R.drawObj('t'+t+'f',k,R.instBufs['veg'+t+'_2'],pass);}Grass.draw(pass);};/* 4.60: each set drawn with its species' shader class (VEG_CLASS) */
 
 // ---- a village plot levelled while playing: upload just that patch of heights and normals, widen the chunk bounds
 /* after ground was cut down (an airstrip): dry cells whose stored water surface now lies above the ground would show water on the slope;
@@ -678,7 +679,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
      ground gets its shadows once the view settles. Not while the sun moves (A.key changes): only the frustum's centre and size wait */
   if(R.shSt&&R.shStFb&&+P.optShadowCache!==0&&!R.benchStill&&!Cam.calm(0.2)&&R.shL&&R.shSt.L===R.shL){lightVP=new Float32Array(R.shSt.vp);R.shTexel=R.shSt.tex;R.shHeld=true;}else R.shHeld=false;/* held: the static layer is kept as it is (objects coming into the lists as the camera moves get their shadows when it settles) */const shReuse=+P.optShadowHalf===1&&!!R.shVP&&(R.frameNo&1)===1&&R.shKeyUp;if(shReuse)lightVP=R.shVP;else R.shVP=lightVP;
   R.fillUBO(cam,A,lightVP);if(T&&!R.benchStill){Waves.step();try{R.waveProbe.run();}catch(e){Log.err('wave probe: '+e);R.waveProbe.run=()=>{};}}// (benchmark frames keep the waves still, so two renders compare exactly)
-  if(T){R.updateVegLists(cam);R.pm('vegLists');Life.prepare(cam,A);}R.pm('prepare');
+  if(T){R.updateVegLists(cam);Grass.prepare(cam);R.pm('vegLists');Life.prepare(cam,A);}R.pm('prepare');
   gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);
   // shadow map
   R.shKeyUp=A.keyUp;if(T&&R.shFb&&A.keyUp&&!S.shadow&&!shReuse){gl.bindFramebuffer(gl.FRAMEBUFFER,R.shFb);gl.viewport(0,0,R.shRes,R.shRes);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);

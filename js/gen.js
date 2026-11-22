@@ -534,3 +534,33 @@ async function genVegetation(p,T,y){
 }
 
 if(typeof module!=='undefined')module.exports={mulberry32,makeNoise,fbm,ridged,makeTerrainFn,shapeHeight,genTerrain,genErosion,genWater,genMaps,genVegetation,sampleH,priorityFlood,makeYielder};
+
+/* ---- 4.60: tree and bush species (the user: "more variety in trees, big oaks, different kinds of bushes"). The generation's own random
+   sequence is left alone (no tree moves): the broadleaves and the bushes it placed are given species afterwards, by place (a 260 m patch
+   has a leading species, so woods read as beech woods, oak woods, ...) and by a hash of each tree's position; willows by the water. Then
+   big solitary oaks are added in the open: pastures, field corners, hedgerows (not in forests, villages, fields, roads or track).
+   Sets: VEG_SP / VEG_CLASS (meshes.js). Runs once per world (R.uploadVeg), also on worlds made before 4.60. */
+function diversifyVeg(T){if(!T||!T.veg||!T.veg.trees||T.veg.trees.length!==5)return;const tr=T.veg.trees,N=T.N,cs=T.cs,W=T.W,typed=tr[1] instanceof Float32Array;
+  const out=tr.map(a=>Array.from(a));for(let i=5;i<16;i++)out.push([]);const hash=(x,z,s)=>{const v=Math.sin(x*12.9898+z*78.233+s*37.719)*43758.5453;return v-Math.floor(v);};
+  const wetAt=(x,z)=>T.data?T.data[(clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1))*4]/255:0;
+  const move=(src,pick)=>{const a=out[src],keep=[];for(let k=0;k+7<a.length;k+=8){const x=a[k],z=a[k+2],t=pick(x,z);if(t===src){for(let q=0;q<8;q++)keep.push(a[k+q]);continue;}
+      const sc=t===5?1.18:t===10?1.3:t===9?0.85:t===13?0.7:t===15?0.9:1;const rec=a.slice(k,k+8);rec[3]*=sc;out[t].push(...rec);}out[src]=keep;};
+  // broadleaves: oak, beech, lime, chestnut, willow (wet), poplar, or the generic broadleaf
+  move(1,(x,z)=>{const lead=hash(Math.floor(x/260),Math.floor(z/260),1),h=hash(x,z,2),wet=wetAt(x,z);if(wet>0.62&&h<0.45)return 9;
+    const sp=lead<0.32?5:lead<0.55?6:lead<0.7?7:lead<0.82?8:lead<0.9?10:1;if(h<0.58)return sp;const r=hash(x,z,3);return r<0.3?5:r<0.48?6:r<0.6?7:r<0.7?8:r<0.76?10:1;});
+  // bushes: hawthorn, elder, bramble, broom, holly or the generic bush
+  move(2,(x,z)=>{const h=hash(x,z,4),lead=hash(Math.floor(x/150),Math.floor(z/150),5),dry=1-wetAt(x,z);
+    if(h<0.4)return lead<0.25?11:lead<0.45?12:lead<0.68?13:lead<0.85?(dry>0.6?14:11):15;const r=hash(x,z,6);return r<0.22?11:r<0.4?12:r<0.58?13:r<0.7?(dry>0.6?14:12):r<0.8?15:2;});
+  // big solitary oaks in the open, one per ~2.5 ha where it fits
+  {const G=new Map(),gk=(x,z)=>Math.floor(x/30)+','+Math.floor(z/30);for(let t=0;t<out.length;t++){if(VEG_CLASS[t]===2)continue;const a=out[t];for(let k=0;k+7<a.length;k+=8)if(a[k+3]>0){const key=gk(a[k],a[k+2]);G.set(key,(G.get(key)||0)+1);}}
+    const busy=(x,z)=>{let c=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)c+=G.get((Math.floor(x/30)+a)+','+(Math.floor(z/30)+b))||0;return c>2||G.get(gk(x,z))>0;};
+    const cell=(x,z)=>clamp((z/cs)|0,0,N-1)*N+clamp((x/cs)|0,0,N-1),F=T.fields||[],V=(typeof Life!=='undefined'&&Life.villages)||[];
+    const inField=(x,z)=>F.some(f=>{if(!f||!f.hx)return false;const c=Math.cos(f.a||0),s=Math.sin(f.a||0),dx=x-f.x,dz=z-f.z;return Math.abs(dx*c+dz*s)<f.hx+3&&Math.abs(-dx*s+dz*c)<f.hz+3;});
+    const S=160,rng=mulberry32(((typeof P!=='undefined'?P.seed:1)|0)*4547+3);let n=0;
+    for(let z=S/2;z<W;z+=S)for(let x=S/2;x<W;x+=S)for(let tries=0;tries<6;tries++){const px=x+(rng()-0.5)*S,pz=z+(rng()-0.5)*S,r=rng();if(r>0.5||px<30||pz<30||px>W-30||pz>W-30)continue;
+      const k=cell(px,pz),h=sampleH(T,px,pz),w=sampleWater(T,px,pz);if(w[1]>0&&w[0]>h-1.5)continue;if(T.sea!=null&&h<T.sea+2)continue;
+      if((T.flatMask&&T.flatMask[k])||(T.trackMask&&T.trackMask[k])||(typeof Life!=='undefined'&&Life.roadKill&&Life.roadKill[k])||(T.pathMask&&T.pathMask[k]>40))continue;
+      const sl=Math.abs(sampleH(T,px+6,pz)-sampleH(T,px-6,pz))+Math.abs(sampleH(T,px,pz+6)-sampleH(T,px,pz-6));if(sl>8)continue;if(busy(px,pz)||inField(px,pz)||V.some(v=>Math.hypot(v.x-px,v.z-pz)<(v.R||60)+25))continue;
+      out[5].push(px,h-0.3,pz,(17+rng()*9)*(+P.treeSize||0.85)/0.85,rng()*6.2832,0.8+rng()*0.4,rng(),0.5+rng()*0.38);G.set(gk(px,pz),9);n++;break;}
+    if(typeof Log!=='undefined')Log.info(`trees: ${n} solitary oaks; species ${VEG_SP.slice(0,16).map((nm,i)=>nm+' '+(out[i].length/8)).join(', ')}`);}
+  T.veg.trees=out.map(a=>typed?Float32Array.from(a):a);}

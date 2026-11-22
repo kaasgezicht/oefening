@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.59.0 (water glitches near the camera fixed, winch easier with a controller, steady stars, more wildlife and whales)';
+const VERSION='4.60.0 (Mercedes-Benz Unimog, eleven new tree and bush species with big solitary oaks, tall grass that bends when you drive through it)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -198,6 +198,7 @@ def('treeSize',{tab:'trees',label:'Tree size',min:0.4,max:2,step:0.01,def:0.85,a
 def('bushes',{tab:'trees',label:'Bushes',min:0,max:2,step:0.05,def:0.6,apply:'veg'});
 def('rocks',{tab:'trees',label:'Boulders',min:0,max:2,step:0.05,def:0.7,apply:'veg'});
 def('treeLod',{tab:'trees',label:'Simple trees beyond',min:100,max:2000,step:10,def:520,unit:' m',apply:'live',q:1});
+def('tallGrass',{tab:'quality',label:'Tall grass (bends when you drive through it)',kind:'select',options:[[0,'Off'],[1,'Low'],[2,'Medium'],[3,'High']],def:IS_TOUCH?1:2,apply:'live',q:1});
 def('vegBudget',{tab:'quality',label:'Plant budget (drawn per frame)',min:20000,max:200000,step:5000,def:40000,apply:'live'});
 def('treeDist',{tab:'trees',label:'Tree draw distance',min:300,max:5000,step:50,def:3200,unit:' m',apply:'live',q:1});
 // --- Track
@@ -293,9 +294,9 @@ def('craneSpeed',{tab:'trains',label:'Timber crane speed',min:0.5,max:6,step:0.5
 def('btnCaps',{tab:'file',label:'Words under the button icons',kind:'check',def:0,apply:'live'});
 
 const PRESETS={
-  low:{renderScale:0.7,msaa:0,shadowRes:0,peopleLod:0.5,terrainLod:120,treeDist:1600,treeLod:260,bloom:0,bokeh:0,nightLights:8,riverQ:0,maxDpr:1,labelRate:2,ffDetail:0,terrainQ:0,kitLod:0.5,vegBudget:25000,cloudQuality:1,mistQuality:1,reflQuality:0,fxUpscale:0},
-  medium:{renderScale:0.75,msaa:0,shadowRes:2048,peopleLod:1,terrainLod:220,treeDist:3000,treeLod:480,bloom:0.4,bokeh:0.45,nightLights:16,riverQ:1,maxDpr:1.5,labelRate:1,ffDetail:0,terrainQ:1,kitLod:1,vegBudget:40000,cloudQuality:2,mistQuality:2,reflQuality:1,fxUpscale:0},
-  high:{renderScale:0.9,msaa:4,shadowRes:4096,peopleLod:1.4,terrainLod:420,treeDist:5000,treeLod:900,bloom:0.45,bokeh:0.45,nightLights:24,riverQ:2,maxDpr:2,labelRate:1,ffDetail:1,terrainQ:1,kitLod:1.4,vegBudget:70000,cloudQuality:3,mistQuality:2,reflQuality:2,fxUpscale:1}
+  low:{tallGrass:1,renderScale:0.7,msaa:0,shadowRes:0,peopleLod:0.5,terrainLod:120,treeDist:1600,treeLod:260,bloom:0,bokeh:0,nightLights:8,riverQ:0,maxDpr:1,labelRate:2,ffDetail:0,terrainQ:0,kitLod:0.5,vegBudget:25000,cloudQuality:1,mistQuality:1,reflQuality:0,fxUpscale:0},
+  medium:{tallGrass:2,renderScale:0.75,msaa:0,shadowRes:2048,peopleLod:1,terrainLod:220,treeDist:3000,treeLod:480,bloom:0.4,bokeh:0.45,nightLights:16,riverQ:1,maxDpr:1.5,labelRate:1,ffDetail:0,terrainQ:1,kitLod:1,vegBudget:40000,cloudQuality:2,mistQuality:2,reflQuality:1,fxUpscale:0},
+  high:{tallGrass:3,renderScale:0.9,msaa:4,shadowRes:4096,peopleLod:1.4,terrainLod:420,treeDist:5000,treeLod:900,bloom:0.45,bokeh:0.45,nightLights:24,riverQ:2,maxDpr:2,labelRate:1,ffDetail:1,terrainQ:1,kitLod:1.4,vegBudget:70000,cloudQuality:3,mistQuality:2,reflQuality:2,fxUpscale:1}
 };
 function applyPreset(name,silent){const pr=PRESETS[name];if(!pr)return;for(const k in pr){const old=P[k];P[k]=pr[k];if(old!==P[k]&&!silent)paramChanged(k,true);}P.preset=name;UI.refreshAll();}
 
@@ -593,7 +594,7 @@ const Buses={stops:[],list:[],nextId:1,pending:0,pendingList:null,G:null,legCach
   stopAdded(s){for(const b of this.list)if(b.allStops&&(b.goods||!this.isCargo(s)))b.stops.push(s.id);this.legCache=null;BusUI.refresh();},
   stopRemoved(s){for(const b of this.list){const i=b.stops.indexOf(s.id);if(i>=0){b.stops.splice(i,1);if(b.leg>i||b.leg>=b.stops.length)b.leg=Math.max(0,b.leg-1);b.path=null;}}this.legCache=null;BusUI.refresh();},
   edited(b){b.allStops=false;b.path=null;if(b.leg>=b.stops.length)b.leg=0;this.legCache=null;BusUI.refresh();},
-  restore(){if(this.pendingList){for(const q of this.pendingList){const b=this.make(q.goods,q.name,q.stops,this.list.length);b.allStops=!!q.allStops;if(q.type==='dd')b.type='dd';b.earned=+q.earned||0;b.trips=+q.trips||0;Ledger.load(b,q.led);b.mapHidden=!!q.hid;if(b.stops.length)this.list.push(b);}this.pendingList=null;this.pending=0;}
+  restore(){if(this.pendingList){for(const q of this.pendingList){const b=this.make(q.goods,q.name,q.stops,this.list.length);b.allStops=!!q.allStops;if(q.type==='dd')b.type='dd';if(q.type==='unimog'&&q.goods)b.type='unimog';b.earned=+q.earned||0;b.trips=+q.trips||0;Ledger.load(b,q.led);b.mapHidden=!!q.hid;if(b.stops.length)this.list.push(b);}this.pendingList=null;this.pending=0;}
     else if(this.pending&&this.stops.length>1){for(let k=0;k<this.pending;k++){const b=this.make(false,null,null,k);if(b.stops.length>1)this.list.push(b);}this.pending=0;}},
   // ---- the road network as a graph: polyline points (long pieces split to 8 m), shared points merged, loose road ends joined to the nearest other road
   graph(){if(this.G)return this.G;const N=[],E=[],H=new Map(),PI=[],key=(x,z)=>Math.round(x/1.5)+','+Math.round(z/1.5);
