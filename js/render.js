@@ -712,7 +712,7 @@ R.frame=function(cam,time){if(R._kl!==+P.kitLod){R._kl=+P.kitLod;Life.kitDirty=t
     if(!ord)terr();if(!S.vehicles)R.drawVehicles(0,ord?'o':undefined);R.pm('vehicles');
     gl.useProgram(R.pObj.p);gl.uniform1i(R.pObj.u('uPass'),0);gl.bindVertexArray(R.objVao);if(!S.kit&&ord)R.drawKit(0);R.pm('kit');if(!S.life)Life.draw(0);R.pm('life');if(!S.veg)R.drawVeg(0);R.pm('veg');if(!S.kit&&!ord)R.drawKit(0);R.pm('kit');gl.bindVertexArray(null);
     if(ord){terr();if(!S.vehicles)R.drawVehicles(0,'g');gl.useProgram(R.pObj.p);gl.bindVertexArray(null);}}
-  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVP);gl.uniform2f(R.pSky.u('uMoonPh'),(R.A?R.A.moonPh:0.5)*2*Math.PI,R.A?R.A.illum:1);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');if(T&&R.ghost)R.drawGhost();
+  if(!S.sky){gl.depthFunc(gl.LEQUAL);gl.depthMask(false);gl.useProgram(R.pSky.p);gl.uniformMatrix4fv(R.pSky.u('uInvVP'),false,cam.invVPr);gl.uniform2f(R.pSky.u('uMoonPh'),(R.A?R.A.moonPh:0.5)*2*Math.PI,R.A?R.A.illum:1);fsTri();gl.depthMask(true);gl.depthFunc(gl.LESS);}R.pm('sky');if(T&&R.ghost)R.drawGhost();
   // depth copy for soft water, clouds, mist and smoke
   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,R.mainFb);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.depFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.DEPTH_BUFFER_BIT,gl.NEAREST);
   if(T&&P.waterOn&&+P.reflQuality>0&&R.waterChunks.length){gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,R.sceneFb);gl.blitFramebuffer(0,0,R.tw,R.th,0,0,R.tw,R.th,gl.COLOR_BUFFER_BIT,gl.NEAREST);bindTU(TU.uSceneCol,gl.TEXTURE_2D,R.sceneTex);}
@@ -877,7 +877,7 @@ R.waveProbe={p:null,fb:null,tex:null,pbo:null,fence:null,pend:null,px:new Uint8A
     gl.bindFramebuffer(gl.FRAMEBUFFER,this.fb);gl.viewport(0,0,32,1);gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);fsTri();
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER,this.pbo);gl.readPixels(0,0,32,1,gl.RGBA,gl.UNSIGNED_BYTE,0);gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     this.fence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);gl.flush();this.pend=L.boats;}};
-R.drawOpenSea=function(cam){const T=R.world,p=R.pLake,M=64,g=R.lakeGrid(M);gl.useProgram(p.p);R.waterU(p,cam,false);gl.bindVertexArray(g.vao);let pc=null,ph=0;const q=+P.reflQuality;
+R.drawOpenSea=function(cam){const T=R.world,p=R.pLake,M=64,g=R.lakeGrid(M,true);/* 4.59: with a skirt (a curtain 1.5 m down round the edge): no slits between the rings */gl.useProgram(p.p);R.waterU(p,cam,false);gl.bindVertexArray(g.vao);let pc=null,ph=0;const q=+P.reflQuality;
   for(let k=0;k<8;k++){const H=300*2**k,sp=2*H/M,cx=Math.round(cam.pos[0]/(2*sp))*2*sp,cz=Math.round(cam.pos[2]/(2*sp))*2*sp;
     {gl.uniform4f(p.u('uLakeP'),cx,cz,H,2+(k?ph:0));gl.uniform4f(p.u('uRefl'),[0,12,20,32][q]||0,[1,1.6,1.3,1.2][q]||1,pc?pc[0]:0,pc?pc[1]:0);gl.uniform2f(p.u('uSpc2'),sp,sp);
       gl.drawElements(gl.TRIANGLES,g.count,gl.UNSIGNED_INT,0);Stats.draws++;}pc=[cx,cz];ph=H;}};
@@ -935,13 +935,13 @@ R.drawPrecip=function(cam){const E=R.A.E;if(E.rain<0.02&&E.snow<0.02)return;cons
 R.drawVolClouds=function(cam){if(!(+P.cloudQuality>0)||!Clouds.thick||!R.world)return;const q=+P.cloudQuality,f=[0,0.34,0.5,0.5][q],w=Math.max(32,Math.round(R.tw*f)),h=Math.max(32,Math.round(R.th*f));
   if(!R.cTex||R.cW!==w||R.cH!==h){if(R.cTex){gl.deleteTexture(R.cTex);gl.deleteFramebuffer(R.cFb);}R.cTex=tex2D(w,h,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R.cFb=fbo([R.cTex]);R.cW=w;R.cH=h;}
   const p=R.pVCloud;gl.bindFramebuffer(gl.FRAMEBUFFER,R.cFb);gl.viewport(0,0,w,h);gl.disable(gl.BLEND);gl.disable(gl.DEPTH_TEST);gl.useProgram(p.p);
-  gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVP);gl.uniform2f(p.u('uNF'),cam.near,cam.far);gl.uniform1f(p.u('uSteps'),[0,14,24,40][q]);fsTri();
+  gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVPr);gl.uniform2f(p.u('uNF'),cam.near,cam.far);gl.uniform1f(p.u('uSteps'),[0,14,24,40][q]);fsTri();
   gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);gl.viewport(0,0,R.tw,R.th);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(R.pCComp.p);
   bindTU(TU.uCldTex,gl.TEXTURE_2D,R.cTex);fsTri();bindTU(TU.uCldTex,gl.TEXTURE_2D,R.blackTex);gl.enable(gl.DEPTH_TEST);};
 R.drawVolMist=function(cam){if(!(+P.mistQuality>0)||!Weather.mm||!Weather.mm.on||!R.world)return;const q=+P.mistQuality,f=[0,0.34,0.5,0.5][q],w=Math.max(32,Math.round(R.tw*f)),h=Math.max(32,Math.round(R.th*f));
   if(!R.mTex||R.mW!==w||R.mH!==h){if(R.mTex){gl.deleteTexture(R.mTex);gl.deleteFramebuffer(R.mFb);}R.mTex=tex2D(w,h,R.hdr.i,gl.RGBA,R.hdr.t,null,gl.LINEAR);R.mFb=fbo([R.mTex]);R.mW=w;R.mH=h;}
   const M=Weather.mm,p=R.pVMist;bindTU(TU.uMistMap,gl.TEXTURE_2D,M.tex);gl.bindFramebuffer(gl.FRAMEBUFFER,R.mFb);gl.viewport(0,0,w,h);gl.disable(gl.BLEND);gl.disable(gl.DEPTH_TEST);gl.useProgram(p.p);
-  gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVP);gl.uniform2f(p.u('uNF'),cam.near,cam.far);gl.uniform4f(p.u('uMist'),M.lo,M.hi,1/R.world.W,[0,10,16,24][q]);fsTri();
+  gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVPr);gl.uniform2f(p.u('uNF'),cam.near,cam.far);gl.uniform4f(p.u('uMist'),M.lo,M.hi,1/R.world.W,[0,10,16,24][q]);fsTri();
   gl.bindFramebuffer(gl.FRAMEBUFFER,R.mainFb);gl.viewport(0,0,R.tw,R.th);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);const c=R.pMComp;gl.useProgram(c.p);gl.uniform2f(c.u('uNF'),cam.near,cam.far);
   bindTU(TU.uCldTex,gl.TEXTURE_2D,R.mTex);fsTri();bindTU(TU.uCldTex,gl.TEXTURE_2D,R.blackTex);gl.enable(gl.DEPTH_TEST);};
 // lightning: camera-facing ribbons per channel segment, a wide violet glow and a thin white core, flickering with the return strokes
@@ -971,14 +971,14 @@ R.post=function(cam,A){const qw=R.qw,qh=R.qh;gl.disable(gl.DEPTH_TEST);
   gl.viewport(0,0,qw,qh);let bl=R.blackTex,dof=R.blackTex;
   if(P.bloom>0.001){pass(R.bAf,R.pBloomDown,R.colTex,p=>{gl.uniform2f(p.u('uTexel'),1/R.tw,1/R.th);gl.uniform1f(p.u('uThr'),1.25);});
     for(let it=0;it<2;it++){pass(R.bBf,R.pBlur,R.bA,p=>gl.uniform2f(p.u('uDir'),(1+it)/qw,0));pass(R.bAf,R.pBlur,R.bB,p=>gl.uniform2f(p.u('uDir'),0,(1+it)/qh));}bl=R.bA;}
-  const bok=P.bokeh*(Cam.mode==='cab'||Cam.mode==='coach'||(Cam.mode==='plane'&&(Plane.cam==='cockpit'||Plane.cam==='wing'))?0.25:1);/* close views (a cab, a cockpit, beside the wing) keep their subject sharp */
+  const bok=P.bokeh*(Cam.mode==='plane'&&(Plane.cam==='cockpit'||Plane.cam==='wing'||Plane.cam==='nose')?0:Cam.mode==='cab'||Cam.mode==='coach'?0.25:1);/* 4.59: none beside the wing / in the cockpit: the plane spans 1-12 m from the camera there, and its near parts got the half-resolution blur (blocky, smeared: "the texture glitches") *//* close views (a cab, a cockpit, beside the wing) keep their subject sharp */
   if(bok>0.001){pass(R.dAf,R.pDown,R.colTex,p=>gl.uniform2f(p.u('uTexel'),1/R.tw,1/R.th));
     for(let it=0;it<2;it++){pass(R.dBf,R.pBlur,R.dA,p=>gl.uniform2f(p.u('uDir'),(0.8+it*0.7)/qw,0));pass(R.dAf,R.pBlur,R.dB,p=>gl.uniform2f(p.u('uDir'),0,(0.8+it*0.7)/qh));}dof=R.dA;}
   // God rays from the key light (sun by day, moon at night) when it is in front of the camera and not far off the screen
   let rays=0,rayC=[0,0,0];if(+P.godRays>0.001&&A.keyUp){const k=A.key,cp=cam.pos,X=cp[0]+k[0]*1e4,Y=cp[1]+k[1]*1e4,Z=cp[2]+k[2]*1e4,m=cam.vp;
     const cw=m[3]*X+m[7]*Y+m[11]*Z+m[15];if(cw>0){const sx=(m[0]*X+m[4]*Y+m[8]*Z+m[12])/cw*0.5+0.5,sy=(m[1]*X+m[5]*Y+m[9]*Z+m[13])/cw*0.5+0.5,off=Math.max(0,Math.abs(sx-0.5)-0.5,Math.abs(sy-0.5)-0.5);
       const day=A.day>0.05,b=(day?1:0.7)*(1-smooth(0.05,0.6,off))*(1-clamp(A.E.overcast,0,1)*0.85);if(b>0.01){rays=+P.godRays*b;rayC=day?[1,0.82,0.6].map((v,i)=>v*0.55*(0.6+0.4*A.gold)):[0.55,0.65,1.0].map(v=>v*0.5);
-        const L=[sx,sy,0.92,0];pass(R.gAf,R.pRayMask,R.colTex,p=>{bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);gl.uniform4fv(p.u('uRayL'),L);gl.uniform2f(p.u('uAsp'),qw/qh,1/qh);gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVP);gl.uniform3fv(p.u('uRayCam'),cam.pos);});
+        const L=[sx,sy,0.92,0];pass(R.gAf,R.pRayMask,R.colTex,p=>{bindTU(TU.uDepth,gl.TEXTURE_2D,R.depTex);gl.uniform4fv(p.u('uRayL'),L);gl.uniform2f(p.u('uAsp'),qw/qh,1/qh);gl.uniformMatrix4fv(p.u('uInvVP'),false,cam.invVPr);gl.uniform3fv(p.u('uRayCam'),cam.pos);});
         pass(R.gBf,R.pRayBlur,R.gA,p=>gl.uniform4fv(p.u('uRayL'),L));pass(R.gAf,R.pRayBlur,R.gB,p=>gl.uniform4fv(p.u('uRayL'),[sx,sy,0.35,0]));}}}
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,gl.canvas.width,gl.canvas.height);bindTU(TU.uBSrc,gl.TEXTURE_2D,R.blackTex);
   bindTU(TU.uRays,gl.TEXTURE_2D,rays>0?R.gA:R.blackTex);

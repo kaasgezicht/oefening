@@ -51,12 +51,22 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
     this.up=null;if(this.mode==='plane'&&Plane.on&&Plane.st){const c=Plane.camera(dt);p=c.p;look=c.look;cab=c.cab;this.up=c.up;}
     if(this.mode==='boat'&&typeof Fish!=='undefined'&&Fish.drv){const c=Fish.camera(dt);p=c.p;look=c.look;cab=c.cab;}
     let gh=this.ground(p[0],p[2])+1.5;{const ty=typeof Life!=='undefined'&&Life.tunY?Life.tunY(p[0],p[2]):null;if(ty!=null&&p[1]<ty+TUN_ROAD.crown+1)gh=Math.min(gh,ty+1.2);}/* inside a road tunnel the floor of the tube is the ground */if(!cab){const need=Math.max(0,gh-p[1]);this.lift=(this.lift||0)+(need-(this.lift||0))*Math.min(1,dt*6);p[1]=Math.max(p[1]+this.lift,gh-1.2);}
+    /* 4.59: never under the sea's surface. The ground rule above keeps the camera over the sea floor only, and a swell crest higher than
+       the camera put it under water: the view saw the sea floor through the underside of the surface (a sandy patch) and slits between
+       the water pieces. Kept 2.6 m over the swell as drawn (Sea.surf), room for the wind waves on top; cockpit views ride their craft */
+    {const T=App.T;if(!cab&&T&&T.sea!=null&&typeof Sea!=='undefined'&&Sea.surf&&p[1]<T.sea+12){const wy=Sea.surf(p[0],p[2])+(+P.oceanSwell>0?2.6:1.2);if(p[1]<wy){const d=wy-p[1];p[1]=wy;if(!cab)look[1]+=d*0.5;}}}
     this.pos=p;this.look=look;const f=[look[0]-p[0],look[1]-p[1],look[2]-p[2]],fl=Math.hypot(...f)||1;this.fwd=f.map(v=>v/fl);this.right=[-this.fwd[2],0,this.fwd[0]].map(v=>v/(Math.hypot(this.fwd[0],this.fwd[2])||1));
-    const agl=Math.max(p[1]-gh+1.2,0.5);this.near=cab?0.12:clamp(agl*0.12,0.2,12);this.far=Math.max(26000,(App.T?App.T.W:0)*2.2);/* the whole world fits in view from the map (32 km) */
+    /* the near plane grows with the height over what is below: over water that is the water's surface, not its floor (4.59: over the sea
+       it was the sea floor 40 m down, so a camera a few metres up cut away the water within ~5 m: the sandy floor showed through a block
+       at the bottom of the screen, and the cut edge on the waves read as bright broken lines) */
+    let surf=gh-1.2;{const T=App.T;if(T){if(T.sea!=null&&typeof Sea!=='undefined'&&Sea.surf)surf=Math.max(surf,Sea.surf(p[0],p[2])+0.6);const w=typeof sampleWater==='function'?sampleWater(T,p[0],p[2]):null;if(w&&w[1]>0)surf=Math.max(surf,w[0]+0.3);}}
+    const agl=Math.max(p[1]-surf,0.5);this.near=cab?0.12:clamp(agl*0.12,0.2,12);this.far=Math.max(26000,(App.T?App.T.W:0)*2.2);/* the whole world fits in view from the map (32 km) */
     /* a flying plane: the near plane (which grows with height) must not cut into it; the chase camera is only ~12 m away */
     if(Plane.on&&Plane.st&&!cab){const q=Plane.st.p,d=Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]);this.near=Math.min(this.near,Math.max(0.2,(d-6)*0.4));}
-    this.view=M4.lookAt(p,look,this.up||[0,1,0]);this.proj=M4.persp(this.fovy,this.aspect,this.near,this.far);
-    this.vp=M4.mul(this.proj,this.view);this.invVP=M4.inv(this.vp);this.planes=frustumPlanes(this.vp);
+    /* 4.59: built and inverted in double precision, rounded only at the end. Inverting the single-precision view-projection (0.2 m to 72 km,
+       a camera tens of km out) gave the sky and clouds rays that wobbled every frame while flying fast: the stars and clouds shook */
+    const D=Float64Array,v64=M4.lookAt(p,look,this.up||[0,1,0],D),p64=M4.persp(this.fovy,this.aspect,this.near,this.far,D),vp64=M4.mul(p64,v64,null,D);this.view=Float32Array.from(v64);this.proj=Float32Array.from(p64);this._vp64=vp64;
+    this.vp=Float32Array.from(this._vp64);this.invVP=Float32Array.from(M4.inv(this._vp64,Float64Array));{const r=Float64Array.from(v64);r[12]=r[13]=r[14]=0;this.invVPr=Float32Array.from(M4.inv(M4.mul(p64,r,null,D),D));}/* rotation-only inverse for rays from the camera (sky, clouds, mist, god rays): no far-off position to subtract in the shader */this.planes=frustumPlanes(this.vp);
     this.planesWide=frustumPlanes(M4.mul(M4.persp(Math.min(this.fovy*1.5,2.6),this.aspect*1.2,this.near,this.far),this.view));
   },
   ray(sx,sy){const cv=gl.canvas,r=cv.getBoundingClientRect();const nx=(sx-r.left)/r.width*2-1,ny=1-(sy-r.top)/r.height*2;

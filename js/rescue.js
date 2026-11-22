@@ -90,7 +90,7 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
     if(m.type==='supply'){const c=Math.cos(p.h),sn=Math.sin(p.h);T.push({kind:'crate',x:p.x+c*4-sn*6,z:p.z+sn*4+c*6,y:p.y,crate:true});m.ring=this.ringMesh(m.x,m.z,12);}
     for(const t of T){t.ox=t.x;t.oz=t.z;t.oy=t.y;}
     this.m={...m,T,pad:p,need:T.filter(t=>t.person).length,aboard:0,t0:App.time};this.offers=this.offers.filter(o=>o!==m);this.board(p);
-    UI.toast(`Mission: ${this.title(m)} — ${this.what(m)}`);},
+    UI.toast(`Mission: ${this.title(m)} — ${this.what(m)}`);{const el=$('#rsBoard');if(el&&Plane.on&&Plane.kind==='heli'){el.hidden=true;UI.toast('Mission accepted: fly to the smoke. Hold ▼ (D-pad down) over them to lower the hook')}}/* 4.59: the board closes when flying (it held the controller in the menus) */},
   GRIEF:{hiker:[n=>`Nobody else could reach the slope above ${n} in time. The hiker died of the cold that night.`,n=>`The mountain rescue team found the hiker above ${n} the next morning. Too late.`],
     sea:[n=>`The lifeboat from ${n} came too late. Both of them drowned.`,n=>`Only the upturned boat was found off ${n}. The two fishermen were never seen again.`],
     supply:[n=>`The medicine never reached ${n}. An old man there died waiting for it.`,n=>`Without the supplies, a child in ${n} could not be treated in time.`]},
@@ -114,7 +114,10 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
   anchor(pl){const s=pl.st,o=Q.rot(s.q,RESCUE.hoist);return[s.p[0]+o[0],s.p[1]+o[1],s.p[2]+o[2]];},
   winchIn(d){this._in=d;},
   update(pl,dt){this.revive();if(!pl.st)return;const A=this.anchor(pl),an=pl.an||{door:0};let dir=this._in||0;const g=typeof PlanePad!=='undefined'?PlanePad.pad():null;if(g&&g.buttons){if(g.buttons[13]&&g.buttons[13].pressed)dir=-1;if(g.buttons[12]&&g.buttons[12].pressed)dir=1;}
-    pl.winchOpen=this.wL>0.05||dir<0;if(dir<0&&an.door<0.95){if(!this._dt||App.time-this._dt>4){this._dt=App.time;UI.toast('Opening the door for the winch');}}
+    /* 4.59: easier with a controller: one press of ▼ opens the door and it stays open (it used to close again unless ▼ was held through the
+       2 s it takes); once someone or the crate is hooked the winch reels in by itself (▼ still lowers) */
+    if(dir<0)this.doorL=true;if(this.load&&this.load.person&&dir===0)dir=1;if(dir>0&&this.wL<0.05&&!this.load)this.doorL=false;
+    pl.winchOpen=this.wL>0.05||dir<0||!!this.doorL;if(dir<0&&an.door<0.95){if(!this._dt||App.time-this._dt>4){this._dt=App.time;UI.toast('Opening the door for the winch… keep holding ▼ (D-pad down) to lower the hook');}}
     else if(dir<0)this.wL=Math.min(RESCUE.maxL,this.wL+dt*3);else if(dir>0)this.wL=Math.max(0,this.wL-dt*2);
     // the hook: a damped pendulum hung from the hoist, at most wL below it; on the ground it rests, on water it floats
     if(!this.hook)this.hook=[A[0],A[1]-0.45,A[2]];const h=this.hook,v=this.hv,n=Math.max(1,Math.ceil(dt/0.01)),st=dt/n;
@@ -125,8 +128,8 @@ const Rescue={offers:[],m:null,saved:0,lost:0,M:null,padMs:new Map(),wL:0,hook:n
     if(this.wL<0.05){h[0]=A[0];h[1]=A[1]-0.45;h[2]=A[2];v[0]=v[1]=v[2]=0;}
     const m=this.m;if(!m)return;
     // catch: the hook within reach of someone to lift (or the crate)
-    if(!this.load&&this.wL>0.5)for(const t of m.T){if(!(t.person||t.crate)||t.aboard||t.dropped)continue;const ty=t.swim?this.waveY(t):t.y;if(Math.hypot(h[0]-t.x,h[2]-t.z)<1.8&&Math.abs(h[1]-(ty+1.0))<1.6){this.load=t;t.hooked=true;
-      UI.toast(t.crate?'Crate hooked: lift it and fly it to the ring':'Hooked! Reel them in (▲ Winch)');break;}}
+    if(!this.load&&this.wL>0.5)for(const t of m.T){if(!(t.person||t.crate)||t.aboard||t.dropped)continue;const ty=t.swim?this.waveY(t):t.y;if(Math.hypot(h[0]-t.x,h[2]-t.z)<3.2&&Math.abs(h[1]-(ty+1.0))<2.6){this.load=t;t.hooked=true;/* 4.59: a wider catch (it was 1.8 m: hard with a swinging hook) */
+      UI.toast(t.crate?'Crate hooked: lift it (▲) and fly it to the ring':'Hooked! Reeling them in…');break;}}
     if(this.load){const t=this.load;t.x=h[0];t.z=h[2];t.y=h[1]-0.45-(t.crate?0.95:1.6);
       if(this.wL<0.05){if(t.person){t.aboard=true;m.aboard++;this.load=null;UI.toast(m.aboard<m.need?`${m.aboard} on board — one more in the water`:'On board! Fly to a helipad: the ambulance is waiting');}
         else{t.inside=true;}}

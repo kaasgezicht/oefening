@@ -4,7 +4,7 @@
 // CORE — debug log, parameter registry (every slider), panel UI,
 // save / load / JSON export / import. Step 1 plumbing that later steps plug into.
 // ===================================================================
-const VERSION='4.58.0 (wrecks on the sea floor, a tidier boat compass, coal & ore harbours offered in coastal towns)';
+const VERSION='4.59.0 (water glitches near the camera fixed, winch easier with a controller, steady stars, more wildlife and whales)';
 const SAVE_VERSION=2;
 const $=s=>document.querySelector(s);
 const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
@@ -272,7 +272,7 @@ def('riverQ',{tab:'quality',label:'Rivers, streams and culverts',kind:'select',o
 // ---- Experimental: performance switches. The ones that are on give the same picture (checked against screenshots) and can be turned
 // off if something looks wrong; the ones that are off can change the picture a little.
 def('fxUpscale',{tab:'exp',label:'Sharper upscaling: render at the resolution scale, upscale and sharpen to the full screen (FSR-style). Costs a full-screen pass: on the High preset only',kind:'check',def:0,apply:'live'});
-def('dbgWater',{tab:'exp',label:'Water debug view (for screenshots to the developer)',kind:'select',options:[[0,'Off'],[1,'Depth'],[2,'Distance to shore'],[3,'Foam'],[4,'Flow']],def:0,apply:'live'});
+def('dbgWater',{tab:'exp',label:'Water debug view (for screenshots to the developer)',kind:'select',options:[[0,'Off'],[1,'Depth'],[2,'Distance to shore'],[3,'Foam'],[4,'Flow'],[5,'Water pieces']],def:0,apply:'live'});
 def('optOrder',{tab:'exp',label:'Draw near things before the ground (same picture)',kind:'check',def:1,apply:'live'});
 def('optInvalidate',{tab:'exp',label:'Tell the phone GPU which buffers it can drop (same picture, less memory traffic)',kind:'check',def:1,apply:'live'});
 for(const [k,lab,d] of [['chase','Chase',60],['cockpit','Cockpit',72],['nose','Front',72],['wing','Wing',62],['tower','Tower',42],['orbit','Orbit',60]])def('fov_'+k,{tab:'ui',label:'Field of view, '+lab+' view (flying)',min:30,max:110,step:1,def:d,unit:'°',apply:'live'});

@@ -25,9 +25,12 @@ const Sea={whales:[],pods:[],schools:[],M:null,key:'',
   deep(x,z,d){const T=App.T;if(x<30||z<30||x>T.W-30||z>T.W-30)return false;const w=sampleWater(T,x,z);return w[1]>0&&Math.abs(w[0]-T.sea)<0.6&&T.sea-R.sampleHr(T,x,z)>d;},
   spot(d,rnd){const T=App.T;for(let k=0;k<400;k++){const x=30+rnd()*(T.W-60),z=30+rnd()*(T.W-60);if(this.deep(x,z,d))return[x,z];}return null;},
   init(){const T=App.T;this.key=T.W+'|'+T.sea+'|'+P.seed;this.whales=[];this.pods=[];this.schools=[];let s=(P.seed|0)*7919+13;const rnd=()=>{s=(s*16807)%2147483647;return s/2147483647;};
-    for(let i=0;i<6;i++){const p=this.spot(25,rnd);if(p)this.whales.push({x:p[0],z:p[1],h:rnd()*6.28,st:'under',t:rnd()*30,y:-6,pitch:0,roll:0,fl:0,hash:rnd(),sp:1.6+rnd()*0.8});}
-    for(let i=0;i<4;i++){const p=this.spot(10,rnd);if(p){const pod={x:p[0],z:p[1],h:rnd()*6.28,sp:6,m:[]};for(let k=0;k<5;k++)pod.m.push({ox:(rnd()-0.5)*12,oz:(rnd()-0.5)*10,ph:rnd()*6.28,y:0,pitch:0});this.pods.push(pod);}}
-    for(let i=0;i<8;i++){const p=this.spot(4,rnd);if(p)this.schools.push({x:p[0],z:p[1],h:rnd()*6.28,jumps:[],next:rnd()*3,hash:rnd()});}},
+    /* 4.59: by the area of deep sea (it was 6 whales, 4 pods and 8 schools on any world): a whale per ~3 km², a pod per 6, a school per 2 */
+    let nd=0;for(let k=0;k<300;k++)if(this.deep(30+rnd()*(T.W-60),30+rnd()*(T.W-60),25))nd++;const km=nd/300*T.W*T.W/1e6,cnt=(per,lo,hi)=>Math.round(clamp(km/per,lo,hi));
+    const nW=cnt(3,8,120),nP=cnt(6,5,60),nS=cnt(2,10,120);
+    for(let i=0;i<nW;i++){const p=this.spot(25,rnd);if(p)this.whales.push({x:p[0],z:p[1],h:rnd()*6.28,st:'under',t:rnd()*30,y:-6,pitch:0,roll:0,fl:0,hash:rnd(),sp:1.6+rnd()*0.8});}
+    for(let i=0;i<nP;i++){const p=this.spot(10,rnd);if(p){const pod={x:p[0],z:p[1],h:rnd()*6.28,sp:6,m:[]};for(let k=0;k<5;k++)pod.m.push({ox:(rnd()-0.5)*12,oz:(rnd()-0.5)*10,ph:rnd()*6.28,y:0,pitch:0});this.pods.push(pod);}}
+    for(let i=0;i<nS;i++){const p=this.spot(4,rnd);if(p)this.schools.push({x:p[0],z:p[1],h:rnd()*6.28,jumps:[],next:rnd()*3,hash:rnd()});}},
   update(dt){if(!this.on()){return;}const T=App.T;if(this.key!==T.W+'|'+T.sea+'|'+P.seed)this.init();const t=App.time;
     const turnAway=(o,d)=>{const ax=o.x+Math.cos(o.h)*d,az=o.z+Math.sin(o.h)*d;if(!this.deep(ax,az,o.minD||8))o.h+=dt*1.2;else o.h+=Math.sin(t*0.05+(o.hash||0)*20)*dt*0.05;};
     for(const w of this.whales){w.minD=20;turnAway(w,60);const v=w.st==='under'?w.sp*1.3:w.st==='breach'?w.sp*0.5:w.sp;w.x+=Math.cos(w.h)*v*dt;w.z+=Math.sin(w.h)*v*dt;w.t-=dt;w.fl+=dt*(w.st==='under'?1.6:0.9);

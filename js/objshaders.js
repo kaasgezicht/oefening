@@ -206,7 +206,7 @@ uniform mat4 uInvVP;uniform vec2 uMoonPh;in vec2 vUV;`+FS_OUT+`
 vec3 L(vec3 c){return c*c*(c*.31+.69);}
 float h12(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
 float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h12(i),h12(i+vec2(1,0)),f.x),mix(h12(i+vec2(0,1)),h12(i+1.),f.x),f.y);}
-void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 d=normalize(a.xyz/a.w-uCamPos.xyz);float h=d.y;
+void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 d=normalize(a.xyz/a.w);/* uInvVP: rotation and projection only (4.59) */float h=d.y;
   float hz=max(h,0.);vec3 c=mix(L(uSkyH.rgb),L(uSkyZ.rgb),pow(clamp(hz*1.25,0.,1.),.5));
   float haze=exp(-hz*9.);c=mix(c,uFogCol.rgb,haze*.6);c=mix(c,uFogCol.rgb,smoothstep(.02,-.25,h));
   float sd=dot(d,uSunTrue.xyz),ms=max(sd,0.);c+=uFogCol2.rgb*(pow(ms,5.)*.3+pow(ms,48.)*.5)*uSunTrue.w*(.5+.5*haze)*(1.-uWx2.w*.6);
@@ -233,7 +233,7 @@ vec2 cloudD(vec3 p,bool det){vec4 cm=texture(uCloudMap,(p.xz+uCld.z)*uCld.w);flo
   if(det&&d>0.){float e=texture(uNoise3,q*(1./240.)).g;d=clamp(d-(1.-e)*.32*(1.-hn*.6),0.,1.);}
   vec2 o2=max(-p.xz-uCld.z,p.xz-uCld.z-uWorld.x);return vec2(d*uCld2.w*smoothstep(1800.,0.,max(o2.x,o2.y)),hn);}
 float hgN(float mu,float g){return(1.-g*g)/pow(1.+g*g-2.*g*mu,1.5);}
-void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCamPos.xyz),ro=uCamPos.xyz;
+void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w),ro=uCamPos.xyz;
   float lo=uCld.x,hi=uCld.x+max(0.,uWorld.w+40.-uCld.x)*.6+uCld.y*1.9;float t0,t1;
   if(abs(rd.y)<1e-4){if(ro.y<lo||ro.y>hi){o=vec4(0);return;}t0=0.;t1=7000.;}else{float ta=(lo-ro.y)/rd.y,tb=(hi-ro.y)/rd.y;t0=max(min(ta,tb),0.);t1=max(ta,tb);}
   vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));if(uMisc2.y>-9e3&&rd.y<-1e-4&&ro.y>uMisc2.y)t1=min(t1,(ro.y-uMisc2.y)/(-rd.y));/* the sea surface (the water writes no depth; past the map there is no sea floor at all) */t1=min(t1,t0+7000.);
@@ -258,7 +258,7 @@ vec2 mistD(vec3 p){vec2 uv=p.xz*uMist.z;if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)re
   float th=max(m.b,2.),h=max(p.y-m.g,0.)/th;if(h>3.)return vec2(0);float v=exp(-h)*smoothstep(3.,2.,h)*m.r;
   vec3 q=(p-vec3(uWind.x,-.4,uWind.y)*uCamPos.w*.15)*(1./80.);float n=texture(uNoise3,q).r,e=texture(uNoise3,q*3.3+.37).g;
   return vec2(clamp(v*1.5-(1.-n)*.45-(1.-e)*.18,0.,1.),clamp(h/2.,0.,1.));}
-void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w-uCamPos.xyz),ro=uCamPos.xyz;float t0,t1;
+void main(){vec4 a=uInvVP*vec4(vUV*2.-1.,1.,1.);vec3 rd=normalize(a.xyz/a.w),ro=uCamPos.xyz;float t0,t1;
   if(abs(rd.y)<1e-4){if(ro.y<uMist.x||ro.y>uMist.y){o=vec4(0);return;}t0=0.;t1=3000.;}else{float ta=(uMist.x-ro.y)/rd.y,tb=(uMist.y-ro.y)/rd.y;t0=max(min(ta,tb),0.);t1=max(ta,tb);}
   vec3 fw=-vec3(uView[0][2],uView[1][2],uView[2][2]);float zs=texture(uDepthCopy,vUV).r;if(zs<1.)t1=min(t1,lin(zs)/max(dot(rd,fw),.05));bool sea=uMisc2.y>-9e3&&rd.y<-1e-4&&ro.y>uMisc2.y&&(ro.y-uMisc2.y)/(-rd.y)<t1;if(sea)t1=(ro.y-uMisc2.y)/(-rd.y);/* the sea surface ends the ray (past the map there is no sea floor: it ran 3 km into a pale wall) */t1=min(t1,t0+3000.);
   if((zs<1.||sea)&&rd.y<-.03){vec3 ph=ro+rd*t1;vec4 m=texture(uMistMap,clamp(ph.xz*uMist.z,0.,1.));float top=max(m.g+3.*max(m.b,2.),ph.y)+30.;t0=max(t0,t1-(top-ph.y)/(-rd.y));}// march only the last stretch above the ground
@@ -382,22 +382,23 @@ const FS_WPROBE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`uniform vec2 uPts[32];uniform int u
 void main(){int i=int(gl_FragCoord.x);if(i>=uNP){o=vec4(.5,0.,0.,1.);return;}vec2 p=uPts[i];float l=uSwell.y,dp=max(l-terrainH(p),oDep(p));
   float y=uWaveA.x>0.?waveD(p,.5).y*clamp(dp/2.,0.,1.)*(1.-uWater.w):0.;float q=clamp((y+8.)/16.,0.,1.)*65535.,hi=floor(q/256.);o=vec4(hi/255.,(q-hi*256.)/255.,0.,1.);}`;
 const VS_LAKE=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
-layout(location=0) in vec2 aQ;uniform vec4 uLakeP;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
+layout(location=0) in vec2 aQ;uniform vec4 uLakeP,uRefl;uniform vec2 uSpc2;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 void main(){vec2 aq=clamp(aQ,0.,1.);bool skirt=aq!=aQ;vec2 p=uLakeP.xy+(aq*2.-1.)*uLakeP.z;vec2 f=p/uWorld.z-.5;vec2 i0=floor(f);f-=i0;ivec2 c=ivec2(i0);int M=int(uWorld.y)-1;float sw=0.,sl=0.,bl=0.;
-  for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1);vec4 w=texelFetch(uWaterTex,clamp(c+o2,ivec2(0),ivec2(M)),0);float b=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);float lk=w.a>.75&&w.a<1.5?1.:0.;sw+=b*lk;sl+=b*lk*w.r;bl+=b*w.r;}
+  bool inMap=p.x>=0.&&p.y>=0.&&p.x<=uWorld.x&&p.y<=uWorld.x;for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1),cc=clamp(c+o2,ivec2(0),ivec2(M));vec4 w=texelFetch(uWaterTex,cc,0);float b=(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);float lk=w.a>.75&&w.a<1.5?1.:0.;if(uSwell.y>0.&&inMap&&(cc.x==0||cc.y==0||cc.x==M||cc.y==M)){lk=1.;w.r=uSwell.y;}/* 4.59: the rim is sea (as in the chunks) */sw+=b*lk;sl+=b*lk*w.r;bl+=b*w.r;}
   float l=sw>1e-4?sl/sw:bl;if(uLakeP.w>1.5){l=uSwell.y;sw=1.;}/* the open-sea rings are the sea, at sea level (their vertices over land read no water) */vLake=sw;vFall=0.;vL=l;vP=p;vec3 W=vec3(p.x,l,p.y);
   float e=clamp((uLakeP.z-max(abs(p.x-uLakeP.x),abs(p.y-uLakeP.y)))/(uLakeP.z*.3),0.,1.);
   float dc=length(p-uCamPos.xz),oc=uLakeP.w>1.5?1.-smoothstep(500.,1100.,dc):1.;/* the open-sea rings: the FFT waves only near, where the rings are fine enough (the shading keeps them far out) */
   float dp=max(l-terrainH(p),oDep(p));float fd=step(.01,sw)*clamp(dp/2.,0.,1.)*(1.-uWater.w)*seaK(l)*oc;vec3 d=uWaveA.x>0.?waveD(p,mix(uSpc2.x,uSpc2.y,e))*fd:vec3(0);
   if(uLakeP.w<1.5)d.xz*=e;/* the near patch: its rim stays in place (no cracks to the coarse water round it) */
-  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,dp,sg);float swk=1.-smoothstep(1500.,3000.,dc);if(uLakeP.w<1.5)sd.xz*=e;/* the open-sea rings far out are too coarse for the swell */W+=sd*swk;vSw=sg*swk;d.y+=sd.y*swk;}
+  else{float ei=uLakeP.w>2.5?clamp((max(abs(p.x-uRefl.z),abs(p.y-uRefl.w))-(uLakeP.w-2.))/((uLakeP.w-2.)*.3),0.,1.):1.;d.xz*=min(e,ei);}/* 4.59: the open-sea rings too, at their outer and inner edges */
+  vSw=vec3(0);if(uSwell.y>0.&&abs(l-uSwell.y)<.7&&sw>.5){vec3 sg;vec3 sd=swellD(p,dp,sg);float swk=1.-smoothstep(1500.,3000.,dc);if(uLakeP.w<1.5)sd.xz*=e;else{float ei=uLakeP.w>2.5?clamp((max(abs(p.x-uRefl.z),abs(p.y-uRefl.w))-(uLakeP.w-2.))/((uLakeP.w-2.)*.3),0.,1.):1.;sd.xz*=min(e,ei);}/* the open-sea rings far out are too coarse for the swell */W+=sd*swk;vSw=sg*swk;d.y+=sd.y*swk;}
   W+=d;if(skirt)W.y-=1.5;vH=d.y;vW=W;gl_Position=uViewProj*vec4(W,1.);}`;
 
 const VS_WATER=GLSL_HEAD+GLSL_BASE+WAVE_GL+`
 layout(location=0) in vec3 aG;uniform vec4 uChunk;uniform vec4 uFlood;uniform float uSpc;out vec3 vW;out float vL;out float vFall;out vec2 vP;out float vLake;out float vH;out vec3 vSw;
 float lkf(float a){return a>.75&&a<1.5?1.:0.;}
 float rw(float a){return a<.05?0.:a<.5?(a-.1)/.3:a<2.5?a-1.:1.;}
-float wl(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));return texelFetch(uWaterTex,c,0).r;}
+float wl(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));if(uSwell.y>0.&&(c.x==0||c.y==0||c.x==N-1||c.y==N-1))return uSwell.y;/* 4.59: the map's rim is the sea at sea level (its water data there can hold a level far below: the surface sagged into a trench along the edge) */return texelFetch(uWaterTex,c,0).r;}
 float wp(ivec2 c){int N=int(uWorld.y);c=clamp(c,ivec2(0),ivec2(N-1));float a=texelFetch(uWaterTex,c,0).a;if(uSwell.y>0.&&(c.x==0||c.y==0||c.x==N-1||c.y==N-1))a=1.;/* the map's rim is sea, not river */return a;}
 void main(){int N=int(uWorld.y);ivec2 g=clamp(ivec2(uChunk.xy+aG.xy*uChunk.z+.5),ivec2(0),ivec2(N));
   float l=.25*(wl(g-ivec2(1))+wl(g-ivec2(0,1))+wl(g-ivec2(1,0))+wl(g));float pr=max(max(wp(g-ivec2(1)),wp(g-ivec2(0,1))),max(wp(g-ivec2(1,0)),wp(g)));
@@ -434,12 +435,16 @@ vec2 rip(vec2 p,float t,vec2 wd){vec2 g=vec2(0);
   for(int i=0;i<5;i++){float fi=float(i),an=atan(wd.y,wd.x)+(fi-2.)*.55+sin(fi*3.7)*.3,k=.55*pow(1.62,fi),am=.11/pow(1.75,fi);vec2 d=vec2(cos(an),sin(an));
     g+=d*k*am*cos(dot(d,p)*k-t*sqrt(9.8*k)*.6+fi*1.7);}return g;}
 uniform float uSeaL;
+/* 4.59: the lake/sea weight at a point, read from the water texture (rim = sea on sea maps): the chunks and the near 3D patch both decide
+   with this, per pixel, which of them draws there (they used their own vertex-interpolated weights, which differ, and could both skip a spot) */
+float lakeAt(vec2 p){int M=int(uWorld.y)-1;vec2 g=p/uWorld.z-.5,f=fract(g);ivec2 c=ivec2(floor(g));float s=0.;bool inMap=p.x>=0.&&p.y>=0.&&p.x<=uWorld.x&&p.y<=uWorld.x;
+  for(int k=0;k<4;k++){ivec2 o2=ivec2(k&1,k>>1),cc=clamp(c+o2,ivec2(0),ivec2(M));float a=texelFetch(uWaterTex,cc,0).a,lk=a>.75&&a<1.5?1.:0.;if(uSeaL>0.&&inMap&&(cc.x==0||cc.y==0||cc.x==M||cc.y==M))lk=1.;s+=lk*(o2.x==1?f.x:1.-f.x)*(o2.y==1?f.y:1.-f.y);}return s;}
 void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // a culvert ditch is dug below the water table of a wet cell: water that the natural ground covered stays hidden there
   {ivec2 pc=clamp(ivec2(floor(W.xz/uWorld.z)),ivec2(0),ivec2(int(uWorld.y)-1));if(texelFetch(uPatch,pc,0).r>.5){vec2 g=W.xz/uWorld.z,f=fract(g);ivec2 c=ivec2(floor(g));
     float ha=cornerH(c),hb=cornerH(c+ivec2(1,0)),hc=cornerH(c+ivec2(0,1)),hd=cornerH(c+ivec2(1,1)),gh=f.x+f.y<=1.?ha+(hb-ha)*f.x+(hc-ha)*f.y:hd+(hc-hd)*(1.-f.x)+(hb-hd)*(1.-f.y);if(gh>W.y-.02)discard;}}
   if(uLakeP.w>1.5){/* open sea outside the map: rings round the camera, each without the square of the finer ring inside it */vec2 q=abs(vP-uRefl.zw);float rb=uWorld.z*2.5;/* the rings also cover the map's outer cells (the map's own water leaves the rim cells out) */if((vP.x>rb&&vP.y>rb&&vP.x<uWorld.x-rb&&vP.y<uWorld.x-rb)||max(q.x,q.y)<uLakeP.w-2.)discard;}
-  else if(uLakeP.z>0.){bool ins=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z;if(uLakeP.w>.5){if(vLake<.5||!ins)discard;}else if(vLake>=.5&&max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y))<uLakeP.z-3.)discard;}
+  else if(uLakeP.z>0.){float m=max(abs(vP.x-uLakeP.x),abs(vP.y-uLakeP.y));bool lk=lakeAt(vP)>=.5;if(uLakeP.w>.5){if(!lk||m>=uLakeP.z)discard;}else if(lk&&m<uLakeP.z-3.)discard;}
   // depth: the smooth terrain height decides where there is water; near the camera the depth buffer (the ground as drawn) refines it,
   // but only where both agree (a depth copy that reads wrong on some GPUs must never punch holes or bands into a lake)
   float depthT=max(vL-terrainH(W.xz),0.);{vec2 ob=max(max(-W.xz,W.xz-uWorld.x),0.);float od=max(ob.x,ob.y);if(od>0.)depthT=max(depthT,min(70.,40.+od*.03));/* the map's rim cells are held at sea level (one ocean basin): no shore foam there */else if(uSeaL>0.&&abs(vL-uSeaL)<.7&&min(min(W.x,W.z),uWorld.x-max(W.x,W.z))<uWorld.z*2.5)depthT=max(depthT,30.);}float depth=depthT;float ice=uWater.w*(uSeaL>0.&&abs(vL-uSeaL)<1.?0.:1.),rain=uWx.x;/* the ocean never freezes */
@@ -505,6 +510,7 @@ void main(){vec3 W=vW;vec3 V=normalize(uCamPos.xyz-W);float t=uCamPos.w;
   // the map view: plain shading by depth (seen straight down the real shading is nearly black)
   if(uDbg<-5.){/* shade = true depth, one even ramp: light at the shore, dark from 60 m; the surface sits at its own level (lakes higher up) */float dd=clamp(depth/60.,0.,1.);vec3 mc=mix(vec3(.62,.80,.90),vec3(.06,.16,.34),dd);o=vec4(L(mc),1.);return;}
   // debug views (Settings > Experimental): the values the water is built from, with fine stripes that show any rounding
+  if(uDbg>4.5){o=vec4(L(uLakeP.w>1.5?vec3(.15,.3,.95):uLakeP.w>.5?vec3(.15,.85,.25):vec3(.95,.2,.15)),1.);return;}/* which piece of water drew here: the chunks red, the near 3D patch green, the open-sea rings blue */
   if(uDbg>.5){vec3 dc;if(uDbg<1.5)dc=vec3(clamp(depth/12.,0.,1.),fract(depth*2.),clamp(depth/1.5,0.,1.));else if(uDbg<2.5)dc=vec3(clamp(dsh/20.,0.,1.),fract(dsh),clamp(dsh/3.,0.,1.));
     else if(uDbg<3.5)dc=vec3(fo);else dc=vec3(.5+.5*fdir.x,.5+.5*fdir.y,clamp(v/3.,0.,1.));o=vec4(dc*dc*.8,1.);return;}
   o=vec4(fogc(col,W)*a,a);}`;
@@ -632,7 +638,7 @@ const FS_RAYMASK=`#version 300 es
 precision highp float;uniform sampler2D uBSrc;uniform sampler2D uDepth;uniform vec4 uRayL;uniform vec2 uAsp;uniform mat4 uInvVP;uniform vec3 uRayCam;in vec2 vUV;out vec4 o;
 /* a pixel only counts as sky above the horizon: below it, an empty depth is the sea (the water writes no depth, and past the map there is
    no sea floor), which made streaks rise from the far sea toward a low sun */
-float skyAt(vec2 q){if(texture(uDepth,q).r<.99999)return 0.;vec4 a=uInvVP*vec4(q*2.-1.,1.,1.);return step(0.,a.y/a.w-uRayCam.y);}
+float skyAt(vec2 q){if(texture(uDepth,q).r<.99999)return 0.;vec4 a=uInvVP*vec4(q*2.-1.,1.,1.);return step(0.,a.y/a.w);}
 void main(){vec3 c=vec3(0);float sky=0.;for(int j=0;j<2;j++)for(int i=0;i<2;i++){vec2 q=vUV+(vec2(i,j)-.5)*uAsp.y*vec2(1.,uAsp.x)*.5;sky+=skyAt(q);c+=texture(uBSrc,q).rgb;}
   sky*=.25;c*=.25;vec2 d=(vUV-uRayL.xy)*vec2(uAsp.x,1.);float f=exp(-dot(d,d)*28.);float l=dot(c,vec3(.2126,.7152,.0722));
   o=vec4(vec3(sky*f*clamp((l-.7)*.9,0.,3.)),1.);}`;

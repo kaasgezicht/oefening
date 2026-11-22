@@ -1,4 +1,4 @@
-# Trein handoff 125 (21 Nov 2026): v4.58.0 — wrecks, compass, boat water, harbours offered, pad A. Before: 4.57.1 — step 9 part 2 (sea seam, slopes). Before: 4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
+# Trein handoff 126 (22 Nov 2026): v4.59.0 — water glitches (camera), winch, sky shake, wing cam, wildlife. Before: 4.58.0 — wrecks, compass, boat water, harbours offered, pad A. Before: 4.57.1 — step 9 part 2 (sea seam, slopes). Before: 4.57.0 — processing factories. Before: 4.56.0 — colliers (player-run). Before: 4.55.0 — the coal staithe unloads real trains. Before: 4.54.1 — boat gear swings (pendulums). Before: 4.54.0 — fishing boats remodelled (kit trawlers), real buoyancy on the drawn waves, boat lights, compass scaling, sea/engine/gull sounds. Before: 4.53.1 — panning holds the shadow layer. Before: 4.53.0 — painted map, smooth zoomed-out panning, taller mountains with crags, coal and iron mines. Before: 4.52.0 harbour machinery and collier in the house kit. Before: 4.51.0 harbour buildings in the house kit, Before: 4.50.0 harbour step 3, Before: 4.49.0 harbour step 2, Before: 4.48.0 harbour step 1, Before: 4.47 map view, island fix, Before: 4.46.0 fire mission bars, Before: 4.45.0 controller, landscape, fire look, Before: 4.44.2 step 9 part 1, Before: 4.44.1 forest fires only from a mission, Before: 4.44.0 Canadair CL-415 and forest fires, Before: 4.43.0 flying list, Before: 4.42.0 shadow cache, Before: 4.41 erosion + world-file match, Before: 4.40.0 house kit in a worker, Before that, 4.39.0: improvements 17, 29, 31, 32. Before that: 4.38.0 fishing, Before that: 4.37.0 helipads/winch/missions, 4.36.0 helicopter parts, 4.35.0 New game, 4.34.0 — rescue helicopter, lighthouse beams stop at hills, grass airstrip, focus/shadow fix when flying, streams, wildlife
 
 The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css` + `js/*.js` + `buildings/*.js`, loaded as classic scripts in the order listed in trein.html. See "Files (4.14.0)" below.
 
@@ -14,7 +14,42 @@ The game is no longer one file (4.14.0): `trein.html` (markup) + `css/trein.css`
 - **Where we are (14 Nov)**: plan steps 1–6 are done (4.2.0–4.8.0). In between, on request: the benchmark world (4.4.0), no camera jumps on Build/Trains and reachable-only destinations (4.8.1), the new farm with the grain tower and loading arm (4.9.0), the DB class 01 118 with full valve gear as a second loco and the HEA-style grain hopper (4.10.0, reworked from close-up photos in 4.10.1). Next in the plan: **step 7 (footbridge)**, then water (8–10). See "Rolling stock and farm: reference" and "Findings and open questions (14 Nov)" below.
 - **Current plan: `trein-plan.md`** (13 numbered steps, one per "continue"; the user refers to items by number, e.g. 3.4). Read it first. Phone results that shaped it: buildings cost half the frame on the Pixel 9a (Mali-G715); water banding/stripes are probably low-precision texture reads (no `precision highp sampler2D` in GLSL_HEAD).
 
-### Latest (4.58.0, 21 Nov) — six user items (wrecks "mixed, and they hold fish"; harbours: "can't buy one anywhere")
+### Latest (4.59.0, 22 Nov) — user: winch with controller, stars/clouds shake flying, wing-cam texture, "two water glitches still not fixed" (white dashed lines near the camera; a yellow square = seeing through the surface to the sandy bottom), more wildlife and whales
+- **The water glitches: the camera, not the water.** Reproduced headlessly (4 km peaks, seed 4242, a low camera near the sea). Two causes:
+  1. **The near plane** grew with height over the *ground* (`agl*0.12`): over the sea that is the sea floor 40 m down, so a camera a few
+     metres over the water had a ~5 m near plane and cut the water away close by: the floor showed through a block at the bottom of the
+     screen (the "yellow square"), the cut edge on the waves read as bright broken lines. Now the height is over the water surface
+     (Sea.surf for the sea, sampleWater for lakes/rivers).
+  2. **The camera went under the swell**: the ground rule kept it 1.5 m over the sea *floor* only; a crest higher than the camera put it
+     under the surface (the water mesh is not drawn from below: the whole view showed the sandy floor). Now non-cab cameras stay 2.6 m over
+     Sea.surf (1.2 m without swell). Cab views (cockpits, the boat's bridge) ride their craft and are left alone.
+  Also fixed on the way: the water texture's map-rim column holds a level of −29.5 (dryWater writes H−3 where the rim's flag is 0), so the
+  chunk vertices next to the rim averaged it in and the surface sagged into a trench along the edge (`wl()` in VS_WATER and the patch's
+  texel loop now read the rim as sea level on sea maps); the chunk/near-patch split now uses one per-pixel test (`lakeAt(vP)` in FS_WATER,
+  from the water texture) instead of each mesh's own interpolated weight; the open-sea rings get a skirt and no sideways displacement at
+  their edges. New debug view: Settings › Experimental › Water debug view › "Water pieces" (chunks red, near patch green, rings blue).
+  The 4.57.1 foam fix stays (that dashed line was real too). checks/water59_*.png.
+- **Winch with a controller**: the winch itself worked (D-pad ▼/▲ held: tested with a fake gamepad, 4.5 m in 1.5 s), but (a) the cable
+  only pays out once the door is open (2.2 s) and the door closed again if ▼ was let go — now one press latches it open (`Rescue.doorL`,
+  closed by ▲ with the hook up); (b) the mission board stayed open after Accept, which kept the controller in menu mode (D-pad moving the
+  highlight) — accepting while flying now closes it, with a toast how to lower the hook; (c) the catch needed the hook within 1.8 m: now
+  3.2 m (2.6 m vertically); (d) once a person is hooked the winch reels in by itself. Tested: tap, hold 10 s → hiker hooked 20 m below,
+  reeled in, aboard 1, board hidden.
+- **Stars and clouds shook when flying**: the camera's matrices were Float32Arrays all the way; the view-projection (near 0.2 m, far 72 km,
+  camera tens of km out) was inverted from its rounded single-precision copy, and the sky, clouds, mist and god-ray mask rebuild their rays
+  from that inverse at the far plane minus the camera position. Now view, projection and their product are built in doubles (M4.mul/
+  persp/lookAt/inv take an optional array type), and those four passes get `cam.invVPr` = the inverse of projection × rotation only (no
+  translation): their shaders take a.xyz/a.w as the direction directly. Night and day skies checked (no change visible in a still frame).
+- **Wing-camera texture glitch**: no depth of field any more in the wing, cockpit and front views (it was ×0.25): the plane spans 1–12 m
+  from the camera there and its near parts got the half-resolution blur. Not reproduced for certain headlessly (the software renderer is
+  too coarse): ask for a screenshot if it remains.
+- **Wildlife**: per type groups now scale with the whole area (the factor was capped at 10: a 32 km world had a 13 km world's animals),
+  bigger base counts (deer 14, boar 8, fox 10, rabbit 16 groups per 16 km² at 1×; slider default 2×), cap 500 groups per type, allowed
+  from 70 m outside a village (was 140), a third of the deer at field edges. 8 km test: 506 deer, 245 boar, 80 foxes, 398 rabbits (was ~220
+  deer). **Sea life** by deep-sea area: a whale per ~3 km² (8…120), a dolphin pod per 6 (5…60), a fish school per 2 (10…120); 8 km: 15
+  whales, 8 pods, 23 schools (was 6/4/8 everywhere).
+
+### Earlier (4.58.0, 21 Nov) — six user items (wrecks "mixed, and they hold fish"; harbours: "can't buy one anywhere")
 - **Wrecks** (new buildings/wrecks.js + js/wrecks.js `Wrecks`): wreckSail (wooden ship, ribs, planking, fallen mast, cannon,
   anchor, ~4.9k tris), wreckSteam (riveted steamer broken amidships, boiler, funnel, ~2.5k), wreckTrawl (small fishing boat, laid on
   its side by the instance roll, ~0.7k). One per 2 km square that is ≥ 6/16 sea (≈ one per 4 km² of sea), own rng `seed*911+5`.
