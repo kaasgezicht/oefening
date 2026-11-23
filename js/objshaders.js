@@ -139,7 +139,7 @@ void main(){if(uPass==1){o=vec4(0);return;}
 // ---------------- rolling stock, signals, stations, the model table (per-draw model matrix)
 const VS_VEH=GLSL_HEAD+`
 layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNrm;layout(location=2) in vec3 aCol;layout(location=3) in vec4 aAnim;layout(location=4) in float aMat;
-uniform mat4 uModel;uniform float uDist;uniform int uPass;uniform int uGlass;uniform vec4 uG1;uniform vec4 uG2;uniform vec4 uG3;
+uniform mat4 uModel;uniform float uDist;uniform int uPass;uniform int uGlass;uniform vec4 uG1;uniform vec4 uG2;uniform vec4 uG3;uniform vec4 uRel;uniform mat4 uVPr;
 out vec3 vW;out vec3 vN;out vec3 vC;flat out float vMat;out vec3 vL;
 void main(){vec3 p=aPos,n=aNrm;int ty=int(aAnim.x+.5);
   if(ty==1){float a=-uDist/aAnim.w,c=cos(a),s=sin(a);vec2 d=p.xy-aAnim.yz;p.xy=aAnim.yz+vec2(c*d.x-s*d.y,s*d.x+c*d.y);n.xy=vec2(c*n.x-s*n.y,s*n.x+c*n.y);}
@@ -151,7 +151,9 @@ void main(){vec3 p=aPos,n=aNrm;int ty=int(aAnim.x+.5);
     if(ty==4){th=asin(clamp((C.y-Pp.y)/Lr,-1.,1.));o=C;q=Pp;}else if(ty==6){th=atan(B0.y-A.y,Bx-A.x)-atan(B0.y-C.y,B0.x-C.x);o=C;q=A;}else if(ty==7){th=ph;o=uG2.zw;q=o;}
     if(ty==4||ty==6||ty==7){float c=cos(th),s=sin(th);vec2 d=p.xy-o;p.xy=q+vec2(c*d.x-s*d.y,s*d.x+c*d.y);n.xy=vec2(c*n.x-s*n.y,s*n.x+c*n.y);}
     else if(ty==5)p.x+=d1;else if(ty==8)p.x+=d2;else{float h=ty==9?p.y:aAnim.z;p.x+=mix(d1,d2,clamp((h-uG3.z)/(uG3.w-uG3.z),0.,1.));}}
-  vec4 w=uModel*vec4(p,1.);vW=w.xyz;vN=mat3(uModel)*n;vC=aCol;vMat=aMat;vL=p;gl_Position=(uPass==1?uLightVP:uViewProj)*w;
+  vec4 w=uModel*vec4(p,1.);vW=w.xyz;vN=mat3(uModel)*n;vC=aCol;vMat=aMat;vL=p;
+  /* 4.64: camera-relative (uRel.w 1): uModel's translation is already relative to the camera (worked out in double precision), uVPr has no translation: no jitter in cab views far from the origin */
+  if(uRel.w>.5){vW=w.xyz+uRel.xyz;gl_Position=uVPr*w;}else gl_Position=(uPass==1?uLightVP:uViewProj)*w;
   // glass and solid parts are drawn in separate passes: the triangles of the other kind leave the view here (a material is per triangle),
   // so the fragment shader needs no discard and the GPU can reject hidden pixels early
   int mm=int(aMat+.5);bool gs=mm==2||mm==12||mm==13;/* 12: the plane's propeller disc, see-through like glass */if(uPass==1?gs:((uGlass==2&&gs)||(uGlass==1&&!gs)))gl_Position=vec4(2.,2.,2.,1.);}`;

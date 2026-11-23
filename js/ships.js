@@ -2,7 +2,7 @@
 // ===== ships.js
 // ===================================================================
 // COLLIERS (4.56.0, harbour step 4b part 2; the user: "player-run like buses"). Buy colliers in the store and give each a route: two or
-// more of your coal & ore harbours, in order. A collier sails its route over real sea paths (A* on a 64 m sea grid round the islands,
+// more of your freight harbours, in order. A collier sails its route over real sea paths (A* on a 64 m sea grid round the islands,
 // then straightened), berths alongside the harbour's quay (one ship at a berth, the others wait at anchor off the harbour), and at each
 // harbour first unloads what it brought from elsewhere (paid there by sea distance; since 4.57 it goes into that
 // harbour's import stock, which its gantry loads into empty hoppers for the processing factories), then takes what the harbour has in stock: the shiploader pours it into the holds (PortCoal). It leaves
@@ -34,7 +34,7 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
     if(!found){this.paths.set(k,null);return null;}const raw=[];for(let n=s1;n>=0;n=from[n]){raw.push([(n%N+0.5)*C,(((n/N)|0)+0.5)*C]);if(n===s0)break;}raw.reverse();raw[0]=[a[0],a[1]];raw.push([b[0],b[1]]);
     const out=[raw[0]];let i=0;while(i<raw.length-1){let j=raw.length-1;while(j>i+1&&!this.los(raw[i],raw[j]))j--;out.push(raw[j]);i=j;}this.paths.set(k,out);return out;},
   // ---- buying and routes
-  buy(){if(this.built().length<1){UI.toast('Build a coal & ore harbour first (a harbour town offers it as an upgrade)');return;}if(Money.on()){if(Money.cash<SHIP.price){UI.toast(`Not enough money: a collier costs ${fmtE(SHIP.price)}`);return;}Money.spend(SHIP.price,'Collier');}
+  buy(){if(this.built().length<1){UI.toast('Build a freight harbour first (a harbour town offers it as an upgrade)');return;}if(Money.on()){if(Money.cash<SHIP.price){UI.toast(`Not enough money: a collier costs ${fmtE(SHIP.price)}`);return;}Money.spend(SHIP.price,'Collier');}
     const s=this.built()[0],bp=this.berthPose(s),ap=this.appr(s),n=this.nextId++;const sh={id:n,name:['Collier','Northumbria','Tyne Lass','Black Diamond','Wear Pride','Collier Queen','Seaham','Blyth'][n%8]+(n>8?' '+Math.ceil(n/8):''),
       x:ap[0],z:ap[1],hd:bp.hd,v:0,route:[this.key(s)],leg:0,st:'wait',t:0,cargo:{coal:0,iron:0},from:{},py:null,pt:0,rl:0,earned:0};
     this.list.push(sh);UI.toast(`${sh.name} is yours: give her a route of two or more harbours`);this.openPanel(sh);},
@@ -51,8 +51,8 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
     else if(sh.st==='in'||sh.st==='out'){/* tugs: sideways between the anchorage and the berth, turning parallel to the quay (90 s) */const f=clamp(sh.t/90,0,1),e=f*f*(3-2*f),A=sh.st==='in'?sh.p0:[bp.x,bp.z,bp.hd],B=sh.st==='in'?[bp.x,bp.z,bp.hd]:[ap[0],ap[1],bp.hd];
       sh.x=A[0]+(B[0]-A[0])*e;sh.z=A[1]+(B[1]-A[1])*e;sh.hd=A[2]+wrapPi(B[2]-A[2])*e;sh.v=0;if(f>=1){if(sh.st==='in'){sh.st='berth';sh.t=0;sh.idle=0;sh.unl=this.load(sh)>0.5;}else{sh.leg=(sh.leg+1)%sh.route.length;sh.st='sail';sh.path=null;sh.t=0;}}}
     else if(sh.st==='berth'){sh.x=bp.x;sh.z=bp.z;sh.hd=bp.hd;
-      if(sh.unl){/* unload what came from another harbour: paid by distance, into the import stock */const L=this.load(sh);if(L>0.01){const a=Math.min(SHIP.unload*dt,L),im=PortCoal.st(s).imp;for(const t in sh.cargo){const q=a*(sh.cargo[t]||0)/L;sh.cargo[t]=Math.max(0,(sh.cargo[t]||0)-q);im[t]=Math.min(600,(im[t]||0)+q);}sh.sold=(sh.sold||0)+a;}/* 4.57: into the harbour's import stock */
-        else{sh.unl=false;const km=(sh.fromX!=null?Math.hypot(bp.x-sh.fromX,bp.z-sh.fromZ):0)/1000,pay=Math.round((sh.sold||0)*km*SHIP.rate*(+P.fareRate||1)/10)*10;if(pay>0&&Money.on()){Money.earn(pay,`${sh.name}: ${Math.round(sh.sold)} t to ${s.v.name}`,bp.x,App.T.sea+6,bp.z);}sh.earned+=pay;if(sh.sold>0.5)Icons.add(bp.x,App.T.sea+8,bp.z,`−${Math.round(sh.sold)} ⚫`);sh.sold=0;}}
+      if(sh.unl){/* unload what came from another harbour: paid by distance, into the import stock */const L=this.load(sh);if(L>0.01){const a=Math.min(SHIP.unload*dt,L),im=PortCoal.st(s).imp;sh.soldV=sh.soldV||{};for(const t in sh.cargo){const q=a*(sh.cargo[t]||0)/L;sh.cargo[t]=Math.max(0,(sh.cargo[t]||0)-q);im[t]=Math.min(600,(im[t]||0)+q);sh.soldV[t]=(sh.soldV[t]||0)+q;}sh.sold=(sh.sold||0)+a;}/* 4.57: into the harbour's import stock */
+        else{sh.unl=false;const km=(sh.fromX!=null?Math.hypot(bp.x-sh.fromX,bp.z-sh.fromZ):0)/1000,V=sh.soldV||{},val=Object.keys(V).reduce((acc,t)=>acc+V[t]*((Goods.T[t]||{rate:80}).rate/80),0)||(sh.sold||0),pay=Math.round(val*km*SHIP.rate*(+P.fareRate||1)/10)*10;/* 4.64: by value: gold, silver and diamonds pay more than coal */if(pay>0&&Money.on()){Money.earn(pay,`${sh.name}: ${Math.round(sh.sold)} t to ${s.v.name}`,bp.x,App.T.sea+6,bp.z);}sh.earned+=pay;if(sh.sold>0.5)Icons.add(bp.x,App.T.sea+8,bp.z,'−'+Object.keys(V).filter(t=>V[t]>=0.5).map(t=>`${Math.round(V[t])} ${(Goods.T[t]||{}).icon||''}`).join(' '));sh.sold=0;sh.soldV={};}}
       else{const c=PortCoal.st(s),st=PortCoal.sum(c.stock);if(this.load(sh)>0.5&&sh.fromX==null){sh.fromX=bp.x;sh.fromZ=bp.z;}
         if(this.load(sh)>=SHIP.cap-0.5||(st<0.05&&(sh.idle=(sh.idle||0)+dt)>SHIP.wait)||sh.route.length<2&&sh.t>20){if(sh.route.length>=2){sh.st='out';sh.t=0;if(this.load(sh)>0.5){sh.fromX=bp.x;sh.fromZ=bp.z;}else sh.fromX=null;}}
         else if(st>=0.05)sh.idle=0;}}
@@ -74,7 +74,7 @@ const Ships={list:[],nextId:1,paths:new Map(),grid:null,gkey:'',panel:null,pendi
       `<div class="fp-note" style="padding:4px 10px">${this.list.map(q=>`<button data-a="sel" data-id="${q.id}"${q===sh?' class="go"':''}>${esc(q.name)}</button>`).join(' ')} <button data-a="buy">+ Buy a collier</button></div>`+
       (sh?`<div class="fp-note" style="padding:6px 10px"><b>${esc(sh.name)}</b>: ${stl[sh.st]||sh.st}${sh.route.length?' · next '+esc(this.name(sh.route[sh.leg%sh.route.length])):''} · ${Math.round(this.load(sh))} / ${SHIP.cap} t aboard${sh.earned?` · earned ${fmtE(sh.earned)}`:''}</div>
         <div class="fp-note" style="padding:4px 10px">Route (tap harbours in the order to visit; at least two): ${B.length?B.map(s=>{const k=this.key(s),i=sh.route.indexOf(k);return`<button data-a="stop" data-k="${k}"${i>=0?' class="go"':''}>${i>=0?(i+1)+'. ':''}${esc(s.v.name)}</button>`;}).join(' '):'no harbours built yet'}</div>
-        <div class="fp-note" style="padding:4px 10px">At each harbour she unloads what she brought (sold there until the factories come) and loads that harbour's coal and ore stock.</div>
+        <div class="fp-note" style="padding:4px 10px">At each harbour she unloads what she brought (sold there until the factories come) and loads that harbour's stock of coal, iron ore, gold, silver and diamonds.</div>
         <div class="rs-b"><button data-a="go">Show her</button><button data-a="sell">Sell</button></div>`:'')+'';},
   // ---- the map: the colliers as dark dots, their routes as dashed sea paths
   mapDraw(g,S){for(const sh of this.list){const R2=sh.route.map(k=>this.site(k)).filter(Boolean);if(R2.length>1){g.setLineDash([3,6]);g.strokeStyle='#1d2a3acc';g.lineWidth=3;g.beginPath();

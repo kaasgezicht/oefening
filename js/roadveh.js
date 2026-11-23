@@ -403,9 +403,11 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
     const y=(fl+fr+rl+rr)/4+(b.hz||0),q=Q.mul(Q.mul(Q.axis([0,1,0],-h),Q.axis([0,0,1],pitch)),Q.axis([1,0,0],roll)),sp=b._s||{h:0,p:0,r:0};
     const qb=Q.mul(Q.mul(q,Q.axis([0,0,1],sp.p)),Q.axis([1,0,0],sp.r)),cg=[0,1.1,0],oc=[b.x,y,b.z],a=Q.rot(q,cg),bb=Q.rot(qb,cg),hv=Q.rot(q,[0,sp.h,0]);
     const ob=[oc[0]+(a[0]-bb[0]+hv[0])*k,oc[1]+(a[1]-bb[1]+hv[1])*k,oc[2]+(a[2]-bb[2]+hv[2])*k];return{q,qb,oc,ob,k};},
-  mat(q,o,k,off,extra){const qq=extra?Q.mul(q,extra):q,X=Q.rot(qq,[k,0,0]),Y=Q.rot(qq,[0,k,0]),Z=Q.rot(qq,[0,0,k]),d=off?Q.rot(q,off):[0,0,0];
-    return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,o[0]+d[0]*k,o[1]+d[1]*k,o[2]+d[2]*k,1]);},
-  draw(p,pass){if(!App.T||!Buses.list.length)return;if(!this.M)this.build();const cp=Cam.pos||[0,0,0],pl=pass===1?null:Cam.planes;
+  mat(q,o,k,off,extra){const qq=extra?Q.mul(q,extra):q,X=Q.rot(qq,[k,0,0]),Y=Q.rot(qq,[0,k,0]),Z=Q.rot(qq,[0,0,k]),d=off?Q.rot(q,off):[0,0,0],c=this._rel||[0,0,0];/* 4.64: relative to the camera when drawn camera-relative */
+    return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,o[0]+d[0]*k-c[0],o[1]+d[1]*k-c[1],o[2]+d[2]*k-c[2],1]);},
+  draw(p,pass){if(!App.T||!Buses.list.length)return;if(!this.M)this.build();const rel=pass===0&&!!Cam.vpR&&!!Cam.pos;this._rel=rel?Cam.pos.slice():null;if(rel){gl.uniform4f(p.u('uRel'),Cam.pos[0],Cam.pos[1],Cam.pos[2],1);gl.uniformMatrix4fv(p.u('uVPr'),false,Cam.vpR);}
+    try{this.draw0(p,pass);}finally{if(rel)gl.uniform4f(p.u('uRel'),0,0,0,0);this._rel=null;}},
+  draw0(p,pass){const cp=Cam.pos||[0,0,0],pl=pass===1?null:Cam.planes;
     const dm=(m,mat)=>{if(!m)return;gl.uniformMatrix4fv(p.u('uModel'),false,mat);gl.bindVertexArray(m.vao);gl.drawElements(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0);Stats.draws++;Stats.tris+=m.count/3;};
     gl.uniform1f(p.u('uDist'),0);
     for(const b of Buses.list){const d=Math.hypot(b.x-cp[0],b.z-cp[2]);if(d>(pass===1?400:1800))continue;const S=this.spec(b),Lh=S.len*RV_SCALE/2+1;
@@ -457,7 +459,7 @@ const RoadVeh={M:null,sel:null,cam:'off',drv:null,inp:{steer:0,gas:0,brake:0},pa
   setCam(c){this.cam=c;if(c==='off'){if(Cam.mode==='road'||Cam.mode==='free')Cam.mode='free';return;}if(c==='follow'){Cam.mode='free';Cam.anim=null;if(this.sel){Cam.dist=Math.min(Math.max(Cam.dist,14),45);Cam.pitch=Math.max(Cam.pitch,0.3);}}else{Cam.mode='road';Cam.anim=null;}this.refresh();},
   nextCam(){const L=this.drv?['chase','cab','wheel','follow']:['follow','chase','cab','wheel'];this.setCam(L[(L.indexOf(this.cam)+1)%L.length]);},
   camera(dt){const b=this.drv||this.sel;if(!b)return null;const F=this.frame(b),k=F.k,S=this.spec(b),P=v=>{const r=Q.rot(F.qb,v);return[F.ob[0]+r[0]*k,F.ob[1]+r[1]*k,F.ob[2]+r[2]*k];};let p,look,cab=false;
-    if(this.cam==='cab'){const e=b.goods?[0.68,1.92,-0.4]:/* the lorry: just ahead of the windscreen over the bonnet (the cab has no inside) */b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
+    if(this.cam==='cab'){const um=b.type==='unimog'||b.type==='unirail',e=um?[0.5,2.38,-0.5]:b.goods?[0.68,1.92,-0.4]:/* the lorry: just ahead of the windscreen over the bonnet (the cab has no inside) */b.type==='dd'?[RV.dd.axF-0.6,1.95,-0.6]:[RV.bus.axF-0.4,1.95,-0.6];p=P(e);look=P([e[0]+20,e[1]-1.2,e[2]]);cab=true;}
     else if(this.cam==='wheel'){p=P([S.axF+2.8,0.75,S.trF+2.3]);look=P([S.axR-0.5,0.7,S.trF]);cab=true;}/* low beside the front wheel, looking back along the side: the springs at work */
     else{const fw=[Math.cos(b.rot),0,Math.sin(b.rot)],back=(b.manual&&(b.mv||0)<-0.5)?-1:1,want=[b.x-fw[0]*11*back,F.oc[1]+4.2,b.z-fw[2]*11*back];if(!this.cp||Math.hypot(this.cp[0]-want[0],this.cp[2]-want[2])>40)this.cp=want.slice();const a=Math.min(1,dt*3);for(let i=0;i<3;i++)this.cp[i]+=(want[i]-this.cp[i])*a;p=this.cp.slice();look=[b.x+fw[0]*3,F.oc[1]+1.2,b.z+fw[2]*3];}
     const gh=this.gy(p[0],p[2],F.oc[1])+0.4;if(p[1]<gh)p[1]=gh;return{p,look,cab};},

@@ -1,5 +1,5 @@
 'use strict';
-// ===== buildings/harbour.js — the coal & ore harbour's buildings in the village houses' kit (4.51.0, the user: "the same detail as the
+// ===== buildings/harbour.js — the freight harbour's buildings in the village houses' kit (4.51.0, the user: "the same detail as the
 // houses, Victorian, textured brick, detailed roofs, not blocky"). Built with the Victorian station toolkit (KIT.stationKit: brick
 // blocks with stone quoins and plinths, round-arched windows with voussoirs and keystones, slate roofs with single slates, bargeboards,
 // iron cresting, chimneys with pots, gas lamps). Each model stands at the origin, ground y = 0, its front toward −z.

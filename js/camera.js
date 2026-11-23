@@ -66,7 +66,7 @@ const Cam={target:[1024,200,1024],dist:900,yaw:0.9,pitch:0.42,fovy:1,aspect:1,ne
     /* 4.59: built and inverted in double precision, rounded only at the end. Inverting the single-precision view-projection (0.2 m to 72 km,
        a camera tens of km out) gave the sky and clouds rays that wobbled every frame while flying fast: the stars and clouds shook */
     const D=Float64Array,v64=M4.lookAt(p,look,this.up||[0,1,0],D),p64=M4.persp(this.fovy,this.aspect,this.near,this.far,D),vp64=M4.mul(p64,v64,null,D);this.view=Float32Array.from(v64);this.proj=Float32Array.from(p64);this._vp64=vp64;
-    this.vp=Float32Array.from(this._vp64);this.invVP=Float32Array.from(M4.inv(this._vp64,Float64Array));{const r=Float64Array.from(v64);r[12]=r[13]=r[14]=0;this.invVPr=Float32Array.from(M4.inv(M4.mul(p64,r,null,D),D));}/* rotation-only inverse for rays from the camera (sky, clouds, mist, god rays): no far-off position to subtract in the shader */this.planes=frustumPlanes(this.vp);
+    this.vp=Float32Array.from(this._vp64);this.invVP=Float32Array.from(M4.inv(this._vp64,Float64Array));{const r=Float64Array.from(v64);r[12]=r[13]=r[14]=0;const vpr=M4.mul(p64,r,null,D);this.invVPr=Float32Array.from(M4.inv(vpr,D));this.vpR=Float32Array.from(vpr);}/* rotation-only inverse for rays from the camera (sky, clouds, mist, god rays): no far-off position to subtract in the shader */this.planes=frustumPlanes(this.vp);
     this.planesWide=frustumPlanes(M4.mul(M4.persp(Math.min(this.fovy*1.5,2.6),this.aspect*1.2,this.near,this.far),this.view));
   },
   ray(sx,sy){const cv=gl.canvas,r=cv.getBoundingClientRect();const nx=(sx-r.left)/r.width*2-1,ny=1-(sy-r.top)/r.height*2;
@@ -130,7 +130,7 @@ function initInput(cv){
     if(MapView.on){if(pts.size===0&&moved<12&&now-downAt<400&&e.type==='pointerup')MapView.tap(e.clientX,e.clientY);return;}
     if(pts.size===0&&moved<12&&now-downAt<300){
       if(now-lastTap<320&&Math.hypot(e.clientX-lastTapPos[0],e.clientY-lastTapPos[1])<30){const h=Cam.pick(e.clientX,e.clientY);if(h){Cam.flyTo(h);Log.info(`fly to ${h.map(v=>v.toFixed(0)).join(',')}`);}lastTap=0;}
-      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}else Upkeep.tapTrack(e.clientX,e.clientY);/* 4.62: track health */}}};
+      else{lastTap=now;lastTapPos=[e.clientX,e.clientY];if(Mine.tapWorld(e.clientX,e.clientY))return;/* 4.64: tapping a mine you own offers its entrance; tapping elsewhere hides it */const rv=RoadVeh.drv?null:RoadVeh.pick(e.clientX,e.clientY);if(rv){RoadVeh.select(rv);return;}/* buses and lorries first */const ti=pickTrain(e.clientX,e.clientY);if(ti>=0){Trains.sel=ti;if(!Drive.active)Drive.enter();Drive.refresh&&Drive.refresh();UI.toast(`${Trains.list[ti].name} selected`);}else Upkeep.tapTrack(e.clientX,e.clientY);/* 4.62: track health */}}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('wheel',e=>{e.preventDefault();if(Cam.mode==='plane'&&Plane.on){Plane.pinch(-e.deltaY*0.0012);return;}Cam.dist*=Math.exp(e.deltaY*0.0012);},{passive:false});

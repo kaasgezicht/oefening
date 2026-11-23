@@ -102,7 +102,7 @@ function hookMesh(){const M=vmesh(),ir=[0.2,0.2,0.22],tb=[0.36,0.27,0.19];vbox(M
 // ---- mines: the three ore kinds (colours of the ore piles, loads and signs)
 const MINE_GAP=2000;/* metres between mines: about one mine per 4 km² */
 const ORE={gold:{name:'Gold',icon:'🥇',col:[0.66,0.5,0.26],glint:[0.95,0.8,0.32]},silver:{name:'Silver',icon:'🥈',col:[0.55,0.56,0.58],glint:[0.86,0.88,0.92]},diamond:{name:'Diamond',icon:'💎',col:[0.30,0.35,0.40],glint:[0.72,0.88,0.98]},
-  /* 4.53: coal and iron ore go to the coal & ore harbour (later to the factories); their meshes come after the plane's (R.oreIx) */
+  /* 4.53: coal and iron ore go to the freight harbour (later to the factories); their meshes come after the plane's (R.oreIx) */
   coal:{name:'Coal',icon:'⚫',col:[0.07,0.07,0.08],glint:[0.32,0.33,0.36],bulk:1},iron:{name:'Iron',icon:'🧲',col:[0.42,0.22,0.15],glint:[0.62,0.42,0.32],bulk:1}};
 const ORE3=['gold','silver','diamond'];
 // The mine (4.25.0), after the user's reference picture: a craggy rock face along the back of the plot with a stone-arched adit (timber
@@ -690,7 +690,10 @@ const Crane={S:new Map(),F:[],hold:new Map(),
   update(dt){if(!App.T||!R.world){this.F=[];return;}const sp=+P.craneSpeed||2.5,F=this.frames(),live=new Set();this.hold.clear();
     for(const f of F){live.add(f.key);const s=this.st(f.key);f.s=s;this.sync(f,s,dt);this.run(f,s,Math.min(dt,0.1)*sp);
       // a train waits while a bundle is on its way or while there is work for it here
-      if(f.st){const t=s.task;if(t&&t.tr)this.hold.set(t.tr.id,t.mode);else{const c=this.cars(f);if(c&&(f.kind==='farm'?(Goods.get(f.key).grain>=1&&(()=>{const w=this.grainWork(f,c);return w.reach.length>0||(w.rest.length>0&&s.stuck!==c.tr.id);})()):f.kind==='mine'?c.cars.some(q=>(q.w.n||0)<19.9)&&Goods.get(f.key)[f.ore]>=1:f.kind==='sawmill'?c.cars.some(q=>this.rows(q.w.n)<3)&&s.stacks.some(r=>r>0):c.cars.some(q=>this.rows(q.w.n)>0&&q.w.from!==f.key)))this.hold.set(c.tr.id,f.kind==='farm'?'grain':f.kind==='mine'?'pour':f.kind==='sawmill'?'load':'unload');}}
+      if(f.st){const t=s.task;if(t&&t.tr)this.hold.set(t.tr.id,t.mode);else{const c=this.cars(f);
+        /* 4.64: a train waits until its wagons are full or the supply here has run dry once; what trickles in after that does not keep it */
+        if(c&&f.kind!=='workshop'){const dry=f.kind==='farm'?Goods.get(f.key).grain<1:f.kind==='mine'?Goods.get(f.key)[f.ore]<1:!s.stacks.some(r=>r>0);if(dry)c.tr._dry=f.key;}
+        if(c&&!(c.tr._dry===f.key&&f.kind!=='workshop')&&(f.kind==='farm'?(Goods.get(f.key).grain>=1&&(()=>{const w=this.grainWork(f,c);return w.reach.length>0||(w.rest.length>0&&s.stuck!==c.tr.id);})()):f.kind==='mine'?c.cars.some(q=>(q.w.n||0)<19.9)&&Goods.get(f.key)[f.ore]>=1:f.kind==='sawmill'?c.cars.some(q=>this.rows(q.w.n)<3)&&s.stacks.some(r=>r>0):c.cars.some(q=>this.rows(q.w.n)>0&&q.w.from!==f.key)))this.hold.set(c.tr.id,f.kind==='farm'?'grain':f.kind==='mine'?'pour':f.kind==='sawmill'?'load':'unload');}}
       // the steam winch smokes while the crane works
       if(s.task&&f.kind!=='mine'&&f.kind!=='farm'&&P.smoke&&(s.puff-=dt)<=0){s.puff=0.45;const p=this.toW(f,s.gx+0.8,7.4,CRN.zB-0.85);Particles.spawn(p[0],p[1],p[2],(Math.random()-0.5)*0.4,1.4,(Math.random()-0.5)*0.4,2.6,0.25,1.1,0);}}
     if(typeof PortCoal!=='undefined')PortCoal.holds(this.hold);/* the harbours' coal staithes (4.55) */

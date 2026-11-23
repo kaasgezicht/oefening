@@ -38,6 +38,7 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
     for(let s=0;s<this.ns;s++){const o=((k*NX+i)*this.ns+s)*2;if(Math.abs(j-this.sh[o])<this.sh[o+1]){m=1;break;}}
     if(!m&&j<this.FLOOR+3){const n=this.n3(i/8,j/8,k/8,seed+21);if(n>0.74-im-0.004*(this.FLOOR-j))m=2;}
     if(!m&&j<this.FLOOR-4){const n=this.n3(i/11,j/9,k/11,seed+33);if(Math.abs(n-0.5)<0.018+0.0012*(this.FLOOR-4-j)&&this.n3(i/30,j/30,k/30,seed+44)>0.42)m=sp?3:2;}
+    if(!m&&j<this.FLOOR+1&&this.n3(i/6,j/5,k/6,seed+55)>0.8)m=4;/* 4.64: quartz lenses: very hard */
     this.MAT[q]=m;return m;},
   oreOf(mat){return mat===1?'coal':mat===2?'iron':mat===3?(this.m&&this.m.type)||'gold':null;},
   /* carve the tunnel profile (horseshoe: 2 m to each side, walls to 2.6 m, an arch of 2 m radius) as a slab 1.2 m deep across the
@@ -46,12 +47,12 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
     const i0=Math.max(2,Math.floor(p[0]-3.5)),i1=Math.min(NX-3,Math.ceil(p[0]+3.5)),j0=Math.max(3,Math.floor(p[1]-1.5)),j1=Math.min(NY-3,Math.ceil(p[1]+5.5)),k0=Math.max(2,Math.floor(p[2]-3.5)),k1=Math.min(NZ-3,Math.ceil(p[2]+3.5));
     for(let k=k0;k<=k1;k++)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const dx=i-p[0],dy=j-p[1],dz=k-p[2],a=dx*f[0]+dy*f[1]+dz*f[2];if(Math.abs(a)>0.7)continue;
       const u=dx*lat[0]+dz*lat[2],w=dx*up[0]+dy*up[1]+dz*up[2];let e;if(w<=wall)e=Math.min(hw-Math.abs(u),w+0.1);else e=ar-Math.hypot(u,w-wall);e=Math.min(e,(0.7-Math.abs(a))*2);
-      const nv=Math.max(0,Math.min(255,Math.round(128-e*120)));const q=i+NX*(j+NY*k),o=this.D[q];if(nv<o){if(o>=128&&nv<128){const m=this.matAt(q);r[m]=(r[m]||0)+1;}this.D[q]=nv;this.dirty.add(((i>>4)|((j>>4)<<4)|((k>>4)<<8)));
+      const nv=Math.max(0,Math.min(255,Math.round(128-e*120)));const q=i+NX*(j+NY*k),o=this.D[q];if(nv<o){if(o>=128&&nv<128){const m=this.matAt(q);r[m]=(r[m]||0)+1;r.H=(r.H||0)+this.hardOf(m,j);r.n=(r.n||0)+1;if(this.airJ)this.airJ[j]++;if(this.aquifer&&this.aquifer(i,j,k))r.aq=(r.aq||0)+1;}this.D[q]=nv;this.dirty.add(((i>>4)|((j>>4)<<4)|((k>>4)<<8)));
         // neighbours across a chunk edge share the cubes: mark those chunks too
         if((i&15)===0&&i>0)this.dirty.add((((i-1)>>4)|((j>>4)<<4)|((k>>4)<<8)));if((j&15)===0&&j>0)this.dirty.add(((i>>4)|(((j-1)>>4)<<4)|((k>>4)<<8)));if((k&15)===0&&k>0)this.dirty.add(((i>>4)|((j>>4)<<4)|(((k-1)>>4)<<8)));}}
     return r;},
   // ---------------------------------------------------------------- meshing (surface nets)
-  ROCK(j,mat,i,k){if(mat===1)return[0.1,0.1,0.11];if(mat===2)return[0.5,0.26,0.16];if(mat===3){const o=ORE[this.m&&this.m.type]||ORE.gold;return o.glint;}
+  ROCK(j,mat,i,k){if(mat===4)return[0.86,0.84,0.8];if(mat===5)return[0.3,0.27,0.24];if(mat===1)return[0.1,0.1,0.11];if(mat===2)return[0.5,0.26,0.16];if(mat===3){const o=ORE[this.m&&this.m.type]||ORE.gold;return o.glint;}
     const t=j/this.NY,v=0.88+0.24*this.n3(i/3,j/2,k/3,7);return t>0.62?[0.62*v,0.52*v,0.4*v]:t>0.38?[0.36*v,0.33*v,0.31*v]:[0.5*v,0.46*v,0.45*v];},
   meshChunk(cx,cy,cz){const C=this.CH,x0=cx*C,y0=cy*C,z0=cz*C,iso=128,vmap=new Map(),M={v:[],i:[],n:0},d=(i,j,k)=>this.d(i,j,k);
     const vert=(i,j,k)=>{const key=(i-x0+1)+(j-y0+1)*18+(k-z0+1)*324;if(vmap.has(key))return vmap.get(key);
@@ -84,10 +85,13 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
     const rail={v:[],i:[],n:0};for(const sd of [-1,1])box(rail,[0,0.12,sd*0.5],[1.25,0.05,0.03],[0.36,0.33,0.3],10);box(rail,[0,0.04,0],[0.12,0.04,0.75],[0.3,0.22,0.15],3);box(rail,[0.62,0.04,0],[0.12,0.04,0.75],[0.3,0.22,0.15],3);
     const cart={v:[],i:[],n:0};box(cart,[0,0.75,0],[0.8,0.38,0.55],[0.32,0.24,0.16],3);box(cart,[0,0.36,0],[0.7,0.06,0.5],ir,10);for(const x of [-0.5,0.5])for(const sd of [-1,1])box(cart,[x,0.22,sd*0.5],[0.18,0.18,0.04],ir,10);box(cart,[0,1.08,0],[0.72,0.12,0.48],[0.08,0.08,0.09],3);
     const mouth={v:[],i:[],n:0};box(mouth,[0,2.3,0],[0.05,2.6,2.3],[1,0.98,0.92],5);
-    return this.PM={set,lamp,rail,cart,mouth};},
-  rebuildProps(){const PM=this.propMeshes(),O={v:[],i:[],n:0},put=(M,p,h)=>{const c=Math.cos(h),s=Math.sin(h),b=O.n;for(let q=0;q<M.n;q++){const o=q*14,x=M.v[o],y=M.v[o+1],z=M.v[o+2],nx=M.v[o+3],nz=M.v[o+5];
+    const lift={v:[],i:[],n:0};for(const sd of [-1,1])for(const x of [-1.2,1.2])box(lift,[x,2.2,sd*1.6],[0.12,2.2,0.12],tbd,3);for(const sd of [-1,1])box(lift,[0,4.3,sd*1.6],[1.35,0.12,0.12],tbd,3);box(lift,[0,0.08,0],[1.3,0.08,1.5],ir,10);box(lift,[0,1.5,0],[1.1,0.04,1.3],ir,10);/* the cage */for(const sd of [-1,1])box(lift,[0,1.0,sd*1.3],[1.1,0.5,0.02],[0.3,0.28,0.26],10);box(lift,[0,4.5,0],[0.2,0.2,0.2],ir,10);
+    const pump={v:[],i:[],n:0};box(pump,[0,0.5,0],[0.7,0.5,0.45],[0.18,0.2,0.22],10);for(const z of [-0.2,0.2]){box(pump,[0.25,1.4,z],[0.18,0.45,0.18],[0.55,0.28,0.15],10);}box(pump,[-0.4,1.3,0],[0.08,0.6,0.08],[0.12,0.12,0.13],10);box(pump,[0.9,0.15,0],[0.35,0.06,0.06],[0.2,0.2,0.22],10);box(pump,[-0.55,0.9,0],[0.25,0.25,0.25],[0.6,0.12,0.08],10);
+    const cone=(down,col)=>{const M={v:[],i:[],n:0},n=7;for(let k=0;k<n;k++){const a0=k/n*6.283,a1=(k+1)/n*6.283,r=0.35,tip=down?[0,-1.6,0]:[0,1.6,0],P=a=>[Math.cos(a)*r,0,Math.sin(a)*r],nm=a=>{const c=Math.cos(a),s2=Math.sin(a);return[c*0.9,down?-0.2:0.2,s2*0.9];};const b0=M.n;for(const [p,a] of [[P(a0),a0],[P(a1),a1],[tip,(a0+a1)/2]]){const n2=nm(a);M.v.push(p[0],p[1],p[2],n2[0],n2[1],n2[2],col[0],col[1],col[2],0,0,0,1,3);M.n++;}M.i.push(b0,b0+1,b0+2);}return M;};
+    return this.PM={set,lamp,rail,cart,mouth,lift,pump,stal:cone(true,[0.72,0.66,0.56]),stag:cone(false,[0.7,0.64,0.54])};},
+  rebuildProps(){const PM=this.propMeshes(),O={v:[],i:[],n:0},put=(M,p,h,sc)=>{sc=sc||1;const c=Math.cos(h),s=Math.sin(h),b=O.n;for(let q=0;q<M.n;q++){const o=q*14,x=M.v[o]*sc,y=M.v[o+1]*sc,z=M.v[o+2]*sc,nx=M.v[o+3],nz=M.v[o+5];
         O.v.push(p[0]+x*c-z*s,p[1]+y,p[2]+x*s+z*c,nx*c-nz*s,M.v[o+4],nx*s+nz*c,...M.v.slice(o+6,o+14));O.n++;}for(const ix of M.i)O.i.push(ix+b);};
-    for(const q of this.propList){if(q.t==='set')put(PM.set,q.p,q.h);else if(q.t==='lamp')put(PM.lamp,q.p,q.h);else if(q.t==='rail')put(PM.rail,q.p,q.h);else if(q.t==='cart')put(PM.cart,q.p,q.h);else if(q.t==='mouth')put(PM.mouth,q.p,q.h);}
+    for(const q of this.propList){const M=PM[q.t];if(M)put(M,q.p,q.h,q.s);}
     if(this.props)this.free(this.props);this.props=O.n?R.uploadVeh(O):null;this.lamps=this.propList.filter(q=>q.t==='lamp').map(q=>[q.p[0],q.p[1]+2.36,q.p[2]]);},
   // ---------------------------------------------------------------- entering and leaving
   owned(){return(Life.mines||[]).filter(m=>m&&m.v&&m.v.mineOwned);},
@@ -99,14 +103,15 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
     // the entrance gallery: from the mouth (z 1) 34 m in, rails, timber sets every 2.5 m, a lantern on every second, a cart
     const G=this.GX,F=this.FLOOR;for(let z=1;z<=35;z+=0.5)this.carve([G,F,z],[0,0,1],[0,1,0]);
     for(let z=3;z<=34;z+=2.5){this.propList.push({t:'set',p:[G,F,z],h:Math.PI/2});if(((z-3)/2.5)%2===0)this.propList.push({t:'lamp',p:[G,F,z],h:Math.PI/2});}
-    for(let z=2.2;z<34;z+=2.5)this.propList.push({t:'rail',p:[G,F,z],h:Math.PI/2});this.propList.push({t:'cart',p:[G,F,9],h:Math.PI/2},{t:'mouth',p:[G,F,1.6],h:Math.PI/2});
+    this.propList.push({t:'mouth',p:[G,F,1.6],h:Math.PI/2},{t:'lift',p:[G,F,3.2],h:Math.PI/2});
     this.dr={x:G,y:F,z:29,h:Math.PI/2,pitch:0,v:0,spin:0,spinV:0,bp:0,lastSet:[G,F,34],drilling:0,steam:0};
-    if(sv){try{this.unpack(sv.rle);}catch(e){Log.warn('mine: saved tunnels could not be read: '+e);}if(sv.props)this.propList=this.propList.concat(sv.props.map(q=>({t:q[0],p:[q[1],q[2],q[3]],h:q[4]})));if(sv.dr)Object.assign(this.dr,{x:sv.dr[0],y:sv.dr[1],z:sv.dr[2],h:sv.dr[3],pitch:sv.dr[4]||0,lastSet:[sv.dr[0],sv.dr[1],sv.dr[2]]});this.tot=sv.tot||{};}
+    if(sv){try{this.unpack(sv.rle);}catch(e){Log.warn('mine: saved tunnels could not be read: '+e);}if(sv.props)this.propList=this.propList.concat(sv.props.map(q=>({t:q[0],p:[q[1],q[2],q[3]],h:q[4],dug:1})));if(sv.dr)Object.assign(this.dr,{x:sv.dr[0],y:sv.dr[1],z:sv.dr[2],h:sv.dr[3],pitch:sv.dr[4]||0,lastSet:[sv.dr[0],sv.dr[1],sv.dr[2]]});this.tot=sv.tot||{};}
+    this.initGame(sv);
     this.remesh(true);this.rebuildProps();this.initGL();this.on=true;this.cam.yaw=0;this.cam.pitch=0.1;this.cam.dist=11;this.ce=null;this.trail=[];for(let k=12;k>=0;k-=0.5)this.trail.push([this.dr.x-Math.cos(this.dr.h)*k,this.dr.y,this.dr.z-Math.sin(this.dr.h)*k]);this.parts=[];this.seam='';document.body.classList.add('inmine');this.showUI(true);
     if(RoadVeh.drv)RoadVeh.stopDriving();Log.info(`mine: entered ${m.v.name} (${m.type}) in ${(performance.now()-t0).toFixed(0)} ms, ${this.chunks.size} chunks`);
     UI.toast(`Underground at ${m.v.name}. Drive into the rock face to drill. ${(ORE[m.type]||{}).name||''} lies deep; coal seams show as black bands`);},
   exit(){if(!this.on)return;this.store();this.on=false;document.body.classList.remove('inmine');this.showUI(false);UI.toast(`Back up at ${this.m.v.name}`);},
-  store(){if(!this.D)return;this.data[this.key]={rle:this.pack(),props:this.propList.filter(q=>q.dug).map(q=>[q.t,+q.p[0].toFixed(2),+q.p[1].toFixed(2),+q.p[2].toFixed(2),+q.h.toFixed(3)]),dr:[+this.dr.x.toFixed(2),+this.dr.y.toFixed(2),+this.dr.z.toFixed(2),+this.dr.h.toFixed(3),this.dr.pitch],tot:this.tot};},
+  store(){if(!this.D)return;this.data[this.key]={rle:this.pack(),props:this.propList.filter(q=>q.dug&&q.t!=='rail').map(q=>[q.t,+q.p[0].toFixed(2),+q.p[1].toFixed(2),+q.p[2].toFixed(2),+q.h.toFixed(3)]),dr:[+this.dr.x.toFixed(2),+this.dr.y.toFixed(2),+this.dr.z.toFixed(2),+this.dr.h.toFixed(3),this.dr.pitch],tot:this.tot,g:this.saveGame()};},
   /* the rock as 16 levels, run-length coded: "level,run;..." (mostly long runs of solid rock) */
   pack(){const D=this.D,o=[];let cur=D[0]>>4,n=0;for(let q=0;q<D.length;q++){const v=D[q]>>4;if(v===cur)n++;else{o.push(cur.toString(16)+n.toString(36));cur=v;n=1;}}o.push(cur.toString(16)+n.toString(36));return o.join(',');},
   unpack(s){const D=this.D;let q=0;for(const t of s.split(',')){const v=parseInt(t[0],16),n=parseInt(t.slice(1),36),val=v>=15?255:v*16+8;for(let k=0;k<n&&q<D.length;k++,q++)D[q]=Math.min(D[q],val);}},
@@ -122,20 +127,19 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
     const dh=-I.steer*dt*(Math.abs(d.v)>0.15?Math.min(0.32,Math.abs(d.v)/7):0.1)*(d.v<-0.05?-1:1);/* about a 7 m radius on the move */if(dh&&this.clear(d.h+dh))d.h+=dh;
     const want=I.thr*2.4;let face=this.blocked(DR.tip-0.2,1),drill=I.thr>0.05&&face;d.drilling+=((drill?1:0)-d.drilling)*Math.min(1,dt*4);
     d.spinV+=((I.thr>0.05&&(drill||this.blocked(DR.tip+1.2,1))?14:Math.abs(d.v)>0.1?2:0)-d.spinV)*Math.min(1,dt*1.5);d.spin+=d.spinV*dt;
-    let tv=want;if(drill)tv=Math.min(want,0.55);if(I.thr<-0.05&&this.blocked(4.5,-1))tv=0;
+    let tv=want*(this.waterSlow?this.waterSlow():1);if(drill)tv=Math.min(want,this.drillRate());if(this.waterSlow()<0.2&&I.thr>0){tv=0;if(!this.fireTold){this.fireTold=true;UI.toast('🔥 The firebox is flooded: the drill can only back out. Pump the water away (⛽)');}}else this.fireTold=false;if(I.thr<-0.05&&this.blocked(4.5,-1))tv=0;
     d.v+=(tv-d.v)*Math.min(1,dt*2.5);
     if(drill){/* cut: a slab at the drill tip along the heading and the chosen slope */const f=[Math.cos(d.h)*Math.cos(d.pitch),Math.sin(d.pitch),Math.sin(d.h)*Math.cos(d.pitch)],up=[-Math.cos(d.h)*Math.sin(d.pitch),Math.cos(d.pitch),-Math.sin(d.h)*Math.sin(d.pitch)];
       const tip=DR.tip+0.3,p=[d.x+f[0]*tip,d.y+f[1]*tip+(d.pitch<0?Math.sin(d.pitch)*1.0:0),d.z+f[2]*tip];if(p[1]<4){p[1]=4;}if(p[1]>this.NY-7)p[1]=this.NY-7;
-      const got=this.carve(p,f,up);this.gain(got,p);face=this.blocked(DR.tip-0.2,1);}
+      const got=this.carve(p,f,up);this.afterCut(got,p);this.cutVer=(this.cutVer|0)+1;face=this.blocked(DR.tip-0.2,1);}
     if(face&&d.v>0)d.v=Math.min(d.v,0.0);
     const ds=d.v*dt;if(Math.abs(ds)>0){const nx=d.x+Math.cos(d.h)*ds,nz=d.z+Math.sin(d.h)*ds;if(nx>4&&nz>2&&nx<this.NX-4&&nz<this.NZ-4){d.x=nx;d.z=nz;}else d.v=0;}
+    {const tx=d.x+Math.cos(d.h)*(DR.tip+1),tz=d.z+Math.sin(d.h)*(DR.tip+1),edge=tx<3||tz<3||tx>this.NX-3||tz>this.NZ-3||d.y<5&&d.pitch<0||d.y>this.NY-9&&d.pitch>0;if(edge&&I.thr>0.3&&!this.edgeTold){this.edgeTold=true;UI.toast('The edge of the mine\'s claim: turn and dig another way');}if(!edge)this.edgeTold=false;}
     // the floor under the front and back of the tracks: the machine pitches with it and settles (falls if the floor drops away)
     const fx=Math.cos(d.h),fz=Math.sin(d.h),F0=this.floorAt(d.x,d.z,d.y),yc=F0==null?d.y:F0,yf0=this.floorAt(d.x+fx*1.3,d.z+fz*1.3,d.y),yb0=this.floorAt(d.x-fx*3.4,d.z-fz*3.4,d.y),yf=yf0==null||Math.abs(yf0-yc)>0.9?yc:yf0,yb=yb0==null||Math.abs(yb0-yc)>0.9?yc:yb0,ym=yc;
     d.y+=(ym-d.y)*Math.min(1,dt*(ym>d.y?6:3));d.bp+=(Math.max(-0.35,Math.min(0.35,Math.atan2(yf-yb,4.7)))-d.bp)*Math.min(1,dt*4);
     {const T=this.trail||(this.trail=[]),l=T[T.length-1];if(!l||Math.hypot(d.x-l[0],d.z-l[2],d.y-l[1])>0.5){T.push([d.x,d.y,d.z]);if(T.length>200)T.shift();}}
-    // timber behind it in fresh tunnel: a set every 3 m, a lantern on every third
-    const ls=d.lastSet,bx=d.x-fx*3.8,bz=d.z-fz*3.8;if(Math.hypot(bx-ls[0],bz-ls[2])>3&&this.freshTunnel(bx,d.y,bz)){d.nSet=(d.nSet|0)+1;const p=[bx,this.floorAt(bx,bz,d.y)??d.y,bz];this.propList.push({t:'set',p,h:d.h,dug:1});if(d.nSet%3===0)this.propList.push({t:'lamp',p,h:d.h,dug:1});this.rebuildProps();d.lastSet=[bx,p[1],bz];}
-    else if(Math.hypot(bx-ls[0],bz-ls[2])>3&&!this.freshTunnel(bx,d.y,bz))d.lastSet=[bx,d.y,bz];
+    this.layStep();
     if(this.dirty.size)this.remesh(false);
     // steam from the chimney, sparks and rock from the drill, dust
     d.steam+=dt*(1.2+Math.abs(d.v)*2+d.drilling*3);while(d.steam>1){d.steam-=1;this.puff('steam',this.wp([-1.95,4.35,0]),[(Math.random()-0.5)*0.4,1.4+Math.random(),(Math.random()-0.5)*0.4],2.6,0.5);}
@@ -148,12 +152,6 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
   wp(v){const d=this.dr,c=Math.cos(d.h),s=Math.sin(d.h),cp=Math.cos(d.bp),sp=Math.sin(d.bp),X=[c*cp,sp,s*cp],Y=[-c*sp,cp,-s*sp],Z=[-s,0,c];return[d.x+X[0]*v[0]+Y[0]*v[1]+Z[0]*v[2],d.y+X[1]*v[0]+Y[1]*v[1]+Z[1]*v[2],d.z+X[2]*v[0]+Y[2]*v[1]+Z[2]*v[2]];},
   /* what was cut: coal and ore are sold at once and loaded into the stock of the mine's station(s) */
   acc:{},
-  gain(got,p){for(const k in got){const mat=+k;if(!mat)continue;const t=this.oreOf(mat);this.acc[t]=(this.acc[t]||0)+got[k]*this.YIELD[mat];
-      if(this.seam!==t){this.seam=t;this.seamT=App.time;UI.toast(`${ORE[t].icon} You struck ${t==='coal'?'a coal seam':t==='iron'?'iron ore':'a vein of '+ORE[t].name.toLowerCase()}!`);}}
-    if(!Object.keys(got).some(k=>+k>0)&&this.seam&&App.time-(this.seamT||0)>3)this.seam='';
-    for(const t in this.acc){const n=Math.floor(this.acc[t]);if(n<1)continue;this.acc[t]-=n;this.tot[t]=(this.tot[t]||0)+n;const pay=n*(this.PRICE[t]||40);
-      const sts=Track.stations.filter(st=>st.mine&&Crane.ind('mine',st.mine)===this.m);if(sts.length){const S=Goods.get('st:'+sts[0].id);S[t]=Math.min(150,(S[t]||0)+n);}else this.m.dug=(this.m.dug||0)+n;
-      if(Money.on())Money.earn(pay,`${this.m.v.name} mine: ${n} ${ORE[t].icon}`,this.m.x,0,this.m.z);this.tot.eur=(this.tot.eur||0)+pay;}},
   puff(type,p,v,life,size){if(this.parts.length>900)this.parts.shift();this.parts.push({type,p:p.slice(),v:v.slice(),t:0,life,size});},
   stepParts(dt){for(const q of this.parts){q.t+=dt;if(q.type==='spark'){q.v[1]-=9.8*dt;}else if(q.type==='rock'){q.v[1]-=9.8*dt;{const fy=this.floorAt(q.p[0],q.p[2],q.p[1]+0.5);if(fy!=null&&q.p[1]<fy){q.p[1]=fy;q.v=[0,0,0];}}}else if(q.type==='steam'){q.v[0]*=1-dt*0.5;q.v[2]*=1-dt*0.5;q.v[1]*=1-dt*0.3;}else{q.v[0]*=1-dt;q.v[2]*=1-dt;}
       for(let a=0;a<3;a++)q.p[a]+=q.v[a]*dt;if(q.type==='steam'&&this.dens(q.p[0],q.p[1]+0.4,q.p[2])>=128)q.v[1]=Math.min(q.v[1],0);}
@@ -161,10 +159,11 @@ const Mine={on:false,m:null,key:'',data:{},NX:128,NY:48,NZ:128,CH:16,D:null,MAT:
   // ---------------------------------------------------------------- per frame
   update(dt){if(!this.on)return;dt=Math.min(dt,0.05);this.t+=dt;this.pad();const k=Cam.keys||{};
     if(k.w||k.arrowup||k.s||k.arrowdown||k.a||k.arrowleft||k.d||k.arrowright){this.inp.thr=(k.w||k.arrowup?1:0)-(k.s||k.arrowdown?1:0);this.inp.steer=(k.d||k.arrowright?1:0)-(k.a||k.arrowleft?1:0);this.keyed=true;}else if(this.keyed&&!this.touch){this.inp.thr=0;this.inp.steer=0;this.keyed=false;}
-    this.step(dt);this.stepParts(dt);this.hud();},
+    this.step(dt);this.sim(dt);this.stepParts(dt);this.hud();},
   pad(){const g=typeof Pad!=='undefined'?Pad.vp:null;if(!g)return;const bt=i=>{const x=g.buttons[i];return x?(typeof x==='object'?(x.value||(x.pressed?1:0)):+x):0;},ax=v=>Math.abs(v)<0.15?0:v;
     const s=ax(g.axes[0]||0),f=bt(7)-bt(6);if(s||Math.abs(f)>0.05){this.inp.steer=s;this.inp.thr=f;this.padAct=true;}else if(this.padAct){this.inp.steer=this.inp.thr=0;this.padAct=false;}
-    const prev=this.padPrev||[];const ed=i=>bt(i)>0.5&&!prev[i];if(ed(4))this.tilt(1);if(ed(5))this.tilt(-1);if(ed(1))this.cam.mode=this.cam.mode==='chase'?'cab':'chase';if(ed(3))this.exit();this.padPrev=g.buttons.map((x,i)=>bt(i)>0.5);},
+    const prev=this.padPrev||[];const ed=i=>bt(i)>0.5&&!prev[i];if(ed(4))this.tilt(1);if(ed(5))this.tilt(-1);if(ed(1))this.nextView();if(ed(2))this.placeSupport();if(ed(0))this.toggleRails();if(ed(3))this.exit();this.padPrev=g.buttons.map((x,i)=>bt(i)>0.5);},
+  nextView(){const L=['iso','chase','cab'],cur=this.view==='iso'?'iso':this.cam.mode,n=L[(L.indexOf(cur)+1)%3];if(n==='iso')this.view='iso';else{this.view='3d';this.cam.mode=n;this.ce=null;}this.hud(true);},
   tilt(s){const d=this.dr;d.pitch=Math.max(-0.52,Math.min(0.52,Math.round((d.pitch+s*0.1745)/0.1745)*0.1745));if(Math.abs(d.pitch)<0.01)d.pitch=0;this.hud(true);},
   // ---------------------------------------------------------------- drawing
   initGL(){if(this.prog)return;const VS=`#version 300 es
@@ -173,10 +172,10 @@ uniform mat4 uVP;uniform mat4 uModel;uniform float uSpin;out vec3 vW;out vec3 vN
 void main(){vec4 w=uModel*vec4(aPos,1.);vW=w.xyz;vN=mat3(uModel)*aNrm;vC=aCol;vMat=aMat;gl_Position=uVP*w;}`;
     const FS=`#version 300 es
 precision highp float;in vec3 vW;in vec3 vN;in vec3 vC;flat in float vMat;out vec4 o;
-uniform vec3 uCam;uniform vec4 uLP[16];uniform vec4 uLC[16];uniform int uNL;uniform float uT;uniform vec3 uHP;uniform vec3 uHD;
+uniform vec3 uCam;uniform vec4 uLP[16];uniform vec4 uLC[16];uniform int uNL;uniform float uT;uniform vec3 uHP;uniform vec3 uHD;uniform float uCut;uniform float uIso;
 float h3(vec3 p){p=fract(p*.3183+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float n3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
-void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);if(dot(N,V)<0.)N=-N;int m=int(vMat+.5);vec3 c=vC*vC;float spec=.04,rough=32.;vec3 em=vec3(0);
+void main(){if(vW.y>uCut)discard;/* 4.64 the cut-away */vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);if(dot(N,V)<0.)N=-N;int m=int(vMat+.5);vec3 c=vC*vC;float spec=.04,rough=32.;vec3 em=vec3(0);
   if(m>=30){float k=n3(vW*2.1)*.55+n3(vW*6.3)*.3+n3(vW*.6)*.15;c*=.6+.8*k;N=normalize(N+(vec3(n3(vW*4.),n3(vW*4.+7.),n3(vW*4.+13.))-.5)*.5);
     if(m==31){spec=.35;rough=60.;c*=.9+.4*step(.86,h3(floor(vW*9.)));}
     else if(m==32){spec=.2;c=mix(c,c*vec3(1.3,.8,.6),n3(vW*3.)*.6);}
@@ -188,7 +187,8 @@ void main(){vec3 N=normalize(vN);vec3 V=normalize(uCam-vW);if(dot(N,V)<0.)N=-N;i
     float df=max(dot(N,L),0.)*.85+.15*max(dot(N,L)+.5,0.);vec3 H=normalize(L+V);float sp=pow(max(dot(N,H),0.),rough)*spec*4.;col+=uLC[i].rgb*uLC[i].w*att*(c*df+sp*vec3(1.,.9,.75)*step(0.,dot(N,L)));}
   /* the drill's headlamp: a cone ahead */
   {vec3 L=uHP-vW;float d=length(L);L/=d;float cone=smoothstep(.82,.95,dot(-L,uHD));col+=vec3(1.,.82,.55)*1.3*cone/(1.+d*d*.02)*(c*max(dot(N,L),0.));}
-  col+=em;float fog=1.-exp(-length(uCam-vW)*.022);col=mix(col,vec3(.012,.009,.006),fog*.85);col=1.-exp(-col*1.25);o=vec4(sqrt(col),1.);}`;
+  col+=c*uIso*(.05+.09*max(N.y,0.)+.03*max(-N.y,0.));/* a soft overall light for the view from above */
+  col+=em;float fog=1.-exp(-length(uCam-vW)*(uIso>.5?.004:.022));col=mix(col,vec3(.012,.009,.006),fog*.85);col=1.-exp(-col*1.25);o=vec4(sqrt(col),1.);}`;
     this.prog=makeProgram('mine',VS,FS);
     this.pprog=makeProgram('mine-parts',`#version 300 es
 precision highp float;layout(location=0) in vec3 aP;layout(location=1) in vec4 aC;layout(location=2) in float aS;uniform mat4 uVP;uniform float uPx;out vec4 vC;
@@ -197,7 +197,7 @@ precision highp float;in vec4 vC;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     this.pbuf=gl.createBuffer();this.pvao=gl.createVertexArray();gl.bindVertexArray(this.pvao);gl.bindBuffer(gl.ARRAY_BUFFER,this.pbuf);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,32,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,4,gl.FLOAT,false,32,12);gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,1,gl.FLOAT,false,32,28);gl.bindVertexArray(null);
     this.M={body:R.uploadVeh(RVMesh.minedrill()),bit:R.uploadVeh(RVMesh.drillbit())};},
   camera(){const d=this.dr,c=this.cam,tgt=[d.x+Math.cos(d.h)*0.8,d.y+2.6,d.z+Math.sin(d.h)*0.8];let eye,look;
-    if(this.freeCam)return{eye:this.freeCam[0],look:this.freeCam[1]};/* (tests) */if(c.mode==='cab'){eye=this.wp([-0.2,3.2,0.38]);look=this.wp([7,1.6,0.1]);return{eye,look};}
+    if(this.freeCam)return{eye:this.freeCam[0],look:this.freeCam[1]};/* (tests) */if(this.view==='iso'){const I=this.iso||(this.iso={yaw:-0.8,pitch:0.98,dist:52}),tg=[d.x,d.y+1.5,d.z];if(!this.it)this.it=tg.slice();else for(let a=0;a<3;a++)this.it[a]+=(tg[a]-this.it[a])*0.15;const t2=this.it,cp=Math.cos(I.pitch);return{eye:[t2[0]+Math.sin(I.yaw)*cp*I.dist,t2[1]+Math.sin(I.pitch)*I.dist,t2[2]+Math.cos(I.yaw)*cp*I.dist],look:t2};}if(c.mode==='cab'){eye=this.wp([-0.2,3.2,0.38]);look=this.wp([7,1.6,0.1]);return{eye,look};}
     if(Math.abs(c.yaw)<0.05&&c.pitch<0.2&&this.trail&&this.trail.length>2){/* along the path it came: always inside the tunnel */const T=this.trail;let acc=0,q=T[T.length-1],pt=null;
       for(let i=T.length-2;i>=0;i--){acc+=Math.hypot(T[i][0]-q[0],T[i][2]-q[2]);q=T[i];if(acc>=c.dist){pt=q;break;}}if(!pt)pt=T[0];
       const bx=d.x-Math.cos(d.h)*c.dist,bz=d.z-Math.sin(d.h)*c.dist,straight=this.dens(bx,d.y+2.5,bz)<100&&this.dens((bx+d.x)/2,d.y+2.5,(bz+d.z)/2)<100;
@@ -208,18 +208,20 @@ precision highp float;in vec4 vC;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     eye=[tgt[0]+(want[0]-tgt[0])*t,tgt[1]+(want[1]-tgt[1])*t,tgt[2]+(want[2]-tgt[2])*t];eye[1]=Math.min(eye[1],d.y+2.65+Math.max(0,c.pitch-0.1)*6);/* under the timber caps unless looked down from above */if(!this.ce)this.ce=eye;else for(let a=0;a<3;a++)this.ce[a]+=(eye[a]-this.ce[a])*0.25;return{eye:this.ce,look:tgt};},
   mat(X,Y,Z,o){return new Float32Array([X[0],X[1],X[2],0,Y[0],Y[1],Y[2],0,Z[0],Z[1],Z[2],0,o[0],o[1],o[2],1]);},
   frame(){const cv=gl.canvas,W=cv.width,H=cv.height,p=this.prog,d=this.dr,DR=RVMesh.DRILL;const {eye,look}=this.camera();
-    const V=M4.lookAt(eye,look,[0,1,0]),Pm=M4.persp(this.cam.mode==='cab'?1.2:0.95,W/H,0.08,220),VP=M4.mul(Pm,V);
+    const iso=this.view==='iso',V=M4.lookAt(eye,look,[0,1,0]),Pm=M4.persp(iso?0.78:this.cam.mode==='cab'?1.2:0.95,W/H,iso?1:0.08,iso?400:220),VP=M4.mul(Pm,V);
+    if(iso){const cy=d.y+3.3;this.cutY=this.cutY==null?cy:this.cutY+(cy-this.cutY)*0.08;}const cutY=iso?Math.round(this.cutY*4)/4:1e9;
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,W,H);gl.clearColor(0.012,0.009,0.006,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.useProgram(p.p);gl.uniformMatrix4fv(p.u('uVP'),false,VP);gl.uniform3fv(p.u('uCam'),eye);gl.uniform1f(p.u('uT'),this.t);
+    gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.useProgram(p.p);gl.uniformMatrix4fv(p.u('uVP'),false,VP);gl.uniform3fv(p.u('uCam'),eye);gl.uniform1f(p.u('uT'),this.t);gl.uniform1f(p.u('uCut'),cutY);gl.uniform1f(p.u('uIso'),iso?1:0);
     // lights: the drill's lanterns, then the gallery's and the frames' lanterns nearest the camera, the daylight at the mouth
     const LP=[],LC=[],add=(q,r,c,i)=>{LP.push(q[0],q[1],q[2],r);LC.push(c[0],c[1],c[2],i);};const fl=k=>0.85+0.15*Math.sin(this.t*(7+k)+k*3)*Math.sin(this.t*(11.3+k*0.7));
     for(const [v,k] of [[[-3.4,2.95,-0.85],0],[[-3.4,2.95,0.85],1],[[1.35,3.25,0.85],2],[[1.35,3.25,-0.85],3],[[-0.3,4.0,0],4]])add(this.wp(v),13,[1,0.68,0.32],0.55*fl(k));
-    const ls=this.lamps.map(q=>[q,Math.hypot(q[0]-eye[0],q[1]-eye[1],q[2]-eye[2])]).sort((a,b)=>a[1]-b[1]).slice(0,9);ls.forEach(([q],k)=>add(q,14,[1,0.7,0.36],0.7*fl(k+5)));
+    const ref=iso?[d.x,d.y,d.z]:eye,ls=this.lamps.map(q=>[q,Math.hypot(q[0]-ref[0],q[1]-ref[1],q[2]-ref[2])]).sort((a,b)=>a[1]-b[1]).slice(0,9);ls.forEach(([q],k)=>add(q,14,[1,0.7,0.36],0.7*fl(k+5)));
     add([this.GX,this.FLOOR+2.4,0.5],30,[0.75,0.82,1],1.4);
     gl.uniform4fv(p.u('uLP'),new Float32Array(LP.concat(new Array(64-LP.length).fill(0))));gl.uniform4fv(p.u('uLC'),new Float32Array(LC.concat(new Array(64-LC.length).fill(0))));gl.uniform1i(p.u('uNL'),LP.length/4);
     gl.uniform3fv(p.u('uHP'),this.wp([DR.face,DR.cy+1.3,0]));gl.uniform3fv(p.u('uHD'),[Math.cos(d.h)*Math.cos(d.bp),Math.sin(d.bp)-0.15,Math.sin(d.h)*Math.cos(d.bp)]);
     const draw=(o,m)=>{if(!o)return;gl.uniformMatrix4fv(p.u('uModel'),false,m);gl.bindVertexArray(o.vao);gl.drawElements(gl.TRIANGLES,o.count,gl.UNSIGNED_INT,0);};
-    const I=M4.ident();for(const o of this.chunks.values())draw(o,I);draw(this.props,I);
+    const I=M4.ident();for(const o of this.chunks.values())draw(o,I);draw(this.props,I);gl.uniform1f(p.u('uCut'),1e9);
+    if(!this.M.cart)this.M.cart=R.uploadVeh(this.propMeshes().cart);for(const ct of this.carts||[]){const c2=Math.cos(ct.h),s2=Math.sin(ct.h);draw(this.M.cart,this.mat([c2,0,s2],[0,1,0],[-s2,0,c2],ct.p));}
     const c=Math.cos(d.h),s=Math.sin(d.h),cp=Math.cos(d.bp),sp=Math.sin(d.bp),X=[c*cp,sp,s*cp],Y=[-c*sp,cp,-s*sp],Z=[-s,0,c];draw(this.M.body,this.mat(X,Y,Z,[d.x,d.y,d.z]));
     const ca=Math.cos(d.spin),sa=Math.sin(d.spin),Y2=[Y[0]*ca+Z[0]*sa,Y[1]*ca+Z[1]*sa,Y[2]*ca+Z[2]*sa],Z2=[Z[0]*ca-Y[0]*sa,Z[1]*ca-Y[1]*sa,Z[2]*ca-Y[2]*sa];draw(this.M.bit,this.mat(X,Y2,Z2,this.wp([DR.face+0.25,DR.cy,0])));
     // particles
@@ -228,24 +230,29 @@ precision highp float;in vec4 vC;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         else if(q.type==='dust'){const a=0.3*(1-u);A[o+3]=0.22*a;A[o+4]=0.17*a;A[o+5]=0.12*a;A[o+6]=a;A[o+7]=q.size*(1+u*3);}else{A[o+3]=0.05;A[o+4]=0.045;A[o+5]=0.04;A[o+6]=1;A[o+7]=q.size;}});
       const pp=this.pprog;gl.useProgram(pp.p);gl.uniformMatrix4fv(pp.u('uVP'),false,VP);gl.uniform1f(pp.u('uPx'),H/(2*Math.tan(0.475)));gl.bindBuffer(gl.ARRAY_BUFFER,this.pbuf);gl.bufferData(gl.ARRAY_BUFFER,A,gl.DYNAMIC_DRAW);
       gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);gl.bindVertexArray(this.pvao);gl.drawArrays(gl.POINTS,0,this.parts.length);gl.depthMask(true);gl.disable(gl.BLEND);}
+    if(iso)this.drawSlices(VP,cutY);else{const L=this.waterLevel();if(L>0||this.caves.some(c=>c.open&&c.lake))this.drawSlices(VP,null);}
     gl.bindVertexArray(null);gl.useProgram(null);},
   // ---------------------------------------------------------------- the interface
-  showUI(on){let el=this.ui;if(!el&&on){el=this.ui=document.createElement('div');el.id='mineUI';el.innerHTML=`<div id="mnTop"><button data-a="exit">⬆ Leave the mine</button><button data-a="cam">📷 Camera</button><button data-a="up">⬆ Slope up</button><button data-a="dn">⬇ Slope down</button></div><div id="mnHud"></div><div id="mnStickWrap"><div id="mnStick"><div id="mnKnob"></div></div></div>`;document.body.appendChild(el);
-      el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;if(a==='exit')this.exit();else if(a==='cam')this.cam.mode=this.cam.mode==='chase'?'cab':'chase';else if(a==='up')this.tilt(1);else if(a==='dn')this.tilt(-1);});
+  showUI(on){let el=this.ui;if(!el&&on){el=this.ui=document.createElement('div');el.id='mineUI';el.innerHTML=`<div id="mnTop"><button data-a="exit">⬆ Leave</button><button data-a="cam">📷 View</button><button data-a="up">⬆ Slope</button><button data-a="dn">⬇ Slope</button><button data-a="sup">🪵 Support</button><button data-a="rail" id="mnRail">🛤 Rails</button><button data-a="pump">⛽ Pump</button><button data-a="bit">🔧 Bit</button><button data-a="finds">📜 Finds</button></div><div id="mnHud"></div><div id="mnStickWrap"><div id="mnStick"><div id="mnKnob"></div></div></div>`;document.body.appendChild(el);
+      el.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;if(a==='exit')this.exit();else if(a==='cam')this.nextView();else if(a==='up')this.tilt(1);else if(a==='dn')this.tilt(-1);else if(a==='sup')this.placeSupport();else if(a==='rail')this.toggleRails();else if(a==='pump')this.placePump();else if(a==='bit')this.panel('bit');else if(a==='finds')this.panel('finds');});
       const st=el.querySelector('#mnStick'),kn=el.querySelector('#mnKnob');let id=null;const mv=ev=>{const r=st.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,Rr=r.width/2-14;let dx=(ev.clientX-cx)/Rr,dy=(ev.clientY-cy)/Rr;const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}this.inp.steer=dx;this.inp.thr=Math.max(-1,Math.min(1,-dy*1.3));this.touch=true;kn.style.transform=`translate(${dx*Rr}px,${dy*Rr}px)`;};
       st.onpointerdown=ev=>{ev.preventDefault();ev.stopPropagation();id=ev.pointerId;st.setPointerCapture(id);mv(ev);};st.onpointermove=ev=>{if(ev.pointerId===id)mv(ev);};st.onpointerup=st.onpointercancel=ev=>{if(ev.pointerId!==id)return;id=null;this.inp.steer=this.inp.thr=0;this.touch=false;kn.style.transform='';};
       /* dragging anywhere else turns the camera round the machine; the wheel or a pinch zooms */
       const P2=new Map();let pd=0;el.addEventListener('pointerdown',ev=>{if(ev.target.closest('button,#mnStick'))return;P2.set(ev.pointerId,[ev.clientX,ev.clientY]);el.setPointerCapture(ev.pointerId);if(P2.size===2){const [a,b]=[...P2.values()];pd=Math.hypot(a[0]-b[0],a[1]-b[1]);}});
-      el.addEventListener('pointermove',ev=>{const q=P2.get(ev.pointerId);if(!q)return;if(P2.size===1){this.cam.yaw-=(ev.clientX-q[0])*0.008;this.cam.pitch=Math.max(-0.1,Math.min(1.3,this.cam.pitch+(ev.clientY-q[1])*0.006));}P2.set(ev.pointerId,[ev.clientX,ev.clientY]);
-        if(P2.size===2){const [a,b]=[...P2.values()],nd=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd>0)this.cam.dist=Math.max(6,Math.min(40,this.cam.dist*pd/nd));pd=nd;}});
+      el.addEventListener('pointermove',ev=>{const q=P2.get(ev.pointerId);if(!q)return;if(P2.size===1){if(this.view==='iso'){const I=this.iso;I.yaw-=(ev.clientX-q[0])*0.008;I.pitch=Math.max(0.6,Math.min(1.45,I.pitch+(ev.clientY-q[1])*0.005));}else{this.cam.yaw-=(ev.clientX-q[0])*0.008;this.cam.pitch=Math.max(-0.1,Math.min(1.3,this.cam.pitch+(ev.clientY-q[1])*0.006));}}P2.set(ev.pointerId,[ev.clientX,ev.clientY]);
+        if(P2.size===2){const [a,b]=[...P2.values()],nd=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd>0){if(this.view==='iso')this.iso.dist=Math.max(14,Math.min(90,this.iso.dist*pd/nd));else this.cam.dist=Math.max(6,Math.min(40,this.cam.dist*pd/nd));}pd=nd;}});
       const end=ev=>{P2.delete(ev.pointerId);if(P2.size<2)pd=0;};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
-      el.addEventListener('wheel',ev=>{this.cam.dist=Math.max(6,Math.min(40,this.cam.dist*Math.exp(ev.deltaY*0.001)));ev.preventDefault();},{passive:false});
-      addEventListener('keydown',ev=>{if(!this.on)return;const k=ev.key.toLowerCase();if(k==='escape')this.exit();else if(k==='r')this.tilt(1);else if(k==='f')this.tilt(-1);else if(k==='c')this.cam.mode=this.cam.mode==='chase'?'cab':'chase';});}
+      el.addEventListener('wheel',ev=>{if(this.view==='iso')this.iso.dist=Math.max(14,Math.min(90,this.iso.dist*Math.exp(ev.deltaY*0.001)));else this.cam.dist=Math.max(6,Math.min(40,this.cam.dist*Math.exp(ev.deltaY*0.001)));ev.preventDefault();},{passive:false});
+      addEventListener('keydown',ev=>{if(!this.on)return;const k=ev.key.toLowerCase();if(k==='escape')this.exit();else if(k==='r')this.tilt(1);else if(k==='f')this.tilt(-1);else if(k==='c')this.nextView();else if(k==='t')this.placeSupport();else if(k==='l')this.toggleRails();else if(k==='p')this.placePump();});}
     if(el)el.hidden=!on;},
   hud(force){const el=$('#mnHud');if(!el||!this.dr)return;const t=performance.now();if(!force&&this._hT>t-150)return;this._hT=t;const d=this.dr,deg=Math.round(d.pitch*57.3),T=this.tot,parts=['coal','iron',this.m.type].filter((q,i,a)=>a.indexOf(q)===i&&T[q]).map(q=>`${ORE[q].icon} ${T[q]}`);
-    el.innerHTML=`<b>${esc(this.m.v.name)} mine</b> · depth ${Math.max(0,Math.round(this.NY-2-d.y))} m · ${Math.round(Math.abs(d.v)*3.6)} km/h · slope ${deg>0?'+':''}${deg}°${d.drilling>0.3?' · <span class="mn-dr">drilling'+(this.seam?' '+ORE[this.seam].name.toLowerCase():' rock')+'</span>':''}<br>${parts.length?'Dug: '+parts.join(' · ')+' · ':''}${T.eur?'earned € '+(Money.fmt?Money.fmt(Math.round(T.eur)):Math.round(T.eur)):'cut coal and ore to earn'}`;},
+    el.innerHTML=`<b>${esc(this.m.v.name)} mine</b> · depth ${Math.max(0,Math.round(this.NY-2-d.y))} m · ${Math.round(Math.abs(d.v)*3.6)} km/h · slope ${deg>0?'+':''}${deg}°${d.drilling>0.3?' · <span class="mn-dr">drilling'+(this.seam?' '+ORE[this.seam].name.toLowerCase():' rock')+'</span>':''}<br>${parts.length?'Dug: '+parts.join(' · ')+' · ':''}${T.eur?'earned € '+(Money.fmt?Money.fmt(Math.round(T.eur)):Math.round(T.eur)):'cut coal and ore to earn'}`+(()=>{const g=this.g;if(!g)return'';const L=this.waterLevel(),wd=L-d.y,hn=this.hopN(),cs=(this.carts||[]).filter(c=>c.st!=='lift').length;
+      return `<br>Hopper ${Math.floor(hn)}/${this.HOP}${this.full&&hn>=this.HOP-1?' <span class="mn-w">full</span>':''} · bit ${Math.round((1-g.wear)*100)} %${g.wear>=1?' <span class="mn-w">blunt</span>':''}${cs?' · 🛒 '+cs+' cart'+(cs>1?'s':'')+' running':''}${g.lay?' · <span class="mn-dr">laying rails</span>':''}${g.inflow>0.005?' · 💧 '+(L>0?(wd>0?'water '+wd.toFixed(1)+' m deep here':'water below'):'springs running'):''}${this.pumpOn?' · ⛽ pumping':''}${this.warn?' · <span class="mn-w">⚠ roof creaking!</span>':''}`;})();
+    const rb=$('#mnRail');if(rb)rb.classList.toggle('on',!!(this.g&&this.g.lay));},
   /* the entrance button: near a mine you own (camera within 600 m and not too high) */
-  tick(dt){if(this.on)return;this.btnT-=dt;if(this.btnT>0)return;this.btnT=0.5;let b=$('#mineBtn');const c=Cam.target||[0,0,0];let best=null,bd=650;
-    if(App.T&&!MapView.on&&!Plane.on&&Cam.dist<1400)for(const m of this.owned()){const dd=Math.hypot(m.x-c[0],m.z-c[2]);if(dd<bd){bd=dd;best=m;}}
-    if(!best){if(b)b.hidden=true;return;}if(!b){b=document.createElement('button');b.id='mineBtn';document.body.appendChild(b);b.onclick=()=>{if(this.near)this.enter(this.near);};}this.near=best;
-    const tx=`⛏ Enter the ${best.v.name} mine`;if(b.textContent!==tx)b.textContent=tx;b.hidden=false;}};
+  /* 4.64: the entrance button shows when you tap a mine you own (its label or the site itself) and goes when you tap anywhere else */
+  tick(){const b=$('#mineBtn');if(b&&!b.hidden&&(this.on||MapView.on||Plane.on))b.hidden=true;},
+  offer(m){let b=$('#mineBtn');if(!m||!m.v||!m.v.mineOwned){if(b)b.hidden=true;return false;}if(!b){b=document.createElement('button');b.id='mineBtn';document.body.appendChild(b);b.onclick=()=>{b.hidden=true;if(this.near)this.enter(this.near);};}
+    this.near=m;const tx=`⛏ Enter the ${m.v.name} mine`;if(b.textContent!==tx)b.textContent=tx;b.hidden=false;return true;},
+  hideBtn(){const b=$('#mineBtn');if(b)b.hidden=true;},
+  tapWorld(sx,sy){const h=Cam.pick(sx,sy);let best=null;if(h)for(const m of this.owned()){if(Math.hypot(m.x-h[0],m.z-h[2])<45){best=m;break;}}if(best){this.offer(best);return true;}this.hideBtn();return false;}};

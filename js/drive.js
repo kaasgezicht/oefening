@@ -17,7 +17,7 @@ const Drive={locoKind:"std",placing:false,ghost:null,listOpen:false,
   cancel(){},
   markers(){const out=[];if(this.ghost){let off=0;for(const v of this.ghost.veh){const p=posInfo(advance(this.ghost.head,-(off+v.len/2)).pos);if(p)out.push([p.x,p.y,p.z,p.h,3]);off+=v.len+COUPLE;}}
     for(const n of Net.junctions()){const J=Net.junction(n.id);if(!J)continue;const b=J.branches[(n.sw|0)];out.push([n.x,n.y,n.z,Net.leaveDir(b,n.id),2]);}return out;},
-  tap(e){const ti=pickTrain(e.clientX,e.clientY);if(ti>=0&&ti!==Trains.sel){Trains.sel=ti;this.refresh&&this.refresh();UI.toast(`${Trains.list[ti].name} selected`);return;}const h=Cam.pick(e.clientX,e.clientY);if(!h)return;let best=null,bd=Math.max(12,Cam.dist*0.03);for(const n of Net.junctions()){const d=Math.hypot(n.x-h[0],n.z-h[2]);if(d<bd){bd=d;best=n;}}
+  tap(e){Mine.hideBtn();const ti=pickTrain(e.clientX,e.clientY);if(ti>=0&&ti!==Trains.sel){Trains.sel=ti;this.refresh&&this.refresh();UI.toast(`${Trains.list[ti].name} selected`);return;}const h=Cam.pick(e.clientX,e.clientY);if(!h)return;let best=null,bd=Math.max(12,Cam.dist*0.03);for(const n of Net.junctions()){const d=Math.hypot(n.x-h[0],n.z-h[2]);if(d<bd){bd=d;best=n;}}
     if(best){Net.flip(best);return;}
     let bt=null,bt2=Math.max(12,Cam.dist*0.03);Trains.list.forEach((t,i)=>{if(!t.poses)return;for(const p of t.poses){if(!p)continue;const d=Math.hypot(p.c[0]-h[0],p.c[2]-h[2]);if(d<bt2){bt2=d;bt=i;}}});if(bt!==null){Trains.sel=bt;this.refresh();}else Upkeep.tapTrack(e.clientX,e.clientY);},
   list(){const el=$('#trainList');el.innerHTML='';for(const [i,t] of Trains.list.entries()){const r=document.createElement('div');r.className='trow'+(i===Trains.sel?' on':'');

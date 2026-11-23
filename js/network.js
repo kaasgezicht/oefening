@@ -132,7 +132,7 @@ const Net={ver:0,jc:new Map(),blocks:null,occ:new Map(),occAll:new Map(),face:ne
         const boarding=Life.walkers.some(w=>w.state==='board'&&w.train===tr),ttOk=!P.timetable||until<=0||tr.dwell>240;
         const crn=Crane.holds(tr);tr.status=`At ${tr.nextStation.name}`+(P.timetable&&tr.depT!=null?` · departs ${hm(tr.depT)}`:'')+(boarding?' · boarding':'')+(crn?' · '+Crane.what(tr):'')+(pl&&pl.short?` · platform too short (${pl.served.size}/${pl.all.length} coaches)`:'');
         const ready=tr.dwell>P.dwell&&ttOk&&!crn&&(!boarding||tr.dwell>P.dwell+25)&&!(pl&&pl.short&&pl.served.size<pl.all.length);if(ready&&!Life.condReady(tr)){Life.condGo(tr);tr.status=`At ${tr.nextStation.name} · the conductor gives the right away`;}
-        if(ready&&Life.condReady(tr)){if(tr.cond){tr.cond=null;if(P.sound!==0){Sfx.whistle(tr,true);setTimeout(()=>Sfx.whistle(tr,false),650);}}tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;tr.plat=null;this.arrived(tr,tr.lastStation);}}
+        if(ready&&Life.condReady(tr)){tr._dry=null;if(tr.cond){tr.cond=null;if(P.sound!==0){Sfx.whistle(tr,true);setTimeout(()=>Sfx.whistle(tr,false),650);}}tr.lastStation=tr.nextStation.id;tr.dwell=0;tr.depT=null;tr.stopTgt=null;tr.plat=null;this.arrived(tr,tr.lastStation);}}
       else if(why==='end'){tr.dwell=(tr.dwell||0)+dt;tr.status='Reversing';if(tr.dwell>3){tr.rev=-(tr.rev||1);tr.dwell=0;if(Track.stations.length<2)tr.lastStation=null;}}
       else tr.status=why==='signal'?'Waiting at a red signal':'Stopped';return;}
     tr.dwell=0;tr.status=why==='signal'?'Slowing for a red signal':why==='station'?`Arriving at ${tr.nextStation.name}`:'Running';
